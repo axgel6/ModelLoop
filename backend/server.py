@@ -181,7 +181,8 @@ def get_models():
 
 # Entry point: Start the Flask development server
 # DEBUG read from env (default False for production safety)
-# port=5001: Server runs on http://localhost:5001
+# PORT: Use Render's PORT env var, fallback to 5001 for local dev
 if __name__ == "__main__":
     debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
-    app.run(debug=debug_mode, port=5001)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(debug=debug_mode, host="0.0.0.0", port=port)
