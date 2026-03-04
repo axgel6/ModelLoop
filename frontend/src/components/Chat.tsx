@@ -26,7 +26,9 @@ function Chat({ onBack }: ChatProps) {
   useEffect(() => {
     const loadModels = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/models`);
+        const response = await fetch(`${API_URL}/api/models`, {
+          credentials: "include",
+        });
         if (!response.ok) {
           throw new Error("Failed to fetch models");
         }
@@ -52,6 +54,7 @@ function Chat({ onBack }: ChatProps) {
       try {
         await fetch(`${API_URL}/api/history`, {
           method: "DELETE",
+          credentials: "include",
         });
         setMessages([]);
         setInput("");
@@ -79,6 +82,7 @@ function Chat({ onBack }: ChatProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
@@ -115,6 +119,7 @@ function Chat({ onBack }: ChatProps) {
     try {
       await fetch(`${API_URL}/api/history`, {
         method: "DELETE",
+        credentials: "include",
       });
       setMessages([]);
       setInput("");
