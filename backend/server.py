@@ -21,6 +21,9 @@ app = Flask(__name__)
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
 
+# Cookie settings based on environment (production when FLASK_DEBUG is not "true")
+IS_PRODUCTION = os.environ.get("FLASK_DEBUG", "false").lower() != "true"
+
 # Configure rate limiting
 limiter = Limiter(
     key_func=get_remote_address,
@@ -139,7 +142,14 @@ def chat():
         
         # Set session cookie if new session
         if new_session:
-            resp.set_cookie("session_id", session_id, httponly=True, samesite="Lax", max_age=86400)
+            resp.set_cookie(
+                "session_id",
+                session_id,
+                httponly=True,
+                samesite="None" if IS_PRODUCTION else "Lax",
+                secure=IS_PRODUCTION,
+                max_age=86400
+            )
         
         return resp
     # Catch any errors (network issues, API errors, etc.) and return error message
