@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -22,7 +22,8 @@ function Chat({ onBack }: ChatProps) {
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+  const modelsLoadedRef = useRef(false);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -38,6 +39,7 @@ function Chat({ onBack }: ChatProps) {
         const availableModels: string[] = data.models ?? [];
         setModels(availableModels);
         setIsConnected(true);
+        modelsLoadedRef.current = true;
         if (availableModels.length > 0) {
           setSelectedModel(availableModels[0]);
         }
@@ -49,7 +51,7 @@ function Chat({ onBack }: ChatProps) {
 
     loadModels();
 
-    // Periodically check connection
+    // Periodically check connection and retry loading models if needed
     const interval = setInterval(async () => {
       try {
         const response = await fetch(`${API_URL}/api/models`, {
@@ -57,10 +59,11 @@ function Chat({ onBack }: ChatProps) {
         });
         if (response.ok) {
           setIsConnected(true);
-          if (models.length === 0) {
+          if (!modelsLoadedRef.current) {
             const data = await response.json();
             const availableModels: string[] = data.models ?? [];
             setModels(availableModels);
+            modelsLoadedRef.current = true;
             if (availableModels.length > 0) {
               setSelectedModel(availableModels[0]);
             }
@@ -74,7 +77,7 @@ function Chat({ onBack }: ChatProps) {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [models.length]);
+  }, []);
 
   const handleAsk = async () => {
     if (!input.trim()) return;
