@@ -1,30 +1,24 @@
-# HTTP client used to call the Ollama local API from this Flask backend.
 import requests
 import os
 import uuid
+import json
 from dotenv import load_dotenv
-# Flask core app object + request reader + JSON response helper.
-from flask import Flask, request, jsonify, make_response
-# Enables cross-origin requests from the frontend dev server.
+from flask import Flask, request, jsonify, make_response, Response, stream_with_context
 from flask_cors import CORS
-# Rate limiting to prevent abuse
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Initialize Flask app
 app = Flask(__name__)
 
-# Configure CORS - restrict to specific origins
+# CORS configuration for frontend access
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
 
-# Cookie settings based on environment (production when FLASK_DEBUG is not "true")
 IS_PRODUCTION = os.environ.get("FLASK_DEBUG", "false").lower() != "true"
 
-# Configure rate limiting
+# Rate limiting to prevent API abuse
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
@@ -32,166 +26,151 @@ limiter = Limiter(
     storage_uri="memory://"
 )
 
-# Maximum allowed prompt length (characters)
+# Configuration
 MAX_PROMPT_LENGTH = 10000
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_URL")
+DEFAULT_MODEL = "dolphin3:latest"
+NGROK_HEADERS = {"ngrok-skip-browser-warning": "true"}  # Bypass ngrok browser warning
 
-# Per-session conversation history storage
-# Key: session_id, Value: list of message dicts
+# In-memory session storage (session_id -> message history)
 session_histories: dict[str, list[dict]] = {}
 
 
-def get_session_id():
-    """Get or create a session ID from cookies"""
-    return request.cookies.get("session_id")
-
-
-def get_history_for_session():
-    """Get conversation history for current session"""
-    session_id = get_session_id()
-    if session_id and session_id in session_histories:
-        return session_histories[session_id]
-    return []
-
-# Configuration for Ollama API connection
-# OLLAMA_BASE_URL: Address of the Ollama server (use env var for production)
-# DEFAULT_MODEL: Fallback AI model if frontend doesn't send one
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_URL")
-DEFAULT_MODEL = "dolphin3:latest"
-
-# Headers to bypass ngrok's browser warning page
-NGROK_HEADERS = {"ngrok-skip-browser-warning": "true"}
-
-
-# POST /api/chat - Main chat endpoint that processes user messages
-# Receives a JSON payload with a 'prompt' field from the frontend
-@app.route("/api/chat", methods=["POST"])
-@limiter.limit("20 per minute")  # Stricter limit for expensive chat endpoint
-def chat():
-    # Get or create session ID
-    session_id = get_session_id()
-    new_session = False
+# Get existing session or create new one. Returns (session_id, history, is_new)
+def get_or_create_session():
+    session_id = request.cookies.get("session_id")
+    is_new = False
     if not session_id:
         session_id = str(uuid.uuid4())
-        new_session = True
+        is_new = True
         session_histories[session_id] = []
     elif session_id not in session_histories:
         session_histories[session_id] = []
+    return session_id, session_histories[session_id], is_new
+
+
+# Build conversation string from message history for Ollama prompt format
+def build_conversation(history: list[dict]) -> str:
+    parts = []
+    for msg in history:
+        prefix = "User" if msg["role"] == "user" else "Assistant"
+        parts.append(f"{prefix}: {msg['content']}")
+    parts.append("Assistant:")  # Prompt model to respond
+    return "\n".join(parts)
+
+
+# Set session cookie on response
+def set_session_cookie(response, session_id: str):
+    response.set_cookie(
+        "session_id",
+        session_id,
+        httponly=True,
+        samesite="None" if IS_PRODUCTION else "Lax",
+        secure=IS_PRODUCTION,
+        max_age=86400  # 24 hours
+    )
+
+
+# POST /api/chat/stream - Stream chat responses using Server-Sent Events (SSE)
+@app.route("/api/chat/stream", methods=["POST"])
+@limiter.limit("20 per minute")
+def chat_stream():
+    session_id, history, is_new = get_or_create_session()
     
-    history = session_histories[session_id]
-    
-    # Extract JSON data from the request
     data = request.json
-    # Get the prompt text and remove leading/trailing whitespace
     prompt = data.get("prompt", "").strip()
-    # Use requested model when provided, otherwise safely fall back to default.
     model = (data.get("model") or DEFAULT_MODEL).strip()
     
-    # Validate that prompt is not empty
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
-    
-    # Validate prompt length
     if len(prompt) > MAX_PROMPT_LENGTH:
         return jsonify({"error": f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters"}), 400
     
-    # Add user's message to conversation history
-    history.append({"role": "user", "content": prompt})
+    # Build conversation with new user message (don't modify history yet)
+    temp_history = history + [{"role": "user", "content": prompt}]
+    conversation = build_conversation(temp_history)
     
-    # Build the full conversation context including all previous messages
-    # This gives the AI model awareness of the entire conversation history
-    conversation = ""
-    for message in history:
-        role = message["role"]
-        content = message["content"]
-        if role == "user":
-            # Format user messages as "User: [message]"
-            conversation += f"User: {content}\n"
-        else:
-            # Format assistant messages as "Assistant: [message]"
-            conversation += f"Assistant: {content}\n"
-    # Add prompt prefix so the model knows to generate an assistant response
-    conversation += "Assistant:"
+    def generate():
+        full_response = ""
+        success = False
+        
+        try:
+            with requests.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={"model": model, "prompt": conversation, "stream": True},
+                headers=NGROK_HEADERS,
+                stream=True,
+                timeout=120
+            ) as response:
+                response.raise_for_status()
+                
+                # Stream tokens as they arrive
+                for line in response.iter_lines():
+                    if line:
+                        try:
+                            chunk = json.loads(line)
+                            token = chunk.get("response", "")
+                            if token:
+                                full_response += token
+                                yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+                            if chunk.get("done"):
+                                success = True
+                                break
+                        except json.JSONDecodeError:
+                            continue
+            
+            # Only persist to history after successful completion
+            if success and full_response.strip():
+                history.append({"role": "user", "content": prompt})
+                history.append({"role": "assistant", "content": full_response.strip()})
+                yield f"data: {json.dumps({'type': 'done', 'history': history})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
+                
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
     
-    # Prepare the API request payload for Ollama
-    PAYLOAD = {
-        "model": model,              # Specify which model to use
-        "prompt": conversation,      # Send full conversation context
-        "stream": False              # Set to False for complete response (not streaming)
-    }
+    response = Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
+    )
     
-    # Send request to Ollama API and handle potential errors
-    try:
-        # Make POST request to Ollama's generate endpoint
-        response = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=PAYLOAD, headers=NGROK_HEADERS, timeout=120)
-        # Raise an exception if response status is not successful (4xx, 5xx)
-        response.raise_for_status()
-        
-        # Parse the JSON response from Ollama
-        result = response.json()
-        # Extract the generated response text and clean it up
-        full_response = result.get("response", "").strip()
-        
-        # Add AI's response to conversation history for future context
-        history.append({"role": "assistant", "content": full_response})
-        
-        # Build response with session cookie
-        resp = make_response(jsonify({
-            "response": full_response,
-            "history": history
-        }))
-        
-        # Set session cookie if new session
-        if new_session:
-            resp.set_cookie(
-                "session_id",
-                session_id,
-                httponly=True,
-                samesite="None" if IS_PRODUCTION else "Lax",
-                secure=IS_PRODUCTION,
-                max_age=86400
-            )
-        
-        return resp
-    # Catch any errors (network issues, API errors, etc.) and return error message
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if is_new:
+        set_session_cookie(response, session_id)
+    
+    return response
 
 
-# GET /api/history - Retrieve the full conversation history
-# Used by frontend to fetch existing conversation data (if needed)
+# GET /api/history - Retrieve conversation history for current session
 @app.route("/api/history", methods=["GET"])
 def get_history():
-    history = get_history_for_session()
+    _, history, _ = get_or_create_session()
     return jsonify({"history": history})
 
 
-# DELETE /api/history - Clear all conversation history
-# Resets the conversation back to empty state
+# DELETE /api/history - Clear conversation history for current session
 @app.route("/api/history", methods=["DELETE"])
 def clear_history():
-    session_id = get_session_id()
+    session_id = request.cookies.get("session_id")
     if session_id and session_id in session_histories:
         session_histories[session_id] = []
     return jsonify({"message": "History cleared"})
 
-# GET /api/models - Get a list of models available on the Ollama server
+
+# GET /api/models - Fetch available models from Ollama server
 @app.route("/api/models", methods=["GET"])
 def get_models():
     try:
-        # Make GET request to Ollama's tags endpoint to retrieve available models
         response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", headers=NGROK_HEADERS)
-        response.raise_for_status()  # Raise an error if the request fails
-        # Ollama returns model objects; frontend only needs model name strings.
+        response.raise_for_status()
         data = response.json()
-        models = [item.get("name") for item in data.get("models", []) if item.get("name")]
+        models = [m.get("name") for m in data.get("models", []) if m.get("name")]
         return jsonify({"models": models})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# Entry point: Start the Flask development server
-# DEBUG read from env (default False for production safety)
-# PORT: Use Render's PORT env var, fallback to 5001 for local dev
 if __name__ == "__main__":
     debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     port = int(os.environ.get("PORT", 5001))

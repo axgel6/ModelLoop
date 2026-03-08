@@ -97,6 +97,9 @@ function Chat({ onBack }: ChatProps) {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setInput("");
 
+    // Add placeholder for streaming response
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
     setLoading(true);
     try {
       const payload: { prompt: string; model?: string } = {
@@ -106,7 +109,7 @@ function Chat({ onBack }: ChatProps) {
         payload.model = selectedModel;
       }
 
-      const response = await fetch(`${API_URL}/api/chat`, {
+      const response = await fetch(`${API_URL}/api/chat/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,18 +123,80 @@ function Chat({ onBack }: ChatProps) {
         throw new Error(errorData.error || "Failed to get response");
       }
 
-      const data = await response.json();
-      setMessages(data.history);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error("Failed to get response stream");
+      }
+
+      let accumulatedResponse = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === "token") {
+                accumulatedResponse += data.token;
+                setMessages((prev) => {
+                  const newMessages = [...prev];
+                  newMessages[newMessages.length - 1] = {
+                    role: "assistant",
+                    content: accumulatedResponse,
+                  };
+                  return newMessages;
+                });
+              } else if (data.type === "done") {
+                // Update with final trimmed response (server has canonical version)
+                if (data.history?.length >= 2) {
+                  const lastAssistant = data.history[data.history.length - 1];
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    newMessages[newMessages.length - 1] = lastAssistant;
+                    return newMessages;
+                  });
+                }
+              } else if (data.type === "error") {
+                throw new Error(data.error);
+              }
+            } catch (e) {
+              // Skip invalid JSON lines
+              if (e instanceof SyntaxError) continue;
+              throw e;
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error("Error:", error);
       const message =
         error instanceof Error
           ? error.message
           : "Failed to get response from server";
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `Error: ${message}` },
-      ]);
+      setMessages((prev) => {
+        // Replace the last message (empty placeholder) with error
+        const newMessages = [...prev];
+        if (
+          newMessages.length > 0 &&
+          newMessages[newMessages.length - 1].role === "assistant"
+        ) {
+          newMessages[newMessages.length - 1] = {
+            role: "assistant",
+            content: `Error: ${message}`,
+          };
+        } else {
+          newMessages.push({ role: "assistant", content: `Error: ${message}` });
+        }
+        return newMessages;
+      });
     } finally {
       setLoading(false);
     }
