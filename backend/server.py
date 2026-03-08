@@ -177,6 +177,7 @@ def clear_history():
 
 # GET /api/models - Fetch available models from Ollama server
 @app.route("/api/models", methods=["GET"])
+@limiter.exempt  # Exempt from rate limiting - used for health checks
 def get_models():
     global cached_models
     try:

@@ -192,6 +192,8 @@ function Chat({ onBack }: ChatProps) {
                   return newMessages;
                 });
               } else if (data.type === "done") {
+                // Backend responded successfully - mark as connected
+                setIsConnected(true);
                 // Update with final trimmed response (server has canonical version)
                 if (data.history?.length >= 2) {
                   const lastAssistant = data.history[data.history.length - 1];
