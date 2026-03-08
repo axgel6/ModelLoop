@@ -30,7 +30,7 @@ limiter = Limiter(
 # Configuration
 MAX_PROMPT_LENGTH = 10000
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_URL")
-DEFAULT_MODEL = "dolphin3:latest"
+DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "llama3.2:latest")
 NGROK_HEADERS = {"ngrok-skip-browser-warning": "true"}  # Bypass ngrok browser warning
 
 # System prompt for consistent formatting
@@ -56,6 +56,9 @@ def fix_math_delimiters(text: str) -> str:
 
 # In-memory session storage (session_id -> message history)
 session_histories: dict[str, list[dict]] = {}
+
+# Cached models list
+cached_models: list[str] = []
 
 
 # Get existing session or create new one. Returns (session_id, history, is_new)
@@ -175,13 +178,28 @@ def clear_history():
 # GET /api/models - Fetch available models from Ollama server
 @app.route("/api/models", methods=["GET"])
 def get_models():
+    global cached_models
     try:
         response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", headers=NGROK_HEADERS)
         response.raise_for_status()
         data = response.json()
-        models = [m.get("name") for m in data.get("models", []) if m.get("name")]
-        return jsonify({"models": models})
+        fetched_models = [m.get("name") for m in data.get("models", []) if m.get("name")]
+        
+        # Add any new models to the cache
+        for model in fetched_models:
+            if model not in cached_models:
+                cached_models.append(model)
+        
+        # Sort so DEFAULT_MODEL comes first if present
+        if DEFAULT_MODEL in cached_models:
+            cached_models.remove(DEFAULT_MODEL)
+            cached_models.insert(0, DEFAULT_MODEL)
+        
+        return jsonify({"models": cached_models})
     except Exception as e:
+        # Return cached models if available, otherwise error
+        if cached_models:
+            return jsonify({"models": cached_models})
         return jsonify({"error": str(e)}), 500
 
 

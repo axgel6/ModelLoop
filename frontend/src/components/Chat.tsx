@@ -114,13 +114,15 @@ function Chat({ onBack }: ChatProps) {
   const handleAsk = async () => {
     if (!input.trim()) return;
 
-    if (input.trim().toLowerCase() === "clear") {
+    if (input.trim().toLowerCase() === "/clear") {
       try {
         await fetch(`${API_URL}/api/history`, {
           method: "DELETE",
           credentials: "include",
         });
-        setMessages([]);
+        setMessages([
+          { role: "assistant", content: "Chat history cleared successfully." },
+        ]);
         setInput("");
       } catch (error) {
         console.error("Error clearing history:", error);
