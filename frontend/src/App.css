@@ -170,7 +170,7 @@ body {
 }
 
 h1 {
-  text-align: center;
+  text-align: left;
   color: #f2f4f8;
   width: 100%;
   max-width: 800px;
@@ -183,12 +183,13 @@ h1 {
   color: #1a1a1a;
   padding: 10px 20px;
   border-radius: 6px;
-  text-align: center;
+  text-align: left;
   font-size: 14px;
   font-weight: 500;
   width: 100%;
   max-width: 800px;
   margin-bottom: 16px;
+  box-sizing: border-box;
 }
 
 /* Landing Page Styles */
@@ -203,7 +204,7 @@ h1 {
 
 .landing-content {
   max-width: 800px;
-  text-align: center;
+  text-align: left;
 }
 
 .landing-content h1 {
@@ -223,7 +224,7 @@ h1 {
 
 .landing-features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
   margin-bottom: 48px;
 }
@@ -236,15 +237,12 @@ h1 {
   transition: border-color 0.2s;
 }
 
-.feature:hover {
-  border-color: #2b7cff;
+.feature:first-child {
+  grid-column: span 2;
 }
 
-.feature-icon {
-  font-size: 1.5rem;
-  display: block;
-  margin-bottom: 12px;
-  filter: grayscale(100%);
+.feature:hover {
+  border-color: #2b7cff;
 }
 
 .feature h3 {
@@ -276,6 +274,16 @@ h1 {
 
 .start-button:hover {
   background: #1f63d8;
+}
+
+@media (max-width: 600px) {
+  .landing-features {
+    grid-template-columns: 1fr;
+  }
+
+  .feature:first-child {
+    grid-column: span 1;
+  }
 }
 
 .landing-footer {

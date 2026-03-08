@@ -6,25 +6,34 @@ function LandingPage({ onStart }: LandingPageProps) {
   return (
     <div className="landing-page">
       <div className="landing-content">
-        <h1>ModelLoop</h1>
+        <h1>ModelLoop/Landing</h1>
         <p className="landing-tagline">Self-hosted AI chat powered by Ollama</p>
 
         <div className="landing-features">
           <div className="feature">
-            <h3>Powered by Ollama</h3>
-            <p>Self-hosted AI chat experience</p>
+            <h3>Powered by Ollama, Render, and Ngrok</h3>
+            <p>
+              React frontend on Render connects to Flask backend on Render,
+              which tunnels to self-hosted Ollama server via Ngrok{" "}
+            </p>
           </div>
           <div className="feature">
             <h3>Multiple Models</h3>
-            <p>Choose from various LLMs running locally</p>
+            <p>Switch between different LLMs available on the server</p>
           </div>
           <div className="feature">
-            <h3>Ongoing Development</h3>
+            <h3>Tech Stack</h3>
             <p>Built with React, Flask, and Python</p>
           </div>
           <div className="feature">
-            <h3>Warning</h3>
-            <p>Backend is hosted on Render so it may take some time to load</p>
+            <h3>Includes popular LLM models</h3>
+            <p>
+              deekseep-r1.5b, llama3.1:latest, llama3.2:latest, dolphin3:latest
+            </p>
+          </div>
+          <div className="feature">
+            <h3>Note</h3>
+            <p>Server may need a moment to wake up on first use</p>
           </div>
         </div>
 

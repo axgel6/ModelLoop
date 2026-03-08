@@ -224,7 +224,7 @@ function Chat({ onBack }: ChatProps) {
 
   return (
     <>
-      <h1>ModelLoop</h1>
+      <h1>ModelLoop/Chat</h1>
       {!isConnected && (
         <div className="connection-banner">
           Waiting for backend to wake up... (This may take a moment)
@@ -269,14 +269,14 @@ function Chat({ onBack }: ChatProps) {
           </select>
           <input
             type="text"
-            placeholder="Ask StarAI"
+            placeholder="What's on your mind?"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={loading}
           />
           <button onClick={handleAsk} disabled={loading}>
-            {loading ? "Generating..." : "Ask"}
+            {loading ? "Thinking..." : "Ask"}
           </button>
           <button onClick={handleClear} disabled={loading}>
             Clear
@@ -285,7 +285,7 @@ function Chat({ onBack }: ChatProps) {
       </div>
       <div className="chat-footer">
         <button className="back-to-landing" onClick={onBack}>
-          ← Back to Home
+          ← Back to Landing
         </button>
       </div>
     </>
