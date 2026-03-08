@@ -4,3 +4,5 @@ flask-limiter
 python-dotenv
 requests
 gunicorn
+pytest
+pytest-mock

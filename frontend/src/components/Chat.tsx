@@ -22,6 +22,7 @@ function Chat({ onBack }: ChatProps) {
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
+  const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -36,16 +37,44 @@ function Chat({ onBack }: ChatProps) {
         const data = await response.json();
         const availableModels: string[] = data.models ?? [];
         setModels(availableModels);
+        setIsConnected(true);
         if (availableModels.length > 0) {
           setSelectedModel(availableModels[0]);
         }
       } catch (error) {
         console.error("Error fetching models:", error);
+        setIsConnected(false);
       }
     };
 
     loadModels();
-  }, []);
+
+    // Periodically check connection
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/models`, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          setIsConnected(true);
+          if (models.length === 0) {
+            const data = await response.json();
+            const availableModels: string[] = data.models ?? [];
+            setModels(availableModels);
+            if (availableModels.length > 0) {
+              setSelectedModel(availableModels[0]);
+            }
+          }
+        } else {
+          setIsConnected(false);
+        }
+      } catch {
+        setIsConnected(false);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [models.length]);
 
   const handleAsk = async () => {
     if (!input.trim()) return;
@@ -131,6 +160,11 @@ function Chat({ onBack }: ChatProps) {
   return (
     <>
       <h1>ModelLoop</h1>
+      {!isConnected && (
+        <div className="connection-banner">
+          Waiting for backend to wake up... (This may take a moment)
+        </div>
+      )}
       <div className="chat-container">
         <div className="messages">
           {messages.map((msg, idx) => (
@@ -159,7 +193,7 @@ function Chat({ onBack }: ChatProps) {
             aria-label="Select model"
           >
             {models.length === 0 ? (
-              <option value="">No models found</option>
+              <option value="">Please wait...</option>
             ) : (
               models.map((model) => (
                 <option key={model} value={model}>

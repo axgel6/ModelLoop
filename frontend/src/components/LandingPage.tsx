@@ -22,6 +22,10 @@ function LandingPage({ onStart }: LandingPageProps) {
             <h3>Ongoing Development</h3>
             <p>Built with React, Flask, and Python</p>
           </div>
+          <div className="feature">
+            <h3>Warning</h3>
+            <p>Backend is hosted on Render so it may take some time to load</p>
+          </div>
         </div>
 
         <button className="start-button" onClick={onStart}>
