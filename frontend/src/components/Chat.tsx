@@ -7,6 +7,21 @@ import remarkMath from "remark-math";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
+// Fix math delimiters from model output to proper LaTeX format
+function fixMathDelimiters(text: string): string {
+  return (
+    text
+      // \[ ... \] → $$ ... $$
+      .replace(/\\\[(.+?)\\\]/gs, "$$$$1$$")
+      // \( ... \) → $ ... $
+      .replace(/\\\((.+?)\\\)/gs, "$$$1$$")
+      // [ ... ] with LaTeX commands → $$ ... $$
+      .replace(/\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g, "$$$$1$$")
+      // [ expr ] simple math expressions → $$ ... $$
+      .replace(/\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g, "$$$$1$$")
+  );
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -49,7 +64,24 @@ function Chat({ onBack }: ChatProps) {
       }
     };
 
+    const loadHistory = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/history`, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.history?.length > 0) {
+            setMessages(data.history);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading history:", error);
+      }
+    };
+
     loadModels();
+    loadHistory();
 
     // Periodically check connection and retry loading models if needed
     const interval = setInterval(async () => {
@@ -244,7 +276,7 @@ function Chat({ onBack }: ChatProps) {
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeKatex, rehypeHighlight]}
                   >
-                    {msg.content}
+                    {fixMathDelimiters(msg.content)}
                   </ReactMarkdown>
                 </div>
               ) : (

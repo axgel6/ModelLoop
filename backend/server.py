@@ -2,6 +2,7 @@ import requests
 import os
 import uuid
 import json
+import re
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, make_response, Response, stream_with_context
 from flask_cors import CORS
@@ -32,6 +33,27 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_URL")
 DEFAULT_MODEL = "dolphin3:latest"
 NGROK_HEADERS = {"ngrok-skip-browser-warning": "true"}  # Bypass ngrok browser warning
 
+# System prompt for consistent formatting
+SYSTEM_PROMPT = """You are a helpful assistant. Important rules:
+1. Always consider the conversation history when answering follow-up questions
+2. When the user says "add X" or similar, apply it to the previous result
+3. Use $ for inline math and $$ for block math
+4. Be concise - don't over-explain simple questions"""
+
+
+# Post-process model output to fix math delimiters
+def fix_math_delimiters(text: str) -> str:
+    # Convert \[ ... \] to $$ ... $$
+    text = re.sub(r'\\\[(.+?)\\\]', r'$$\1$$', text, flags=re.DOTALL)
+    # Convert \( ... \) to $ ... $
+    text = re.sub(r'\\\((.+?)\\\)', r'$\1$', text, flags=re.DOTALL)
+    # Convert [ ... ] containing LaTeX commands to $$ ... $$
+    text = re.sub(r'\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]', r'$$\1$$', text)
+    # Convert standalone [ expr ] math (simple expressions with operators)
+    text = re.sub(r'\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]', r'$$\1$$', text)
+    return text
+
+
 # In-memory session storage (session_id -> message history)
 session_histories: dict[str, list[dict]] = {}
 
@@ -47,16 +69,6 @@ def get_or_create_session():
     elif session_id not in session_histories:
         session_histories[session_id] = []
     return session_id, session_histories[session_id], is_new
-
-
-# Build conversation string from message history for Ollama prompt format
-def build_conversation(history: list[dict]) -> str:
-    parts = []
-    for msg in history:
-        prefix = "User" if msg["role"] == "user" else "Assistant"
-        parts.append(f"{prefix}: {msg['content']}")
-    parts.append("Assistant:")  # Prompt model to respond
-    return "\n".join(parts)
 
 
 # Set session cookie on response
@@ -86,9 +98,10 @@ def chat_stream():
     if len(prompt) > MAX_PROMPT_LENGTH:
         return jsonify({"error": f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters"}), 400
     
-    # Build conversation with new user message (don't modify history yet)
-    temp_history = history + [{"role": "user", "content": prompt}]
-    conversation = build_conversation(temp_history)
+    # Build messages array for Ollama chat API
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": prompt})
     
     def generate():
         full_response = ""
@@ -96,8 +109,8 @@ def chat_stream():
         
         try:
             with requests.post(
-                f"{OLLAMA_BASE_URL}/api/generate",
-                json={"model": model, "prompt": conversation, "stream": True},
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json={"model": model, "messages": messages, "stream": True},
                 headers=NGROK_HEADERS,
                 stream=True,
                 timeout=120
@@ -109,7 +122,7 @@ def chat_stream():
                     if line:
                         try:
                             chunk = json.loads(line)
-                            token = chunk.get("response", "")
+                            token = chunk.get("message", {}).get("content", "")
                             if token:
                                 full_response += token
                                 yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
@@ -121,8 +134,9 @@ def chat_stream():
             
             # Only persist to history after successful completion
             if success and full_response.strip():
+                processed_response = fix_math_delimiters(full_response.strip())
                 history.append({"role": "user", "content": prompt})
-                history.append({"role": "assistant", "content": full_response.strip()})
+                history.append({"role": "assistant", "content": processed_response})
                 yield f"data: {json.dumps({'type': 'done', 'history': history})}\n\n"
             else:
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
@@ -154,7 +168,7 @@ def get_history():
 def clear_history():
     session_id = request.cookies.get("session_id")
     if session_id and session_id in session_histories:
-        session_histories[session_id] = []
+        session_histories[session_id].clear()  # Clear in-place to ensure all references are cleared
     return jsonify({"message": "History cleared"})
 
 
