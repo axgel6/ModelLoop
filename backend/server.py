@@ -102,7 +102,8 @@ def chat_stream():
         return jsonify({"error": f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters"}), 400
     
     # Build messages array for Ollama chat API
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    system_prompt = data.get("system_prompt", SYSTEM_PROMPT)
+    messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": prompt})
     

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ChatPreferences from "./ChatPreferences";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -39,6 +40,13 @@ function Chat({ onBack }: ChatProps) {
   const [selectedModel, setSelectedModel] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const modelsLoadedRef = useRef(false);
+  const [systemPrompt, setSystemPrompt] =
+    useState(`You are a helpful assistant. Important rules:
+1. Always consider the conversation history when answering follow-up questions
+2. When the user says "add X" or similar, apply it to the previous result
+3. Use $ for inline math and $$ for block math
+4. Be concise - don't over-explain simple questions`);
+  const [showPreferences, setShowPreferences] = useState(false);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -139,8 +147,13 @@ function Chat({ onBack }: ChatProps) {
 
     setLoading(true);
     try {
-      const payload: { prompt: string; model?: string } = {
+      const payload: {
+        prompt: string;
+        model?: string;
+        system_prompt?: string;
+      } = {
         prompt: userMessage,
+        system_prompt: systemPrompt,
       };
       if (selectedModel) {
         payload.model = selectedModel;
@@ -326,7 +339,20 @@ function Chat({ onBack }: ChatProps) {
         <button className="back-to-landing" onClick={onBack}>
           ← Back to Landing
         </button>
+        <button
+          className="chat-preferences"
+          onClick={() => setShowPreferences(true)}
+        >
+          Chat Preferences
+        </button>
       </div>
+      {showPreferences && (
+        <ChatPreferences
+          systemPrompt={systemPrompt}
+          setSystemPrompt={setSystemPrompt}
+          onClose={() => setShowPreferences(false)}
+        />
+      )}
     </>
   );
 }
