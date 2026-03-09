@@ -40,7 +40,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           <button onClick={() => setSystemPrompt(customPrompt)}>Custom</button>
         </div>
         <label style={{ display: "block", marginBottom: 8 }}>
-          System Prompt:
+          Edit System Prompt:
           <textarea
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}

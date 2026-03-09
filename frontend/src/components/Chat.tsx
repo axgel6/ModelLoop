@@ -331,7 +331,7 @@ function Chat({ onBack }: ChatProps) {
             {loading ? "Thinking..." : "Ask"}
           </button>
           <button onClick={handleClear} disabled={loading}>
-            Clear
+            New Chat
           </button>
         </div>
       </div>
