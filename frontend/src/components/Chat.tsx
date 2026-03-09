@@ -47,6 +47,13 @@ function Chat({ onBack }: ChatProps) {
 3. Use $ for inline math and $$ for block math
 4. Be concise - don't over-explain simple questions`);
   const [showPreferences, setShowPreferences] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -312,6 +319,7 @@ function Chat({ onBack }: ChatProps) {
               )}
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
         <div className="input-area">
           <select
