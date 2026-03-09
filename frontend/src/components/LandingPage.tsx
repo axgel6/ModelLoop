@@ -58,7 +58,9 @@ function LandingPage({ onStart }: LandingPageProps) {
               rel="noopener noreferrer"
             >
               ThinkLoop
-            </a>
+            </a>{" "}
+            • ModelLoop can make mistakes. Please verify any critical
+            information it provides.
           </p>
         </div>
       </div>
