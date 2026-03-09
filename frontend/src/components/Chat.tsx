@@ -276,7 +276,18 @@ function Chat({ onBack }: ChatProps) {
 
   return (
     <>
-      <h1>ModelLoop/Chat</h1>
+      <div className="chat-header-row">
+        <button className="back-to-landing" onClick={onBack}>
+          ←
+        </button>
+        <h1 className="chat-title">ModelLoop/Chat</h1>
+        <button
+          className="chat-preferences"
+          onClick={() => setShowPreferences(true)}
+        >
+          Preferences
+        </button>
+      </div>
       {!isConnected && (
         <div className="connection-banner">
           Waiting for backend to wake up... (This may take a moment)
@@ -336,15 +347,10 @@ function Chat({ onBack }: ChatProps) {
         </div>
       </div>
       <div className="chat-footer">
-        <button className="back-to-landing" onClick={onBack}>
-          ← Back to Landing
-        </button>
-        <button
-          className="chat-preferences"
-          onClick={() => setShowPreferences(true)}
-        >
-          Chat Preferences
-        </button>
+        <p id="disclaimer">
+          ModelLoop can make mistakes. Please verify any critical information it
+          provides.
+        </p>
       </div>
       {showPreferences && (
         <ChatPreferences

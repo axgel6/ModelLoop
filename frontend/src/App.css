@@ -1,3 +1,19 @@
+.chat-header-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto 16px auto;
+}
+
+.chat-title {
+  font-size: 2rem;
+  color: #f2f4f8;
+  font-weight: 600;
+  margin: 0;
+  text-align: left;
+}
 .preset-buttons-row {
   display: flex;
   flex-direction: row;
@@ -441,4 +457,9 @@ button,
 .chat-preferences:hover {
   color: #a0a0a0;
   border-color: #505050;
+}
+
+#disclaimer {
+  font-size: 0.8rem;
+  color: #707070;
 }
