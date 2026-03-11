@@ -289,6 +289,8 @@ html {
   align-items: center;
   justify-content: center;
   height: calc(100% - 10px);
+  font-weight: bolder !important;
+  font-size: 1.5rem !important;
 }
 
 .input-wrapper .ask-button:hover:not(:disabled) {
@@ -526,6 +528,11 @@ button,
   width: 100%;
   margin-top: 16px;
   gap: 20px;
+}
+.back-to-landing {
+  font-weight: bolder !important;
+  font-size: 1.5rem !important;
+  padding-bottom: 3px !important;
 }
 
 .back-to-landing,

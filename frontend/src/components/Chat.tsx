@@ -381,7 +381,7 @@ function Chat({ onBack }: ChatProps) {
               onClick={handleAsk}
               disabled={loading}
             >
-              {loading ? "Thinking..." : "➤"}
+              {loading ? ".•°" : "➤"}
             </button>
           </div>
         </div>
