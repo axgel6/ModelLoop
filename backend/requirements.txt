@@ -1,8 +1,10 @@
-flask
-flask-cors
-flask-limiter
+fastapi
+uvicorn[standard]
+httpx
 python-dotenv
-requests
+slowapi
+pydantic
 gunicorn
 pytest
 pytest-mock
+pytest-asyncio

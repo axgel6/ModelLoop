@@ -6,7 +6,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 // Fix math delimiters from model output to proper LaTeX format
 function fixMathDelimiters(text: string): string {
@@ -283,6 +283,11 @@ function Chat({ onBack }: ChatProps) {
 
   return (
     <>
+      {!isConnected && (
+        <div className="connection-banner">
+          Waiting for backend to wake up... (This may take a moment)
+        </div>
+      )}
       <div className="chat-header-row">
         <button className="back-to-landing" onClick={onBack}>
           ←
@@ -294,17 +299,30 @@ function Chat({ onBack }: ChatProps) {
         >
           Preferences
         </button>
+        <button className="new-chat" onClick={handleClear} disabled={loading}>
+          New Chat
+        </button>
+        <select
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+          disabled={loading || models.length === 0}
+          aria-label="Select model"
+        >
+          {models.length === 0 ? (
+            <option value="">Please wait...</option>
+          ) : (
+            models.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))
+          )}
+        </select>
       </div>
-      {!isConnected && (
-        <div className="connection-banner">
-          Waiting for backend to wake up... (This may take a moment)
-        </div>
-      )}
       <div className="chat-container">
         <div className="messages">
           {messages.map((msg, idx) => (
             <div key={idx} className={`message ${msg.role}`}>
-              <strong>{msg.role === "user" ? "You" : "AI"}:</strong>{" "}
               {msg.role === "assistant" ? (
                 <div className="assistant-content">
                   <ReactMarkdown
@@ -322,36 +340,24 @@ function Chat({ onBack }: ChatProps) {
           <div ref={messagesEndRef} />
         </div>
         <div className="input-area">
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            disabled={loading || models.length === 0}
-            aria-label="Select model"
-          >
-            {models.length === 0 ? (
-              <option value="">Please wait...</option>
-            ) : (
-              models.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
-              ))
-            )}
-          </select>
-          <input
-            type="text"
-            placeholder="What's on your mind?"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-          />
-          <button onClick={handleAsk} disabled={loading}>
-            {loading ? "Thinking..." : "Ask"}
-          </button>
-          <button onClick={handleClear} disabled={loading}>
-            New Chat
-          </button>
+          <div className="input-wrapper">
+            <input
+              type="text"
+              placeholder="What's on your mind?"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={loading}
+            />
+
+            <button
+              className="ask-button"
+              onClick={handleAsk}
+              disabled={loading}
+            >
+              {loading ? "Thinking..." : "➤"}
+            </button>
+          </div>
         </div>
       </div>
       <div className="chat-footer">

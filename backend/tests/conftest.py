@@ -2,23 +2,30 @@ import pytest
 import sys
 import os
 
-# Add backend to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from server import app, session_histories
+import main
+from main import app, session_histories
+from httpx import AsyncClient, ASGITransport
 
 
 @pytest.fixture
-def client():
-    """Create a test client for the Flask app."""
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        yield client
+def anyio_backend():
+    return "asyncio"
+
+
+@pytest.fixture
+async def client():
+    # Create an async test client for the FastAPI app.
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c
 
 
 @pytest.fixture(autouse=True)
-def clear_sessions():
-    """Clear session histories before each test."""
+def reset_server_state():
+    # Reset global server state before each test to prevent module-level globals from bleeding.
     session_histories.clear()
+    main.cached_models.clear()
     yield
     session_histories.clear()
+    main.cached_models.clear()
