@@ -38,7 +38,7 @@ function Chat({ onBack }: ChatProps) {
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const modelsLoadedRef = useRef(false);
   const [systemPrompt, setSystemPrompt] =
     useState(`You are a helpful assistant. Important rules:
