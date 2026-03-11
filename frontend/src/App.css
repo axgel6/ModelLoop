@@ -520,7 +520,7 @@ button,
 
 .chat-footer {
   display: flex;
-  justify-content: left;
+  justify-content: center;
   align-items: center;
   max-width: 900px;
   width: 100%;
