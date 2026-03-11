@@ -23,7 +23,7 @@ function LandingPage({ onStart }: LandingPageProps) {
           </div>
           <div className="feature">
             <h3>Tech Stack</h3>
-            <p>Built with React, Flask, and Python</p>
+            <p>Built with React, FastAPI, and Python</p>
           </div>
           <div className="feature">
             <h3>Includes popular LLM models</h3>
