@@ -14,7 +14,7 @@ body,
   align-items: center;
   gap: 18px;
   width: 100%;
-  max-width: 900px;
+  max-width: 1500px;
   margin: 0 auto 16px auto;
 }
 
@@ -153,9 +153,9 @@ html {
 }
 
 .chat-container {
-  max-width: 900px;
+  max-width: 1500px;
   width: 100%;
-  margin: 0 auto;
+  margin: 10px auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -385,7 +385,7 @@ h1 {
   font-size: 14px;
   font-weight: 500;
   width: 100%;
-  max-width: 900px;
+  max-width: 1500px;
   margin-bottom: 16px;
   box-sizing: border-box;
 }
