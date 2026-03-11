@@ -35,7 +35,7 @@ body,
   background: #fabd2f;
   color: #282828;
   border: 1px solid #fabd2f;
-  border-radius: 6px;
+  border-radius: 25px;
   font-size: 0.95rem;
   padding: 8px 16px;
   cursor: pointer;
@@ -114,7 +114,7 @@ body,
   background: #b16286;
   color: #ebdbb2;
   border: none;
-  border-radius: 6px;
+  border-radius: 25px;
   font-size: 1rem;
   padding: 10px 24px;
   cursor: pointer;

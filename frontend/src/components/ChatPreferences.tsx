@@ -37,7 +37,10 @@ The goal is to help the learner understand how to think through the problem, not
   return (
     <div className="chat-preferences-modal-overlay">
       <div className="chat-preferences-modal">
-        <h3>Chat Preferences</h3>
+        <h2>Chat Preferences</h2>
+        <hr style={{ margin: "0px 0", color: "#504945" }} />
+
+        <label style={{ display: "block", marginBottom: 8 }}>Presets</label>
         <div className="preset-buttons-row">
           <button onClick={() => setSystemPrompt(defaultPrompt)}>
             Default
@@ -57,18 +60,20 @@ The goal is to help the learner understand how to think through the problem, not
           </button>
           <button onClick={() => setSystemPrompt(customPrompt)}>Custom</button>
         </div>
+
+        <hr style={{ margin: "0 0", color: "#504945" }} />
         <label style={{ display: "block", marginBottom: 8 }}>
           Edit System Prompt:
-          <textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            rows={5}
-            style={{ width: "100%", marginTop: 4 }}
-          />
         </label>
+        <textarea
+          value={systemPrompt}
+          onChange={(e) => setSystemPrompt(e.target.value)}
+          rows={5}
+          style={{ width: "100%" }}
+        />
         <div className="modal-footer-row">
           <button id="closeButton" onClick={onClose}>
-            Close
+            Accept Changes
           </button>
         </div>
       </div>
