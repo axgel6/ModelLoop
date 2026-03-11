@@ -4,8 +4,8 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import main
-from main import app, session_histories
+import server
+from server import app, session_histories
 from httpx import AsyncClient, ASGITransport
 
 
@@ -25,7 +25,7 @@ async def client():
 def reset_server_state():
     # Reset global server state before each test to prevent module-level globals from bleeding.
     session_histories.clear()
-    main.cached_models.clear()
+    server.cached_models.clear()
     yield
     session_histories.clear()
-    main.cached_models.clear()
+    server.cached_models.clear()

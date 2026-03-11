@@ -127,7 +127,7 @@ class ChatRequest(BaseModel):
 
 # POST /api/chat/stream - Stream chat responses using Server-Sent Events (SSE)
 @app.post("/api/chat/stream")
-@limiter.limit("20/minute")
+@limiter.limit("10/minute")
 async def chat_stream(
     request: Request,                           # required by slowapi for rate limiting
     body: ChatRequest,
