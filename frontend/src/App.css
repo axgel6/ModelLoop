@@ -291,6 +291,7 @@ html {
   height: calc(100% - 10px);
   font-weight: bolder !important;
   font-size: 1.5rem !important;
+  padding-left: 22px;
 }
 
 .input-wrapper .ask-button:hover:not(:disabled) {
