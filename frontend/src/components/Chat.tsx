@@ -7,6 +7,11 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_KEY = import.meta.env.VITE_API_KEY;
+
+const AUTH_HEADERS = {
+  "X-API-Key": API_KEY,
+};
 
 // Fix math delimiters from model output to proper LaTeX format
 function fixMathDelimiters(text: string): string {
@@ -38,7 +43,7 @@ function Chat({ onBack }: ChatProps) {
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
   const modelsLoadedRef = useRef(false);
   const [systemPrompt, setSystemPrompt] =
     useState(`You are a helpful assistant. Important rules:
@@ -48,6 +53,7 @@ function Chat({ onBack }: ChatProps) {
 4. Be concise - don't over-explain simple questions`);
   const [showPreferences, setShowPreferences] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -60,6 +66,7 @@ function Chat({ onBack }: ChatProps) {
       try {
         const response = await fetch(`${API_URL}/api/models`, {
           credentials: "include",
+          headers: AUTH_HEADERS,
         });
         if (!response.ok) {
           throw new Error("Failed to fetch models");
@@ -83,6 +90,7 @@ function Chat({ onBack }: ChatProps) {
       try {
         const response = await fetch(`${API_URL}/api/history`, {
           credentials: "include",
+          headers: AUTH_HEADERS,
         });
         if (response.ok) {
           const data = await response.json();
@@ -103,6 +111,7 @@ function Chat({ onBack }: ChatProps) {
       try {
         const response = await fetch(`${API_URL}/api/models`, {
           credentials: "include",
+          headers: AUTH_HEADERS,
         });
         if (response.ok) {
           setIsConnected(true);
@@ -134,6 +143,7 @@ function Chat({ onBack }: ChatProps) {
         await fetch(`${API_URL}/api/history`, {
           method: "DELETE",
           credentials: "include",
+          headers: AUTH_HEADERS,
         });
         setMessages([
           { role: "assistant", content: "Chat history cleared successfully." },
@@ -195,6 +205,7 @@ function Chat({ onBack }: ChatProps) {
       const response = await fetch(`${API_URL}/api/chat/stream`, {
         method: "POST",
         headers: {
+          ...AUTH_HEADERS,
           "Content-Type": "application/json",
         },
         credentials: "include",
@@ -299,6 +310,7 @@ function Chat({ onBack }: ChatProps) {
       await fetch(`${API_URL}/api/history`, {
         method: "DELETE",
         credentials: "include",
+        headers: AUTH_HEADERS,
       });
       setMessages([]);
       setInput("");
@@ -375,7 +387,6 @@ function Chat({ onBack }: ChatProps) {
               onKeyDown={handleKeyDown}
               disabled={loading}
             />
-
             <button
               className="ask-button"
               onClick={handleAsk}

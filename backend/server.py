@@ -4,7 +4,7 @@ import uuid
 import json
 import re
 from dotenv import load_dotenv
-from fastapi import FastAPI, Cookie, HTTPException, Request
+from fastapi import Depends, FastAPI, Cookie, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -12,6 +12,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from typing import Optional
+from fastapi.security import APIKeyHeader
 
 load_dotenv()
 
@@ -44,6 +45,16 @@ def rate_limit_exceeded_handler(request: Request, exc: Exception):
     )
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+API_KEY = os.environ.get("API_KEY")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+async def verify_api_key(key: str = Depends(api_key_header)):
+    if API_KEY and key != API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -132,6 +143,7 @@ async def chat_stream(
     request: Request,                           # required by slowapi for rate limiting
     body: ChatRequest,
     session_id: Optional[str] = Cookie(default=None),
+    _: None = Depends(verify_api_key),
 ):
     prompt = body.prompt.strip()
     model  = (body.model or DEFAULT_MODEL).strip()
@@ -202,16 +214,22 @@ async def chat_stream(
 
 # GET /api/history - Retrieve conversation history for current session
 @app.get("/api/history")
-async def get_history(session_id: Optional[str] = Cookie(default=None)):
-    _, history, _ = get_or_create_session(session_id)
+async def get_history(
+    session_id: Optional[str] = Cookie(default=None),
+    _: None = Depends(verify_api_key),
+):
+    _sid, history, _is_new = get_or_create_session(session_id) #_sid (sessionID) and _is_new (whether session was created) are unused but we want the side effect of creating a session if one doesn't exist
     return {"history": history}
 
 
 # DELETE /api/history - Clear conversation history for current session
 @app.delete("/api/history")
-async def clear_history(session_id: Optional[str] = Cookie(default=None)):
+async def clear_history(
+    session_id: Optional[str] = Cookie(default=None),
+    _: None = Depends(verify_api_key),
+):
     if session_id and session_id in session_histories:
-        session_histories[session_id].clear()  # Clear in-place to ensure all references are updated
+        session_histories[session_id].clear() # Clear in-place to ensure all references are updated
     return {"message": "History cleared"}
 
 
