@@ -53,6 +53,7 @@ function Chat({ onBack }: ChatProps) {
 3. Use $ for inline math and $$ for block math
 4. Be concise - don't over-explain simple questions`);
   const [showPreferences, setShowPreferences] = useState(false);
+  const [activePreset, setActivePreset] = useState<string>("Default");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -454,6 +455,8 @@ function Chat({ onBack }: ChatProps) {
           systemPrompt={systemPrompt}
           setSystemPrompt={setSystemPrompt}
           onClose={() => setShowPreferences(false)}
+          activePreset={activePreset}
+          setActivePreset={setActivePreset}
         />
       )}
       {showHistory && <History onClose={() => setShowHistory(false)} />}

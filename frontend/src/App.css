@@ -174,7 +174,6 @@ html {
   max-width: 85%;
   margin-bottom: 15px;
   padding: 12px 16px;
-  border-radius: 12px;
   line-height: 1.6;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -186,6 +185,7 @@ html {
   color: #ebdbb2;
   text-align: right;
   margin-left: auto;
+  border-radius: 15px 15px 2px 15px;
 }
 
 .message.assistant {
@@ -193,6 +193,7 @@ html {
   color: #ebdbb2;
   text-align: left;
   margin-right: auto;
+  border-radius: 15px 15px 15px 2px;
 }
 
 .assistant-content {

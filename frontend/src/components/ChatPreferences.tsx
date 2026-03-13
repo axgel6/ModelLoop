@@ -4,6 +4,8 @@ interface ChatPreferencesProps {
   systemPrompt: string;
   setSystemPrompt: (prompt: string) => void;
   onClose: () => void;
+  activePreset: string;
+  setActivePreset: (label: string) => void;
 }
 
 const PRESETS: { label: string; prompt: string }[] = [
@@ -70,9 +72,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   systemPrompt,
   setSystemPrompt,
   onClose,
+  activePreset,
+  setActivePreset,
 }) => {
-  const [activePreset, setActivePreset] = useState<string>("Default");
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
