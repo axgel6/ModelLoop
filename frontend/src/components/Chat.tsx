@@ -428,6 +428,7 @@ function Chat({ onBack }: ChatProps) {
           <div className="input-wrapper">
             <input
               type="text"
+              autoFocus
               placeholder="What's on your mind?"
               value={input}
               onChange={(e) => setInput(e.target.value)}
