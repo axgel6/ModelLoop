@@ -305,6 +305,24 @@ function Chat({ onBack }: ChatProps) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "p") {
+        const isTyping =
+          event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement;
+
+        if (!isTyping && !showPreferences) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          setShowPreferences(true);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [showPreferences, setShowPreferences]);
+
   const handleClear = async () => {
     try {
       await fetch(`${API_URL}/api/history`, {
