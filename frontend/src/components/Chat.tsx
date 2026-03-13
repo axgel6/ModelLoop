@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ChatPreferences from "./ChatPreferences";
+import History from "./History";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -53,6 +54,7 @@ function Chat({ onBack }: ChatProps) {
 4. Be concise - don't over-explain simple questions`);
   const [showPreferences, setShowPreferences] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -307,6 +309,29 @@ function Chat({ onBack }: ChatProps) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // 1. Only trigger if 'h' is pressed
+      if (event.key.toLowerCase() === "h") {
+        // 2. IMPORTANT: Don't trigger if the user is already typing in an input
+        const isTyping =
+          event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement;
+
+        // 3. Only open if not already typing elsewhere AND modal isn't already open
+        if (!isTyping && !showHistory) {
+          event.preventDefault();
+          event.stopImmediatePropagation(); // Forcefully stop other listeners
+          setShowHistory(true);
+        }
+      }
+    };
+
+    // Use 'capture' phase (true) to catch the event before it reaches elements
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [showHistory, setShowHistory]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() === "p") {
         const isTyping =
           event.target instanceof HTMLInputElement ||
@@ -349,11 +374,14 @@ function Chat({ onBack }: ChatProps) {
           ←
         </button>
         <h1 className="chat-title">ModelLoop/Chat</h1>
+        <button className="history-button" onClick={() => setShowHistory(true)}>
+          ↺
+        </button>
         <button
           className="chat-preferences"
           onClick={() => setShowPreferences(true)}
         >
-          Preferences
+          ⚙︎
         </button>
         <button className="new-chat" onClick={handleClear} disabled={loading}>
           New Chat
@@ -428,6 +456,7 @@ function Chat({ onBack }: ChatProps) {
           onClose={() => setShowPreferences(false)}
         />
       )}
+      {showHistory && <History onClose={() => setShowHistory(false)} />}
     </>
   );
 }

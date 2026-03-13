@@ -522,16 +522,17 @@ button,
   margin-top: 16px;
   gap: 20px;
 }
-.back-to-landing {
-  font-weight: bolder !important;
+.back-to-landing,
+.close-button,
+.history-button,
+.chat-preferences {
   font-size: 1.5rem !important;
   padding-bottom: 3px !important;
 }
 
+.back-to-landing,
 .close-button {
   font-weight: bolder !important;
-  font-size: 1.5rem !important;
-  padding-bottom: 3px !important;
 }
 
 .back-to-landing,
