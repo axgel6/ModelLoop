@@ -310,8 +310,13 @@ function Chat({ onBack }: ChatProps) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // 1. Only trigger if 'h' is pressed
-      if (event.key.toLowerCase() === "h") {
+      // 1. Only trigger if  ontrol + 'h' is pressed
+      if (
+        event.key.toLowerCase() === "h" &&
+        event.ctrlKey &&
+        !event.altKey &&
+        !event.metaKey
+      ) {
         // 2. IMPORTANT: Don't trigger if the user is already typing in an input
         const isTyping =
           event.target instanceof HTMLInputElement ||
@@ -324,6 +329,9 @@ function Chat({ onBack }: ChatProps) {
           setShowHistory(true);
         }
       }
+      if (event.ctrlKey && event.key.toLowerCase() === "h") {
+        event.preventDefault();
+      }
     };
 
     // Use 'capture' phase (true) to catch the event before it reaches elements
@@ -333,7 +341,12 @@ function Chat({ onBack }: ChatProps) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === "p") {
+      if (
+        event.key.toLowerCase() === "p" &&
+        event.ctrlKey &&
+        !event.altKey &&
+        !event.metaKey
+      ) {
         const isTyping =
           event.target instanceof HTMLInputElement ||
           event.target instanceof HTMLTextAreaElement;
@@ -343,6 +356,9 @@ function Chat({ onBack }: ChatProps) {
           event.stopImmediatePropagation();
           setShowPreferences(true);
         }
+      }
+      if (event.ctrlKey && event.key.toLowerCase() === "p") {
+        event.preventDefault();
       }
     };
     window.addEventListener("keydown", handleKeyDown, true);
@@ -440,7 +456,7 @@ function Chat({ onBack }: ChatProps) {
               onClick={handleAsk}
               disabled={loading}
             >
-              {loading ? ".•°" : "➤"}
+              {loading ? "◌" : "➤"}
             </button>
           </div>
         </div>
