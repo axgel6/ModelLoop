@@ -118,6 +118,10 @@ function Chat({ onBack }: ChatProps) {
         });
         if (response.ok) {
           setIsConnected(true);
+          if (modelsLoadedRef.current) {
+            clearInterval(interval); // Stops checking once models are loaded
+            return;
+          }
           if (!modelsLoadedRef.current) {
             const data = await response.json();
             const availableModels: string[] = data.models ?? [];
