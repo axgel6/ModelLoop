@@ -730,3 +730,9 @@ button,
   border-color: #d3869b !important;
   font-weight: bold;
 }
+
+.solid-divider {
+  margin: 0;
+  height: 1px;
+  background-color: #504945;
+}

@@ -262,6 +262,11 @@ async def get_models():
         if cached_models:
             return {"models": cached_models}
         raise HTTPException(status_code=500, detail=str(e))
+    
+# GET /api/health - Check if server is running
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
 
     # ---------------------------------------------------------------------------
     # Main entry point

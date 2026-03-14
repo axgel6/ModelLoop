@@ -100,8 +100,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           </button>
           <h2>Chat Preferences</h2>
         </div>
-        <hr style={{ margin: "0px 0", color: "#504945" }} />
-
+        <div className="solid-divider" role="separator"></div>
         <label style={{ display: "block", marginBottom: 8 }}>Presets</label>
         <div className="preset-buttons-row">
           {PRESETS.map(({ label, prompt }) => (
@@ -117,7 +116,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
         {activePreset === "Custom" && (
           <>
-            <hr style={{ margin: "0 0", color: "#504945" }} />
+            <div className="solid-divider" role="separator"></div>
             <label style={{ display: "block", marginBottom: 8 }}>
               Edit System Prompt:
             </label>

@@ -71,9 +71,7 @@ function Chat({ onBack }: ChatProps) {
           credentials: "include",
           headers: AUTH_HEADERS,
         });
-        if (!response.ok) {
-          throw new Error("Failed to fetch models");
-        }
+        if (!response.ok) throw new Error("Failed to fetch models");
 
         const data = await response.json();
         const availableModels: string[] = data.models ?? [];
@@ -109,28 +107,27 @@ function Chat({ onBack }: ChatProps) {
     loadModels();
     loadHistory();
 
-    // Periodically check connection and retry loading models if needed
-    const interval = setInterval(async () => {
+    // Retry loading models until successful
+    const modelRetryInterval = setInterval(async () => {
+      if (modelsLoadedRef.current) {
+        clearInterval(modelRetryInterval);
+        return;
+      }
       try {
         const response = await fetch(`${API_URL}/api/models`, {
           credentials: "include",
           headers: AUTH_HEADERS,
         });
         if (response.ok) {
+          const data = await response.json();
+          const availableModels: string[] = data.models ?? [];
+          setModels(availableModels);
           setIsConnected(true);
-          if (modelsLoadedRef.current) {
-            clearInterval(interval); // Stops checking once models are loaded
-            return;
+          modelsLoadedRef.current = true;
+          if (availableModels.length > 0) {
+            setSelectedModel(availableModels[0]);
           }
-          if (!modelsLoadedRef.current) {
-            const data = await response.json();
-            const availableModels: string[] = data.models ?? [];
-            setModels(availableModels);
-            modelsLoadedRef.current = true;
-            if (availableModels.length > 0) {
-              setSelectedModel(availableModels[0]);
-            }
-          }
+          clearInterval(modelRetryInterval);
         } else {
           setIsConnected(false);
         }
@@ -139,7 +136,24 @@ function Chat({ onBack }: ChatProps) {
       }
     }, 5000);
 
-    return () => clearInterval(interval);
+    // Lightweight heartbeat - only runs after models are loaded
+    const healthInterval = setInterval(async () => {
+      if (!modelsLoadedRef.current) return; // don't bother pinging while still retrying models
+      try {
+        const response = await fetch(`${API_URL}/api/health`, {
+          credentials: "include",
+          headers: AUTH_HEADERS,
+        });
+        setIsConnected(response.ok);
+      } catch {
+        setIsConnected(false);
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(modelRetryInterval);
+      clearInterval(healthInterval);
+    };
   }, []);
 
   const handleAsk = async () => {
