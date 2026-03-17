@@ -8,7 +8,7 @@ pydantic[email]
 sqlalchemy[asyncio]
 asyncpg
 python-jose[cryptography]
-passlib[bcrypt]
+bcrypt
 python-multipart
 pytest
 pytest-asyncio

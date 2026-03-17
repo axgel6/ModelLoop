@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 import os
 
-pwd_context   = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 SECRET     = os.environ["JWT_SECRET"]
@@ -14,15 +13,11 @@ EXPIRE_MIN = int(os.environ.get("JWT_EXPIRE_MINUTES", 1440))
 
 
 def hash_password(password: str) -> str:
-    # bcrypt only processes the first 72 bytes, so truncate before hashing
-    truncated = password.encode("utf-8")[:72]
-    return pwd_context.hash(truncated)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    # Truncate the same way as hash_password before comparing
-    truncated = plain.encode("utf-8")[:72]
-    return pwd_context.verify(truncated, hashed)
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 def create_token(user_id: str) -> str:
