@@ -58,7 +58,7 @@ ModelLoop/
 cd backend
 python -m venv .venv
 source .venv/bin/activate
-pip install flask flask-cors flask-limiter python-dotenv requests
+pip install -r requirements.txt
 python server.py
 ```
 

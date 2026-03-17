@@ -5,8 +5,6 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_KEY = import.meta.env.VITE_API_KEY;
 
-// Build headers for every request — attaches JWT Bearer token and optional X-API-Key
-// Extra headers (e.g. Content-Type) are merged in by the caller
 function authHeaders(
   extraHeaders: Record<string, string> = {},
 ): Record<string, string> {
@@ -31,9 +29,9 @@ export async function apiRegister(
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) {
-    // Surface the backend's detail message when available
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Registration failed");
+    const detail = typeof err.detail === "string" ? err.detail : "Registration failed";
+    throw new Error(detail);
   }
   return res.json();
 }
@@ -50,14 +48,15 @@ export async function apiLogin(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Invalid email or password");
+    const detail = typeof err.detail === "string" ? err.detail : "Invalid email or password";
+    throw new Error(detail);
   }
   return res.json();
 }
 
 // ----- Chats -----
 
-// Metadata returned for each chat — does not include message content
+// Metadata returned for each chat, does not include message content
 export interface ChatMeta {
   id: string;
   title: string;
@@ -83,7 +82,7 @@ export async function apiCreateChat(): Promise<ChatMeta> {
   return res.json();
 }
 
-// Rename a chat — only the owning user can rename it (enforced server-side)
+// Rename a chat, only the authorized user can rename it (enforced server-side)
 export async function apiRenameChat(
   chatId: string,
   title: string,
@@ -96,7 +95,7 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("Failed to rename chat");
 }
 
-// Delete a chat and all its messages — cascaded on the server
+// Delete a chat and all its messages
 export async function apiDeleteChat(chatId: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/chats/${chatId}`, {
     method: "DELETE",
@@ -134,7 +133,7 @@ export async function apiGetModels(): Promise<string[]> {
   return data.models ?? [];
 }
 
-// Ping the health endpoint — returns false instead of throwing on network errors
+// Ping the health endpoint, returns false instead of throwing on network errors
 // Used by Chat.tsx to drive the connection status indicator
 export async function apiHealth(): Promise<boolean> {
   try {
@@ -149,7 +148,7 @@ export async function apiHealth(): Promise<boolean> {
 
 // ----- Streaming -----
 
-// Send a guest chat message — no auth required, history is passed by the caller
+// Send a guest chat message, no auth required, history is passed by the caller
 // Returns the raw Response so the caller can read the SSE stream directly
 export async function apiGuestChatStream(payload: {
   prompt: string;
@@ -159,7 +158,7 @@ export async function apiGuestChatStream(payload: {
 }): Promise<Response> {
   const res = await fetch(`${API_URL}/api/chat/guest/stream`, {
     method: "POST",
-    // No auth header — guest endpoint is unauthenticated
+    // No auth header, guest endpoint is unauthenticated
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
@@ -170,7 +169,7 @@ export async function apiGuestChatStream(payload: {
   return res;
 }
 
-// Send an authenticated chat message — history is loaded from the DB by the server
+// Send an authenticated chat message, history is loaded from the DB by the server
 // Returns the raw Response so the caller can read the SSE stream directly
 export async function apiChatStream(payload: {
   prompt: string;
