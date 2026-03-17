@@ -15,7 +15,7 @@ ModelLoop/
 │   ├── tests/
 │   │   ├── conftest.py
 │   │   └── test_server.py
-│   └── .env                   # SECRET_KEY, DATABASE_URL, OLLAMA_URL
+│   └── .env                   # JWT_SECRET, DATABASE_URL, OLLAMA_URL, ALLOWED_ORIGINS, APP_ENV
 ├── frontend/                  # React + TypeScript + Vite
 │   ├── src/
 │   │   ├── components/
@@ -31,7 +31,7 @@ ModelLoop/
 │   │   └── main.tsx
 │   ├── index.html
 │   ├── package.json
-│   └── .env                   # VITE_API_URL, VITE_API_KEY
+│   └── .env                   # VITE_API_URL
 ├── screenshots/
 └── README.md
 ```
