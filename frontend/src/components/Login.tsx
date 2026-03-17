@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiGetModels, apiLogin, apiRegister } from "./api";
+import { apiHealth, apiLogin, apiRegister } from "./api";
 
 interface LoginProps {
   onLogin: () => void;
@@ -18,9 +18,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
 
   // Check backend connectivity on mount to show the connection banner if needed
   useEffect(() => {
-    apiGetModels()
-      .then(() => setIsConnected(true))
-      .catch(() => setIsConnected(false));
+    apiHealth().then(setIsConnected);
   }, []);
 
   const isLogin = mode === "login";

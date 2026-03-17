@@ -1,4 +1,5 @@
-import React, { useEffect } from "react";
+import React from "react";
+import { useEscapeKey } from "./useEscapeKey";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -75,13 +76,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   activePreset,
   setActivePreset,
 }) => {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   const handlePresetClick = (label: string, prompt: string) => {
     setActivePreset(label);

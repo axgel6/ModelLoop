@@ -129,12 +129,10 @@ function Chat({
     };
   }, []);
 
-  // Ref mirror of activeChatId so handleAsk always sees the latest value inside async closures.
+  // Ref mirror of activeChatId so handleAsk always sees the latest value inside async closures
   const activeChatIdRef = useRef<string | null>(activeChatId);
+  activeChatIdRef.current = activeChatId;
   const justCreatedChatRef = useRef(false);
-  useEffect(() => {
-    activeChatIdRef.current = activeChatId;
-  }, [activeChatId]);
 
   // When activeChatId changes (user selected a chat in History), load its messages
   useEffect(() => {
@@ -142,9 +140,11 @@ function Chat({
       setMessages([]);
       return;
     }
+    // Doesn't wipe state since chat is new but no messages yet
+    // prevents bug that reloads and clears chat after first response
     if (justCreatedChatRef.current) {
       justCreatedChatRef.current = false;
-      return; // Chat was just created — nothing in DB yet, don't wipe state
+      return;
     }
     const loadMessages = async () => {
       try {
@@ -157,7 +157,7 @@ function Chat({
     loadMessages();
   }, [activeChatId]);
 
-  // Ensure a chat exists before sending — reads from ref so it always has the latest
+  // Ensure a chat exists before sending, reads from ref so it always has the latest
   // chat_id even after creation without waiting for a re-render
   const ensureChatId = async (): Promise<string | null> => {
     if (activeChatIdRef.current) return activeChatIdRef.current;
@@ -165,8 +165,8 @@ function Chat({
       const chat = await apiCreateChat();
       activeChatIdRef.current = chat.id;
       justCreatedChatRef.current = true; // Prevent load-messages effect from wiping state
-      onChatCreated(chat.id); // Bubble up so App.tsx tracks it
-      onChatsChanged(); // Refresh History sidebar list
+      onChatCreated(chat.id);
+      onChatsChanged();
       return chat.id;
     } catch {
       console.error("Failed to create chat");
@@ -212,11 +212,24 @@ function Chat({
       return;
     }
 
+    if (input.trim().toLowerCase() === "/help") {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Available commands: /clear, /code, /math, /help\nKeyboard shortcuts: Ctrl+H (History - If logged in), Ctrl+P (Preferences)",
+        },
+      ]);
+      setInput("");
+      return;
+    }
+
     // ----- Normal Message Flow -----
 
     const userMessage = input.trim();
 
-    // Guest: snapshot history before mutating state; skip DB chat creation
+    // Guest: snapshot history before mutating state and skips DB chat creation
     const historyForGuest = isGuest ? [...messages] : null;
     let chatId: string | null = null;
     if (!isGuest) {
@@ -277,7 +290,7 @@ function Chat({
                   return next;
                 });
               } else if (data.type === "done") {
-                // Backend persisted successfully — refresh sidebar (not needed for guests)
+                // Backend persisted successfully for authenticated users
                 if (!isGuest) onChatsChanged();
               } else if (data.type === "error") {
                 throw new Error(data.error);
@@ -321,7 +334,7 @@ function Chat({
     }
   };
 
-  // Ctrl+H / Ctrl+P — open History / Preferences panels
+  // Ctrl+H / Ctrl+P  (open History / Preferences panels)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.ctrlKey || event.altKey || event.metaKey) return;

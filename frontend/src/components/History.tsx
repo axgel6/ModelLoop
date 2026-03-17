@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { apiListChats, apiDeleteChat } from "./api";
+import { useEscapeKey } from "./useEscapeKey";
 
 // Format an ISO date string as a human-readable relative label
 function formatDate(iso: string): string {
@@ -70,14 +71,7 @@ const History: React.FC<HistoryProps> = ({
     fetchHistory();
   }, []);
 
-  // Close the panel when Escape is pressed
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   // ----- Handlers -----
 
