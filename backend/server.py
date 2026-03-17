@@ -1,28 +1,35 @@
 import httpx
 import os
-import uuid
 import json
 import re
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Cookie, HTTPException, Request
+load_dotenv()
+from contextlib import asynccontextmanager
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from fastapi.security import APIKeyHeader
+from database import get_db, engine, Base, AsyncSessionLocal
+from models import User, Chat, Message
+from auth import hash_password, verify_password, create_token, get_current_user_id
 
-load_dotenv()
+# ----- App Setup -----
 
-# ---------------------------------------------------------------------------
-# App + middleware
-# ---------------------------------------------------------------------------
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
-# CORS configuration for frontend access
+# Restrict cross-origin requests to the configured frontend origin
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -32,12 +39,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiting to prevent API abuse
+# Rate limiter keyed by client IP to prevent API abuse
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
-from fastapi.responses import JSONResponse
 
-# Custom exception handler for RateLimitExceeded
+
 def rate_limit_exceeded_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=429,
@@ -46,104 +52,179 @@ def rate_limit_exceeded_handler(request: Request, exc: Exception):
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
-# ---------------------------------------------------------------------------
-# Security
-# ---------------------------------------------------------------------------
-API_KEY = os.environ.get("API_KEY")
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-async def verify_api_key(key: str = Depends(api_key_header)):
-    if API_KEY and key != API_KEY:
-        raise HTTPException(status_code=403, detail="Invalid or missing API key")
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
+# ----- Configuration -----
 
 MAX_PROMPT_LENGTH = 10000
 OLLAMA_BASE_URL   = os.environ.get("OLLAMA_URL")
 DEFAULT_MODEL     = os.environ.get("DEFAULT_MODEL", "llama3.2:latest")
 IS_PRODUCTION     = os.environ.get("APP_ENV", "development").lower() == "production"
-NGROK_HEADERS     = {"ngrok-skip-browser-warning": "true"}  # Bypass ngrok browser warning
+# Skip the ngrok browser interstitial page on tunnel requests
+NGROK_HEADERS     = {"ngrok-skip-browser-warning": "true"}
 
-# System prompt for consistent formatting
 SYSTEM_PROMPT = """You are a helpful assistant. Important rules:
 1. Always consider the conversation history when answering follow-up questions
 2. When the user says "add X" or similar, apply it to the previous result
 3. Use $ for inline math and $$ for block math
 4. Be concise - don't over-explain simple questions"""
 
-# ---------------------------------------------------------------------------
-# In-memory state
-# ---------------------------------------------------------------------------
-
-# session_id -> message history
-session_histories: dict[str, list[dict]] = {}
-
-# Cached models list
 cached_models: list[str] = []
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
-# Post-process model output to fix math delimiters
+# Normalize LaTeX delimiters in model output to the format the frontend renderer expects
 def fix_math_delimiters(text: str) -> str:
     # Convert \[ ... \] to $$ ... $$
     text = re.sub(r'\\\[(.+?)\\\]', r'$$\1$$', text, flags=re.DOTALL)
     # Convert \( ... \) to $ ... $
     text = re.sub(r'\\\((.+?)\\\)', r'$\1$',   text, flags=re.DOTALL)
-    # Convert [ ... ] containing LaTeX commands to $$ ... $$
+    # Convert [ ... ] blocks containing LaTeX commands to $$ ... $$
     text = re.sub(r'\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]', r'$$\1$$', text)
-    # Convert standalone [ expr ] math (simple expressions with operators)
+    # Convert standalone bracketed arithmetic expressions to $$ ... $$
     text = re.sub(r'\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]', r'$$\1$$', text)
     return text
 
+# ----- Schemas -----
 
-# Get existing session or create new one. Returns (session_id, history, is_new)
-def get_or_create_session(session_id: Optional[str]) -> tuple[str, list[dict], bool]:
-    is_new = False
-    if not session_id:
-        session_id = str(uuid.uuid4())
-        is_new = True
-        session_histories[session_id] = []
-    elif session_id not in session_histories:
-        session_histories[session_id] = []
-    return session_id, session_histories[session_id], is_new
-
-
-# Set session cookie on response
-def attach_session_cookie(response: StreamingResponse, session_id: str):
-    response.set_cookie(
-        "session_id",
-        session_id,
-        httponly=True,
-        samesite="none" if IS_PRODUCTION else "lax",
-        secure=IS_PRODUCTION,
-        max_age=86400,  # 24 hours
-    )
-
-# ---------------------------------------------------------------------------
-# Request schemas
-# ---------------------------------------------------------------------------
+class RegisterRequest(BaseModel):
+    email:    str = Field(..., min_length=1)
+    password: str = Field(..., min_length=8)
 
 class ChatRequest(BaseModel):
     prompt:        str           = Field(..., min_length=1)
+    # Frontend must create a chat first via POST /api/chats
+    chat_id:       str
     model:         Optional[str] = None
     system_prompt: Optional[str] = None
 
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
+class GuestChatRequest(BaseModel):
+    prompt:        str            = Field(..., min_length=1)
+    # Conversation history supplied by the client (not persisted)
+    messages:      list[dict]     = []
+    model:         Optional[str]  = None
+    system_prompt: Optional[str]  = None
 
-# POST /api/chat/stream - Stream chat responses using Server-Sent Events (SSE)
+class RenameChatRequest(BaseModel):
+    title: str = Field(..., min_length=1)
+
+# ----- Auth Routes -----
+
+# POST /api/auth/register - Create a new user account and return a JWT
+@app.post("/api/auth/register", status_code=201)
+async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    existing = await db.execute(select(User).where(User.email == body.email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Email already registered")
+    user = User(email=body.email, password_hash=hash_password(body.password))
+    db.add(user)
+    await db.commit()
+    return {"token": create_token(str(user.id))}
+
+
+# POST /api/auth/login - Verify credentials and return a JWT
+@app.post("/api/auth/login")
+async def login(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    if not user or not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"token": create_token(str(user.id))}
+
+# ----- Chat Routes -----
+
+# POST /api/chats - Create a new chat session for the authenticated user
+@app.post("/api/chats", status_code=201)
+async def create_chat(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    chat = Chat(user_id=user_id)
+    db.add(chat)
+    await db.commit()
+    await db.refresh(chat)
+    return {"id": str(chat.id), "title": chat.title, "created_at": chat.created_at}
+
+
+# GET /api/chats - List all chats for the authenticated user, newest first
+@app.get("/api/chats")
+async def list_chats(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Chat).where(Chat.user_id == user_id).order_by(Chat.updated_at.desc())
+    )
+    chats = result.scalars().all()
+    return {
+        "chats": [
+            {
+                "id":         str(c.id),
+                "title":      c.title,
+                "created_at": c.created_at,
+                "updated_at": c.updated_at,
+            }
+            for c in chats
+        ]
+    }
+
+
+# PATCH /api/chats/{chat_id} - Rename a chat (user must own it)
+@app.patch("/api/chats/{chat_id}")
+async def rename_chat(
+    chat_id: str,
+    body: RenameChatRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    chat.title = body.title
+    await db.commit()
+    return {"id": str(chat.id), "title": chat.title}
+
+
+# DELETE /api/chats/{chat_id} - Delete a chat and all its messages (cascade)
+@app.delete("/api/chats/{chat_id}", status_code=204)
+async def delete_chat(
+    chat_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    await db.delete(chat)
+    await db.commit()
+
+# ----- Message Routes -----
+
+# GET /api/chats/{chat_id}/messages - Return full conversation history for a chat
+@app.get("/api/chats/{chat_id}/messages")
+async def get_messages(
+    chat_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    # Verify the chat belongs to the requesting user before returning messages
+    result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Chat not found")
+    msgs = await db.execute(
+        select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
+    )
+    return {"messages": [{"role": m.role, "content": m.content} for m in msgs.scalars().all()]}
+
+# ----- Stream Routes -----
+
+# POST /api/chat/stream - Stream a chat response via Server-Sent Events
 @app.post("/api/chat/stream")
 @limiter.limit("10/minute")
 async def chat_stream(
-    request: Request,                           # required by slowapi for rate limiting
+    request: Request,
     body: ChatRequest,
-    session_id: Optional[str] = Cookie(default=None),
-    _: None = Depends(verify_api_key),
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ):
     prompt = body.prompt.strip()
     model  = (body.model or DEFAULT_MODEL).strip()
@@ -151,21 +232,34 @@ async def chat_stream(
     if len(prompt) > MAX_PROMPT_LENGTH:
         raise HTTPException(status_code=400, detail=f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters")
 
-    sid, history, is_new = get_or_create_session(session_id)
+    # Verify the chat exists and belongs to the requesting user
+    result = await db.execute(select(Chat).where(Chat.id == body.chat_id, Chat.user_id == user_id))
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
 
-    # Build messages array for Ollama chat API
+    # Load full conversation history from the DB to provide context to the model
+    msgs_result = await db.execute(
+        select(Message).where(Message.chat_id == body.chat_id).order_by(Message.created_at)
+    )
+    history = [{"role": m.role, "content": m.content} for m in msgs_result.scalars().all()]
+
+    # Build the messages array for the Ollama chat API
     system_prompt = body.system_prompt or SYSTEM_PROMPT
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": prompt})
+
+    # Capture in local vars for use inside the generator closure
+    chat_id    = body.chat_id
+    chat_title = chat.title
 
     async def generate():
         full_response = ""
         success       = False
 
         try:
-            # httpx.AsyncClient is non-blocking — frees the event loop while
-            # waiting for tokens, unlike requests which blocks a thread
+            # AsyncClient is non-blocking — frees the event loop while waiting for tokens
             async with httpx.AsyncClient(timeout=120) as client:
                 async with client.stream(
                     "POST",
@@ -175,7 +269,7 @@ async def chat_stream(
                 ) as resp:
                     resp.raise_for_status()
 
-                    # Stream tokens as they arrive
+                    # Forward each token to the client as it arrives
                     async for line in resp.aiter_lines():
                         if line:
                             try:
@@ -190,50 +284,92 @@ async def chat_stream(
                             except json.JSONDecodeError:
                                 continue
 
-            # Only persist to history after successful completion
+            # Persist to the DB only after the stream completes successfully
             if success and full_response.strip():
                 processed = fix_math_delimiters(full_response.strip())
-                history.append({"role": "user",      "content": prompt})
-                history.append({"role": "assistant", "content": processed})
-                yield f"data: {json.dumps({'type': 'done', 'history': history})}\n\n"
+
+                # Use a fresh session — the outer session may have expired during a long stream
+                async with AsyncSessionLocal() as write_db:
+                    write_db.add(Message(chat_id=chat_id, role="user",      content=prompt))
+                    write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
+
+                    # Auto-title the chat from the first 60 characters of the opening prompt
+                    if chat_title == "New Chat":
+                        chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
+                        chat_row = chat_result.scalar_one_or_none()
+                        if chat_row:
+                            chat_row.title = prompt[:60]
+
+                    await write_db.commit()
+
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
             else:
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
 
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+            msg = str(e) if not IS_PRODUCTION else "An error occurred"
+            yield f"data: {json.dumps({'type': 'error', 'error': msg})}\n\n"
 
-    response = StreamingResponse(
+    return StreamingResponse(
         generate(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-    if is_new:
-        attach_session_cookie(response, sid)
-    return response
 
 
-# GET /api/history - Retrieve conversation history for current session
-@app.get("/api/history")
-async def get_history(
-    session_id: Optional[str] = Cookie(default=None),
-    _: None = Depends(verify_api_key),
+# POST /api/chat/guest/stream - Stream a chat response for unauthenticated users (no persistence)
+@app.post("/api/chat/guest/stream")
+@limiter.limit("10/minute")
+async def guest_chat_stream(
+    request: Request,
+    body: GuestChatRequest,
 ):
-    _sid, history, _is_new = get_or_create_session(session_id) #_sid (sessionID) and _is_new (whether session was created) are unused but we want the side effect of creating a session if one doesn't exist
-    return {"history": history}
+    prompt = body.prompt.strip()
+    model  = (body.model or DEFAULT_MODEL).strip()
 
+    if len(prompt) > MAX_PROMPT_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters")
 
-# DELETE /api/history - Clear conversation history for current session
-@app.delete("/api/history")
-async def clear_history(
-    session_id: Optional[str] = Cookie(default=None),
-    _: None = Depends(verify_api_key),
-):
-    if session_id and session_id in session_histories:
-        session_histories[session_id].clear() # Clear in-place to ensure all references are updated
-    return {"message": "History cleared"}
+    system_prompt = body.system_prompt or SYSTEM_PROMPT
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(body.messages)
+    messages.append({"role": "user", "content": prompt})
 
+    async def generate():
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                async with client.stream(
+                    "POST",
+                    f"{OLLAMA_BASE_URL}/api/chat",
+                    json={"model": model, "messages": messages, "stream": True},
+                    headers=NGROK_HEADERS,
+                ) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if line:
+                            try:
+                                chunk = json.loads(line)
+                                token = chunk.get("message", {}).get("content", "")
+                                if token:
+                                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+                                if chunk.get("done"):
+                                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+        except Exception as e:
+            msg = str(e) if not IS_PRODUCTION else "An error occurred"
+            yield f"data: {json.dumps({'type': 'error', 'error': msg})}\n\n"
 
-# GET /api/models - Fetch available models from Ollama server
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+# ----- Model Routes -----
+
+# GET /api/models - Return available Ollama models, with results cached across requests
 @app.get("/api/models")
 async def get_models():
     global cached_models
@@ -245,12 +381,12 @@ async def get_models():
 
         fetched = [m.get("name") for m in data.get("models", []) if m.get("name")]
 
-        # Add any new models to the cache
+        # Append any newly discovered models to the cache
         for model in fetched:
             if model not in cached_models:
                 cached_models.append(model)
 
-        # Sort so DEFAULT_MODEL comes first if present
+        # Promote the default model to the top of the list
         if DEFAULT_MODEL in cached_models:
             cached_models.remove(DEFAULT_MODEL)
             cached_models.insert(0, DEFAULT_MODEL)
@@ -258,20 +394,19 @@ async def get_models():
         return {"models": cached_models}
 
     except Exception as e:
-        # Return cached models if available, otherwise error
+        # Return stale cache on error rather than failing the request
         if cached_models:
             return {"models": cached_models}
         raise HTTPException(status_code=500, detail=str(e))
-    
-# GET /api/health - Check if server is running
+
+# ----- Utility -----
+
+# GET /api/health - Liveness check
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
 
-    # ---------------------------------------------------------------------------
-    # Main entry point
-    # ---------------------------------------------------------------------------
-    
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

@@ -6,12 +6,33 @@ A self-hosted AI chat interface powered by Ollama.
 
 ```
 ModelLoop/
-├── frontend/          # React + TypeScript + Vite
+├── backend/                   # FastAPI server
+│   ├── server.py              # Routes, SSE streaming, model cache
+│   ├── auth.py                # JWT auth, bcrypt password hashing
+│   ├── database.py            # Async SQLAlchemy engine + session
+│   ├── models.py              # ORM models: User, Chat, Message
+│   ├── requirements.txt
+│   ├── tests/
+│   │   ├── conftest.py
+│   │   └── test_server.py
+│   └── .env                   # SECRET_KEY, DATABASE_URL, OLLAMA_URL
+├── frontend/                  # React + TypeScript + Vite
 │   ├── src/
-│   └── package.json
-├── backend/           # Flask API server
-│   ├── server.py
-│   └── .env
+│   │   ├── components/
+│   │   │   ├── api.ts         # Centralized API client
+│   │   │   ├── Chat.tsx       # Main chat UI + streaming
+│   │   │   ├── ChatPreferences.tsx
+│   │   │   ├── History.tsx    # Chat history modal
+│   │   │   ├── LandingPage.tsx
+│   │   │   └── Login.tsx      # Login + register form
+│   │   ├── App.tsx            # Top-level view routing
+│   │   ├── App.css            # All styles (Gruvbox dark theme)
+│   │   ├── index.css          # Font import + body reset
+│   │   └── main.tsx
+│   ├── index.html
+│   ├── package.json
+│   └── .env                   # VITE_API_URL, VITE_API_KEY
+├── screenshots/
 └── README.md
 ```
 
@@ -23,6 +44,11 @@ ModelLoop/
 - Rate limiting protection
 - Code syntax highlighting
 - Markdown rendering
+- Streaming responses (token-by-token)
+- User support
+- Keyboard shortcuts
+- System prompt customization
+- Chat History
 
 ## Getting Started
 
@@ -46,8 +72,6 @@ npm run dev
 
 ## Features Coming Soon
 
-- Streaming responses (token-by-token)
-- Multiple user support
 - Themes + custom branding
 - Hardware specs display
 - Custom Ollama server URL configuration
@@ -55,8 +79,14 @@ npm run dev
 - Edit & resubmit messages
 - Export chat history (Markdown/JSON)
 - Pull/delete models from UI
-- System prompt customization
 - Dark/light mode toggle
 - Temperature/parameter controls
-- Keyboard shortcuts
 - Image support
+
+## Screenshots
+
+![Screenshot of the sign in page](screenshots/sign-in.png)
+![Screenshot of the landing page](screenshots/landing-page.png)
+![Screenshot of a chat between the AI Assistant and the user](screenshots/ai-user-chat.png)
+![Screenshot of the chat preferences menu](screenshots/chat-preferences.png)
+![Screenshot of the history view](screenshots/history.png)

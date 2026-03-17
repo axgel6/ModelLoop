@@ -6,15 +6,17 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import {
+  apiChatStream,
+  apiCreateChat,
+  apiGetMessages,
+  apiGetModels,
+  apiGuestChatStream,
+  apiHealth,
+  type Message,
+} from "./api";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_KEY = import.meta.env.VITE_API_KEY;
-
-const AUTH_HEADERS = {
-  "X-API-Key": API_KEY,
-};
-
-// Fix math delimiters from model output to proper LaTeX format
+// Normalize LaTeX delimiters from model output to the format the renderer expects
 function fixMathDelimiters(text: string): string {
   return (
     text
@@ -29,16 +31,25 @@ function fixMathDelimiters(text: string): string {
   );
 }
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-
 interface ChatProps {
   onBack: () => void;
+  activeChatId: string | null; // Controlled by App.tsx
+  onChatCreated: (chatId: string) => void; // Notify App when a new chat is created
+  onChatsChanged: () => void; // Notify History to refresh its list
+  onLogout: () => void; // Clear token and return to landing/login
+  historyKey: number; // Incremented by App.tsx to force History to remount/refetch
+  isGuest: boolean; // True means no auth and no persistence
 }
 
-function Chat({ onBack }: ChatProps) {
+function Chat({
+  onBack,
+  activeChatId,
+  onChatCreated,
+  onChatsChanged,
+  onLogout,
+  historyKey,
+  isGuest,
+}: ChatProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,98 +68,60 @@ function Chat({ onBack }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom whenever the messages array changes
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // Loads models on mount and set up a retry interval + periodic health check
   useEffect(() => {
     const loadModels = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/models`, {
-          credentials: "include",
-          headers: AUTH_HEADERS,
-        });
-        if (!response.ok) throw new Error("Failed to fetch models");
-
-        const data = await response.json();
-        const availableModels: string[] = data.models ?? [];
+        const availableModels = await apiGetModels();
         setModels(availableModels);
         setIsConnected(true);
         modelsLoadedRef.current = true;
-        if (availableModels.length > 0) {
-          setSelectedModel(availableModels[0]);
-        }
-      } catch (error) {
-        console.error("Error fetching models:", error);
+        if (availableModels.length > 0) setSelectedModel(availableModels[0]);
+      } catch {
         setIsConnected(false);
       }
     };
 
-    const loadHistory = async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/history`, {
-          credentials: "include",
-          headers: AUTH_HEADERS,
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.history?.length > 0) {
-            setMessages(data.history);
-          }
-        }
-      } catch (error) {
-        console.error("Error loading history:", error);
-      }
-    };
-
     loadModels();
-    loadHistory();
 
-    // Retry loading models until successful
+    // Retry every 5s until models are successfully loaded
     const modelRetryInterval = setInterval(async () => {
       if (modelsLoadedRef.current) {
         clearInterval(modelRetryInterval);
         return;
       }
       try {
-        const response = await fetch(`${API_URL}/api/models`, {
-          credentials: "include",
-          headers: AUTH_HEADERS,
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const availableModels: string[] = data.models ?? [];
-          setModels(availableModels);
-          setIsConnected(true);
-          modelsLoadedRef.current = true;
-          if (availableModels.length > 0) {
-            setSelectedModel(availableModels[0]);
-          }
-          clearInterval(modelRetryInterval);
-        } else {
-          setIsConnected(false);
-        }
+        const availableModels = await apiGetModels();
+        setModels(availableModels);
+        setIsConnected(true);
+        modelsLoadedRef.current = true;
+        if (availableModels.length > 0) setSelectedModel(availableModels[0]);
+        clearInterval(modelRetryInterval);
       } catch {
         setIsConnected(false);
       }
     }, 5000);
 
-    // Lightweight heartbeat - only runs after models are loaded
+    // Lightweight heartbeat — only runs after models are loaded
+    let healthFailures = 0;
     const healthInterval = setInterval(async () => {
-      if (!modelsLoadedRef.current) return; // don't bother pinging while still retrying models
+      if (!modelsLoadedRef.current) return;
       try {
-        const response = await fetch(`${API_URL}/api/health`, {
-          credentials: "include",
-          headers: AUTH_HEADERS,
-        });
-        setIsConnected(response.ok);
+        const ok = await apiHealth();
+        setIsConnected(ok);
+        healthFailures = 0;
       } catch {
-        setIsConnected(false);
+        healthFailures++;
+        if (healthFailures >= 3) setIsConnected(false);
       }
-    }, 5000);
+    }, 30000);
 
     return () => {
       clearInterval(modelRetryInterval);
@@ -156,23 +129,60 @@ function Chat({ onBack }: ChatProps) {
     };
   }, []);
 
+  // Ref mirror of activeChatId so handleAsk always sees the latest value inside async closures.
+  const activeChatIdRef = useRef<string | null>(activeChatId);
+  const justCreatedChatRef = useRef(false);
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
+  // When activeChatId changes (user selected a chat in History), load its messages
+  useEffect(() => {
+    if (!activeChatId) {
+      setMessages([]);
+      return;
+    }
+    if (justCreatedChatRef.current) {
+      justCreatedChatRef.current = false;
+      return; // Chat was just created — nothing in DB yet, don't wipe state
+    }
+    const loadMessages = async () => {
+      try {
+        const msgs = await apiGetMessages(activeChatId);
+        setMessages(msgs);
+      } catch {
+        console.error("Failed to load messages for chat", activeChatId);
+      }
+    };
+    loadMessages();
+  }, [activeChatId]);
+
+  // Ensure a chat exists before sending — reads from ref so it always has the latest
+  // chat_id even after creation without waiting for a re-render
+  const ensureChatId = async (): Promise<string | null> => {
+    if (activeChatIdRef.current) return activeChatIdRef.current;
+    try {
+      const chat = await apiCreateChat();
+      activeChatIdRef.current = chat.id;
+      justCreatedChatRef.current = true; // Prevent load-messages effect from wiping state
+      onChatCreated(chat.id); // Bubble up so App.tsx tracks it
+      onChatsChanged(); // Refresh History sidebar list
+      return chat.id;
+    } catch {
+      console.error("Failed to create chat");
+      return null;
+    }
+  };
+
   const handleAsk = async () => {
     if (!input.trim()) return;
 
+    // ----- Slash Commands -----
+
     if (input.trim().toLowerCase() === "/clear") {
-      try {
-        await fetch(`${API_URL}/api/history`, {
-          method: "DELETE",
-          credentials: "include",
-          headers: AUTH_HEADERS,
-        });
-        setMessages([
-          { role: "assistant", content: "Chat history cleared successfully." },
-        ]);
-        setInput("");
-      } catch (error) {
-        console.error("Error clearing history:", error);
-      }
+      setMessages([]);
+      setInput("");
+      onChatCreated(""); // Reset active chat so next message starts a fresh one
       return;
     }
 
@@ -202,48 +212,44 @@ function Chat({ onBack }: ChatProps) {
       return;
     }
 
+    // ----- Normal Message Flow -----
+
     const userMessage = input.trim();
+
+    // Guest: snapshot history before mutating state; skip DB chat creation
+    const historyForGuest = isGuest ? [...messages] : null;
+    let chatId: string | null = null;
+    if (!isGuest) {
+      chatId = await ensureChatId();
+      if (!chatId) return;
+    }
+
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setInput("");
 
-    // Add placeholder for streaming response
+    // Add placeholder that will be filled in-place as tokens stream in
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     setLoading(true);
     try {
-      const payload: {
-        prompt: string;
-        model?: string;
-        system_prompt?: string;
-      } = {
-        prompt: userMessage,
-        system_prompt: systemPrompt,
-      };
-      if (selectedModel) {
-        payload.model = selectedModel;
-      }
-
-      const response = await fetch(`${API_URL}/api/chat/stream`, {
-        method: "POST",
-        headers: {
-          ...AUTH_HEADERS,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to get response");
-      }
+      const response = isGuest
+        ? await apiGuestChatStream({
+            prompt: userMessage,
+            messages: historyForGuest!,
+            model: selectedModel || undefined,
+            system_prompt: systemPrompt,
+          })
+        : await apiChatStream({
+            prompt: userMessage,
+            chat_id: chatId!,
+            model: selectedModel || undefined,
+            system_prompt: systemPrompt,
+          });
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
 
-      if (!reader) {
-        throw new Error("Failed to get response stream");
-      }
+      if (!reader) throw new Error("Failed to get response stream");
 
       let accumulatedResponse = "";
 
@@ -261,31 +267,23 @@ function Chat({ onBack }: ChatProps) {
 
               if (data.type === "token") {
                 accumulatedResponse += data.token;
+                // Update the last message (the streaming placeholder) in-place
                 setMessages((prev) => {
-                  const newMessages = [...prev];
-                  newMessages[newMessages.length - 1] = {
+                  const next = [...prev];
+                  next[next.length - 1] = {
                     role: "assistant",
                     content: accumulatedResponse,
                   };
-                  return newMessages;
+                  return next;
                 });
               } else if (data.type === "done") {
-                // Backend responded successfully - mark as connected
-                setIsConnected(true);
-                // Update with final trimmed response (server has canonical version)
-                if (data.history?.length >= 2) {
-                  const lastAssistant = data.history[data.history.length - 1];
-                  setMessages((prev) => {
-                    const newMessages = [...prev];
-                    newMessages[newMessages.length - 1] = lastAssistant;
-                    return newMessages;
-                  });
-                }
+                // Backend persisted successfully — refresh sidebar (not needed for guests)
+                if (!isGuest) onChatsChanged();
               } else if (data.type === "error") {
                 throw new Error(data.error);
               }
             } catch (e) {
-              // Skip invalid JSON lines
+              // Skip invalid JSON lines (SSE keep-alives etc.)
               if (e instanceof SyntaxError) continue;
               throw e;
             }
@@ -298,21 +296,18 @@ function Chat({ onBack }: ChatProps) {
         error instanceof Error
           ? error.message
           : "Failed to get response from server";
+      // Replace the streaming placeholder with the error message
       setMessages((prev) => {
-        // Replace the last message (empty placeholder) with error
-        const newMessages = [...prev];
-        if (
-          newMessages.length > 0 &&
-          newMessages[newMessages.length - 1].role === "assistant"
-        ) {
-          newMessages[newMessages.length - 1] = {
+        const next = [...prev];
+        if (next.length > 0 && next[next.length - 1].role === "assistant") {
+          next[next.length - 1] = {
             role: "assistant",
             content: `Error: ${message}`,
           };
         } else {
-          newMessages.push({ role: "assistant", content: `Error: ${message}` });
+          next.push({ role: "assistant", content: `Error: ${message}` });
         }
-        return newMessages;
+        return next;
       });
     } finally {
       setLoading(false);
@@ -326,75 +321,43 @@ function Chat({ onBack }: ChatProps) {
     }
   };
 
+  // Ctrl+H / Ctrl+P — open History / Preferences panels
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // 1. Only trigger if  ontrol + 'h' is pressed
-      if (
-        event.key.toLowerCase() === "h" &&
-        event.ctrlKey &&
-        !event.altKey &&
-        !event.metaKey
-      ) {
-        // 2. IMPORTANT: Don't trigger if the user is already typing in an input
-        const isTyping =
-          event.target instanceof HTMLInputElement ||
-          event.target instanceof HTMLTextAreaElement;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.ctrlKey || event.altKey || event.metaKey) return;
 
-        // 3. Only open if not already typing elsewhere AND modal isn't already open
-        if (!isTyping && !showHistory) {
-          event.preventDefault();
-          event.stopImmediatePropagation(); // Forcefully stop other listeners
-          setShowHistory(true);
-        }
-      }
-      if (event.ctrlKey && event.key.toLowerCase() === "h") {
-        event.preventDefault();
-      }
+      const key = event.key.toLowerCase();
+      if (key !== "h" && key !== "p") return;
+
+      // Always suppress the browser default for these combos
+      event.preventDefault();
+
+      const isTyping =
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement;
+      if (isTyping) return;
+
+      event.stopImmediatePropagation();
+      if (key === "h" && !showHistory) setShowHistory(true);
+      if (key === "p" && !showPreferences) setShowPreferences(true);
     };
 
-    // Use 'capture' phase (true) to catch the event before it reaches elements
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [showHistory, setShowHistory]);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [showHistory, showPreferences]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() === "p" &&
-        event.ctrlKey &&
-        !event.altKey &&
-        !event.metaKey
-      ) {
-        const isTyping =
-          event.target instanceof HTMLInputElement ||
-          event.target instanceof HTMLTextAreaElement;
+  // Clear local state and reset activeChatId so the next message creates a fresh DB chat
+  const handleNewChat = () => {
+    setMessages([]);
+    setInput("");
+    activeChatIdRef.current = null; // Clear ref immediately so ensureChatId creates a new chat
+    onChatCreated(""); // Signal App.tsx to clear activeChatId
+  };
 
-        if (!isTyping && !showPreferences) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          setShowPreferences(true);
-        }
-      }
-      if (event.ctrlKey && event.key.toLowerCase() === "p") {
-        event.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [showPreferences, setShowPreferences]);
-
-  const handleClear = async () => {
-    try {
-      await fetch(`${API_URL}/api/history`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: AUTH_HEADERS,
-      });
-      setMessages([]);
-      setInput("");
-    } catch (error) {
-      console.error("Error clearing history:", error);
-    }
+  // Wipe JWT then hand control back to App.tsx to show Login
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    onLogout();
   };
 
   return (
@@ -409,16 +372,21 @@ function Chat({ onBack }: ChatProps) {
           ←
         </button>
         <h1 className="chat-title">ModelLoop/Chat</h1>
-        <button className="history-button" onClick={() => setShowHistory(true)}>
-          ↺
-        </button>
+        {!isGuest && (
+          <button
+            className="history-button"
+            onClick={() => setShowHistory(true)}
+          >
+            ↺
+          </button>
+        )}
         <button
           className="chat-preferences"
           onClick={() => setShowPreferences(true)}
         >
           ⚙︎
         </button>
-        <button className="new-chat" onClick={handleClear} disabled={loading}>
+        <button className="new-chat" onClick={handleNewChat} disabled={loading}>
           New Chat
         </button>
         <select
@@ -437,7 +405,15 @@ function Chat({ onBack }: ChatProps) {
             ))
           )}
         </select>
+        <button
+          className="logout-button"
+          onClick={handleLogout}
+          disabled={loading}
+        >
+          {isGuest ? "Sign In" : "Sign Out"}
+        </button>
       </div>
+
       <div className="chat-container">
         <div className="messages">
           {messages.map((msg, idx) => (
@@ -458,6 +434,7 @@ function Chat({ onBack }: ChatProps) {
           ))}
           <div ref={messagesEndRef} />
         </div>
+
         <div className="input-area">
           <div className="input-wrapper">
             <input
@@ -467,24 +444,21 @@ function Chat({ onBack }: ChatProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={loading}
             />
-            <button
-              className="ask-button"
-              onClick={handleAsk}
-              disabled={loading}
-            >
+            <button className="ask-button" onClick={handleAsk}>
               {loading ? "◌" : "➤"}
             </button>
           </div>
         </div>
       </div>
+
       <div className="chat-footer">
         <p id="disclaimer">
           ModelLoop can make mistakes. Please verify any critical information it
           provides.
         </p>
       </div>
+
       {showPreferences && (
         <ChatPreferences
           systemPrompt={systemPrompt}
@@ -494,7 +468,18 @@ function Chat({ onBack }: ChatProps) {
           setActivePreset={setActivePreset}
         />
       )}
-      {showHistory && <History onClose={() => setShowHistory(false)} />}
+      {showHistory && (
+        <History
+          key={historyKey}
+          onClose={() => setShowHistory(false)}
+          activeChatId={activeChatId}
+          onSelectChat={(id: string) => {
+            onChatCreated(id);
+            setShowHistory(false);
+          }}
+          onNewChat={handleNewChat}
+        />
+      )}
     </>
   );
 }
