@@ -26,7 +26,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 20px;
   background: #282828;
 }
@@ -906,8 +906,8 @@ button:hover {
 
 .landing-page {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   padding: 40px 20px;
   font-family: "JetBrains Mono", monospace;
   width: 100%;
@@ -917,7 +917,7 @@ button:hover {
 .landing-content {
   max-width: 800px;
   width: 100%;
-  margin: 0 auto;
+  margin: auto;
   text-align: left;
   display: flex;
   flex-direction: column;
@@ -925,7 +925,7 @@ button:hover {
 }
 
 .landing-content h1 {
-  font-size: 3rem;
+  font-size: clamp(1.8rem, 7vw, 3rem);
   margin: 0 0 8px;
   color: #fabd2f;
   font-weight: 600;
@@ -997,12 +997,40 @@ button:hover {
 }
 
 @media (max-width: 600px) {
+  .landing-page {
+    padding: 24px 16px;
+    min-height: calc(100vh - 20px);
+  }
+
+  .landing-content {
+    align-items: stretch;
+    margin: 0 auto;
+  }
+
+  .landing-tagline {
+    margin-bottom: 28px;
+  }
+
   .landing-features {
     grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
   }
 
   .feature:first-child {
     grid-column: span 1;
+  }
+
+  .feature {
+    padding: 16px;
+  }
+
+  .landing-page .start-button {
+    width: 100%;
+  }
+
+  .landing-footer {
+    margin-top: 28px;
   }
 }
 
