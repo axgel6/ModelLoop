@@ -14,11 +14,23 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
 
-  // Check backend connectivity on mount to show the connection banner if needed
+  // Poll backend health every 5s until connected, then stop
   useEffect(() => {
-    apiHealth().then(setIsConnected);
+    let interval: ReturnType<typeof setInterval>;
+
+    const check = async () => {
+      const ok = await apiHealth();
+      if (ok) {
+        setIsConnected(true);
+        clearInterval(interval);
+      }
+    };
+
+    check();
+    interval = setInterval(check, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const isLogin = mode === "login";
