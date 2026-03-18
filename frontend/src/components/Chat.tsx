@@ -65,13 +65,14 @@ function Chat({
 4. Be concise - don't over-explain simple questions`);
   const [showPreferences, setShowPreferences] = useState(false);
   const [activePreset, setActivePreset] = useState<string>("Default");
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
   // Scroll to bottom whenever the messages array changes
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
 
@@ -428,7 +429,7 @@ function Chat({
       </div>
 
       <div className="chat-container">
-        <div className="messages">
+        <div className="messages" ref={messagesContainerRef}>
           {messages.map((msg, idx) => (
             <div key={idx} className={`message ${msg.role}`}>
               {msg.role === "assistant" ? (
@@ -445,7 +446,6 @@ function Chat({
               )}
             </div>
           ))}
-          <div ref={messagesEndRef} />
         </div>
 
         <div className="input-area">
