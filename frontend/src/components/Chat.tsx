@@ -72,7 +72,7 @@ function Chat({
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (container) {
-      container.scrollTop = container.scrollHeight;
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
     }
   }, [messages]);
 
