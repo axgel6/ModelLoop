@@ -322,7 +322,8 @@ async def chat_stream(
 
 # POST /api/chat/guest/stream - Stream a chat response for unauthenticated users (no persistence)
 @app.post("/api/chat/guest/stream")
-@limiter.limit("10/minute")
+@limiter.limit("3/minute")
+@limiter.limit("30/day", error_message="Daily guest limit reached")
 async def guest_chat_stream(
     request: Request,
     body: GuestChatRequest,
