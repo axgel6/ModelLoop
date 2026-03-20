@@ -5,7 +5,7 @@ import re
 from dotenv import load_dotenv
 load_dotenv()
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -42,6 +42,9 @@ app.add_middleware(
 # Rate limiter keyed by client IP to prevent API abuse
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
+
+#API key for guest chat endpoint
+API_KEY = os.environ.get("API_KEY")
 
 
 def rate_limit_exceeded_handler(request: Request, exc: Exception):
@@ -323,7 +326,11 @@ async def chat_stream(
 async def guest_chat_stream(
     request: Request,
     body: GuestChatRequest,
+    x_api_key: str = Header(None)
 ):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized access")
+    
     prompt = body.prompt.strip()
     model  = (body.model or DEFAULT_MODEL).strip()
 

@@ -30,7 +30,8 @@ export async function apiRegister(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    const detail = typeof err.detail === "string" ? err.detail : "Registration failed";
+    const detail =
+      typeof err.detail === "string" ? err.detail : "Registration failed";
     throw new Error(detail);
   }
   return res.json();
@@ -48,7 +49,8 @@ export async function apiLogin(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    const detail = typeof err.detail === "string" ? err.detail : "Invalid email or password";
+    const detail =
+      typeof err.detail === "string" ? err.detail : "Invalid email or password";
     throw new Error(detail);
   }
   return res.json();
@@ -158,8 +160,7 @@ export async function apiGuestChatStream(payload: {
 }): Promise<Response> {
   const res = await fetch(`${API_URL}/api/chat/guest/stream`, {
     method: "POST",
-    // No auth header, guest endpoint is unauthenticated
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
