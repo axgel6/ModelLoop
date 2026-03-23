@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -57,7 +57,11 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # ----- Configuration -----
 
-MAX_PROMPT_LENGTH = 10000
+MAX_PROMPT_LENGTH        = 10000
+MAX_SYSTEM_PROMPT_LENGTH = 2000
+MAX_TITLE_LENGTH         = 100
+MAX_GUEST_HISTORY        = 100
+MODEL_NAME_PATTERN       = r"^[a-zA-Z0-9._:/ -]+$"
 OLLAMA_BASE_URL   = os.environ.get("OLLAMA_URL")
 DEFAULT_MODEL     = os.environ.get("DEFAULT_MODEL", "llama3.2:latest")
 IS_PRODUCTION     = os.environ.get("APP_ENV", "development").lower() == "production"
@@ -88,25 +92,30 @@ def fix_math_delimiters(text: str) -> str:
 # ----- Schemas -----
 
 class RegisterRequest(BaseModel):
-    email:    str = Field(..., min_length=1)
-    password: str = Field(..., min_length=8)
+    email:    EmailStr = Field(..., max_length=254)
+    password: str      = Field(..., min_length=8, max_length=128)
+
+# Validated guest history entry, "system" role is excluded to prevent prompt-injection 
+class GuestMessage(BaseModel):
+    role:    str = Field(..., pattern=r"^(user|assistant)$")
+    content: str = Field(..., max_length=MAX_PROMPT_LENGTH)
 
 class ChatRequest(BaseModel):
-    prompt:        str           = Field(..., min_length=1)
+    prompt:        str           = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH)
     # Frontend must create a chat first via POST /api/chats
-    chat_id:       str
-    model:         Optional[str] = None
-    system_prompt: Optional[str] = None
+    chat_id:       str           = Field(..., min_length=1, max_length=36)
+    model:         Optional[str] = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+    system_prompt: Optional[str] = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
 
 class GuestChatRequest(BaseModel):
-    prompt:        str            = Field(..., min_length=1)
+    prompt:        str                    = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH)
     # Conversation history supplied by the client (not persisted)
-    messages:      list[dict]     = []
-    model:         Optional[str]  = None
-    system_prompt: Optional[str]  = None
+    messages:      list[GuestMessage]     = Field(default=[], max_length=MAX_GUEST_HISTORY)
+    model:         Optional[str]          = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+    system_prompt: Optional[str]          = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
 
 class RenameChatRequest(BaseModel):
-    title: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1, max_length=MAX_TITLE_LENGTH)
 
 # ----- Auth Routes -----
 
@@ -340,7 +349,7 @@ async def guest_chat_stream(
 
     system_prompt = body.system_prompt or SYSTEM_PROMPT
     messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(body.messages)
+    messages.extend({"role": m.role, "content": m.content} for m in body.messages)
     messages.append({"role": "user", "content": prompt})
 
     async def generate():
