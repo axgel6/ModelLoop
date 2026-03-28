@@ -43,7 +43,15 @@ function LandingPage({ onStart }: LandingPageProps) {
 
         <div className="landing-footer">
           <p>
-            Built by Angel Gutierrez •{" "}
+            Built by{" "}
+            <a
+              href="https://aynjel.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Angel Gutierrez
+            </a>{" "}
+            •{" "}
             <a
               href="https://github.com/axgel6"
               target="_blank"
