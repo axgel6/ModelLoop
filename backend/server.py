@@ -22,6 +22,14 @@ from auth import (
     hash_password, verify_password, create_token, get_current_user_id,
     generate_refresh_token, hash_refresh_token, REFRESH_EXPIRE_DAYS,
 )
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"time": "%(asctime)s", "level": "%(levelname)s", "msg": "%(message)s"}',
+)
+logger = logging.getLogger(__name__)
+
 
 # ----- App Setup -----
 
@@ -52,6 +60,7 @@ API_KEY = os.environ.get("API_KEY")
 
 
 def rate_limit_exceeded_handler(request: Request, exc: Exception):
+    logger.warning('rate_limit_exceeded path=%s ip=%s', request.url.path, get_remote_address(request))
     return JSONResponse(
         status_code=429,
         content={"detail": "Rate limit exceeded"}
@@ -142,42 +151,50 @@ async def _issue_tokens(user_id: str, db: AsyncSession) -> dict:
 
 # ----- Auth Routes -----
 
-# POST /api/auth/register - Create a new user account and return access + refresh tokens
-@app.post("/api/auth/register", status_code=201)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+# POST /api/v1/auth/register - Create a new user account and return access + refresh tokens
+@app.post("/api/v1/auth/register", status_code=201)
+@limiter.limit("5/minute")
+async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
+        logger.warning('register_conflict email=%s', body.email)
         raise HTTPException(status_code=409, detail="Email already registered")
     user = User(email=body.email, password_hash=hash_password(body.password))
     db.add(user)
     await db.flush()  # get user.id before issuing tokens
+    logger.info('user_registered user_id=%s', user.id)
     return await _issue_tokens(str(user.id), db)
 
 
-# POST /api/auth/login - Verify credentials and return access + refresh tokens
-@app.post("/api/auth/login")
-async def login(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+# POST /api/v1/auth/login - Verify credentials and return access + refresh tokens
+@app.post("/api/v1/auth/login")
+@limiter.limit("10/minute")
+async def login(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password_hash):
+        logger.warning('login_failed email=%s', body.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    logger.info('login_success user_id=%s', user.id)
     return await _issue_tokens(str(user.id), db)
 
 
-# POST /api/auth/refresh - Exchange a valid refresh token for new access + refresh tokens
-@app.post("/api/auth/refresh")
+# POST /api/v1/auth/refresh - Exchange a valid refresh token for new access + refresh tokens
+@app.post("/api/v1/auth/refresh")
 async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     token_hash = hash_refresh_token(body.refresh_token)
     result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     rt = result.scalar_one_or_none()
     if not rt or rt.revoked or rt.expires_at < datetime.now(timezone.utc):
+        logger.warning('refresh_token_invalid token_found=%s revoked=%s', rt is not None, rt.revoked if rt else None)
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     rt.revoked = True  # rotate: old token can never be reused
+    logger.info('refresh_token_rotated user_id=%s', rt.user_id)
     return await _issue_tokens(str(rt.user_id), db)
 
 
-# POST /api/auth/logout - Revoke the refresh token so it can no longer be exchanged
-@app.post("/api/auth/logout")
+# POST /api/v1/auth/logout - Revoke the refresh token so it can no longer be exchanged
+@app.post("/api/v1/auth/logout")
 async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)):
     token_hash = hash_refresh_token(body.refresh_token)
     result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
@@ -189,8 +206,8 @@ async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)):
 
 # ----- Chat Routes -----
 
-# POST /api/chats - Create a new chat session for the authenticated user
-@app.post("/api/chats", status_code=201)
+# POST /api/v1/chats - Create a new chat session for the authenticated user
+@app.post("/api/v1/chats", status_code=201)
 async def create_chat(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
@@ -202,8 +219,8 @@ async def create_chat(
     return {"id": str(chat.id), "title": chat.title, "created_at": chat.created_at}
 
 
-# GET /api/chats - List all chats for the authenticated user, newest first
-@app.get("/api/chats")
+# GET /api/v1/chats - List all chats for the authenticated user, newest first
+@app.get("/api/v1/chats")
 async def list_chats(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
@@ -225,8 +242,8 @@ async def list_chats(
     }
 
 
-# PATCH /api/chats/{chat_id} - Rename a chat (user must own it)
-@app.patch("/api/chats/{chat_id}")
+# PATCH /api/v1/chats/{chat_id} - Rename a chat (user must own it)
+@app.patch("/api/v1/chats/{chat_id}")
 async def rename_chat(
     chat_id: str,
     body: RenameChatRequest,
@@ -242,8 +259,8 @@ async def rename_chat(
     return {"id": str(chat.id), "title": chat.title}
 
 
-# DELETE /api/chats/{chat_id} - Delete a chat and all its messages (cascade)
-@app.delete("/api/chats/{chat_id}", status_code=204)
+# DELETE /api/v1/chats/{chat_id} - Delete a chat and all its messages (cascade)
+@app.delete("/api/v1/chats/{chat_id}", status_code=204)
 async def delete_chat(
     chat_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -258,8 +275,8 @@ async def delete_chat(
 
 # ----- Message Routes -----
 
-# GET /api/chats/{chat_id}/messages - Return full conversation history for a chat
-@app.get("/api/chats/{chat_id}/messages")
+# GET /api/v1/chats/{chat_id}/messages - Return full conversation history for a chat
+@app.get("/api/v1/chats/{chat_id}/messages")
 async def get_messages(
     chat_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -276,8 +293,8 @@ async def get_messages(
 
 # ----- Stream Routes -----
 
-# POST /api/chat/stream - Stream a chat response via Server-Sent Events
-@app.post("/api/chat/stream")
+# POST /api/v1/chat/stream - Stream a chat response via Server-Sent Events
+@app.post("/api/v1/chat/stream")
 @limiter.limit("10/minute")
 async def chat_stream(
     request: Request,
@@ -318,7 +335,7 @@ async def chat_stream(
         success       = False
 
         try:
-            # AsyncClient is non-blocking — frees the event loop while waiting for tokens
+            # AsyncClient is non-blocking, frees the event loop while waiting for tokens
             async with httpx.AsyncClient(timeout=120) as client:
                 async with client.stream(
                     "POST",
@@ -347,7 +364,7 @@ async def chat_stream(
             if success and full_response.strip():
                 processed = fix_math_delimiters(full_response.strip())
 
-                # Use a fresh session — the outer session may have expired during a long stream
+                # Use a fresh session: the outer session may have expired during a long stream
                 async with AsyncSessionLocal() as write_db:
                     write_db.add(Message(chat_id=chat_id, role="user",      content=prompt))
                     write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
@@ -366,6 +383,7 @@ async def chat_stream(
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
 
         except Exception as e:
+            logger.error('stream_error chat_id=%s model=%s error=%s', chat_id, model, str(e))
             msg = str(e) if not IS_PRODUCTION else "An error occurred"
             yield f"data: {json.dumps({'type': 'error', 'error': msg})}\n\n"
 
@@ -376,8 +394,8 @@ async def chat_stream(
     )
 
 
-# POST /api/chat/guest/stream - Stream a chat response for unauthenticated users (no persistence)
-@app.post("/api/chat/guest/stream")
+# POST /api/v1/chat/guest/stream - Stream a chat response for unauthenticated users (no persistence)
+@app.post("/api/v1/chat/guest/stream")
 @limiter.limit("3/minute")
 @limiter.limit("30/day", error_message="Daily guest limit reached")
 async def guest_chat_stream(
@@ -422,6 +440,7 @@ async def guest_chat_stream(
                             except json.JSONDecodeError:
                                 continue
         except Exception as e:
+            logger.error('guest_stream_error model=%s error=%s', model, str(e))
             msg = str(e) if not IS_PRODUCTION else "An error occurred"
             yield f"data: {json.dumps({'type': 'error', 'error': msg})}\n\n"
 
@@ -433,8 +452,8 @@ async def guest_chat_stream(
 
 # ----- Model Routes -----
 
-# GET /api/models - Return available Ollama models, with results cached across requests
-@app.get("/api/models")
+# GET /api/v1/models - Return available Ollama models, with results cached across requests
+@app.get("/api/v1/models")
 async def get_models():
     global cached_models
     try:
@@ -458,6 +477,7 @@ async def get_models():
         return {"models": cached_models}
 
     except Exception as e:
+        logger.error('ollama_fetch_failed error=%s', str(e))
         # Return stale cache on error rather than failing the request
         if cached_models:
             return {"models": cached_models}
@@ -465,10 +485,25 @@ async def get_models():
 
 # ----- Utility -----
 
-# GET /api/health - Liveness check
-@app.get("/api/health")
-async def health():
-    return {"status": "ok"}
+# GET /api/v1/health - Liveness check
+@app.get("/api/v1/health")
+async def health(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import text
+    checks = {"status": "ok", "db": "ok", "ollama": "ok"}
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception:
+        checks["db"] = "error"
+        checks["status"] = "degraded"
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags", headers=NGROK_HEADERS)
+            resp.raise_for_status()
+    except Exception:
+        checks["ollama"] = "error"
+        checks["status"] = "degraded"
+    return checks
+ 
 
 
 if __name__ == "__main__":

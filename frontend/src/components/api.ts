@@ -29,7 +29,7 @@ async function tryRefresh(): Promise<boolean> {
   const refreshToken = localStorage.getItem("refresh_token");
   if (!refreshToken) return false;
   try {
-    const res = await fetch(`${API_URL}/api/auth/refresh`, {
+    const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -70,7 +70,7 @@ export async function apiRegister(
   email: string,
   password: string,
 ): Promise<{ token: string; refresh_token: string }> {
-  const res = await fetch(`${API_URL}/api/auth/register`, {
+  const res = await fetch(`${API_URL}/api/v1/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -89,7 +89,7 @@ export async function apiLogin(
   email: string,
   password: string,
 ): Promise<{ token: string; refresh_token: string }> {
-  const res = await fetch(`${API_URL}/api/auth/login`, {
+  const res = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -110,7 +110,7 @@ export async function apiLogout(): Promise<void> {
   localStorage.removeItem("refresh_token");
   if (!refreshToken) return;
   try {
-    await fetch(`${API_URL}/api/auth/logout`, {
+    await fetch(`${API_URL}/api/v1/auth/logout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -133,7 +133,7 @@ export interface ChatMeta {
 // Fetch all chats for the authenticated user, ordered newest first
 export async function apiListChats(): Promise<ChatMeta[]> {
   const res = await withRefresh(() =>
-    fetch(`${API_URL}/api/chats`, { headers: authHeaders() }),
+    fetch(`${API_URL}/api/v1/chats`, { headers: authHeaders() }),
   );
   if (!res.ok) throw new Error("Failed to load chats");
   const data = await res.json();
@@ -143,7 +143,7 @@ export async function apiListChats(): Promise<ChatMeta[]> {
 // Create a new blank chat and return its metadata
 export async function apiCreateChat(): Promise<ChatMeta> {
   const res = await withRefresh(() =>
-    fetch(`${API_URL}/api/chats`, { method: "POST", headers: authHeaders() }),
+    fetch(`${API_URL}/api/v1/chats`, { method: "POST", headers: authHeaders() }),
   );
   if (!res.ok) throw new Error("Failed to create chat");
   return res.json();
@@ -155,7 +155,7 @@ export async function apiRenameChat(
   title: string,
 ): Promise<void> {
   const res = await withRefresh(() =>
-    fetch(`${API_URL}/api/chats/${chatId}`, {
+    fetch(`${API_URL}/api/v1/chats/${chatId}`, {
       method: "PATCH",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ title }),
@@ -167,7 +167,7 @@ export async function apiRenameChat(
 // Delete a chat and all its messages
 export async function apiDeleteChat(chatId: string): Promise<void> {
   const res = await withRefresh(() =>
-    fetch(`${API_URL}/api/chats/${chatId}`, {
+    fetch(`${API_URL}/api/v1/chats/${chatId}`, {
       method: "DELETE",
       headers: authHeaders(),
     }),
@@ -186,7 +186,7 @@ export interface Message {
 // Fetch the full message history for a chat, ordered by creation time
 export async function apiGetMessages(chatId: string): Promise<Message[]> {
   const res = await withRefresh(() =>
-    fetch(`${API_URL}/api/chats/${chatId}/messages`, {
+    fetch(`${API_URL}/api/v1/chats/${chatId}/messages`, {
       headers: authHeaders(),
     }),
   );
@@ -199,7 +199,7 @@ export async function apiGetMessages(chatId: string): Promise<Message[]> {
 
 // Fetch the list of available Ollama models from the backend
 export async function apiGetModels(): Promise<string[]> {
-  const res = await fetch(`${API_URL}/api/models`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/api/v1/models`, { headers: authHeaders() });
   if (!res.ok) throw new Error("Failed to fetch models");
   const data = await res.json();
   // Fall back to empty array if the backend returns no models key
@@ -210,7 +210,7 @@ export async function apiGetModels(): Promise<string[]> {
 // Used by Chat.tsx to drive the connection status indicator
 export async function apiHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_URL}/api/health`, {
+    const res = await fetch(`${API_URL}/api/v1/health`, {
       headers: authHeaders(),
     });
     return res.ok;
@@ -229,7 +229,7 @@ export async function apiGuestChatStream(payload: {
   model?: string;
   system_prompt?: string;
 }): Promise<Response> {
-  const res = await fetch(`${API_URL}/api/chat/guest/stream`, {
+  const res = await fetch(`${API_URL}/api/v1/chat/guest/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
     body: JSON.stringify(payload),
@@ -250,7 +250,7 @@ export async function apiChatStream(payload: {
   system_prompt?: string;
 }): Promise<Response> {
   const res = await withRefresh(() =>
-    fetch(`${API_URL}/api/chat/stream`, {
+    fetch(`${API_URL}/api/v1/chat/stream`, {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
