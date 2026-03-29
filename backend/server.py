@@ -16,8 +16,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from database import get_db, engine, Base, AsyncSessionLocal
-from models import User, Chat, Message
-from auth import hash_password, verify_password, create_token, get_current_user_id
+from datetime import datetime, timedelta, timezone
+from models import User, Chat, Message, RefreshToken
+from auth import (
+    hash_password, verify_password, create_token, get_current_user_id,
+    generate_refresh_token, hash_refresh_token, REFRESH_EXPIRE_DAYS,
+)
 
 # ----- App Setup -----
 
@@ -117,9 +121,28 @@ class GuestChatRequest(BaseModel):
 class RenameChatRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=MAX_TITLE_LENGTH)
 
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=1, max_length=256)
+
+class LogoutRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=1, max_length=256)
+
+# ----- Auth Helpers -----
+
+async def _issue_tokens(user_id: str, db: AsyncSession) -> dict:
+    """Create a new access token and a fresh refresh token, persist the refresh token."""
+    raw_refresh = generate_refresh_token()
+    db.add(RefreshToken(
+        user_id=user_id,
+        token_hash=hash_refresh_token(raw_refresh),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_EXPIRE_DAYS),
+    ))
+    await db.commit()
+    return {"token": create_token(user_id), "refresh_token": raw_refresh}
+
 # ----- Auth Routes -----
 
-# POST /api/auth/register - Create a new user account and return a JWT
+# POST /api/auth/register - Create a new user account and return access + refresh tokens
 @app.post("/api/auth/register", status_code=201)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.email == body.email))
@@ -127,18 +150,42 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Email already registered")
     user = User(email=body.email, password_hash=hash_password(body.password))
     db.add(user)
-    await db.commit()
-    return {"token": create_token(str(user.id))}
+    await db.flush()  # get user.id before issuing tokens
+    return await _issue_tokens(str(user.id), db)
 
 
-# POST /api/auth/login - Verify credentials and return a JWT
+# POST /api/auth/login - Verify credentials and return access + refresh tokens
 @app.post("/api/auth/login")
 async def login(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    return {"token": create_token(str(user.id))}
+    return await _issue_tokens(str(user.id), db)
+
+
+# POST /api/auth/refresh - Exchange a valid refresh token for new access + refresh tokens
+@app.post("/api/auth/refresh")
+async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    token_hash = hash_refresh_token(body.refresh_token)
+    result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
+    rt = result.scalar_one_or_none()
+    if not rt or rt.revoked or rt.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    rt.revoked = True  # rotate: old token can never be reused
+    return await _issue_tokens(str(rt.user_id), db)
+
+
+# POST /api/auth/logout - Revoke the refresh token so it can no longer be exchanged
+@app.post("/api/auth/logout")
+async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)):
+    token_hash = hash_refresh_token(body.refresh_token)
+    result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
+    rt = result.scalar_one_or_none()
+    if rt:
+        rt.revoked = True
+        await db.commit()
+    return {"ok": True}
 
 # ----- Chat Routes -----
 

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import LandingPage from "./components/LandingPage";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
+import { apiLogout, setUnauthorizedHandler } from "./components/api";
 
 type View = "landing" | "login" | "chat";
 
@@ -16,6 +17,19 @@ function App() {
 
   // ----- Auth Handlers -----
 
+  const handleLogout = () => {
+    apiLogout();
+    setActiveChatId(null);
+    const wasGuest = isGuest;
+    setIsGuest(false);
+    setView(wasGuest ? "login" : "landing");
+  };
+
+  // Register the unauthorized handler so the refresh interceptor can trigger logout
+  useEffect(() => {
+    setUnauthorizedHandler(handleLogout);
+  });
+
   const handleLogin = () => {
     // Token is already stored in localStorage by Login.tsx before this is called
     setIsGuest(false);
@@ -25,14 +39,6 @@ function App() {
   const handleGuest = () => {
     setIsGuest(true);
     setView("chat");
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setActiveChatId(null);
-    const wasGuest = isGuest;
-    setIsGuest(false);
-    setView(wasGuest ? "login" : "landing");
   };
 
   // ----- Chat Handlers -----

@@ -57,12 +57,12 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
 
     setLoading(true);
     try {
-      const { token } = isLogin
+      const { token, refresh_token } = isLogin
         ? await apiLogin(email.trim(), password)
         : await apiRegister(email.trim(), password);
 
-      // Store JWT — all subsequent API calls in api.ts pick this up automatically
       localStorage.setItem("token", token);
+      localStorage.setItem("refresh_token", refresh_token);
       onLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

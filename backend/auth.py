@@ -1,19 +1,30 @@
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 import bcrypt
+import hashlib
+import secrets
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 import os
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-SECRET     = os.environ["JWT_SECRET"]
-ALGORITHM  = os.environ.get("JWT_ALGORITHM", "HS256")
-EXPIRE_MIN = int(os.environ.get("JWT_EXPIRE_MINUTES", 1440))
+SECRET               = os.environ["JWT_SECRET"]
+ALGORITHM            = os.environ.get("JWT_ALGORITHM", "HS256")
+EXPIRE_MIN           = int(os.environ.get("JWT_EXPIRE_MINUTES", 15))
+REFRESH_EXPIRE_DAYS  = int(os.environ.get("JWT_REFRESH_EXPIRE_DAYS", 30))
 
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def generate_refresh_token() -> str:
+    return secrets.token_urlsafe(64)
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
