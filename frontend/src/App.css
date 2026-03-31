@@ -930,7 +930,7 @@ button:hover {
   font-size: clamp(1.8rem, 7vw, 3rem);
   margin: 0 0 8px;
   color: #fabd2f;
-  font-weight: 600;
+  font-weight: bolder;
   letter-spacing: -1px;
   line-height: 1.1;
 }
@@ -952,7 +952,7 @@ button:hover {
 .feature {
   background: #3c3836;
   border: 1px solid #504945;
-  border-radius: 8px;
+  border-radius: 30px;
   padding: 24px;
   transition:
     border-color 0.2s,
@@ -972,7 +972,7 @@ button:hover {
   margin: 0 0 8px;
   color: #fabd2f;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: bolder;
 }
 
 .feature p {
@@ -994,8 +994,10 @@ button:hover {
 }
 
 .landing-footer a:hover {
-  color: #d3869b;
+  background-color: #d3869b;
+  color: #000000;
   text-decoration: underline;
+  font-weight: bold;
 }
 
 @media (max-width: 600px) {
