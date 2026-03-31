@@ -6,34 +6,48 @@ function LandingPage({ onStart }: LandingPageProps) {
   return (
     <div className="landing-page">
       <div className="landing-content">
-        <h1>ModelLoop/Landing</h1>
-        <p className="landing-tagline">Self-hosted AI chat powered by Ollama</p>
+        <h1>ModelLoop/Welcome!</h1>
+        <p className="landing-tagline">
+          A full-stack AI chat app with streaming responses, and multi-model
+          switching, and persistent history
+        </p>
 
         <div className="landing-features">
           <div className="feature">
-            <h3>Powered by Ollama, Render, and Ngrok</h3>
+            <h3>Real-Time Streaming</h3>
             <p>
-              React frontend on Render connects to Flask backend on Render,
-              which tunnels to self-hosted Ollama server via Ngrok{" "}
+              Token-level streaming via Server-Sent Events - Responses appear as
+              they're generated, with no waiting for full replies
             </p>
           </div>
           <div className="feature">
-            <h3>Multiple Models</h3>
-            <p>Switch between different LLMs available on the server</p>
-          </div>
-          <div className="feature">
-            <h3>Tech Stack</h3>
-            <p>Built with React, FastAPI, and Python</p>
-          </div>
-          <div className="feature">
-            <h3>Includes popular LLM models</h3>
+            <h3>Guest & Account Modes</h3>
             <p>
-              deekseep-r1.5b, llama3.1:latest, llama3.2:latest, dolphin3:latest
+              Chat instantly as a guest with no sign-up, or create an account
+              for persistent chat history across sessions
             </p>
           </div>
           <div className="feature">
-            <h3>Note</h3>
-            <p>Server may need a moment to wake up on first use</p>
+            <h3>Multiple LLMs</h3>
+            <p>
+              Switch between any Ollama model running on the server - model list
+              is fetched live and cached at startup
+            </p>
+          </div>
+          <div className="feature">
+            <h3>System Prompts & Shortcuts</h3>
+            <p>
+              9 preset personalities, slash commands (/clear, /code, /math,
+              /help), along with keyboard shortcuts
+            </p>
+          </div>
+          <div className="feature">
+            <h3>Stack</h3>
+            <p>
+              FastAPI + asyncpg + PostgreSQL backend with JWT auth, bcrypt
+              password hashing, and rate limiting, React 19 + TypeScript
+              frontend
+            </p>
           </div>
         </div>
 
