@@ -1,12 +1,16 @@
 import React from "react";
 import { useEscapeKey } from "./useEscapeKey";
 
+type Theme = "glassy" | "flat";
+
 interface ChatPreferencesProps {
   systemPrompt: string;
   setSystemPrompt: (prompt: string) => void;
   onClose: () => void;
   activePreset: string;
   setActivePreset: (label: string) => void;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
 }
 
 const PRESETS: { label: string; prompt: string }[] = [
@@ -75,6 +79,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   onClose,
   activePreset,
   setActivePreset,
+  theme,
+  setTheme,
 }) => {
   useEscapeKey(onClose);
 
@@ -124,6 +130,23 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             />
           </>
         )}
+
+        <div className="solid-divider" role="separator"></div>
+        <label style={{ display: "block", marginBottom: 8 }}>Appearance</label>
+        <div className="preset-buttons-row">
+          {(["Glassy", "Flat"] as const).map((label) => {
+            const value = label.toLowerCase() as Theme;
+            return (
+              <button
+                key={label}
+                onClick={() => setTheme(value)}
+                className={theme === value ? "active-preset" : undefined}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
 
         <div className="modal-footer-row" />
       </div>

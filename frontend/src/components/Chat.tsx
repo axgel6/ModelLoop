@@ -31,6 +31,8 @@ function fixMathDelimiters(text: string): string {
   );
 }
 
+type Theme = "glassy" | "flat";
+
 interface ChatProps {
   onBack: () => void;
   activeChatId: string | null; // Controlled by App.tsx
@@ -39,6 +41,8 @@ interface ChatProps {
   onLogout: () => void; // Clear token and return to landing/login
   historyKey: number; // Incremented by App.tsx to force History to remount/refetch
   isGuest: boolean; // True means no auth and no persistence
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
 }
 
 function Chat({
@@ -49,6 +53,8 @@ function Chat({
   onLogout,
   historyKey,
   isGuest,
+  theme,
+  setTheme,
 }: ChatProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -479,6 +485,8 @@ function Chat({
           onClose={() => setShowPreferences(false)}
           activePreset={activePreset}
           setActivePreset={setActivePreset}
+          theme={theme}
+          setTheme={setTheme}
         />
       )}
       {showHistory && (

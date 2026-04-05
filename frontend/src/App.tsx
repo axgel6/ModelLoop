@@ -6,6 +6,7 @@ import Login from "./components/Login";
 import { apiLogout, setUnauthorizedHandler } from "./components/api";
 
 type View = "landing" | "login" | "chat";
+type Theme = "glassy" | "flat";
 
 function App() {
   // Sets view to login page or chat based on presence of JWT token in localStorage
@@ -14,6 +15,15 @@ function App() {
   );
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isGuest, setIsGuest] = useState(false);
+
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem("theme") as Theme) || "flat",
+  );
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   // ----- Auth Handlers -----
 
@@ -81,6 +91,8 @@ function App() {
           onChatsChanged={handleChatsChanged}
           historyKey={historyKey}
           isGuest={isGuest}
+          theme={theme}
+          setTheme={setTheme}
         />
       )}
     </>
