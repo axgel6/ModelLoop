@@ -342,7 +342,7 @@ async def chat_stream(
                 async with client.stream(
                     "POST",
                     f"{OLLAMA_BASE_URL}/api/chat",
-                    json={"model": model, "messages": messages, "stream": True, "options": {"temperature": body.temperature}},
+                    json={"model": model, "messages": messages, "stream": True, "keep_alive": -1, "options": {"temperature": body.temperature}},
                     headers=NGROK_HEADERS,
                 ) as resp:
                     resp.raise_for_status()
@@ -425,7 +425,7 @@ async def guest_chat_stream(
                 async with client.stream(
                     "POST",
                     f"{OLLAMA_BASE_URL}/api/chat",
-                    json={"model": model, "messages": messages, "stream": True, "options": {"temperature": body.temperature}},
+                    json={"model": model, "messages": messages, "stream": True, "keep_alive": -1, "options": {"temperature": body.temperature}},
                     headers=NGROK_HEADERS,
                 ) as resp:
                     resp.raise_for_status()
