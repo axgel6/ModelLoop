@@ -977,6 +977,47 @@ button:hover {
 }
 
 /* ============================================================
+   Temperature slider
+   ============================================================ */
+
+.temperature-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.temperature-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fabd2f;
+  min-width: 28px;
+  text-align: right;
+}
+
+.temperature-hint {
+  font-size: 0.75rem;
+  color: #928374;
+  margin-bottom: 10px;
+}
+
+.temperature-slider {
+  width: 100%;
+  accent-color: #fabd2f;
+  cursor: pointer;
+  height: 4px;
+  margin-bottom: 4px;
+}
+
+.temperature-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #665c54;
+  margin-bottom: 4px;
+}
+
+/* ============================================================
    Login page
    ============================================================ */
 
@@ -1155,9 +1196,11 @@ button:hover {
   border: none;
   padding: 0;
   border-radius: 0;
+  box-shadow: none;
   color: #fabd2f;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
   text-decoration: underline;
   transition: color 0.2s;
@@ -1166,6 +1209,7 @@ button:hover {
 .login-toggle-btn:hover:not(:disabled) {
   color: #d3869b;
   background: none;
+  box-shadow: none;
 }
 
 .login-guest-btn {

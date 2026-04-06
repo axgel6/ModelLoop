@@ -11,6 +11,8 @@ interface ChatPreferencesProps {
   setActivePreset: (label: string) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  temperature: number;
+  setTemperature: (t: number) => void;
 }
 
 const PRESETS: { label: string; prompt: string }[] = [
@@ -81,6 +83,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   setActivePreset,
   theme,
   setTheme,
+  temperature,
+  setTemperature,
 }) => {
   useEscapeKey(onClose);
 
@@ -130,6 +134,37 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             />
           </>
         )}
+
+        <div className="solid-divider" role="separator"></div>
+        <div className="temperature-row">
+          <label>Temperature</label>
+          <span className="temperature-value">{temperature.toFixed(1)}</span>
+        </div>
+        <div className="temperature-hint">
+          {temperature <= 0.4
+            ? "Focused - precise, deterministic responses"
+            : temperature === 0.7
+              ? "Balanced - reliable with some creativity (Default)"
+              : temperature <= 0.9
+                ? "Balanced - reliable with some creativity"
+                : temperature <= 1.4
+                  ? "Creative - more varied and expressive"
+                  : "Wild - highly unpredictable outputs"}
+        </div>
+        <input
+          className="temperature-slider"
+          type="range"
+          min="0"
+          max="2"
+          step="0.1"
+          value={temperature}
+          onChange={(e) => setTemperature(parseFloat(e.target.value))}
+        />
+        <div className="temperature-labels">
+          <span>0.0</span>
+          <span>1.0</span>
+          <span>2.0</span>
+        </div>
 
         <div className="solid-divider" role="separator"></div>
         <label style={{ display: "block", marginBottom: 8 }}>Appearance</label>

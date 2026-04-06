@@ -228,6 +228,7 @@ export async function apiGuestChatStream(payload: {
   messages: Message[];
   model?: string;
   system_prompt?: string;
+  temperature?: number;
 }): Promise<Response> {
   const res = await fetch(`${API_URL}/api/v1/chat/guest/stream`, {
     method: "POST",
@@ -248,6 +249,7 @@ export async function apiChatStream(payload: {
   chat_id: string;
   model?: string;
   system_prompt?: string;
+  temperature?: number;
 }): Promise<Response> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/chat/stream`, {

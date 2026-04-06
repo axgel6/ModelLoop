@@ -117,8 +117,9 @@ class ChatRequest(BaseModel):
     prompt:        str           = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH)
     # Frontend must create a chat first via POST /api/chats
     chat_id:       str           = Field(..., min_length=1, max_length=36)
-    model:         Optional[str] = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
-    system_prompt: Optional[str] = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
+    model:         Optional[str]   = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+    system_prompt: Optional[str]   = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
+    temperature:   Optional[float] = Field(default=0.7, ge=0.0, le=2.0)
 
 class GuestChatRequest(BaseModel):
     prompt:        str                    = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH)
@@ -126,6 +127,7 @@ class GuestChatRequest(BaseModel):
     messages:      list[GuestMessage]     = Field(default=[], max_length=MAX_GUEST_HISTORY)
     model:         Optional[str]          = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
     system_prompt: Optional[str]          = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
+    temperature:   Optional[float]        = Field(default=0.7, ge=0.0, le=2.0)
 
 class RenameChatRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=MAX_TITLE_LENGTH)
@@ -340,7 +342,7 @@ async def chat_stream(
                 async with client.stream(
                     "POST",
                     f"{OLLAMA_BASE_URL}/api/chat",
-                    json={"model": model, "messages": messages, "stream": True},
+                    json={"model": model, "messages": messages, "stream": True, "options": {"temperature": body.temperature}},
                     headers=NGROK_HEADERS,
                 ) as resp:
                     resp.raise_for_status()
@@ -423,7 +425,7 @@ async def guest_chat_stream(
                 async with client.stream(
                     "POST",
                     f"{OLLAMA_BASE_URL}/api/chat",
-                    json={"model": model, "messages": messages, "stream": True},
+                    json={"model": model, "messages": messages, "stream": True, "options": {"temperature": body.temperature}},
                     headers=NGROK_HEADERS,
                 ) as resp:
                     resp.raise_for_status()

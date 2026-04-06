@@ -71,6 +71,7 @@ function Chat({
 4. Be concise - don't over-explain simple questions`);
   const [showPreferences, setShowPreferences] = useState(false);
   const [activePreset, setActivePreset] = useState<string>("Default");
+  const [temperature, setTemperature] = useState(0.7);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -258,12 +259,14 @@ function Chat({
             messages: historyForGuest!,
             model: selectedModel || undefined,
             system_prompt: systemPrompt,
+            temperature,
           })
         : await apiChatStream({
             prompt: userMessage,
             chat_id: chatId!,
             model: selectedModel || undefined,
             system_prompt: systemPrompt,
+            temperature,
           });
 
       const reader = response.body?.getReader();
@@ -487,6 +490,8 @@ function Chat({
           setActivePreset={setActivePreset}
           theme={theme}
           setTheme={setTheme}
+          temperature={temperature}
+          setTemperature={setTemperature}
         />
       )}
       {showHistory && (
