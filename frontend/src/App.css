@@ -1683,6 +1683,17 @@ html[data-theme="flat"] .login-submit:hover:not(:disabled) {
   box-shadow: none;
 }
 
+html[data-theme="flat"] .login-toggle-btn {
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-theme="flat"] .login-toggle-btn:hover:not(:disabled) {
+  background: none;
+  box-shadow: none;
+}
+
 html[data-theme="flat"] .login-submit:disabled {
   background: #504945;
   box-shadow: none;
