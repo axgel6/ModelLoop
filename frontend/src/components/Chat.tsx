@@ -439,6 +439,12 @@ function Chat({
 
       <div className="chat-container">
         <div className="messages" ref={messagesContainerRef}>
+          {messages.length === 0 && (
+            <p id="disclaimer">
+              ModelLoop can make mistakes. Please verify any critical information it
+              provides.
+            </p>
+          )}
           {messages.map((msg, idx) => (
             <div key={idx} className={`message ${msg.role}`}>
               {msg.role === "assistant" ? (
@@ -474,12 +480,6 @@ function Chat({
         </div>
       </div>
 
-      <div className="chat-footer">
-        <p id="disclaimer">
-          ModelLoop can make mistakes. Please verify any critical information it
-          provides.
-        </p>
-      </div>
 
       {showPreferences && (
         <ChatPreferences

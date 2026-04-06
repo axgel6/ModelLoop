@@ -8,8 +8,7 @@ function LandingPage({ onStart }: LandingPageProps) {
       <div className="landing-content">
         <h1>ModelLoop/Welcome!</h1>
         <p className="landing-tagline">
-          A full-stack AI chat app with streaming responses, and multi-model
-          switching, and persistent history
+          Full-stack AI: Streaming, multi-model, persistent.
         </p>
 
         <div className="landing-features">
