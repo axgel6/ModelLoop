@@ -371,12 +371,13 @@ async def chat_stream(
                     write_db.add(Message(chat_id=chat_id, role="user",      content=prompt))
                     write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
 
-                    # Auto-title the chat from the first 60 characters of the opening prompt
-                    if chat_title == "New Chat":
-                        chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
-                        chat_row = chat_result.scalar_one_or_none()
-                        if chat_row:
+                    chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
+                    chat_row = chat_result.scalar_one_or_none()
+                    if chat_row:
+                        # Auto-title from the first 60 characters of the opening prompt
+                        if chat_title == "New Chat":
                             chat_row.title = prompt[:60]
+                        chat_row.updated_at = datetime.now(timezone.utc)
 
                     await write_db.commit()
 
