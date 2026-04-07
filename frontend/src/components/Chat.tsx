@@ -245,11 +245,12 @@ function Chat({
       if (!chatId) return;
     }
 
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    const now = new Date().toISOString();
+    setMessages((prev) => [...prev, { role: "user", content: userMessage, created_at: now }]);
     setInput("");
 
     // Add placeholder that will be filled in-place as tokens stream in
-    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: "", created_at: new Date().toISOString() }]);
 
     setLoading(true);
     try {
@@ -294,7 +295,7 @@ function Chat({
                 setMessages((prev) => {
                   const next = [...prev];
                   next[next.length - 1] = {
-                    role: "assistant",
+                    ...next[next.length - 1],
                     content: accumulatedResponse,
                   };
                   return next;
@@ -324,7 +325,7 @@ function Chat({
         const next = [...prev];
         if (next.length > 0 && next[next.length - 1].role === "assistant") {
           next[next.length - 1] = {
-            role: "assistant",
+            ...next[next.length - 1],
             content: `Error: ${message}`,
           };
         } else {
@@ -445,22 +446,33 @@ function Chat({
               provides.
             </p>
           )}
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`message ${msg.role}`}>
-              {msg.role === "assistant" ? (
-                <div className="assistant-content">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm, remarkMath]}
-                    rehypePlugins={[rehypeKatex, rehypeHighlight]}
-                  >
-                    {fixMathDelimiters(msg.content)}
-                  </ReactMarkdown>
+          {messages.map((msg, idx) => {
+            const ts = msg.created_at
+              ? new Date(msg.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : null;
+            return (
+              <div key={idx} className={`message-row ${msg.role}`}>
+                <div className={`message ${msg.role}`}>
+                  {msg.role === "assistant" ? (
+                    <div className="assistant-content">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                      >
+                        {fixMathDelimiters(msg.content)}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    msg.content
+                  )}
                 </div>
-              ) : (
-                msg.content
-              )}
-            </div>
-          ))}
+                {ts && <div className="msg-timestamp">{ts}</div>}
+              </div>
+            );
+          })}
         </div>
 
         <div className="input-area">

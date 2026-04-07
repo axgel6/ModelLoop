@@ -291,7 +291,7 @@ async def get_messages(
     msgs = await db.execute(
         select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
     )
-    return {"messages": [{"role": m.role, "content": m.content} for m in msgs.scalars().all()]}
+    return {"messages": [{"role": m.role, "content": m.content, "created_at": m.created_at.isoformat()} for m in msgs.scalars().all()]}
 
 # ----- Stream Routes -----
 

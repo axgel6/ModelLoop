@@ -181,6 +181,7 @@ export async function apiDeleteChat(chatId: string): Promise<void> {
 export interface Message {
   role: "user" | "assistant";
   content: string;
+  created_at?: string;
 }
 
 // Fetch the full message history for a chat, ordered by creation time

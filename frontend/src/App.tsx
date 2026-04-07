@@ -17,7 +17,7 @@ function App() {
   const [isGuest, setIsGuest] = useState(false);
 
   const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem("theme") as Theme) || "flat",
+    () => (localStorage.getItem("theme") as Theme) || "glassy",
   );
 
   useEffect(() => {
