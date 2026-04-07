@@ -49,6 +49,8 @@ ModelLoop/
 - Keyboard shortcuts
 - System prompt customization
 - Chat History
+- Themes
+- Temperature controls
 
 ## Getting Started
 
@@ -72,15 +74,11 @@ npm run dev
 
 ## Features Coming Soon
 
-- Themes + custom branding
 - Hardware specs display
 - Custom Ollama server URL configuration
 - Regenerate response
 - Edit & resubmit messages
 - Export chat history (Markdown/JSON)
-- Pull/delete models from UI
-- Dark/light mode toggle
-- Temperature/parameter controls
 - Image support
 
 ## Screenshots
