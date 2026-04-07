@@ -13,6 +13,7 @@ import {
   apiGetModels,
   apiGuestChatStream,
   apiHealth,
+  type ChatMeta,
   type Message,
 } from "./api";
 
@@ -37,9 +38,10 @@ interface ChatProps {
   onBack: () => void;
   activeChatId: string | null; // Controlled by App.tsx
   onChatCreated: (chatId: string) => void; // Notify App when a new chat is created
-  onChatsChanged: () => void; // Notify History to refresh its list
+  onChatsChanged: () => void; // Trigger a background refresh of the chat list
   onLogout: () => void; // Clear token and return to landing/login
-  historyKey: number; // Incremented by App.tsx to force History to remount/refetch
+  chats: ChatMeta[]; // Cached chat list owned by App.tsx
+  chatsLoading: boolean;
   isGuest: boolean; // True means no auth and no persistence
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -51,7 +53,8 @@ function Chat({
   onChatCreated,
   onChatsChanged,
   onLogout,
-  historyKey,
+  chats,
+  chatsLoading,
   isGuest,
   theme,
   setTheme,
@@ -59,6 +62,8 @@ function Chat({
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const messageCache = useRef<Map<string, Message[]>>(new Map());
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [isConnected, setIsConnected] = useState(false);
@@ -155,11 +160,20 @@ function Chat({
       return;
     }
     const loadMessages = async () => {
+      const cached = messageCache.current.get(activeChatId);
+      if (cached) {
+        setMessages(cached);
+      } else {
+        setMessagesLoading(true);
+      }
       try {
         const msgs = await apiGetMessages(activeChatId);
+        messageCache.current.set(activeChatId, msgs);
         setMessages(msgs);
       } catch {
         console.error("Failed to load messages for chat", activeChatId);
+      } finally {
+        setMessagesLoading(false);
       }
     };
     loadMessages();
@@ -335,6 +349,13 @@ function Chat({
       });
     } finally {
       setLoading(false);
+      // Keep cache fresh so switching away and back is instant
+      setMessages((prev) => {
+        if (activeChatIdRef.current) {
+          messageCache.current.set(activeChatIdRef.current, prev);
+        }
+        return prev;
+      });
     }
   };
 
@@ -440,7 +461,10 @@ function Chat({
 
       <div className="chat-container">
         <div className="messages" ref={messagesContainerRef}>
-          {messages.length === 0 && (
+          {messagesLoading && (
+            <p id="disclaimer" className="messages-loading">Loading…</p>
+          )}
+          {!messagesLoading && messages.length === 0 && (
             <p id="disclaimer">
               ModelLoop can make mistakes. Please verify any critical information it
               provides.
@@ -508,7 +532,8 @@ function Chat({
       )}
       {showHistory && (
         <History
-          key={historyKey}
+          chats={chats}
+          loading={chatsLoading}
           onClose={() => setShowHistory(false)}
           activeChatId={activeChatId}
           onSelectChat={(id: string) => {
@@ -516,6 +541,7 @@ function Chat({
             setShowHistory(false);
           }}
           onNewChat={handleNewChat}
+          onChatsChanged={onChatsChanged}
         />
       )}
     </>

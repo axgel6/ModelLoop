@@ -3,7 +3,7 @@ import "./App.css";
 import LandingPage from "./components/LandingPage";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
-import { apiLogout, setUnauthorizedHandler } from "./components/api";
+import { apiListChats, apiLogout, setUnauthorizedHandler, type ChatMeta } from "./components/api";
 
 type View = "landing" | "login" | "chat";
 type Theme = "glassy" | "flat";
@@ -15,6 +15,21 @@ function App() {
   );
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isGuest, setIsGuest] = useState(false);
+  const [chats, setChats] = useState<ChatMeta[]>([]);
+  const [chatsLoading, setChatsLoading] = useState(false);
+
+  const refreshChats = async () => {
+    setChatsLoading(true);
+    try {
+      setChats(await apiListChats());
+    } catch { /* ignore */ }
+    finally { setChatsLoading(false); }
+  };
+
+  // Pre-fetch chat list whenever the user enters chat view
+  useEffect(() => {
+    if (view === "chat" && !isGuest) refreshChats();
+  }, [view, isGuest]);
 
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem("theme") as Theme) || "glassy",
@@ -59,9 +74,7 @@ function App() {
     setActiveChatId(chatId || null);
   };
 
-  // Incrementing this key forces History to remount and re-fetch after any chat change
-  const [historyKey, setHistoryKey] = useState(0);
-  const handleChatsChanged = () => setHistoryKey((k) => k + 1);
+  const handleChatsChanged = () => refreshChats();
 
   return (
     <>
@@ -88,8 +101,9 @@ function App() {
           onLogout={handleLogout}
           activeChatId={activeChatId}
           onChatCreated={handleChatCreated}
+          chats={chats}
+          chatsLoading={chatsLoading}
           onChatsChanged={handleChatsChanged}
-          historyKey={historyKey}
           isGuest={isGuest}
           theme={theme}
           setTheme={setTheme}

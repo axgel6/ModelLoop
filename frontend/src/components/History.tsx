@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { apiListChats, apiDeleteChat } from "./api";
+import { apiDeleteChat, type ChatMeta } from "./api";
 import { useEscapeKey } from "./useEscapeKey";
 
 // Format an ISO date string as a human-readable relative label
@@ -18,79 +18,56 @@ function formatDate(iso: string): string {
 
 // ----- Types -----
 
-interface HistoryItem {
-  id: string;
-  title: string;
-  lastMessage: string;
-  lastModified: string;
-}
-
 interface HistoryProps {
+  chats: ChatMeta[];
+  loading: boolean;
   onClose: () => void;
   activeChatId: string | null;
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
-  historyKey?: number;
+  onChatsChanged: () => void;
 }
 
 // ----- Component -----
 
 const History: React.FC<HistoryProps> = ({
+  chats,
+  loading,
   onClose,
   activeChatId,
   onSelectChat,
   onNewChat,
+  onChatsChanged,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [historyData, setHistoryData] = useState<HistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Local copy for optimistic deletes; synced when parent refreshes
+  const [localChats, setLocalChats] = useState<ChatMeta[]>(chats);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch all chats on mount and map them to HistoryItems
   useEffect(() => {
-    async function fetchHistory() {
-      setLoading(true);
-      setError(null);
-      try {
-        const chats = await apiListChats();
-        setHistoryData(
-          chats.map((chat) => ({
-            id: chat.id,
-            title: chat.title || "Untitled",
-            lastMessage: "",
-            lastModified: chat.updated_at,
-          })),
-        );
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : "Failed to load history");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchHistory();
-  }, []);
+    setLocalChats(chats);
+  }, [chats]);
 
   useEscapeKey(onClose);
 
   // ----- Handlers -----
 
   const handleDelete = async (id: string) => {
-    const snapshot = historyData.find((item) => item.id === id);
-    const snapshotIndex = historyData.findIndex((item) => item.id === id);
+    const snapshot = localChats.find((c) => c.id === id);
+    const snapshotIndex = localChats.findIndex((c) => c.id === id);
 
-    // Optimistic removal so the list updates without a loading state
-    setHistoryData((prev) => prev.filter((item) => item.id !== id));
+    setLocalChats((prev) => prev.filter((c) => c.id !== id));
     setDeletingIds((prev) => new Set(prev).add(id));
 
     if (id === activeChatId) onNewChat();
 
     try {
       await apiDeleteChat(id);
+      onChatsChanged();
     } catch (e: unknown) {
-      // Revert on failure — restore the item at its original position
       if (snapshot) {
-        setHistoryData((prev) => {
+        setLocalChats((prev) => {
           const next = [...prev];
           next.splice(snapshotIndex, 0, snapshot);
           return next;
@@ -106,10 +83,8 @@ const History: React.FC<HistoryProps> = ({
     }
   };
 
-  const filteredHistory = historyData.filter(
-    (item) =>
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.lastMessage.toLowerCase().includes(searchTerm.toLowerCase()),
+  const filtered = localChats.filter((c) =>
+    (c.title || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
@@ -123,32 +98,29 @@ const History: React.FC<HistoryProps> = ({
         onChange={(e) => setSearchTerm(e.target.value)}
         onClick={(e) => e.stopPropagation()}
       />
-      {loading && <div className="history-loading">Loading...</div>}
+      {loading && localChats.length === 0 && (
+        <div className="history-loading">Loading...</div>
+      )}
       {error && <div className="history-error">{error}</div>}
-      {!loading && !error && filteredHistory.length > 0 && (
+      {!error && filtered.length > 0 && (
         <div
           className="history-floating-list"
           onClick={(e) => e.stopPropagation()}
         >
-          {filteredHistory.map((item) => (
+          {filtered.map((item) => (
             <div
               key={item.id}
               className={`history-result-item${activeChatId === item.id ? " active" : ""}`}
+              onClick={() => {
+                onSelectChat(item.id);
+                onClose();
+              }}
             >
-              <div
-                className="item-text-stack"
-                onClick={() => {
-                  onSelectChat(item.id);
-                  onClose();
-                }}
-              >
+              <div className="item-text-stack">
                 <div className="item-header-row">
-                  <span className="item-title">{item.title}</span>
-                  <span className="item-date">
-                    {formatDate(item.lastModified)}
-                  </span>
+                  <span className="item-title">{item.title || "Untitled"}</span>
+                  <span className="item-date">{formatDate(item.updated_at)}</span>
                 </div>
-                <span className="item-preview">{item.lastMessage}</span>
               </div>
               <button
                 className="history-delete-button"
@@ -165,7 +137,7 @@ const History: React.FC<HistoryProps> = ({
           ))}
         </div>
       )}
-      {!loading && !error && filteredHistory.length === 0 && (
+      {!loading && filtered.length === 0 && (
         <div className="history-empty">No history found.</div>
       )}
     </div>
