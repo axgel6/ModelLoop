@@ -164,6 +164,17 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("Failed to rename chat");
 }
 
+// Delete the current user account and all their data
+export async function apiDeleteAccount(): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/auth/account`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to delete account");
+}
+
 // Delete a chat and all its messages
 export async function apiDeleteChat(chatId: string): Promise<void> {
   const res = await withRefresh(() =>

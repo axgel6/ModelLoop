@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { useEscapeKey } from "./useEscapeKey";
 
-type Theme = "glassy" | "flat";
+type Theme = "glass" | "flat";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -13,6 +13,7 @@ interface ChatPreferencesProps {
   setTheme: (theme: Theme) => void;
   temperature: number;
   setTemperature: (t: number) => void;
+  onDeleteAccount: () => Promise<void>;
 }
 
 const PRESETS: { label: string; prompt: string }[] = [
@@ -90,8 +91,25 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   setTheme,
   temperature,
   setTemperature,
+  onDeleteAccount,
 }) => {
   useEscapeKey(onClose);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await onDeleteAccount();
+    } finally {
+      setDeleting(false);
+      setConfirming(false);
+    }
+  };
 
   const handlePresetClick = (label: string, prompt: string) => {
     setActivePreset(label);
@@ -174,7 +192,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         <div className="solid-divider" role="separator"></div>
         <label style={{ display: "block", marginBottom: 8 }}>Appearance</label>
         <div className="preset-buttons-row">
-          {(["Glassy", "Flat"] as const).map((label) => {
+          {(["Glass", "Flat"] as const).map((label) => {
             const value = label.toLowerCase() as Theme;
             return (
               <button
@@ -186,6 +204,27 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               </button>
             );
           })}
+        </div>
+        <div className="solid-divider" role="separator"></div>
+        <label>Account Management</label>
+        <div className="preset-buttons-row" style={{ marginTop: 8 }}>
+          <button
+            onClick={handleDeleteAccount}
+            disabled={deleting}
+            style={{
+              background: confirming ? "#fb4934" : undefined,
+              color: confirming ? "#ffffff" : undefined,
+            }}
+          >
+            {deleting
+              ? "Deleting..."
+              : confirming
+                ? "Confirm Delete"
+                : "Delete Account"}
+          </button>
+          {confirming && (
+            <button onClick={() => setConfirming(false)}>Cancel</button>
+          )}
         </div>
 
         <div className="modal-footer-row" />

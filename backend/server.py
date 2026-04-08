@@ -275,6 +275,19 @@ async def delete_chat(
     await db.delete(chat)
     await db.commit()
 
+# DELETE /api/v1/auth/account - Delete the current user and all their data
+@app.delete("/api/v1/auth/account", status_code=204)
+async def delete_account(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.delete(user)
+    await db.commit()
+
 # ----- Message Routes -----
 
 # GET /api/v1/chats/{chat_id}/messages - Return full conversation history for a chat

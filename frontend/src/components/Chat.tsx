@@ -9,6 +9,7 @@ import remarkMath from "remark-math";
 import {
   apiChatStream,
   apiCreateChat,
+  apiDeleteAccount,
   apiGetMessages,
   apiGetModels,
   apiGuestChatStream,
@@ -32,7 +33,7 @@ function fixMathDelimiters(text: string): string {
   );
 }
 
-type Theme = "glassy" | "flat";
+type Theme = "glass" | "flat";
 
 interface ChatProps {
   onBack: () => void;
@@ -528,6 +529,12 @@ function Chat({
           setTheme={setTheme}
           temperature={temperature}
           setTemperature={setTemperature}
+          onDeleteAccount={async () => {
+            await apiDeleteAccount();
+            localStorage.removeItem("token");
+            localStorage.removeItem("refresh_token");
+            onBack();
+          }}
         />
       )}
       {showHistory && (
