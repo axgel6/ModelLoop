@@ -6,7 +6,7 @@ import Login from "./components/Login";
 import { apiListChats, apiLogout, setUnauthorizedHandler, type ChatMeta } from "./components/api";
 
 type View = "landing" | "login" | "chat";
-type Theme = "glass" | "flat";
+type Theme = "glass" | "flat" | "ayu";
 
 function App() {
   // Sets view to login page or chat based on presence of JWT token in localStorage
@@ -33,7 +33,9 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    return (stored === "glassy" ? "glass" : stored as Theme) || "glass";
+    const valid: Theme[] = ["glass", "flat", "ayu"];
+    const normalized = stored === "glassy" ? "glass" : stored as Theme;
+    return valid.includes(normalized) ? normalized : "glass";
   });
 
   useEffect(() => {

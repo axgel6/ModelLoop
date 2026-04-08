@@ -33,7 +33,7 @@ function fixMathDelimiters(text: string): string {
   );
 }
 
-type Theme = "glass" | "flat";
+type Theme = "glass" | "flat" | "ayu";
 
 interface ChatProps {
   onBack: () => void;
