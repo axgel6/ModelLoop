@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useEscapeKey } from "./useEscapeKey";
 
-type Theme = "glass" | "flat" | "ayu";
+type Theme = "glass" | "flat" | "ocean";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -124,7 +124,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       >
         <div className="modal-header-row">
           <button className="close-button" onClick={onClose}>
-            ←
+            <span style={{ paddingBottom: "2px" }}>←</span>
           </button>
           <h2>Chat Preferences</h2>
         </div>
@@ -192,7 +192,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         <div className="solid-divider" role="separator"></div>
         <label style={{ display: "block", marginBottom: 8 }}>Appearance</label>
         <div className="preset-buttons-row">
-          {(["Glass", "Flat", "Ayu"] as const).map((label) => {
+          {(["Glass", "Flat", "Ocean"] as const).map((label) => {
             const value = label.toLowerCase() as Theme;
             return (
               <button

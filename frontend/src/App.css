@@ -17,7 +17,7 @@
   }
 }
 
-html:not([data-theme="flat"]):not([data-theme="ayu"]) body::before {
+html:not([data-theme="flat"]):not([data-theme="ocean"]) body::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -218,6 +218,14 @@ button:hover {
   padding: 0;
   font-size: 1.3rem;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-button,
+.back-to-landing {
+  padding-bottom: 2px;
 }
 
 .new-chat {
@@ -586,6 +594,9 @@ button:hover {
   bottom: 5px;
   height: calc(100% - 10px);
   padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background:
     linear-gradient(
       180deg,
@@ -1801,25 +1812,49 @@ html[data-theme="flat"] .feature:hover {
   box-shadow: none;
 }
 
-/* ---- Ayu Glass Theme ---- */
+/* ---- Ocean Glass Theme ---- */
 
-html[data-theme="ayu"] body::before {
+@keyframes ocean-drift {
+  0% {
+    opacity: 0.85;
+    transform: translateX(-12%) scaleX(0.92) scaleY(1);
+  }
+  25% {
+    opacity: 1;
+    transform: translateX(6%) scaleX(1.05) scaleY(2.15);
+  }
+  50% {
+    opacity: 0.75;
+    transform: translateX(14%) scaleX(0.95) scaleY(0.9);
+  }
+  75% {
+    opacity: 1;
+    transform: translateX(-4%) scaleX(1.08) scaleY(1.2);
+  }
+  100% {
+    opacity: 0.85;
+    transform: translateX(-12%) scaleX(0.92) scaleY(1);
+  }
+}
+
+html[data-theme="ocean"] body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
   background: radial-gradient(
-    ellipse 70% 40% at 50% 100%,
-    rgba(57, 186, 230, 0.12) 0%,
+    ellipse 70% 45% at 50% 100%,
+    rgba(57, 186, 230, 0.14) 0%,
+    rgba(100, 160, 230, 0.04) 55%,
     transparent 70%
   );
-  animation: glow-pulse 30s ease-in-out infinite;
   transform-origin: 50% 100%;
+  animation: ocean-drift 20s ease-in-out infinite;
 }
 
-html[data-theme="ayu"],
-html[data-theme="ayu"] body {
+html[data-theme="ocean"],
+html[data-theme="ocean"] body {
   background-color: #0d1017;
   background-image:
     radial-gradient(
@@ -1840,13 +1875,13 @@ html[data-theme="ayu"] body {
   color: #e6e1cf;
 }
 
-html[data-theme="ayu"] #root {
+html[data-theme="ocean"] #root {
   background: transparent;
 }
 
 /* ---- Buttons ---- */
 
-html[data-theme="ayu"] button {
+html[data-theme="ocean"] button {
   background:
     linear-gradient(
       180deg,
@@ -1862,7 +1897,7 @@ html[data-theme="ayu"] button {
     inset 0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 
-html[data-theme="ayu"] button:hover {
+html[data-theme="ocean"] button:hover {
   background:
     linear-gradient(
       180deg,
@@ -1870,31 +1905,31 @@ html[data-theme="ayu"] button:hover {
       rgba(255, 255, 255, 0) 55%,
       rgba(0, 0, 0, 0.08) 100%
     ),
-    #f07178;
+    #b8cc52;
   color: #0d1017;
   box-shadow:
-    0 2px 14px rgba(240, 113, 120, 0.35),
+    0 2px 14px rgba(184, 204, 82, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 
-html[data-theme="ayu"] .history-delete-button {
+html[data-theme="ocean"] .history-delete-button {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
   color: #3d4354;
 }
 
-html[data-theme="ayu"] .history-delete-button:hover:not(:disabled) {
+html[data-theme="ocean"] .history-delete-button:hover:not(:disabled) {
   color: #e6b450;
   background: transparent;
   box-shadow: none;
 }
 
-html[data-theme="ayu"] .back-to-landing,
-html[data-theme="ayu"] .history-button,
-html[data-theme="ayu"] .chat-preferences,
-html[data-theme="ayu"] .new-chat {
+html[data-theme="ocean"] .back-to-landing,
+html[data-theme="ocean"] .history-button,
+html[data-theme="ocean"] .chat-preferences,
+html[data-theme="ocean"] .new-chat {
   background:
     linear-gradient(
       180deg,
@@ -1911,10 +1946,10 @@ html[data-theme="ayu"] .new-chat {
     inset 0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 
-html[data-theme="ayu"] .back-to-landing:hover,
-html[data-theme="ayu"] .history-button:hover,
-html[data-theme="ayu"] .chat-preferences:hover,
-html[data-theme="ayu"] .new-chat:hover {
+html[data-theme="ocean"] .back-to-landing:hover,
+html[data-theme="ocean"] .history-button:hover,
+html[data-theme="ocean"] .chat-preferences:hover,
+html[data-theme="ocean"] .new-chat:hover {
   background:
     linear-gradient(
       180deg,
@@ -1922,16 +1957,16 @@ html[data-theme="ayu"] .new-chat:hover {
       rgba(255, 255, 255, 0) 55%,
       rgba(0, 0, 0, 0.08) 100%
     ),
-    #f07178;
-  border-color: rgba(240, 113, 120, 0.7);
+    #b8cc52;
+  border-color: rgba(184, 204, 82, 0.7);
   color: #0d1017;
   box-shadow:
-    0 2px 14px rgba(240, 113, 120, 0.35),
+    0 2px 14px rgba(184, 204, 82, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 
-html[data-theme="ayu"] .logout-button {
+html[data-theme="ocean"] .logout-button {
   background:
     linear-gradient(
       180deg,
@@ -1945,7 +1980,7 @@ html[data-theme="ayu"] .logout-button {
   box-shadow: 0 2px 10px rgba(230, 180, 80, 0.3);
 }
 
-html[data-theme="ayu"] .logout-button:hover:not(:disabled) {
+html[data-theme="ocean"] .logout-button:hover:not(:disabled) {
   background:
     linear-gradient(
       180deg,
@@ -1953,12 +1988,12 @@ html[data-theme="ayu"] .logout-button:hover:not(:disabled) {
       rgba(255, 255, 255, 0) 55%,
       rgba(0, 0, 0, 0.08) 100%
     ),
-    #f07178;
-  border-color: rgba(240, 113, 120, 0.7);
+    #b8cc52;
+  border-color: rgba(184, 204, 82, 0.7);
   color: #0d1017;
 }
 
-html[data-theme="ayu"] .close-button {
+html[data-theme="ocean"] .close-button {
   background:
     linear-gradient(
       180deg,
@@ -1972,7 +2007,7 @@ html[data-theme="ayu"] .close-button {
   box-shadow: 0 2px 10px rgba(230, 180, 80, 0.3);
 }
 
-html[data-theme="ayu"] .close-button:hover {
+html[data-theme="ocean"] .close-button:hover {
   background:
     linear-gradient(
       180deg,
@@ -1980,12 +2015,12 @@ html[data-theme="ayu"] .close-button:hover {
       rgba(255, 255, 255, 0) 55%,
       rgba(0, 0, 0, 0.08) 100%
     ),
-    #f07178;
-  border-color: rgba(240, 113, 120, 0.7);
+    #b8cc52;
+  border-color: rgba(184, 204, 82, 0.7);
   color: #0d1017;
 }
 
-html[data-theme="ayu"] .preset-buttons-row button {
+html[data-theme="ocean"] .preset-buttons-row button {
   background:
     linear-gradient(
       180deg,
@@ -1999,7 +2034,7 @@ html[data-theme="ayu"] .preset-buttons-row button {
   box-shadow: 0 2px 10px rgba(230, 180, 80, 0.25);
 }
 
-html[data-theme="ayu"] .preset-buttons-row button:hover {
+html[data-theme="ocean"] .preset-buttons-row button:hover {
   background:
     linear-gradient(
       180deg,
@@ -2007,12 +2042,12 @@ html[data-theme="ayu"] .preset-buttons-row button:hover {
       rgba(255, 255, 255, 0) 55%,
       rgba(0, 0, 0, 0.08) 100%
     ),
-    #f07178;
-  border-color: rgba(240, 113, 120, 0.7);
+    #b8cc52;
+  border-color: rgba(184, 204, 82, 0.7);
   color: #0d1017;
 }
 
-html[data-theme="ayu"] .preset-buttons-row button.active-preset {
+html[data-theme="ocean"] .preset-buttons-row button.active-preset {
   background:
     linear-gradient(
       180deg,
@@ -2020,15 +2055,15 @@ html[data-theme="ayu"] .preset-buttons-row button.active-preset {
       rgba(255, 255, 255, 0) 55%,
       rgba(0, 0, 0, 0.08) 100%
     ),
-    #f07178;
-  border-color: rgba(240, 113, 120, 0.7);
+    #b8cc52;
+  border-color: rgba(184, 204, 82, 0.7);
   color: #0d1017;
-  box-shadow: 0 2px 14px rgba(240, 113, 120, 0.35);
+  box-shadow: 0 2px 14px rgba(184, 204, 82, 0.35);
 }
 
 /* ---- Model selector ---- */
 
-html[data-theme="ayu"] .chat-header-row select {
+html[data-theme="ocean"] .chat-header-row select {
   background-color: rgba(26, 31, 43, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -2039,17 +2074,7 @@ html[data-theme="ayu"] .chat-header-row select {
 
 /* ---- Messages panel ---- */
 
-html[data-theme="ayu"] .messages {
-  background: rgba(13, 16, 23, 0.55);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(112, 122, 140, 0.25);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-html[data-theme="ayu"] .message.user {
+html[data-theme="ocean"] .message.user {
   background: rgba(57, 186, 230, 0.15);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2058,7 +2083,7 @@ html[data-theme="ayu"] .message.user {
   color: #e6e1cf;
 }
 
-html[data-theme="ayu"] .message.assistant {
+html[data-theme="ocean"] .message.assistant {
   background: rgba(26, 31, 43, 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2067,7 +2092,7 @@ html[data-theme="ayu"] .message.assistant {
   color: #e6e1cf;
 }
 
-html[data-theme="ayu"] .assistant-content pre {
+html[data-theme="ocean"] .assistant-content pre {
   background: rgba(13, 16, 23, 0.8);
   border: 1px solid rgba(112, 122, 140, 0.3);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -2075,36 +2100,53 @@ html[data-theme="ayu"] .assistant-content pre {
 
 /* ---- Chat title ---- */
 
-html[data-theme="ayu"] .chat-title {
+html[data-theme="ocean"] .chat-title {
   color: #e6e1cf;
 }
 
 /* ---- Input area ---- */
 
-html[data-theme="ayu"] .input-wrapper input {
-  background: rgba(26, 31, 43, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(112, 122, 140, 0.3);
+html[data-theme="ocean"] .input-wrapper input {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.08) 100%
+    ),
+    rgba(26, 31, 43, 0.7);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(112, 122, 140, 0.35);
   color: #e6e1cf;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
 }
 
-html[data-theme="ayu"] .input-wrapper input::placeholder {
+html[data-theme="ocean"] .input-wrapper input::placeholder {
   color: #707a8c;
 }
 
-html[data-theme="ayu"] .input-wrapper input:focus {
+html[data-theme="ocean"] .input-wrapper input:focus {
   border-color: rgba(57, 186, 230, 0.5);
-  background: rgba(26, 31, 43, 0.85);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.08) 100%
+    ),
+    rgba(26, 31, 43, 0.85);
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.3),
-    0 0 0 2px rgba(57, 186, 230, 0.1);
+    0 4px 20px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(57, 186, 230, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24);
 }
 
-html[data-theme="ayu"] .input-wrapper .ask-button {
+html[data-theme="ocean"] .input-wrapper .ask-button {
   background:
     linear-gradient(
       180deg,
@@ -2117,7 +2159,7 @@ html[data-theme="ayu"] .input-wrapper .ask-button {
   box-shadow: 0 2px 10px rgba(170, 217, 76, 0.3);
 }
 
-html[data-theme="ayu"] .input-wrapper .ask-button:hover:not(:disabled) {
+html[data-theme="ocean"] .input-wrapper .ask-button:hover:not(:disabled) {
   background:
     linear-gradient(
       180deg,
@@ -2132,13 +2174,13 @@ html[data-theme="ayu"] .input-wrapper .ask-button:hover:not(:disabled) {
 
 /* ---- History modal ---- */
 
-html[data-theme="ayu"] .history-modal-overlay {
+html[data-theme="ocean"] .history-modal-overlay {
   background: rgba(13, 16, 23, 0.7);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 
-html[data-theme="ayu"] .history-floating-input {
+html[data-theme="ocean"] .history-floating-input {
   background: rgba(26, 31, 43, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -2148,14 +2190,14 @@ html[data-theme="ayu"] .history-floating-input {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
-html[data-theme="ayu"] .history-floating-input:focus {
+html[data-theme="ocean"] .history-floating-input:focus {
   border-color: rgba(230, 180, 80, 0.6);
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.4),
     0 0 0 3px rgba(230, 180, 80, 0.1);
 }
 
-html[data-theme="ayu"] .history-result-item {
+html[data-theme="ocean"] .history-result-item {
   background: rgba(26, 31, 43, 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2164,13 +2206,13 @@ html[data-theme="ayu"] .history-result-item {
   color: #b3b1ad;
 }
 
-html[data-theme="ayu"] .history-result-item:hover {
+html[data-theme="ocean"] .history-result-item:hover {
   background: rgba(31, 36, 48, 0.8);
   border-color: rgba(112, 122, 140, 0.45);
   color: #e6e1cf;
 }
 
-html[data-theme="ayu"] .history-result-item.active {
+html[data-theme="ocean"] .history-result-item.active {
   border-color: rgba(230, 180, 80, 0.5);
   background: rgba(230, 180, 80, 0.08);
   color: #e6e1cf;
@@ -2178,13 +2220,13 @@ html[data-theme="ayu"] .history-result-item.active {
 
 /* ---- Chat Preferences modal ---- */
 
-html[data-theme="ayu"] .chat-preferences-modal-overlay {
+html[data-theme="ocean"] .chat-preferences-modal-overlay {
   background: rgba(13, 16, 23, 0.65);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 
-html[data-theme="ayu"] .chat-preferences-modal {
+html[data-theme="ocean"] .chat-preferences-modal {
   background: rgba(21, 26, 37, 0.85);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -2196,16 +2238,16 @@ html[data-theme="ayu"] .chat-preferences-modal {
   color: #e6e1cf;
 }
 
-html[data-theme="ayu"] .chat-preferences-modal label,
-html[data-theme="ayu"] .chat-preferences-modal h2 {
+html[data-theme="ocean"] .chat-preferences-modal label,
+html[data-theme="ocean"] .chat-preferences-modal h2 {
   color: #e6e1cf;
 }
 
-html[data-theme="ayu"] .chat-preferences-modal .solid-divider {
+html[data-theme="ocean"] .chat-preferences-modal .solid-divider {
   border-color: rgba(112, 122, 140, 0.2);
 }
 
-html[data-theme="ayu"] .chat-preferences-modal textarea {
+html[data-theme="ocean"] .chat-preferences-modal textarea {
   background: rgba(13, 16, 23, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2214,23 +2256,23 @@ html[data-theme="ayu"] .chat-preferences-modal textarea {
   box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
-html[data-theme="ayu"] .chat-preferences-modal textarea:focus {
+html[data-theme="ocean"] .chat-preferences-modal textarea:focus {
   border-color: rgba(57, 186, 230, 0.5);
   background: rgba(13, 16, 23, 0.85);
   box-shadow: 0 0 0 2px rgba(57, 186, 230, 0.1);
 }
 
-html[data-theme="ayu"] .temperature-hint {
+html[data-theme="ocean"] .temperature-hint {
   color: #707a8c;
 }
 
-html[data-theme="ayu"] .temperature-value {
+html[data-theme="ocean"] .temperature-value {
   color: #e6b450;
 }
 
 /* ---- Login card ---- */
 
-html[data-theme="ayu"] .login-card {
+html[data-theme="ocean"] .login-card {
   background: rgba(21, 26, 37, 0.8);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -2242,7 +2284,7 @@ html[data-theme="ayu"] .login-card {
   color: #e6e1cf;
 }
 
-html[data-theme="ayu"] .login-field input {
+html[data-theme="ocean"] .login-field input {
   background: rgba(13, 16, 23, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2251,13 +2293,13 @@ html[data-theme="ayu"] .login-field input {
   box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
-html[data-theme="ayu"] .login-field input:focus {
+html[data-theme="ocean"] .login-field input:focus {
   border-color: rgba(230, 180, 80, 0.5);
   background: rgba(13, 16, 23, 0.85);
   box-shadow: 0 0 0 2px rgba(230, 180, 80, 0.1);
 }
 
-html[data-theme="ayu"] .login-submit {
+html[data-theme="ocean"] .login-submit {
   background:
     linear-gradient(
       180deg,
@@ -2270,7 +2312,7 @@ html[data-theme="ayu"] .login-submit {
   box-shadow: 0 2px 10px rgba(230, 180, 80, 0.3);
 }
 
-html[data-theme="ayu"] .login-submit:hover:not(:disabled) {
+html[data-theme="ocean"] .login-submit:hover:not(:disabled) {
   background:
     linear-gradient(
       180deg,
@@ -2278,30 +2320,30 @@ html[data-theme="ayu"] .login-submit:hover:not(:disabled) {
       rgba(255, 255, 255, 0) 55%,
       rgba(0, 0, 0, 0.08) 100%
     ),
-    #f07178;
+    #b8cc52;
   color: #0d1017;
 }
 
-html[data-theme="ayu"] .login-toggle-btn {
+html[data-theme="ocean"] .login-toggle-btn {
   background: none;
   border-radius: 0;
   box-shadow: none;
   color: #39bae6;
 }
 
-html[data-theme="ayu"] .login-toggle-btn:hover:not(:disabled) {
+html[data-theme="ocean"] .login-toggle-btn:hover:not(:disabled) {
   background: none;
   box-shadow: none;
   color: #e6b450;
 }
 
-html[data-theme="ayu"] .login-submit:disabled {
+html[data-theme="ocean"] .login-submit:disabled {
   background: rgba(112, 122, 140, 0.3);
   color: #3d4354;
   box-shadow: none;
 }
 
-html[data-theme="ayu"] .login-guest-btn {
+html[data-theme="ocean"] .login-guest-btn {
   background: rgba(26, 31, 43, 0.5);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2310,7 +2352,7 @@ html[data-theme="ayu"] .login-guest-btn {
   box-shadow: none;
 }
 
-html[data-theme="ayu"] .login-guest-btn:hover:not(:disabled) {
+html[data-theme="ocean"] .login-guest-btn:hover:not(:disabled) {
   border-color: rgba(57, 186, 230, 0.4);
   color: #e6e1cf;
   background: rgba(26, 31, 43, 0.7);
@@ -2318,7 +2360,7 @@ html[data-theme="ayu"] .login-guest-btn:hover:not(:disabled) {
 
 /* ---- Landing feature cards ---- */
 
-html[data-theme="ayu"] .feature {
+html[data-theme="ocean"] .feature {
   background: rgba(26, 31, 43, 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -2329,7 +2371,7 @@ html[data-theme="ayu"] .feature {
   color: #b3b1ad;
 }
 
-html[data-theme="ayu"] .feature:hover {
+html[data-theme="ocean"] .feature:hover {
   border-color: rgba(230, 180, 80, 0.4);
   background: rgba(31, 36, 48, 0.75);
   box-shadow:

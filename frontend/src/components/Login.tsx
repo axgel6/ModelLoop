@@ -92,7 +92,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
       <div className="login-container">
         <div className="login-card">
           <button className="back-to-landing" onClick={onBack}>
-            ←
+            <span style={{ paddingBottom: "2px" }}>←</span>
           </button>
 
           <div className="login-header">

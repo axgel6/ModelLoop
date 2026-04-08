@@ -33,7 +33,7 @@ function fixMathDelimiters(text: string): string {
   );
 }
 
-type Theme = "glass" | "flat" | "ayu";
+type Theme = "glass" | "flat" | "ocean";
 
 interface ChatProps {
   onBack: () => void;
@@ -261,11 +261,17 @@ function Chat({
     }
 
     const now = new Date().toISOString();
-    setMessages((prev) => [...prev, { role: "user", content: userMessage, created_at: now }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: userMessage, created_at: now },
+    ]);
     setInput("");
 
     // Add placeholder that will be filled in-place as tokens stream in
-    setMessages((prev) => [...prev, { role: "assistant", content: "", created_at: new Date().toISOString() }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "", created_at: new Date().toISOString() },
+    ]);
 
     setLoading(true);
     try {
@@ -415,7 +421,7 @@ function Chat({
       )}
       <div className="chat-header-row">
         <button className="back-to-landing" onClick={onBack}>
-          ←
+          <span>←</span>
         </button>
         <h1 className="chat-title">ModelLoop/Chat</h1>
         {!isGuest && (
@@ -463,12 +469,14 @@ function Chat({
       <div className="chat-container">
         <div className="messages" ref={messagesContainerRef}>
           {messagesLoading && (
-            <p id="disclaimer" className="messages-loading">Loading…</p>
+            <p id="disclaimer" className="messages-loading">
+              Loading…
+            </p>
           )}
           {!messagesLoading && messages.length === 0 && (
             <p id="disclaimer">
-              ModelLoop can make mistakes. Please verify any critical information it
-              provides.
+              ModelLoop can make mistakes. Please verify any critical
+              information it provides.
             </p>
           )}
           {messages.map((msg, idx) => {
@@ -511,12 +519,15 @@ function Chat({
               onKeyDown={handleKeyDown}
             />
             <button className="ask-button" onClick={handleAsk}>
-              {loading ? "◌" : "➤"}
+              {loading ? (
+                <span style={{ paddingBottom: "2px" }}>◌</span>
+              ) : (
+                <span style={{ paddingTop: "2px" }}>➤</span>
+              )}
             </button>
           </div>
         </div>
       </div>
-
 
       {showPreferences && (
         <ChatPreferences
