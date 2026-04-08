@@ -63,6 +63,8 @@ function Chat({
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const messageCache = useRef<Map<string, Message[]>>(new Map());
   const [models, setModels] = useState<string[]>([]);
@@ -274,6 +276,7 @@ function Chat({
     ]);
 
     setLoading(true);
+    thinkingTimerRef.current = setTimeout(() => setIsThinking(true), 2000);
     try {
       const response = isGuest
         ? await apiGuestChatStream({
@@ -311,6 +314,11 @@ function Chat({
               const data = JSON.parse(line.slice(6));
 
               if (data.type === "token") {
+                if (thinkingTimerRef.current) {
+                  clearTimeout(thinkingTimerRef.current);
+                  thinkingTimerRef.current = null;
+                }
+                setIsThinking(false);
                 accumulatedResponse += data.token;
                 // Update the last message (the streaming placeholder) in-place
                 setMessages((prev) => {
@@ -355,6 +363,11 @@ function Chat({
         return next;
       });
     } finally {
+      if (thinkingTimerRef.current) {
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
+      setIsThinking(false);
       setLoading(false);
       // Keep cache fresh so switching away and back is instant
       setMessages((prev) => {
@@ -491,12 +504,18 @@ function Chat({
                 <div className={`message ${msg.role}`}>
                   {msg.role === "assistant" ? (
                     <div className="assistant-content">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex, rehypeHighlight]}
-                      >
-                        {fixMathDelimiters(msg.content)}
-                      </ReactMarkdown>
+                      {msg.content === "" && isThinking && idx === messages.length - 1 ? (
+                        <div className="thinking-indicator">
+                          Thinking<span className="thinking-dot">.</span><span className="thinking-dot">.</span><span className="thinking-dot">.</span>
+                        </div>
+                      ) : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                        >
+                          {fixMathDelimiters(msg.content)}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   ) : (
                     msg.content
