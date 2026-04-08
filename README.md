@@ -88,3 +88,4 @@ npm run dev
 ![Screenshot of a chat between the AI Assistant and the user](screenshots/ai-user-chat.png)
 ![Screenshot of the chat preferences menu](screenshots/chat-preferences.png)
 ![Screenshot of the history view](screenshots/history.png)
+![Screenshot of another chat between AI Assistant and the user with math help](screenshots/ai-user-chat-2.png)
