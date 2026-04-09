@@ -4,9 +4,16 @@ import LandingPage from "./components/LandingPage";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
 import { apiListChats, apiLogout, setUnauthorizedHandler, type ChatMeta } from "./components/api";
+import { type Theme } from "./components/ChatPreferences";
 
 type View = "landing" | "login" | "chat";
-type Theme = "glass" | "flat" | "ocean";
+
+const THEME_TO_DATA: Record<Theme, string> = {
+  "ocean-glass": "ocean",
+  "ocean-flat": "ocean-flat",
+  "gruvbox-glass": "glass",
+  "gruvbox-flat": "flat",
+};
 
 function App() {
   // Sets view to login page or chat based on presence of JWT token in localStorage
@@ -33,13 +40,16 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    const valid: Theme[] = ["glass", "flat", "ocean"];
-    const normalized = stored === "glassy" ? "glass" : stored as Theme;
-    return valid.includes(normalized) ? normalized : "glass";
+    const valid: Theme[] = ["ocean-glass", "ocean-flat", "gruvbox-glass", "gruvbox-flat"];
+    // Migrate old single-value theme keys
+    if (stored === "ocean" || stored === "glassy") return "ocean-glass";
+    if (stored === "glass") return "gruvbox-glass";
+    if (stored === "flat") return "gruvbox-flat";
+    return valid.includes(stored as Theme) ? stored as Theme : "ocean-glass";
   });
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.theme = THEME_TO_DATA[theme];
     localStorage.setItem("theme", theme);
   }, [theme]);
 

@@ -17,7 +17,7 @@
   }
 }
 
-html:not([data-theme="flat"]):not([data-theme="ocean"]) body::before {
+html:not([data-theme="flat"]):not([data-theme="ocean"]):not([data-theme="ocean-flat"]) body::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -1087,6 +1087,86 @@ button:hover {
 /* ============================================================
    Temperature slider
    ============================================================ */
+
+/* ============================================================
+   Theme picker (Appearance section in ChatPreferences)
+   ============================================================ */
+
+.theme-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-picker-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #a89984;
+  min-width: 42px;
+  flex-shrink: 0;
+}
+
+.theme-picker-group {
+  display: flex;
+  border-radius: 25px;
+  overflow: hidden;
+  border: 1px solid #504945;
+  flex: 1;
+}
+
+.theme-picker-group button {
+  flex: 1;
+  border-radius: 0 !important;
+  border: none !important;
+  border-right: 1px solid #504945 !important;
+  box-shadow: none !important;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent !important;
+  color: #a89984 !important;
+  transition: background 0.15s, color 0.15s;
+}
+
+.theme-picker-group button:last-child {
+  border-right: none !important;
+}
+
+.theme-picker-group button:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #ebdbb2 !important;
+}
+
+.theme-picker-group button.active {
+  background: #504945 !important;
+  color: #fbf1c7 !important;
+}
+
+.theme-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.theme-swatch-ocean {
+  background: conic-gradient(#39bae6 0deg 180deg, #e6b450 180deg 360deg);
+}
+
+.theme-swatch-gruvbox {
+  background: conic-gradient(#fabd2f 0deg 180deg, #d3869b 180deg 360deg);
+}
 
 .temperature-row {
   display: flex;
@@ -2410,6 +2490,380 @@ html[data-theme="ocean"] .feature:hover {
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: #e6e1cf;
+}
+
+/* ============================================================
+   Ocean Flat Theme
+   ============================================================ */
+
+html[data-theme="ocean-flat"],
+html[data-theme="ocean-flat"] body {
+  background-color: #0d1017;
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean-flat"] #root {
+  background: #0d1017;
+}
+
+/* ---- Buttons ---- */
+
+html[data-theme="ocean-flat"] button {
+  background: #e6b450;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] button:hover {
+  background: #b8cc52;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .history-delete-button {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: #3d4354;
+}
+
+html[data-theme="ocean-flat"] .history-delete-button:hover:not(:disabled) {
+  color: #e6b450;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .back-to-landing,
+html[data-theme="ocean-flat"] .history-button,
+html[data-theme="ocean-flat"] .chat-preferences,
+html[data-theme="ocean-flat"] .new-chat {
+  background: #e6b450;
+  border: 1px solid #e6b450;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .back-to-landing:hover,
+html[data-theme="ocean-flat"] .history-button:hover,
+html[data-theme="ocean-flat"] .chat-preferences:hover,
+html[data-theme="ocean-flat"] .new-chat:hover {
+  background: #b8cc52;
+  border-color: #b8cc52;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .logout-button {
+  background: #e6b450;
+  border: 1px solid #e6b450;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .logout-button:hover:not(:disabled) {
+  background: #b8cc52;
+  border-color: #b8cc52;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .close-button {
+  background: #e6b450;
+  border: 1px solid #e6b450;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .close-button:hover {
+  background: #b8cc52;
+  border-color: #b8cc52;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .preset-buttons-row button {
+  background: #e6b450;
+  border: 1px solid #e6b450;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .preset-buttons-row button:hover {
+  background: #b8cc52;
+  border-color: #b8cc52;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .preset-buttons-row button.active-preset {
+  background: #b8cc52;
+  border-color: #b8cc52;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+/* ---- Model selector ---- */
+
+html[data-theme="ocean-flat"] .chat-header-row select {
+  background-color: #1a1f2b;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  color: #e6e1cf;
+  box-shadow: none;
+}
+
+/* ---- Messages panel ---- */
+
+html[data-theme="ocean-flat"] .messages {
+  background: #111520;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .message.user {
+  background: #1a3a4a;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean-flat"] .message.assistant {
+  background: #151b25;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean-flat"] .assistant-content pre {
+  background: #0d1017;
+  border: 1px solid #2a3040;
+  box-shadow: none;
+}
+
+/* ---- Input area ---- */
+
+html[data-theme="ocean-flat"] .input-wrapper input {
+  background: #111520;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  color: #e6e1cf;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .input-wrapper input::placeholder {
+  color: #707a8c;
+}
+
+html[data-theme="ocean-flat"] .input-wrapper input:focus {
+  border-color: #39bae6;
+  background: #151b25;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .input-wrapper .ask-button {
+  background: #aad94c;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .input-wrapper .ask-button:hover:not(:disabled) {
+  background: #e6b450;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+/* ---- History modal ---- */
+
+html[data-theme="ocean-flat"] .history-modal-overlay {
+  background: rgba(13, 16, 23, 0.85);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-theme="ocean-flat"] .history-floating-input {
+  background: #1a1f2b;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 2px solid #2a3040;
+  border-radius: 12px;
+  color: #e6e1cf;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="ocean-flat"] .history-floating-input:focus {
+  border-color: #e6b450;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="ocean-flat"] .history-result-item {
+  background: #151b25;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  border-radius: 10px;
+  color: #b3b1ad;
+}
+
+html[data-theme="ocean-flat"] .history-result-item:hover {
+  background: #1a1f2b;
+  border-color: #3d4354;
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean-flat"] .history-result-item.active {
+  border-color: #e6b450;
+  background: #1a1f2b;
+  color: #e6e1cf;
+}
+
+/* ---- Chat Preferences modal ---- */
+
+html[data-theme="ocean-flat"] .chat-preferences-modal-overlay {
+  background: rgba(13, 16, 23, 0.85);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-theme="ocean-flat"] .chat-preferences-modal {
+  background: #151b25;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean-flat"] .chat-preferences-modal label,
+html[data-theme="ocean-flat"] .chat-preferences-modal h2 {
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean-flat"] .chat-preferences-modal .solid-divider {
+  border-color: #2a3040;
+}
+
+html[data-theme="ocean-flat"] .chat-preferences-modal textarea {
+  background: #0d1017;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  color: #e6e1cf;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .chat-preferences-modal textarea:focus {
+  border-color: #39bae6;
+  background: #111520;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .temperature-hint {
+  color: #707a8c;
+}
+
+html[data-theme="ocean-flat"] .temperature-value {
+  color: #e6b450;
+}
+
+/* ---- Login card ---- */
+
+html[data-theme="ocean-flat"] .login-card {
+  background: #151b25;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean-flat"] .login-field input {
+  background: #0d1017;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  color: #e6e1cf;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .login-field input:focus {
+  border-color: #e6b450;
+  background: #111520;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .login-submit {
+  background: #e6b450;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .login-submit:hover:not(:disabled) {
+  background: #b8cc52;
+  color: #0d1017;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .login-toggle-btn {
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+  color: #39bae6;
+}
+
+html[data-theme="ocean-flat"] .login-toggle-btn:hover:not(:disabled) {
+  background: none;
+  box-shadow: none;
+  color: #e6b450;
+}
+
+html[data-theme="ocean-flat"] .login-submit:disabled {
+  background: #2a3040;
+  color: #3d4354;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .login-guest-btn {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  color: #b3b1ad;
+  box-shadow: none;
+}
+
+html[data-theme="ocean-flat"] .login-guest-btn:hover:not(:disabled) {
+  border-color: #39bae6;
+  color: #e6e1cf;
+  background: transparent;
+}
+
+/* ---- Landing feature cards ---- */
+
+html[data-theme="ocean-flat"] .feature {
+  background: #151b25;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #2a3040;
+  box-shadow: none;
+  color: #b3b1ad;
+}
+
+html[data-theme="ocean-flat"] .feature:hover {
+  border-color: #e6b450;
+  background: #1a1f2b;
+  box-shadow: none;
   color: #e6e1cf;
 }
 

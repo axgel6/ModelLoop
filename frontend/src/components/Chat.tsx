@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import ChatPreferences from "./ChatPreferences";
+import ChatPreferences, { type Theme } from "./ChatPreferences";
 import History from "./History";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -33,7 +33,6 @@ function fixMathDelimiters(text: string): string {
   );
 }
 
-type Theme = "glass" | "flat" | "ocean";
 
 interface ChatProps {
   onBack: () => void;
