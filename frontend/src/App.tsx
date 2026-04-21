@@ -3,8 +3,11 @@ import "./App.css";
 import LandingPage from "./components/LandingPage";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
+import DownPage from "./components/DownPage";
 import { apiListChats, apiLogout, setUnauthorizedHandler, type ChatMeta } from "./components/api";
 import { type Theme } from "./components/ChatPreferences";
+
+const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 
 type View = "landing" | "login" | "chat";
 
@@ -88,6 +91,8 @@ function App() {
   };
 
   const handleChatsChanged = () => refreshChats();
+
+  if (IS_DOWN) return <DownPage />;
 
   return (
     <>

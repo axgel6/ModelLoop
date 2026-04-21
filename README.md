@@ -31,7 +31,7 @@ ModelLoop/
 │   │   └── main.tsx
 │   ├── index.html
 │   ├── package.json
-│   └── .env                   # VITE_API_URL
+│   └── .env                   # VITE_API_KEY, VITE_IS_DOWN
 ├── screenshots/
 └── README.md
 ```
@@ -71,6 +71,15 @@ cd frontend
 npm install
 npm run dev
 ```
+
+## Environment Variables
+
+### Frontend (`frontend/.env`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_KEY` | — | API key sent with every request to the backend |
+| `VITE_IS_DOWN` | `false` | Set to `true` to show the maintenance/down page to all visitors |
 
 ## Features Coming Soon
 

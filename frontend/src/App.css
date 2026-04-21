@@ -1473,6 +1473,77 @@ html[data-theme="ocean"] .connection-banner {
 }
 
 /* ============================================================
+   Down page
+   ============================================================ */
+
+.down-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: "JetBrains Mono", monospace;
+  width: 100%;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.down-content {
+  max-width: 520px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+}
+
+.down-icon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  color: #fabd2f;
+  animation: spin-slow 6s linear infinite;
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.down-content h1 {
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  color: #fbf1c7;
+  margin: 0 0 12px;
+}
+
+.down-subtitle {
+  font-size: 1rem;
+  color: #b8bb26;
+  margin: 0 0 16px;
+}
+
+.down-body {
+  font-size: 0.9rem;
+  color: #a89984;
+  margin: 0 0 40px;
+}
+
+.down-footer {
+  color: #928374;
+  font-size: 0.8rem;
+}
+
+.down-footer a {
+  color: #fabd2f;
+  text-decoration: none;
+}
+
+.down-footer a:hover {
+  background-color: #d3869b;
+  color: #000000;
+  border-radius: 3px;
+}
+
+/* ============================================================
    Landing page
    ============================================================ */
 
