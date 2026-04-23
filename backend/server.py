@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from database import get_db, engine, Base, AsyncSessionLocal
@@ -55,7 +55,7 @@ app.add_middleware(
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
-#API key for guest chat endpoint
+# API key for guest chat endpoint
 API_KEY = os.environ.get("API_KEY")
 
 
@@ -89,18 +89,21 @@ SYSTEM_PROMPT = """You are a helpful assistant. Important rules:
 
 cached_models: list[str] = []
 
+# Compiled once at module load; recompiling on every call is wasteful
+_MATH_PATTERNS = [
+    (re.compile(r'\\\[(.+?)\\\]', re.DOTALL),                             r'$$\1$$'),
+    (re.compile(r'\\\((.+?)\\\)',  re.DOTALL),                             r'$\1$'),
+    (re.compile(r'\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]'),               r'$$\1$$'),
+    (re.compile(r'\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]'),    r'$$\1$$'),
+]
+
 
 # Normalize LaTeX delimiters in model output to the format the frontend renderer expects
 def fix_math_delimiters(text: str) -> str:
-    # Convert \[ ... \] to $$ ... $$
-    text = re.sub(r'\\\[(.+?)\\\]', r'$$\1$$', text, flags=re.DOTALL)
-    # Convert \( ... \) to $ ... $
-    text = re.sub(r'\\\((.+?)\\\)', r'$\1$',   text, flags=re.DOTALL)
-    # Convert [ ... ] blocks containing LaTeX commands to $$ ... $$
-    text = re.sub(r'\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]', r'$$\1$$', text)
-    # Convert standalone bracketed arithmetic expressions to $$ ... $$
-    text = re.sub(r'\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]', r'$$\1$$', text)
+    for pattern, replacement in _MATH_PATTERNS:
+        text = pattern.sub(replacement, text)
     return text
+
 
 # ----- Schemas -----
 
@@ -108,7 +111,11 @@ class RegisterRequest(BaseModel):
     email:    EmailStr = Field(..., max_length=254)
     password: str      = Field(..., min_length=8, max_length=128)
 
-# Validated guest history entry, "system" role is excluded to prevent prompt-injection 
+class LoginRequest(BaseModel):
+    email:    EmailStr = Field(..., max_length=254)
+    password: str      = Field(..., max_length=128)
+
+# Validated guest history entry; "system" role excluded to prevent prompt injection
 class GuestMessage(BaseModel):
     role:    str = Field(..., pattern=r"^(user|assistant)$")
     content: str = Field(..., max_length=MAX_PROMPT_LENGTH)
@@ -171,7 +178,7 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
 # POST /api/v1/auth/login - Verify credentials and return access + refresh tokens
 @app.post("/api/v1/auth/login")
 @limiter.limit("10/minute")
-async def login(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password_hash):
@@ -306,6 +313,31 @@ async def get_messages(
     )
     return {"messages": [{"role": m.role, "content": m.content, "created_at": m.created_at.isoformat()} for m in msgs.scalars().all()]}
 
+# ----- Stream Helpers -----
+
+async def _ollama_stream(messages: list, model: str, temperature: float):
+    """Yield parsed JSON chunks from the Ollama chat streaming API."""
+    async with httpx.AsyncClient(timeout=120) as client:
+        async with client.stream(
+            "POST",
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json={
+                "model":      model,
+                "messages":   messages,
+                "stream":     True,
+                "keep_alive": -1,
+                "options":    {"temperature": temperature},
+            },
+            headers=NGROK_HEADERS,
+        ) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if line:
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
 # ----- Stream Routes -----
 
 # POST /api/v1/chat/stream - Stream a chat response via Server-Sent Events
@@ -319,9 +351,6 @@ async def chat_stream(
 ):
     prompt = body.prompt.strip()
     model  = (body.model or DEFAULT_MODEL).strip()
-
-    if len(prompt) > MAX_PROMPT_LENGTH:
-        raise HTTPException(status_code=400, detail=f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters")
 
     # Verify the chat exists and belongs to the requesting user
     result = await db.execute(select(Chat).where(Chat.id == body.chat_id, Chat.user_id == user_id))
@@ -344,36 +373,21 @@ async def chat_stream(
     # Capture in local vars for use inside the generator closure
     chat_id    = body.chat_id
     chat_title = chat.title
+    temperature = body.temperature
 
     async def generate():
         full_response = ""
         success       = False
 
         try:
-            # AsyncClient is non-blocking, frees the event loop while waiting for tokens
-            async with httpx.AsyncClient(timeout=120) as client:
-                async with client.stream(
-                    "POST",
-                    f"{OLLAMA_BASE_URL}/api/chat",
-                    json={"model": model, "messages": messages, "stream": True, "keep_alive": -1, "options": {"temperature": body.temperature}},
-                    headers=NGROK_HEADERS,
-                ) as resp:
-                    resp.raise_for_status()
-
-                    # Forward each token to the client as it arrives
-                    async for line in resp.aiter_lines():
-                        if line:
-                            try:
-                                chunk = json.loads(line)
-                                token = chunk.get("message", {}).get("content", "")
-                                if token:
-                                    full_response += token
-                                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
-                                if chunk.get("done"):
-                                    success = True
-                                    break
-                            except json.JSONDecodeError:
-                                continue
+            async for chunk in _ollama_stream(messages, model, temperature):
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    full_response += token
+                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+                if chunk.get("done"):
+                    success = True
+                    break
 
             # Persist to the DB only after the stream completes successfully
             if success and full_response.strip():
@@ -421,12 +435,9 @@ async def guest_chat_stream(
 ):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized access")
-    
+
     prompt = body.prompt.strip()
     model  = (body.model or DEFAULT_MODEL).strip()
-
-    if len(prompt) > MAX_PROMPT_LENGTH:
-        raise HTTPException(status_code=400, detail=f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters")
 
     system_prompt = body.system_prompt or SYSTEM_PROMPT
     messages = [{"role": "system", "content": system_prompt}]
@@ -435,26 +446,13 @@ async def guest_chat_stream(
 
     async def generate():
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
-                async with client.stream(
-                    "POST",
-                    f"{OLLAMA_BASE_URL}/api/chat",
-                    json={"model": model, "messages": messages, "stream": True, "keep_alive": -1, "options": {"temperature": body.temperature}},
-                    headers=NGROK_HEADERS,
-                ) as resp:
-                    resp.raise_for_status()
-                    async for line in resp.aiter_lines():
-                        if line:
-                            try:
-                                chunk = json.loads(line)
-                                token = chunk.get("message", {}).get("content", "")
-                                if token:
-                                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
-                                if chunk.get("done"):
-                                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                                    break
-                            except json.JSONDecodeError:
-                                continue
+            async for chunk in _ollama_stream(messages, model, body.temperature):
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+                if chunk.get("done"):
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    break
         except Exception as e:
             logger.error('guest_stream_error model=%s error=%s', model, str(e))
             msg = str(e) if not IS_PRODUCTION else "An error occurred"
@@ -480,10 +478,8 @@ async def get_models():
 
         fetched = [m.get("name") for m in data.get("models", []) if m.get("name")]
 
-        # Append any newly discovered models to the cache
-        for model in fetched:
-            if model not in cached_models:
-                cached_models.append(model)
+        # Replace cache outright so removed models don't linger
+        cached_models = fetched
 
         # Promote the default model to the top of the list
         if DEFAULT_MODEL in cached_models:
@@ -504,7 +500,6 @@ async def get_models():
 # GET /api/v1/health - Liveness check
 @app.get("/api/v1/health")
 async def health(db: AsyncSession = Depends(get_db)):
-    from sqlalchemy import text
     checks = {"status": "ok", "db": "ok", "ollama": "ok"}
     try:
         await db.execute(text("SELECT 1"))
@@ -519,7 +514,6 @@ async def health(db: AsyncSession = Depends(get_db)):
         checks["ollama"] = "error"
         checks["status"] = "degraded"
     return checks
- 
 
 
 if __name__ == "__main__":
