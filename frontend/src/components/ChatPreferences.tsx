@@ -146,7 +146,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             <option value="">Loading…</option>
           ) : (
             models.map((m) => (
-              <option key={m} value={m}>{m}</option>
+              <option key={m} value={m}>
+                {m}
+              </option>
             ))
           )}
         </select>
@@ -215,18 +217,18 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         <label style={{ display: "block", marginBottom: 12 }}>Appearance</label>
         <div className="theme-picker-group">
           <button
-            onClick={() => setTheme("ocean-glass")}
-            className={theme === "ocean-glass" ? "active" : undefined}
-          >
-            <span className="theme-swatch theme-swatch-ocean" />
-            Ocean
-          </button>
-          <button
             onClick={() => setTheme("gruvbox-flat")}
             className={theme === "gruvbox-flat" ? "active" : undefined}
           >
             <span className="theme-swatch theme-swatch-gruvbox" />
             Gruvbox
+          </button>
+          <button
+            onClick={() => setTheme("ocean-glass")}
+            className={theme === "ocean-glass" ? "active" : undefined}
+          >
+            <span className="theme-swatch theme-swatch-ocean" />
+            Ocean
           </button>
         </div>
         <div className="solid-divider" role="separator"></div>
