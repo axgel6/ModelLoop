@@ -76,9 +76,9 @@ npm run dev
 
 ### Frontend (`frontend/.env`)
 
-| Variable | Default | Description |
-|---|---|---|
-| `VITE_API_KEY` | — | API key sent with every request to the backend |
+| Variable       | Default | Description                                                     |
+| -------------- | ------- | --------------------------------------------------------------- |
+| `VITE_API_KEY` | —       | API key sent with every request to the backend                  |
 | `VITE_IS_DOWN` | `false` | Set to `true` to show the maintenance/down page to all visitors |
 
 ## Features Coming Soon
@@ -94,7 +94,7 @@ npm run dev
 
 ![Screenshot of the sign in page](screenshots/sign-in.png)
 ![Screenshot of the landing page](screenshots/landing-page.png)
+![Screenshot of the chat page](screenshots/chat.png)
 ![Screenshot of a chat between the AI Assistant and the user](screenshots/ai-user-chat.png)
 ![Screenshot of the chat preferences menu](screenshots/chat-preferences.png)
-![Screenshot of the history view](screenshots/history.png)
 ![Screenshot of another chat between AI Assistant and the user with math help](screenshots/ai-user-chat-2.png)

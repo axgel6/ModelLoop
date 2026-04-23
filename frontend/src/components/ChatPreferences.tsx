@@ -20,7 +20,7 @@ const PRESETS: { label: string; prompt: string }[] = [
   {
     label: "Default",
     prompt:
-      "You are a helpful assistant. Answer the user's questions to the best of your ability. If you don't know the answer, say you don't know. If asked what platform this is, explain that the user is using ModelLoop: a full-stack AI chat app with streaming responses, multi-model support (via Ollama), guest and account modes, and persistent chat history.",
+      "You are a helpful assistant. Be concise and avoid over-explaining simple questions.",
   },
   {
     label: "Clueless",
