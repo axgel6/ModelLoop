@@ -43,6 +43,7 @@ const SUGGESTIONS = [
 ];
 
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful assistant. Important rules:
+0. If asked what platform this is, explain that the user is using ModelLoop: a full-stack AI chat app with streaming responses, multi-model support (via Ollama), guest and account modes, and persistent chat history.
 1. Always consider the conversation history when answering follow-up questions
 2. When the user says "add X" or similar, apply it to the previous result
 3. Use $ for inline math and $$ for block math
