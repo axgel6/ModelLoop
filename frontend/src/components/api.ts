@@ -235,17 +235,21 @@ export async function apiHealth(): Promise<boolean> {
 
 // Send a guest chat message, no auth required, history is passed by the caller
 // Returns the raw Response so the caller can read the SSE stream directly
-export async function apiGuestChatStream(payload: {
-  prompt: string;
-  messages: Message[];
-  model?: string;
-  system_prompt?: string;
-  temperature?: number;
-}): Promise<Response> {
+export async function apiGuestChatStream(
+  payload: {
+    prompt: string;
+    messages: Message[];
+    model?: string;
+    system_prompt?: string;
+    temperature?: number;
+  },
+  signal?: AbortSignal,
+): Promise<Response> {
   const res = await fetch(`${API_URL}/api/v1/chat/guest/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
     body: JSON.stringify(payload),
+    signal,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -256,18 +260,22 @@ export async function apiGuestChatStream(payload: {
 
 // Send an authenticated chat message, history is loaded from the DB by the server
 // Returns the raw Response so the caller can read the SSE stream directly
-export async function apiChatStream(payload: {
-  prompt: string;
-  chat_id: string;
-  model?: string;
-  system_prompt?: string;
-  temperature?: number;
-}): Promise<Response> {
+export async function apiChatStream(
+  payload: {
+    prompt: string;
+    chat_id: string;
+    model?: string;
+    system_prompt?: string;
+    temperature?: number;
+  },
+  signal?: AbortSignal,
+): Promise<Response> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/chat/stream`, {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
+      signal,
     }),
   );
   if (!res.ok) {

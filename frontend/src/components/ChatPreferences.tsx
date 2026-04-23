@@ -13,6 +13,9 @@ interface ChatPreferencesProps {
   setTheme: (theme: Theme) => void;
   temperature: number;
   setTemperature: (t: number) => void;
+  models: string[];
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
   onDeleteAccount: () => Promise<void>;
 }
 
@@ -91,6 +94,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   setTheme,
   temperature,
   setTemperature,
+  models,
+  selectedModel,
+  setSelectedModel,
   onDeleteAccount,
 }) => {
   useEscapeKey(onClose);
@@ -128,6 +134,22 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           </button>
           <h2>Chat Preferences</h2>
         </div>
+        <div className="solid-divider" role="separator"></div>
+        <label style={{ display: "block", marginBottom: 8 }}>Model</label>
+        <select
+          className="pref-model-select"
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+          disabled={models.length === 0}
+        >
+          {models.length === 0 ? (
+            <option value="">Loading…</option>
+          ) : (
+            models.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))
+          )}
+        </select>
         <div className="solid-divider" role="separator"></div>
         <label style={{ display: "block", marginBottom: 8 }}>Presets</label>
         <div className="preset-buttons-row">
