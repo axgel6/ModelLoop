@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useEscapeKey } from "./useEscapeKey";
 
-export type Theme = "ocean-glass" | "ocean-flat" | "gruvbox-glass" | "gruvbox-flat";
+export type Theme = "ocean-glass" | "gruvbox-flat";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -191,50 +191,22 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
         <div className="solid-divider" role="separator"></div>
         <label style={{ display: "block", marginBottom: 12 }}>Appearance</label>
-        {(() => {
-          const color = theme.startsWith("ocean") ? "ocean" : "gruvbox";
-          const style = theme.endsWith("glass") ? "glass" : "flat";
-          return (
-            <div className="theme-picker">
-              <div className="theme-picker-row">
-                <span className="theme-picker-label">Color</span>
-                <div className="theme-picker-group">
-                  <button
-                    onClick={() => setTheme(`ocean-${style}` as Theme)}
-                    className={color === "ocean" ? "active" : undefined}
-                  >
-                    <span className="theme-swatch theme-swatch-ocean" />
-                    Ocean
-                  </button>
-                  <button
-                    onClick={() => setTheme(`gruvbox-${style}` as Theme)}
-                    className={color === "gruvbox" ? "active" : undefined}
-                  >
-                    <span className="theme-swatch theme-swatch-gruvbox" />
-                    Gruvbox
-                  </button>
-                </div>
-              </div>
-              <div className="theme-picker-row">
-                <span className="theme-picker-label">Style</span>
-                <div className="theme-picker-group">
-                  <button
-                    onClick={() => setTheme(`${color}-glass` as Theme)}
-                    className={style === "glass" ? "active" : undefined}
-                  >
-                    Glass
-                  </button>
-                  <button
-                    onClick={() => setTheme(`${color}-flat` as Theme)}
-                    className={style === "flat" ? "active" : undefined}
-                  >
-                    Flat
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        <div className="theme-picker-group">
+          <button
+            onClick={() => setTheme("ocean-glass")}
+            className={theme === "ocean-glass" ? "active" : undefined}
+          >
+            <span className="theme-swatch theme-swatch-ocean" />
+            Ocean
+          </button>
+          <button
+            onClick={() => setTheme("gruvbox-flat")}
+            className={theme === "gruvbox-flat" ? "active" : undefined}
+          >
+            <span className="theme-swatch theme-swatch-gruvbox" />
+            Gruvbox
+          </button>
+        </div>
         <div className="solid-divider" role="separator"></div>
         <label>Account Management</label>
         <div className="preset-buttons-row" style={{ marginTop: 8 }}>

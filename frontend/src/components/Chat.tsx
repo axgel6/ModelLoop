@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import ChatPreferences, { type Theme } from "./ChatPreferences";
-import History from "./History";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -10,6 +9,7 @@ import {
   apiChatStream,
   apiCreateChat,
   apiDeleteAccount,
+  apiDeleteChat,
   apiGetMessages,
   apiGetModels,
   apiGuestChatStream,
@@ -18,31 +18,45 @@ import {
   type Message,
 } from "./api";
 
-// Normalize LaTeX delimiters from model output to the format the renderer expects
 function fixMathDelimiters(text: string): string {
-  return (
-    text
-      // \[ ... \] → $$ ... $$
-      .replace(/\\\[(.+?)\\\]/gs, "$$$$1$$")
-      // \( ... \) → $ ... $
-      .replace(/\\\((.+?)\\\)/gs, "$$$1$$")
-      // [ ... ] with LaTeX commands → $$ ... $$
-      .replace(/\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g, "$$$$1$$")
-      // [ expr ] simple math expressions → $$ ... $$
-      .replace(/\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g, "$$$$1$$")
-  );
+  return text
+    .replace(/\\\[(.+?)\\\]/gs, "$$$$1$$")
+    .replace(/\\\((.+?)\\\)/gs, "$$$1$$")
+    .replace(/\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g, "$$$$1$$")
+    .replace(/\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g, "$$$$1$$");
 }
 
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+const SUGGESTIONS = [
+  "Explain something complex simply",
+  "Help me write clean code",
+  "Solve a math problem step by step",
+  "Summarize a topic for me",
+];
+
+const DEFAULT_SYSTEM_PROMPT = `You are a helpful assistant. Important rules:
+1. Always consider the conversation history when answering follow-up questions
+2. When the user says "add X" or similar, apply it to the previous result
+3. Use $ for inline math and $$ for block math
+4. Be concise - don't over-explain simple questions`;
 
 interface ChatProps {
   onBack: () => void;
-  activeChatId: string | null; // Controlled by App.tsx
-  onChatCreated: (chatId: string) => void; // Notify App when a new chat is created
-  onChatsChanged: () => void; // Trigger a background refresh of the chat list
-  onLogout: () => void; // Clear token and return to landing/login
-  chats: ChatMeta[]; // Cached chat list owned by App.tsx
+  activeChatId: string | null;
+  onChatCreated: (chatId: string, chatMeta?: ChatMeta) => void;
+  onChatsChanged: () => void | Promise<void>;
+  onLogout: () => void;
+  chats: ChatMeta[];
   chatsLoading: boolean;
-  isGuest: boolean; // True means no auth and no persistence
+  isGuest: boolean;
   theme: Theme;
   setTheme: (theme: Theme) => void;
 }
@@ -70,27 +84,34 @@ function Chat({
   const [selectedModel, setSelectedModel] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const modelsLoadedRef = useRef(false);
-  const [systemPrompt, setSystemPrompt] =
-    useState(`You are a helpful assistant. Important rules:
-1. Always consider the conversation history when answering follow-up questions
-2. When the user says "add X" or similar, apply it to the previous result
-3. Use $ for inline math and $$ for block math
-4. Be concise - don't over-explain simple questions`);
+  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [showPreferences, setShowPreferences] = useState(false);
   const [activePreset, setActivePreset] = useState<string>("Default");
   const [temperature, setTemperature] = useState(0.7);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
+  const [historySearch, setHistorySearch] = useState("");
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
-  // Scroll to bottom whenever the messages array changes
+  const adjustTextareaHeight = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 180) + "px";
+  };
+
+  const resetTextareaHeight = () => {
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+  };
+
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (container) {
+    if (container)
       container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-    }
   }, [messages]);
 
-  // Loads models on mount and set up a retry interval + periodic health check
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -103,10 +124,8 @@ function Chat({
         setIsConnected(false);
       }
     };
-
     loadModels();
 
-    // Retry every 5s until models are successfully loaded
     const modelRetryInterval = setInterval(async () => {
       if (modelsLoadedRef.current) {
         clearInterval(modelRetryInterval);
@@ -124,7 +143,6 @@ function Chat({
       }
     }, 5000);
 
-    // Lightweight heartbeat — only runs after models are loaded
     let healthFailures = 0;
     const healthInterval = setInterval(async () => {
       if (!modelsLoadedRef.current) return;
@@ -144,30 +162,23 @@ function Chat({
     };
   }, []);
 
-  // Ref mirror of activeChatId so handleAsk always sees the latest value inside async closures
   const activeChatIdRef = useRef<string | null>(activeChatId);
   activeChatIdRef.current = activeChatId;
   const justCreatedChatRef = useRef(false);
 
-  // When activeChatId changes (user selected a chat in History), load its messages
   useEffect(() => {
     if (!activeChatId) {
       setMessages([]);
       return;
     }
-    // Doesn't wipe state since chat is new but no messages yet
-    // prevents bug that reloads and clears chat after first response
     if (justCreatedChatRef.current) {
       justCreatedChatRef.current = false;
       return;
     }
-    const loadMessages = async () => {
+    const load = async () => {
       const cached = messageCache.current.get(activeChatId);
-      if (cached) {
-        setMessages(cached);
-      } else {
-        setMessagesLoading(true);
-      }
+      if (cached) setMessages(cached);
+      else setMessagesLoading(true);
       try {
         const msgs = await apiGetMessages(activeChatId);
         messageCache.current.set(activeChatId, msgs);
@@ -178,19 +189,17 @@ function Chat({
         setMessagesLoading(false);
       }
     };
-    loadMessages();
+    load();
   }, [activeChatId]);
 
-  // Ensure a chat exists before sending, reads from ref so it always has the latest
-  // chat_id even after creation without waiting for a re-render
   const ensureChatId = async (): Promise<string | null> => {
     if (activeChatIdRef.current) return activeChatIdRef.current;
     try {
       const chat = await apiCreateChat();
       activeChatIdRef.current = chat.id;
-      justCreatedChatRef.current = true; // Prevent load-messages effect from wiping state
-      onChatCreated(chat.id);
-      onChatsChanged();
+      justCreatedChatRef.current = true;
+      onChatCreated(chat.id, chat);
+      void onChatsChanged();
       return chat.id;
     } catch {
       console.error("Failed to create chat");
@@ -198,19 +207,18 @@ function Chat({
     }
   };
 
-  const handleAsk = async () => {
-    if (!input.trim()) return;
+  const handleAsk = async (overridePrompt?: string) => {
+    const rawInput = (overridePrompt ?? input).trim();
+    if (!rawInput || loading) return;
 
-    // ----- Slash Commands -----
-
-    if (input.trim().toLowerCase() === "/clear") {
+    // --- Slash commands ---
+    if (rawInput === "/clear") {
       setMessages([]);
       setInput("");
-      onChatCreated(""); // Reset active chat so next message starts a fresh one
+      onChatCreated("");
       return;
     }
-
-    if (input.trim().toLowerCase() === "/code") {
+    if (rawInput === "/code") {
       setSelectedModel("deepseek-r1:1.5b");
       setMessages((prev) => [
         ...prev,
@@ -222,8 +230,7 @@ function Chat({
       setInput("");
       return;
     }
-
-    if (input.trim().toLowerCase() === "/math") {
+    if (rawInput === "/math") {
       setSelectedModel("deepseek-r1:1.5b");
       setMessages((prev) => [
         ...prev,
@@ -235,47 +242,52 @@ function Chat({
       setInput("");
       return;
     }
-
-    if (input.trim().toLowerCase() === "/help") {
+    if (rawInput === "/help") {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            "Available commands: /clear, /code, /math, /help\nKeyboard shortcuts: Ctrl+H (History - If logged in), Ctrl+P (Preferences)",
+            "Commands: /clear, /code, /math, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
         },
       ]);
       setInput("");
       return;
     }
 
-    // ----- Normal Message Flow -----
-
-    const userMessage = input.trim();
-
-    // Guest: snapshot history before mutating state and skips DB chat creation
+    // --- Normal flow ---
+    const userMessage = rawInput;
     const historyForGuest = isGuest ? [...messages] : null;
+
+    // Show user message immediately so the UI responds on click
+    setLoading(true);
+    setInput("");
+    resetTextareaHeight();
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "user",
+        content: userMessage,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
     let chatId: string | null = null;
     if (!isGuest) {
       chatId = await ensureChatId();
-      if (!chatId) return;
+      if (!chatId) {
+        setMessages((prev) => prev.slice(0, -1));
+        setLoading(false);
+        return;
+      }
     }
 
-    const now = new Date().toISOString();
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: userMessage, created_at: now },
-    ]);
-    setInput("");
-
-    // Add placeholder that will be filled in-place as tokens stream in
     setMessages((prev) => [
       ...prev,
       { role: "assistant", content: "", created_at: new Date().toISOString() },
     ]);
-
-    setLoading(true);
     thinkingTimerRef.current = setTimeout(() => setIsThinking(true), 2000);
+
     try {
       const response = isGuest
         ? await apiGuestChatStream({
@@ -295,60 +307,49 @@ function Chat({
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-
       if (!reader) throw new Error("Failed to get response stream");
 
       let accumulatedResponse = "";
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              if (data.type === "token") {
-                if (thinkingTimerRef.current) {
-                  clearTimeout(thinkingTimerRef.current);
-                  thinkingTimerRef.current = null;
-                }
-                setIsThinking(false);
-                accumulatedResponse += data.token;
-                // Update the last message (the streaming placeholder) in-place
-                setMessages((prev) => {
-                  const next = [...prev];
-                  next[next.length - 1] = {
-                    ...next[next.length - 1],
-                    content: accumulatedResponse,
-                  };
-                  return next;
-                });
-              } else if (data.type === "done") {
-                // Backend persisted successfully for authenticated users
-                if (!isGuest) onChatsChanged();
-              } else if (data.type === "error") {
-                throw new Error(data.error);
+        for (const line of decoder
+          .decode(value, { stream: true })
+          .split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === "token") {
+              if (thinkingTimerRef.current) {
+                clearTimeout(thinkingTimerRef.current);
+                thinkingTimerRef.current = null;
               }
-            } catch (e) {
-              // Skip invalid JSON lines (SSE keep-alives etc.)
-              if (e instanceof SyntaxError) continue;
-              throw e;
+              setIsThinking(false);
+              accumulatedResponse += data.token;
+              setMessages((prev) => {
+                const next = [...prev];
+                next[next.length - 1] = {
+                  ...next[next.length - 1],
+                  content: accumulatedResponse,
+                };
+                return next;
+              });
+            } else if (data.type === "done") {
+              if (!isGuest) onChatsChanged();
+            } else if (data.type === "error") {
+              throw new Error(data.error);
             }
+          } catch (e) {
+            if (e instanceof SyntaxError) continue;
+            throw e;
           }
         }
       }
     } catch (error) {
-      console.error("Error:", error);
       const message =
         error instanceof Error
           ? error.message
           : "Failed to get response from server";
-      // Replace the streaming placeholder with the error message
       setMessages((prev) => {
         const next = [...prev];
         if (next.length > 0 && next[next.length - 1].role === "assistant") {
@@ -368,181 +369,384 @@ function Chat({
       }
       setIsThinking(false);
       setLoading(false);
-      // Keep cache fresh so switching away and back is instant
       setMessages((prev) => {
-        if (activeChatIdRef.current) {
+        if (activeChatIdRef.current)
           messageCache.current.set(activeChatIdRef.current, prev);
-        }
         return prev;
       });
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleAsk();
     }
   };
 
-  // Ctrl+H / Ctrl+P  (open History / Preferences panels)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.ctrlKey || event.altKey || event.metaKey) return;
-
       const key = event.key.toLowerCase();
       if (key !== "h" && key !== "p") return;
-
-      // Always suppress the browser default for these combos
       event.preventDefault();
-
       const isTyping =
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement;
       if (isTyping) return;
-
       event.stopImmediatePropagation();
-      if (key === "h" && !showHistory) setShowHistory(true);
+      if (key === "h") setSidebarOpen((v) => !v);
       if (key === "p" && !showPreferences) setShowPreferences(true);
     };
-
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [showHistory, showPreferences]);
+  }, [showPreferences]);
 
-  // Clear local state and reset activeChatId so the next message creates a fresh DB chat
   const handleNewChat = () => {
     setMessages([]);
     setInput("");
-    activeChatIdRef.current = null; // Clear ref immediately so ensureChatId creates a new chat
-    onChatCreated(""); // Signal App.tsx to clear activeChatId
+    activeChatIdRef.current = null;
+    onChatCreated("");
   };
 
-  // Wipe JWT then hand control back to App.tsx to show Login
   const handleLogout = () => {
     localStorage.removeItem("token");
     onLogout();
   };
 
+  const handleCopy = (content: string, idx: number) => {
+    navigator.clipboard.writeText(content);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 1500);
+  };
+
+  const handleDeleteChat = async (id: string) => {
+    setDeletingIds((prev) => new Set(prev).add(id));
+    if (id === activeChatId) handleNewChat();
+    try {
+      await apiDeleteChat(id);
+      await onChatsChanged();
+    } catch {
+      /* silently ignore */
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  const filteredChats = chats.filter((c) =>
+    (c.title || "").toLowerCase().includes(historySearch.toLowerCase()),
+  );
+  const visibleChats = filteredChats.filter((c) => !deletingIds.has(c.id));
+
+  const activeChat = chats.find((c) => c.id === activeChatId);
+  const chatTitle = activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
+
   return (
     <>
       {!isConnected && (
         <div className="connection-banner">
-          Waiting for backend to wake up... (This may take a moment)
+          Waiting for backend to wake up… (This may take a moment)
         </div>
       )}
-      <div className="chat-header-row">
-        <button className="back-to-landing" onClick={onBack}>
-          <span>←</span>
-        </button>
-        <h1 className="chat-title">ModelLoop/Chat</h1>
-        {!isGuest && (
-          <button
-            className="history-button"
-            onClick={() => setShowHistory(true)}
-          >
-            ↺
-          </button>
-        )}
-        <button
-          className="chat-preferences"
-          onClick={() => setShowPreferences(true)}
-        >
-          ⚙︎
-        </button>
-        <button className="new-chat" onClick={handleNewChat} disabled={loading}>
-          New Chat
-        </button>
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          disabled={loading || models.length === 0}
-          aria-label="Select model"
-        >
-          {models.length === 0 ? (
-            <option value="">Please wait...</option>
-          ) : (
-            models.map((model) => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))
-          )}
-        </select>
-        <button
-          className="logout-button"
-          onClick={handleLogout}
-          disabled={loading}
-        >
-          {isGuest ? "Sign In" : "Sign Out"}
-        </button>
-      </div>
 
-      <div className="chat-container">
-        <div className="messages" ref={messagesContainerRef}>
-          {messagesLoading && (
-            <p id="disclaimer" className="messages-loading">
-              Loading…
-            </p>
-          )}
-          {!messagesLoading && messages.length === 0 && (
-            <p id="disclaimer">
-              ModelLoop can make mistakes. Please verify any critical
-              information it provides.
-            </p>
-          )}
-          {messages.map((msg, idx) => {
-            const ts = msg.created_at
-              ? new Date(msg.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : null;
-            return (
-              <div key={idx} className={`message-row ${msg.role}`}>
-                <div className={`message ${msg.role}`}>
+      <div className="chat-layout">
+        {/* ---- Sidebar ---- */}
+        {!isGuest && sidebarOpen && (
+          <aside className="chat-sidebar">
+            <div className="sidebar-brand">
+              <span className="sidebar-logo">ModelLoop</span>
+            </div>
+
+            <div className="sidebar-history">
+              <input
+                type="text"
+                className="sidebar-search"
+                placeholder="Search…"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+              />
+              <div className="sidebar-chat-list">
+                {chatsLoading && visibleChats.length === 0 && (
+                  <span className="sidebar-empty">Loading…</span>
+                )}
+                {!chatsLoading && visibleChats.length === 0 && (
+                  <span className="sidebar-empty">No chats yet</span>
+                )}
+                {visibleChats.map((c) => (
+                  <div
+                    key={c.id}
+                    className={`sidebar-chat-item${c.id === activeChatId ? " active" : ""}`}
+                    onClick={() => {
+                      onChatCreated(c.id);
+                      if (window.innerWidth < 768) setSidebarOpen(false);
+                    }}
+                  >
+                    <div className="sidebar-chat-info">
+                      <span className="sidebar-chat-title">
+                        {c.title || "Untitled"}
+                      </span>
+                      <span className="sidebar-chat-date">
+                        {formatDate(c.updated_at)}
+                      </span>
+                    </div>
+                    <button
+                      className="sidebar-delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteChat(c.id);
+                      }}
+                      disabled={deletingIds.has(c.id)}
+                      title="Delete chat"
+                    >
+                      {deletingIds.has(c.id) ? "…" : "✕"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {/* ---- Main area ---- */}
+        <div className="chat-main">
+          {/* Topbar */}
+          <div className="chat-topbar">
+            <div className="topbar-left">
+              {!isGuest && (
+                <button
+                  className="topbar-icon-btn"
+                  onClick={() => setSidebarOpen((v) => !v)}
+                  title="Toggle sidebar (Ctrl+H)"
+                >
+                  ☰
+                </button>
+              )}
+              <button
+                className="topbar-icon-btn"
+                onClick={onBack}
+                title="Back to home"
+              >
+                ←
+              </button>
+              <span className="topbar-title">{chatTitle}</span>
+            </div>
+
+            <div className="topbar-right">
+              {!isGuest && (
+                <button
+                  className="topbar-icon-btn"
+                  onClick={handleNewChat}
+                  disabled={loading}
+                  title="New chat"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </button>
+              )}
+              <button
+                className="topbar-icon-btn"
+                onClick={() => setShowPreferences(true)}
+                title="Preferences (Ctrl+P)"
+              >
+                ⚙
+              </button>
+              <select
+                className="topbar-model-select"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={loading || models.length === 0}
+                aria-label="Select model"
+              >
+                {models.length === 0 ? (
+                  <option value="">Loading…</option>
+                ) : (
+                  models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))
+                )}
+              </select>
+              <button
+                className="topbar-pill-btn"
+                onClick={handleLogout}
+                title={isGuest ? "Sign In" : "Sign Out"}
+                aria-label={isGuest ? "Sign In" : "Sign Out"}
+              >
+                <span className="topbar-pill-label-full">
+                  {isGuest ? "Sign In" : "Sign Out"}
+                </span>
+                <span className="topbar-pill-label-compact">
+                  {isGuest ? "In" : "Out"}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="messages" ref={messagesContainerRef}>
+            {messagesLoading && (
+              <p id="disclaimer" className="messages-loading">
+                Loading…
+              </p>
+            )}
+
+            {!messagesLoading && messages.length === 0 && (
+              <div className="empty-state">
+                <h2 className="empty-title">What can I help with?</h2>
+                <div className="suggestion-chips">
+                  {SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      className="suggestion-chip"
+                      onClick={() => handleAsk(s)}
+                      disabled={loading}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <p className="empty-hint">
+                  ModelLoop can make mistakes. Verify critical information.
+                </p>
+              </div>
+            )}
+
+            {messages.map((msg, idx) => {
+              const ts = msg.created_at
+                ? new Date(msg.created_at).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : null;
+              return (
+                <div key={idx} className={`message-row ${msg.role}`}>
                   {msg.role === "assistant" ? (
-                    <div className="assistant-content">
-                      {msg.content === "" && isThinking && idx === messages.length - 1 ? (
-                        <div className="thinking-indicator">
-                          Thinking<span className="thinking-dot">.</span><span className="thinking-dot">.</span><span className="thinking-dot">.</span>
+                    <div className="msg-bubble-group">
+                      <div className="message assistant">
+                        <div className="assistant-content">
+                          {msg.content === "" &&
+                          isThinking &&
+                          idx === messages.length - 1 ? (
+                            <div className="thinking-indicator">
+                              Thinking
+                              <span className="thinking-dot">.</span>
+                              <span className="thinking-dot">.</span>
+                              <span className="thinking-dot">.</span>
+                            </div>
+                          ) : (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm, remarkMath]}
+                              rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                            >
+                              {fixMathDelimiters(msg.content)}
+                            </ReactMarkdown>
+                          )}
                         </div>
-                      ) : (
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex, rehypeHighlight]}
-                        >
-                          {fixMathDelimiters(msg.content)}
-                        </ReactMarkdown>
-                      )}
+                      </div>
+                      <div className="msg-meta">
+                        {ts && <span className="msg-timestamp">{ts}</span>}
+                        {msg.content && (
+                          <button
+                            className={`copy-btn${copiedIdx === idx ? " copied" : ""}`}
+                            onClick={() => handleCopy(msg.content, idx)}
+                            title={copiedIdx === idx ? "Copied!" : "Copy"}
+                          >
+                            {copiedIdx === idx ? (
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="13"
+                                height="13"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : (
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="13"
+                                height="13"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <rect
+                                  x="9"
+                                  y="9"
+                                  width="13"
+                                  height="13"
+                                  rx="2"
+                                  ry="2"
+                                />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    msg.content
+                    <div className="message user">{msg.content}</div>
+                  )}
+                  {msg.role === "user" && ts && (
+                    <div className="msg-timestamp">{ts}</div>
                   )}
                 </div>
-                {ts && <div className="msg-timestamp">{ts}</div>}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        <div className="input-area">
-          <div className="input-wrapper">
-            <input
-              type="text"
-              autoFocus
-              placeholder="What's on your mind?"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            <button className="ask-button" onClick={handleAsk}>
-              {loading ? (
-                <span style={{ paddingBottom: "2px" }}>◌</span>
-              ) : (
-                <span style={{ paddingTop: "2px" }}>➤</span>
-              )}
-            </button>
+          {/* Input */}
+          <div className="input-area">
+            <div className="input-wrapper">
+              <textarea
+                ref={textareaRef}
+                className="chat-textarea"
+                autoFocus
+                rows={1}
+                placeholder="What's on your mind?"
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  adjustTextareaHeight();
+                }}
+                onKeyDown={handleKeyDown}
+                disabled={loading}
+              />
+              <button
+                className="ask-button"
+                onClick={() => handleAsk()}
+                disabled={loading || !input.trim()}
+                title="Send (Enter)"
+              >
+                {loading ? (
+                  <span style={{ paddingBottom: "2px" }}>◌</span>
+                ) : (
+                  <span style={{ paddingTop: "2px" }}>➤</span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -564,20 +768,6 @@ function Chat({
             localStorage.removeItem("refresh_token");
             onBack();
           }}
-        />
-      )}
-      {showHistory && (
-        <History
-          chats={chats}
-          loading={chatsLoading}
-          onClose={() => setShowHistory(false)}
-          activeChatId={activeChatId}
-          onSelectChat={(id: string) => {
-            onChatCreated(id);
-            setShowHistory(false);
-          }}
-          onNewChat={handleNewChat}
-          onChatsChanged={onChatsChanged}
         />
       )}
     </>

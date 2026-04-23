@@ -4,7 +4,12 @@ import LandingPage from "./components/LandingPage";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
 import DownPage from "./components/DownPage";
-import { apiListChats, apiLogout, setUnauthorizedHandler, type ChatMeta } from "./components/api";
+import {
+  apiListChats,
+  apiLogout,
+  setUnauthorizedHandler,
+  type ChatMeta,
+} from "./components/api";
 import { type Theme } from "./components/ChatPreferences";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
@@ -13,8 +18,6 @@ type View = "landing" | "login" | "chat";
 
 const THEME_TO_DATA: Record<Theme, string> = {
   "ocean-glass": "ocean",
-  "ocean-flat": "ocean-flat",
-  "gruvbox-glass": "glass",
   "gruvbox-flat": "flat",
 };
 
@@ -32,8 +35,11 @@ function App() {
     setChatsLoading(true);
     try {
       setChats(await apiListChats());
-    } catch { /* ignore */ }
-    finally { setChatsLoading(false); }
+    } catch {
+      /* ignore */
+    } finally {
+      setChatsLoading(false);
+    }
   };
 
   // Pre-fetch chat list whenever the user enters chat view
@@ -43,12 +49,23 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    const valid: Theme[] = ["ocean-glass", "ocean-flat", "gruvbox-glass", "gruvbox-flat"];
-    // Migrate old single-value theme keys
-    if (stored === "ocean" || stored === "glassy") return "ocean-glass";
-    if (stored === "glass") return "gruvbox-glass";
-    if (stored === "flat") return "gruvbox-flat";
-    return valid.includes(stored as Theme) ? stored as Theme : "ocean-glass";
+    const valid: Theme[] = ["ocean-glass", "gruvbox-flat"];
+    // Migrate old theme keys to the two remaining themes
+    if (
+      stored === "ocean" ||
+      stored === "ocean-glass" ||
+      stored === "ocean-flat" ||
+      stored === "glassy"
+    )
+      return "ocean-glass";
+    if (
+      stored === "glass" ||
+      stored === "gruvbox-glass" ||
+      stored === "flat" ||
+      stored === "gruvbox-flat"
+    )
+      return "gruvbox-flat";
+    return valid.includes(stored as Theme) ? (stored as Theme) : "ocean-glass";
   });
 
   useEffect(() => {
@@ -85,8 +102,15 @@ function App() {
   // ----- Chat Handlers -----
 
   // Called by Chat when a new chat is created or the user selects one from History.
-  // Empty string resets to "no active chat" so the next message starts a fresh one
-  const handleChatCreated = (chatId: string) => {
+  // Empty string resets to "no active chat" so the next message starts a fresh one.
+  // If chat metadata is provided, insert it immediately so sidebar updates instantly.
+  const handleChatCreated = (chatId: string, chatMeta?: ChatMeta) => {
+    if (chatMeta) {
+      setChats((prev) => [
+        chatMeta,
+        ...prev.filter((c) => c.id !== chatMeta.id),
+      ]);
+    }
     setActiveChatId(chatId || null);
   };
 
