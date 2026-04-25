@@ -20,11 +20,31 @@ import {
 } from "./api";
 
 function fixMathDelimiters(text: string): string {
-  return text
+  // Convert \[...\] and \(...\) to remark-math dollar delimiters
+  text = text
     .replace(/\\\[(.+?)\\\]/gs, "$$$$1$$")
     .replace(/\\\((.+?)\\\)/gs, "$$$1$$")
     .replace(/\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g, "$$$$1$$")
     .replace(/\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g, "$$$$1$$");
+
+  // Escape $ signs used as currency so they don't confuse the math parser.
+  // Strategy: protect already-valid math spans, then escape lone $ before digits.
+  const saved: string[] = [];
+  // Protect $$...$$ (display math) first
+  text = text.replace(/\$\$[\s\S]+?\$\$/g, (m) => {
+    saved.push(m);
+    return `\x00${saved.length - 1}\x00`;
+  });
+  // Protect $...$ (inline math): content must not start/end with whitespace, no newline
+  text = text.replace(/\$(?!\s)(?:[^$\n\\]|\\.)+?(?<!\s)\$/g, (m) => {
+    saved.push(m);
+    return `\x00${saved.length - 1}\x00`;
+  });
+  // Escape lone $ before a digit (currency like $6, $0.70)
+  text = text.replace(/\$(?=\d)/g, "\\$");
+  // Restore protected math spans
+  text = text.replace(/\x00(\d+)\x00/g, (_, i) => saved[parseInt(i)]);
+  return text;
 }
 
 function formatDate(iso: string): string {
@@ -46,7 +66,7 @@ const SUGGESTIONS = [
 const MANDATORY_SYSTEM_PROMPT_RULES = `Important rules:
 1. Always consider the conversation history when answering follow-up questions
 2. When the user says "add X" or similar, apply it to the previous result
-3. Use $ for inline math and $$ for block math`;
+3. For math expressions use \\( ... \\) for inline math and \\[ ... \\] for display math - never use $ as a math delimiter since it conflicts with currency symbols`;
 
 const DEFAULT_SYSTEM_PROMPT =
   "You are a helpful assistant. Be concise and avoid over-explaining simple questions.";
@@ -92,11 +112,29 @@ function Pre({
         title={copied ? "Copied!" : "Copy code"}
       >
         {copied ? (
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="20 6 9 17 4 12" />
           </svg>
         ) : (
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
@@ -286,7 +324,10 @@ function Chat({
     }
   };
 
-  const handleAsk = async (overridePrompt?: string, historyOverride?: Message[]) => {
+  const handleAsk = async (
+    overridePrompt?: string,
+    historyOverride?: Message[],
+  ) => {
     const rawInput = (overridePrompt ?? input).trim();
     if (!rawInput || loading) return;
 
@@ -719,7 +760,11 @@ function Chat({
                   setRenamingId(activeChatId);
                   setRenameValue(activeChat?.title || "");
                 }}
-                title={activeChatId && !isGuest ? "Double-click to rename" : undefined}
+                title={
+                  activeChatId && !isGuest
+                    ? "Double-click to rename"
+                    : undefined
+                }
               >
                 {chatTitle}
               </span>
@@ -733,7 +778,16 @@ function Chat({
                   disabled={loading}
                   title="New chat"
                 >
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.25"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
@@ -744,28 +798,57 @@ function Chat({
                 onClick={() => setShowPreferences(true)}
                 title="Preferences (Ctrl+P)"
               >
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
               </button>
               <button
                 className="topbar-icon-btn"
-                onClick={() => isGuest ? handleLogout() : setShowLogoutConfirm(true)}
+                onClick={() =>
+                  isGuest ? handleLogout() : setShowLogoutConfirm(true)
+                }
                 title={isGuest ? "Sign In" : "Sign Out"}
                 aria-label={isGuest ? "Sign In" : "Sign Out"}
               >
                 {isGuest ? (
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                    <polyline points="10 17 15 12 10 7"/>
-                    <line x1="15" y1="12" x2="3" y2="12"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                    <polyline points="10 17 15 12 10 7" />
+                    <line x1="15" y1="12" x2="3" y2="12" />
                   </svg>
                 ) : (
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
                   </svg>
                 )}
               </button>
@@ -846,12 +929,37 @@ function Chat({
                               title={copiedIdx === idx ? "Copied!" : "Copy"}
                             >
                               {copiedIdx === idx ? (
-                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="13"
+                                  height="13"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
                                   <polyline points="20 6 9 17 4 12" />
                                 </svg>
                               ) : (
-                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="13"
+                                  height="13"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect
+                                    x="9"
+                                    y="9"
+                                    width="13"
+                                    height="13"
+                                    rx="2"
+                                    ry="2"
+                                  />
                                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                                 </svg>
                               )}
@@ -863,7 +971,16 @@ function Chat({
                               onClick={handleRetry}
                               title="Retry"
                             >
-                              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="13"
+                                height="13"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
                                 <polyline points="1 4 1 10 7 10" />
                                 <path d="M3.51 15a9 9 0 1 0 .49-4" />
                               </svg>
@@ -893,7 +1010,16 @@ function Chat({
               }}
               title="Scroll to bottom"
             >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
@@ -946,7 +1072,12 @@ function Chat({
                 title={loading ? "Stop generation" : "Send (Enter)"}
               >
                 {loading ? (
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="currentColor"
+                  >
                     <rect x="4" y="4" width="16" height="16" rx="2" />
                   </svg>
                 ) : (
@@ -959,11 +1090,20 @@ function Chat({
       </div>
 
       {showLogoutConfirm && (
-        <div className="logout-confirm-overlay" onClick={() => setShowLogoutConfirm(false)}>
-          <div className="logout-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="logout-confirm-overlay"
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            className="logout-confirm-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
             <p>Sign out of ModelLoop?</p>
             <div className="logout-confirm-actions">
-              <button className="logout-confirm-cancel" onClick={() => setShowLogoutConfirm(false)}>
+              <button
+                className="logout-confirm-cancel"
+                onClick={() => setShowLogoutConfirm(false)}
+              >
                 Cancel
               </button>
               <button className="logout-confirm-yes" onClick={handleLogout}>
