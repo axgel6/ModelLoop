@@ -1,48 +1,42 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import ChatPreferences, { type Theme } from "./ChatPreferences";
+import ChatInput from "./ChatInput";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { useChatSession } from "./hooks/useChatSession";
+import { useChatSettings } from "./hooks/useChatSettings";
+import { useChatUI } from "./hooks/useChatUI";
 import {
   apiChatStream,
   apiCreateChat,
   apiDeleteAccount,
   apiDeleteChat,
-  apiGetMessages,
-  apiGetModels,
   apiGuestChatStream,
-  apiHealth,
   apiRenameChat,
   type ChatMeta,
   type Message,
 } from "./api";
 
 function fixMathDelimiters(text: string): string {
-  // Convert \[...\] and \(...\) to remark-math dollar delimiters
   text = text
     .replace(/\\\[(.+?)\\\]/gs, "$$$$1$$")
     .replace(/\\\((.+?)\\\)/gs, "$$$1$$")
     .replace(/\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g, "$$$$1$$")
     .replace(/\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g, "$$$$1$$");
 
-  // Escape $ signs used as currency so they don't confuse the math parser.
-  // Strategy: protect already-valid math spans, then escape lone $ before digits.
   const saved: string[] = [];
-  // Protect $$...$$ (display math) first
   text = text.replace(/\$\$[\s\S]+?\$\$/g, (m) => {
     saved.push(m);
     return `\x00${saved.length - 1}\x00`;
   });
-  // Protect $...$ (inline math): content must not start/end with whitespace, no newline
   text = text.replace(/\$(?!\s)(?:[^$\n\\]|\\.)+?(?<!\s)\$/g, (m) => {
     saved.push(m);
     return `\x00${saved.length - 1}\x00`;
   });
-  // Escape lone $ before a digit (currency like $6, $0.70)
   text = text.replace(/\$(?=\d)/g, "\\$");
-  // Restore protected math spans
   text = text.replace(/\x00(\d+)\x00/g, (_, i) => saved[parseInt(i)]);
   return text;
 }
@@ -56,6 +50,14 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function fmtTime(iso: string | undefined): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const SUGGESTIONS = [
   "Explain something complex simply",
   "Help me write clean code",
@@ -66,10 +68,7 @@ const SUGGESTIONS = [
 const MANDATORY_SYSTEM_PROMPT_RULES = `Important rules:
 1. Always consider the conversation history when answering follow-up questions
 2. When the user says "add X" or similar, apply it to the previous result
-3. For math expressions use \\( ... \\) for inline math and \\[ ... \\] for display math - never use $ as a math delimiter since it conflicts with currency symbols`;
-
-const DEFAULT_SYSTEM_PROMPT =
-  "You are a helpful assistant. Be concise and avoid over-explaining simple questions.";
+3. For math expressions use \\( ... \\) for inline math and \\[ ... \\] for display math -/ never use $ as a math delimiter since it conflicts with currency symbols`;
 
 function withMandatoryPromptRules(prompt: string): string {
   const trimmedPrompt = prompt.trim();
@@ -79,14 +78,6 @@ function withMandatoryPromptRules(prompt: string): string {
   return `${MANDATORY_SYSTEM_PROMPT_RULES}\n\n${trimmedPrompt}`;
 }
 
-const SLASH_COMMANDS = [
-  { cmd: "/clear", desc: "Clear conversation" },
-  { cmd: "/code", desc: "Code mode (deepseek-r1)" },
-  { cmd: "/math", desc: "Math mode (deepseek-r1)" },
-  { cmd: "/help", desc: "Show commands" },
-];
-
-// Pre block with per-code-block copy button; defined outside Chat to avoid re-mounting
 function Pre({
   children,
   node: _node,
@@ -147,6 +138,197 @@ function Pre({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MD_COMPONENTS = { pre: Pre as any };
 
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+const AssistantMessage = memo(function AssistantMessage({
+  msg,
+  isLast,
+  canRetry,
+  isThinking,
+  onRetry,
+}: {
+  msg: Message;
+  isLast: boolean;
+  canRetry: boolean;
+  isThinking: boolean;
+  onRetry: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const ts = fmtTime(msg.created_at);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(msg.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="msg-bubble-group">
+      <div className="message assistant">
+        <div className="assistant-content">
+          {msg.content === "" && isThinking && isLast ? (
+            <div className="thinking-indicator">
+              Thinking
+              <span className="thinking-dot">.</span>
+              <span className="thinking-dot">.</span>
+              <span className="thinking-dot">.</span>
+            </div>
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex, rehypeHighlight]}
+              components={MD_COMPONENTS}
+            >
+              {fixMathDelimiters(msg.content)}
+            </ReactMarkdown>
+          )}
+        </div>
+      </div>
+      <div className="msg-meta">
+        {ts && <span className="msg-timestamp">{ts}</span>}
+        <div className="msg-actions">
+          {msg.content && (
+            <button
+              className={`copy-btn${copied ? " copied" : ""}`}
+              onClick={handleCopy}
+              title={copied ? "Copied!" : "Copy"}
+            >
+              {copied ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              )}
+            </button>
+          )}
+          {canRetry && (
+            <button className="retry-btn" onClick={onRetry} title="Retry">
+              <svg
+                viewBox="0 0 24 24"
+                width="13"
+                height="13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="1 4 1 10 7 10" />
+                <path d="M3.51 15a9 9 0 1 0 .49-4" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const UserMessage = memo(function UserMessage({
+  msg,
+  isEditing,
+  editValue,
+  canEdit,
+  onEditStart,
+  onEditChange,
+  onEditSubmit,
+  onEditCancel,
+}: {
+  msg: Message;
+  isEditing: boolean;
+  editValue: string;
+  canEdit: boolean;
+  onEditStart: () => void;
+  onEditChange: (v: string) => void;
+  onEditSubmit: () => void;
+  onEditCancel: () => void;
+}) {
+  const ts = fmtTime(msg.created_at);
+
+  return (
+    <div className="msg-bubble-group user-group">
+      {isEditing ? (
+        <div className="user-edit-wrapper">
+          <textarea
+            className="user-edit-textarea"
+            value={editValue}
+            autoFocus
+            onChange={(e) => onEditChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onEditSubmit();
+              }
+              if (e.key === "Escape") onEditCancel();
+              e.stopPropagation();
+            }}
+          />
+          <div className="edit-actions">
+            <button className="edit-cancel-btn" onClick={onEditCancel}>
+              Cancel
+            </button>
+            <button className="edit-save-btn" onClick={onEditSubmit}>
+              Send
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="message user">{msg.content}</div>
+      )}
+      <div className="msg-meta user-meta">
+        {ts && <span className="msg-timestamp">{ts}</span>}
+        {canEdit && (
+          <div className="msg-actions">
+            <button
+              className="edit-msg-btn"
+              onClick={onEditStart}
+              title="Edit message"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="13"
+                height="13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 interface ChatProps {
   onBack: () => void;
   activeChatId: string | null;
@@ -158,6 +340,71 @@ interface ChatProps {
   isGuest: boolean;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+}
+
+type EditState = { idx: number; value: string };
+type RenameState = { id: string; value: string };
+
+type ChatInteractionState = {
+  deletingIds: Set<string>;
+  renameState: RenameState | null;
+  editState: EditState | null;
+};
+
+type ChatInteractionAction =
+  | { type: "delete_start"; id: string }
+  | { type: "delete_finish"; id: string }
+  | { type: "rename_start"; id: string; value: string }
+  | { type: "rename_update"; value: string }
+  | { type: "rename_cancel" }
+  | { type: "edit_start"; idx: number; value: string }
+  | { type: "edit_update"; value: string }
+  | { type: "edit_cancel" };
+
+const initialChatInteractionState: ChatInteractionState = {
+  deletingIds: new Set(),
+  renameState: null,
+  editState: null,
+};
+
+function chatInteractionReducer(
+  state: ChatInteractionState,
+  action: ChatInteractionAction,
+): ChatInteractionState {
+  switch (action.type) {
+    case "delete_start": {
+      const nextDeletingIds = new Set(state.deletingIds);
+      nextDeletingIds.add(action.id);
+      return { ...state, deletingIds: nextDeletingIds };
+    }
+    case "delete_finish": {
+      const nextDeletingIds = new Set(state.deletingIds);
+      nextDeletingIds.delete(action.id);
+      return { ...state, deletingIds: nextDeletingIds };
+    }
+    case "rename_start":
+      return { ...state, renameState: { id: action.id, value: action.value } };
+    case "rename_update":
+      if (!state.renameState) return state;
+      return {
+        ...state,
+        renameState: { ...state.renameState, value: action.value },
+      };
+    case "rename_cancel":
+      return { ...state, renameState: null };
+    case "edit_start":
+      return { ...state, editState: { idx: action.idx, value: action.value } };
+    case "edit_update":
+      if (!state.editState) return state;
+      return {
+        ...state,
+        editState: { ...state.editState, value: action.value },
+      };
+    case "edit_cancel":
+      return { ...state, editState: null };
+    default:
+      return state;
+  }
 }
 
 function Chat({
@@ -172,142 +419,75 @@ function Chat({
   theme,
   setTheme,
 }: ChatProps) {
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
-  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const messageCache = useRef<Map<string, Message[]>>(new Map());
-  const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
-  const modelsLoadedRef = useRef(false);
-  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
-  const [showPreferences, setShowPreferences] = useState(false);
-  const [activePreset, setActivePreset] = useState<string>("Default");
-  const [temperature, setTemperature] = useState(0.7);
-  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(window.screen.width >= 1024);
-  const [historySearch, setHistorySearch] = useState("");
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
-  const [slashIdx, setSlashIdx] = useState(-1);
+  const {
+    messages,
+    setMessages,
+    loading,
+    setLoading,
+    isThinking,
+    setIsThinking,
+    messagesLoading,
+    thinkingTimerRef,
+    messageCache,
+    abortControllerRef,
+    activeChatIdRef,
+    justCreatedChatRef,
+  } = useChatSession(activeChatId);
 
-  const adjustTextareaHeight = () => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = Math.min(ta.scrollHeight, 180) + "px";
-  };
+  const {
+    models,
+    selectedModel,
+    setSelectedModel,
+    isConnected,
+    systemPrompt,
+    setSystemPrompt,
+    showPreferences,
+    setShowPreferences,
+    activePreset,
+    setActivePreset,
+    temperature,
+    setTemperature,
+  } = useChatSettings();
 
-  const resetTextareaHeight = () => {
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-  };
+  const {
+    sidebarOpen,
+    setSidebarOpen,
+    historySearch,
+    setHistorySearch,
+    showLogoutConfirm,
+    setShowLogoutConfirm,
+    showScrollBtn,
+    messagesContainerRef,
+  } = useChatUI(messages);
 
-  // Track whether user is near the bottom of the message list
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 120);
-    };
-    container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
-  }, []);
+  const inputFocusRef = useRef<(() => void) | null>(null);
+  const [interactionState, dispatchInteraction] = useReducer(
+    chatInteractionReducer,
+    initialChatInteractionState,
+  );
+  const { deletingIds, renameState, editState } = interactionState;
 
   useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (container)
-      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const availableModels = await apiGetModels();
-        setModels(availableModels);
-        setIsConnected(true);
-        modelsLoadedRef.current = true;
-        if (availableModels.length > 0) setSelectedModel(availableModels[0]);
-      } catch {
-        setIsConnected(false);
-      }
-    };
-    loadModels();
-
-    const modelRetryInterval = setInterval(async () => {
-      if (modelsLoadedRef.current) {
-        clearInterval(modelRetryInterval);
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isTyping =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement;
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === "/" && !isTyping) {
+        inputFocusRef.current?.();
         return;
       }
-      try {
-        const availableModels = await apiGetModels();
-        setModels(availableModels);
-        setIsConnected(true);
-        modelsLoadedRef.current = true;
-        if (availableModels.length > 0) setSelectedModel(availableModels[0]);
-        clearInterval(modelRetryInterval);
-      } catch {
-        setIsConnected(false);
-      }
-    }, 5000);
-
-    let healthFailures = 0;
-    const healthInterval = setInterval(async () => {
-      if (!modelsLoadedRef.current) return;
-      try {
-        const ok = await apiHealth();
-        setIsConnected(ok);
-        healthFailures = 0;
-      } catch {
-        healthFailures++;
-        if (healthFailures >= 3) setIsConnected(false);
-      }
-    }, 30000);
-
-    return () => {
-      clearInterval(modelRetryInterval);
-      clearInterval(healthInterval);
+      if (!e.ctrlKey || e.altKey || e.metaKey) return;
+      const key = e.key.toLowerCase();
+      if (key !== "h" && key !== "p") return;
+      e.preventDefault();
+      if (isTyping) return;
+      e.stopImmediatePropagation();
+      if (key === "h") setSidebarOpen((v) => !v);
+      if (key === "p" && !showPreferences) setShowPreferences(true);
     };
-  }, []);
-
-  const activeChatIdRef = useRef<string | null>(activeChatId);
-  activeChatIdRef.current = activeChatId;
-  const justCreatedChatRef = useRef(false);
-
-  useEffect(() => {
-    if (!activeChatId) {
-      setMessages([]);
-      return;
-    }
-    if (justCreatedChatRef.current) {
-      justCreatedChatRef.current = false;
-      return;
-    }
-    const load = async () => {
-      const cached = messageCache.current.get(activeChatId);
-      if (cached) setMessages(cached);
-      else setMessagesLoading(true);
-      try {
-        const msgs = await apiGetMessages(activeChatId);
-        messageCache.current.set(activeChatId, msgs);
-        setMessages(msgs);
-      } catch {
-        console.error("Failed to load messages for chat", activeChatId);
-      } finally {
-        setMessagesLoading(false);
-      }
-    };
-    load();
-  }, [activeChatId]);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [showPreferences]);
 
   const ensureChatId = async (): Promise<string | null> => {
     if (activeChatIdRef.current) return activeChatIdRef.current;
@@ -324,17 +504,12 @@ function Chat({
     }
   };
 
-  const handleAsk = async (
-    overridePrompt?: string,
-    historyOverride?: Message[],
-  ) => {
-    const rawInput = (overridePrompt ?? input).trim();
+  const handleAsk = async (prompt: string, historyOverride?: Message[]) => {
+    const rawInput = prompt.trim();
     if (!rawInput || loading) return;
 
-    // --- Slash commands ---
     if (rawInput === "/clear") {
       setMessages([]);
-      setInput("");
       onChatCreated("");
       return;
     }
@@ -347,7 +522,6 @@ function Chat({
       setSystemPrompt(
         `You are a world-class Software Engineer and Technical Educator. Your goal is to provide the most computationally efficient solution to coding problems while ensuring the logic is crystal clear for other developers to maintain. When providing a solution: 1. Analyze Efficiency: Before writing code, briefly identify the time and space complexity (\$O(n)\$, \$O(\log n)\$, etc.) and explain why this approach is the most optimized. 2. Write Clean, Professional Code: Follow industry standard naming conventions and best practices for the specific programming language requested. 3. Strategic Commenting: Use "why, not what" comments. Do not explain obvious syntax; instead, explain the intent behind complex logic or optimization tricks. 4. Step-by-Step Breakdown: Step 1: The Logic. Explain the mental model or algorithm (e.g., Two Pointers, Dynamic Programming, or Memoization) used to solve the problem. Step 2: The Implementation. Provide the code block with syntax highlighting. Step 3: The "Why". Explain why specific functions or data structures were chosen over less efficient alternatives. 5. Edge Case Handling: Explicitly mention how the code handles null inputs, empty collections, or large-scale data. 6. Summary: Conclude with a "Developer's Note" on the key takeaway or pattern that makes this solution superior to a brute-force approach. Formatting Rules: Use clear headings for each section. Use Markdown code blocks with the correct language tag. Use LaTeX for all complexity analysis and mathematical proofs.`,
       );
-      setInput("");
       return;
     }
     if (rawInput === "/math") {
@@ -359,7 +533,6 @@ function Chat({
       setSystemPrompt(
         "You are an expert teacher who explains problems clearly and patiently. Your goal is not just to give the answer, but to teach the reasoning behind it. When solving a problem: Break the solution into clear, numbered steps. Each step should be separated and easy to follow. Explain what is happening in each step using simple language. Explain why the step is necessary so the learner understands the logic, not just the procedure. Show the intermediate work, not just the final result. Define any important terms or concepts that appear during the explanation. Use examples or small reminders of rules (formulas, properties, or definitions) when they are applied. After solving the problem, include a short summary of the key idea or pattern that helps recognize similar problems in the future. Formatting rules: Use numbered steps. Keep explanations concise but clear. Separate calculations from explanations when helpful. The goal is to help the learner understand how to think through the problem, not just memorize the answer.",
       );
-      setInput("");
       return;
     }
     if (rawInput === "/help") {
@@ -371,18 +544,13 @@ function Chat({
             "Commands: /clear, /code, /math, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
         },
       ]);
-      setInput("");
       return;
     }
 
-    // --- Normal flow ---
     const userMessage = rawInput;
     const historyForGuest = isGuest ? (historyOverride ?? [...messages]) : null;
 
     setLoading(true);
-    setInput("");
-    resetTextareaHeight();
-    setSlashIdx(-1);
     setMessages((prev) => [
       ...prev,
       {
@@ -439,6 +607,39 @@ function Chat({
       if (!reader) throw new Error("Failed to get response stream");
 
       let accumulatedResponse = "";
+      let bufferedTokens = "";
+      let rafId: number | null = null;
+
+      const flushBufferedTokens = () => {
+        if (!bufferedTokens) return;
+        accumulatedResponse += bufferedTokens;
+        bufferedTokens = "";
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            content: accumulatedResponse,
+          };
+          return next;
+        });
+      };
+
+      const scheduleFlush = () => {
+        if (rafId !== null) return;
+        rafId = window.requestAnimationFrame(() => {
+          rafId = null;
+          flushBufferedTokens();
+        });
+      };
+
+      const flushAndCancelPendingFrame = () => {
+        if (rafId !== null) {
+          window.cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        flushBufferedTokens();
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -454,18 +655,13 @@ function Chat({
                 thinkingTimerRef.current = null;
               }
               setIsThinking(false);
-              accumulatedResponse += data.token;
-              setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = {
-                  ...next[next.length - 1],
-                  content: accumulatedResponse,
-                };
-                return next;
-              });
+              bufferedTokens += data.token;
+              scheduleFlush();
             } else if (data.type === "done") {
+              flushAndCancelPendingFrame();
               if (!isGuest) onChatsChanged();
             } else if (data.type === "error") {
+              flushAndCancelPendingFrame();
               throw new Error(data.error);
             }
           } catch (e) {
@@ -474,11 +670,9 @@ function Chat({
           }
         }
       }
+      flushAndCancelPendingFrame();
     } catch (error) {
-      // AbortError = user hit stop; keep whatever streamed so far
-      if (error instanceof Error && error.name === "AbortError") {
-        return;
-      }
+      if (error instanceof Error && error.name === "AbortError") return;
       const message =
         error instanceof Error
           ? error.message
@@ -510,17 +704,24 @@ function Chat({
     }
   };
 
-  const handleStop = () => {
-    abortControllerRef.current?.abort();
+  const handleStop = () => abortControllerRef.current?.abort();
+
+  const handleEditSubmit = () => {
+    if (!editState) return;
+    const { idx, value } = editState;
+    const trimmed = value.trim();
+    dispatchInteraction({ type: "edit_cancel" });
+    if (!trimmed) return;
+    const truncated = messages.slice(0, idx);
+    setMessages(truncated);
+    handleAsk(trimmed, truncated);
   };
 
   const handleRetry = () => {
     if (loading) return;
     const msgs = [...messages];
     let cutIdx = msgs.length;
-    // Remove trailing assistant messages
     while (cutIdx > 0 && msgs[cutIdx - 1].role === "assistant") cutIdx--;
-    // Need a user message just before
     if (cutIdx === 0 || msgs[cutIdx - 1].role !== "user") return;
     const lastUserContent = msgs[cutIdx - 1].content;
     cutIdx--;
@@ -529,62 +730,8 @@ function Chat({
     handleAsk(lastUserContent, truncated);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (slashMatches.length > 0) {
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSlashIdx((i) => (i <= 0 ? slashMatches.length - 1 : i - 1));
-        return;
-      }
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSlashIdx((i) => (i >= slashMatches.length - 1 ? 0 : i + 1));
-        return;
-      }
-      if (e.key === "Tab" && slashIdx >= 0) {
-        e.preventDefault();
-        setInput(slashMatches[slashIdx].cmd);
-        setSlashIdx(-1);
-        return;
-      }
-      if (e.key === "Enter" && slashIdx >= 0) {
-        e.preventDefault();
-        setInput(slashMatches[slashIdx].cmd);
-        setSlashIdx(-1);
-        return;
-      }
-      if (e.key === "Escape") {
-        setSlashIdx(-1);
-        return;
-      }
-    }
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleAsk();
-    }
-  };
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.ctrlKey || event.altKey || event.metaKey) return;
-      const key = event.key.toLowerCase();
-      if (key !== "h" && key !== "p") return;
-      event.preventDefault();
-      const isTyping =
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement;
-      if (isTyping) return;
-      event.stopImmediatePropagation();
-      if (key === "h") setSidebarOpen((v) => !v);
-      if (key === "p" && !showPreferences) setShowPreferences(true);
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [showPreferences]);
-
   const handleNewChat = () => {
     setMessages([]);
-    setInput("");
     activeChatIdRef.current = null;
     onChatCreated("");
   };
@@ -594,14 +741,8 @@ function Chat({
     onLogout();
   };
 
-  const handleCopy = (content: string, idx: number) => {
-    navigator.clipboard.writeText(content);
-    setCopiedIdx(idx);
-    setTimeout(() => setCopiedIdx(null), 1500);
-  };
-
   const handleDeleteChat = async (id: string) => {
-    setDeletingIds((prev) => new Set(prev).add(id));
+    dispatchInteraction({ type: "delete_start", id });
     if (id === activeChatId) handleNewChat();
     try {
       await apiDeleteChat(id);
@@ -609,17 +750,15 @@ function Chat({
     } catch {
       /* silently ignore */
     } finally {
-      setDeletingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      dispatchInteraction({ type: "delete_finish", id });
     }
   };
 
-  const handleRenameCommit = async (id: string) => {
-    const trimmed = renameValue.trim();
-    setRenamingId(null);
+  const handleRenameCommit = async () => {
+    if (!renameState) return;
+    const { id, value } = renameState;
+    const trimmed = value.trim();
+    dispatchInteraction({ type: "rename_cancel" });
     if (!trimmed) return;
     try {
       await apiRenameChat(id, trimmed);
@@ -629,19 +768,18 @@ function Chat({
     }
   };
 
-  const filteredChats = chats.filter((c) =>
-    (c.title || "").toLowerCase().includes(historySearch.toLowerCase()),
+  const visibleChats = useMemo(
+    () =>
+      chats
+        .filter((c) =>
+          (c.title || "").toLowerCase().includes(historySearch.toLowerCase()),
+        )
+        .filter((c) => !deletingIds.has(c.id)),
+    [chats, historySearch, deletingIds],
   );
-  const visibleChats = filteredChats.filter((c) => !deletingIds.has(c.id));
 
   const activeChat = chats.find((c) => c.id === activeChatId);
   const chatTitle = activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
-
-  // Slash command matches based on current input
-  const slashMatches =
-    input.startsWith("/") && !loading
-      ? SLASH_COMMANDS.filter((c) => c.cmd.startsWith(input.split(" ")[0]))
-      : [];
 
   return (
     <>
@@ -739,15 +877,22 @@ function Chat({
               )}
             </div>
 
-            {activeChatId && !isGuest && renamingId === activeChatId ? (
+            {activeChatId && !isGuest && renameState?.id === activeChatId ? (
               <input
                 className="topbar-rename-input"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={() => handleRenameCommit(activeChatId)}
+                value={renameState.value}
+                onChange={(e) =>
+                  dispatchInteraction({
+                    type: "rename_update",
+                    value: e.target.value,
+                  })
+                }
+                onBlur={handleRenameCommit}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRenameCommit(activeChatId);
-                  if (e.key === "Escape") setRenamingId(null);
+                  if (e.key === "Enter") handleRenameCommit();
+                  if (e.key === "Escape") {
+                    dispatchInteraction({ type: "rename_cancel" });
+                  }
                   e.stopPropagation();
                 }}
                 autoFocus
@@ -757,8 +902,11 @@ function Chat({
                 className="topbar-title"
                 onDoubleClick={() => {
                   if (!activeChatId || isGuest) return;
-                  setRenamingId(activeChatId);
-                  setRenameValue(activeChat?.title || "");
+                  dispatchInteraction({
+                    type: "rename_start",
+                    id: activeChatId,
+                    value: activeChat?.title || "",
+                  });
                 }}
                 title={
                   activeChatId && !isGuest
@@ -871,7 +1019,7 @@ function Chat({
                     <button
                       key={s}
                       className="suggestion-chip"
-                      onClick={() => handleAsk(s)}
+                      onClick={() => void handleAsk(s)}
                       disabled={loading}
                     >
                       {s}
@@ -884,123 +1032,52 @@ function Chat({
               </div>
             )}
 
-            {messages.map((msg, idx) => {
-              const ts = msg.created_at
-                ? new Date(msg.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : null;
-              const isLastAssistant =
-                idx === messages.length - 1 && msg.role === "assistant";
-              return (
+            {(() => {
+              const lastUserIdx = messages.reduce(
+                (last, m, i) => (m.role === "user" ? i : last),
+                -1,
+              );
+              return messages.map((msg, idx) => (
                 <div key={idx} className={`message-row ${msg.role}`}>
                   {msg.role === "assistant" ? (
-                    <div className="msg-bubble-group">
-                      <div className="message assistant">
-                        <div className="assistant-content">
-                          {msg.content === "" &&
-                          isThinking &&
-                          idx === messages.length - 1 ? (
-                            <div className="thinking-indicator">
-                              Thinking
-                              <span className="thinking-dot">.</span>
-                              <span className="thinking-dot">.</span>
-                              <span className="thinking-dot">.</span>
-                            </div>
-                          ) : (
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm, remarkMath]}
-                              rehypePlugins={[rehypeKatex, rehypeHighlight]}
-                              components={MD_COMPONENTS}
-                            >
-                              {fixMathDelimiters(msg.content)}
-                            </ReactMarkdown>
-                          )}
-                        </div>
-                      </div>
-                      <div className="msg-meta">
-                        {ts && <span className="msg-timestamp">{ts}</span>}
-                        <div className="msg-actions">
-                          {msg.content && (
-                            <button
-                              className={`copy-btn${copiedIdx === idx ? " copied" : ""}`}
-                              onClick={() => handleCopy(msg.content, idx)}
-                              title={copiedIdx === idx ? "Copied!" : "Copy"}
-                            >
-                              {copiedIdx === idx ? (
-                                <svg
-                                  viewBox="0 0 24 24"
-                                  width="13"
-                                  height="13"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              ) : (
-                                <svg
-                                  viewBox="0 0 24 24"
-                                  width="13"
-                                  height="13"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="1.8"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <rect
-                                    x="9"
-                                    y="9"
-                                    width="13"
-                                    height="13"
-                                    rx="2"
-                                    ry="2"
-                                  />
-                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                </svg>
-                              )}
-                            </button>
-                          )}
-                          {isLastAssistant && msg.content && !loading && (
-                            <button
-                              className="retry-btn"
-                              onClick={handleRetry}
-                              title="Retry"
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                width="13"
-                                height="13"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <polyline points="1 4 1 10 7 10" />
-                                <path d="M3.51 15a9 9 0 1 0 .49-4" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    <AssistantMessage
+                      msg={msg}
+                      isLast={idx === messages.length - 1}
+                      canRetry={
+                        idx === messages.length - 1 && !!msg.content && !loading
+                      }
+                      isThinking={isThinking}
+                      onRetry={handleRetry}
+                    />
                   ) : (
-                    <div className="message user">{msg.content}</div>
-                  )}
-                  {msg.role === "user" && ts && (
-                    <div className="msg-timestamp">{ts}</div>
+                    <UserMessage
+                      msg={msg}
+                      isEditing={editState?.idx === idx}
+                      editValue={editState?.idx === idx ? editState.value : ""}
+                      canEdit={
+                        editState === null && idx === lastUserIdx && !loading
+                      }
+                      onEditStart={() =>
+                        dispatchInteraction({
+                          type: "edit_start",
+                          idx,
+                          value: msg.content,
+                        })
+                      }
+                      onEditChange={(v) =>
+                        dispatchInteraction({ type: "edit_update", value: v })
+                      }
+                      onEditSubmit={handleEditSubmit}
+                      onEditCancel={() =>
+                        dispatchInteraction({ type: "edit_cancel" })
+                      }
+                    />
                   )}
                 </div>
-              );
-            })}
+              ));
+            })()}
           </div>
 
-          {/* Scroll to bottom button */}
           {showScrollBtn && (
             <button
               className="scroll-to-bottom-btn"
@@ -1025,67 +1102,14 @@ function Chat({
             </button>
           )}
 
-          {/* Input */}
-          <div className="input-area">
-            {/* Slash command autocomplete */}
-            {slashMatches.length > 0 && (
-              <div className="slash-dropdown">
-                {slashMatches.map((item, i) => (
-                  <div
-                    key={item.cmd}
-                    className={`slash-item${slashIdx === i ? " active" : ""}`}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setInput(item.cmd);
-                      setSlashIdx(-1);
-                      textareaRef.current?.focus();
-                    }}
-                    onMouseEnter={() => setSlashIdx(i)}
-                  >
-                    <span className="slash-item-cmd">{item.cmd}</span>
-                    <span className="slash-item-desc">{item.desc}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="input-wrapper">
-              <textarea
-                ref={textareaRef}
-                className="chat-textarea"
-                autoFocus
-                rows={1}
-                placeholder="What's on your mind?"
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  adjustTextareaHeight();
-                  if (!e.target.value.startsWith("/")) setSlashIdx(-1);
-                }}
-                onKeyDown={handleKeyDown}
-                disabled={loading}
-              />
-              <button
-                className={`ask-button${loading ? " stopping" : ""}`}
-                onClick={loading ? handleStop : () => handleAsk()}
-                disabled={!loading && !input.trim()}
-                title={loading ? "Stop generation" : "Send (Enter)"}
-              >
-                {loading ? (
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="14"
-                    height="14"
-                    fill="currentColor"
-                  >
-                    <rect x="4" y="4" width="16" height="16" rx="2" />
-                  </svg>
-                ) : (
-                  <span style={{ paddingTop: "2px" }}>➤</span>
-                )}
-              </button>
-            </div>
-          </div>
+          <ChatInput
+            loading={loading}
+            onAsk={(prompt) => handleAsk(prompt)}
+            onStop={handleStop}
+            onRegisterFocus={(focusFn) => {
+              inputFocusRef.current = focusFn;
+            }}
+          />
         </div>
       </div>
 

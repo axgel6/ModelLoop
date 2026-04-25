@@ -1457,6 +1457,109 @@ html[data-theme="ocean"] .connection-banner {
 }
 
 /* ============================================================
+   User message edit
+   ============================================================ */
+
+.user-group {
+  align-items: flex-end;
+}
+
+.user-edit-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.user-edit-textarea {
+  width: 100%;
+  min-height: 60px;
+  max-height: 200px;
+  padding: 10px 13px;
+  border-radius: 15px 15px 2px 15px;
+  background: rgba(69, 133, 136, 0.35);
+  border: 1px solid rgba(69, 133, 136, 0.6);
+  color: #ebdbb2;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.user-edit-textarea:focus {
+  border-color: rgba(69, 133, 136, 0.9);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.edit-cancel-btn {
+  padding: 3px 10px !important;
+  border-radius: 6px !important;
+  border: none !important;
+  background: transparent !important;
+  color: #a89984 !important;
+  font-size: 11px !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: color 0.12s !important;
+}
+
+.edit-cancel-btn:hover {
+  background: transparent !important;
+  color: #ebdbb2 !important;
+  box-shadow: none !important;
+}
+
+.edit-save-btn {
+  padding: 4px 10px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  background: rgba(69, 133, 136, 0.75) !important;
+  color: #ebdbb2 !important;
+  font-size: 11px !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: background 0.15s !important;
+}
+
+.edit-save-btn:hover {
+  background: rgba(69, 133, 136, 1) !important;
+  box-shadow: none !important;
+  color: #fbf1c7 !important;
+}
+
+.edit-msg-btn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #504945 !important;
+  padding: 2px;
+  height: auto;
+  border-radius: 4px !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s;
+}
+
+.edit-msg-btn:hover {
+  color: #928374 !important;
+  background: transparent !important;
+}
+
+.user-meta {
+  justify-content: flex-end;
+}
+
+/* ============================================================
    Scroll to bottom button
    ============================================================ */
 
@@ -2420,6 +2523,7 @@ html[data-theme="ocean"] .connection-banner {
 }
 
 .feature {
+  width: 100%;
   background: rgba(60, 56, 54, 0.55);
   backdrop-filter: blur(16px) saturate(130%);
   -webkit-backdrop-filter: blur(16px) saturate(130%);
