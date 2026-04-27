@@ -4666,3 +4666,126 @@ html[data-theme="ocean"] .chat-topbar {
 .katex-html {
   display: inline-block;
 }
+
+.sidebar-backdrop {
+  display: none;
+}
+
+/* ============================================================
+   Mobile responsive (≤ 640px)
+   ============================================================ */
+
+@media (max-width: 640px) {
+  /* ---- Chat sidebar: fixed overlay instead of pushing content ---- */
+  .chat-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    z-index: 200;
+    width: min(280px, 85vw);
+  }
+
+  /* ---- Sidebar backdrop (visibility controlled by JSX) ---- */
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  /* ---- Topbar: larger touch targets ---- */
+  .chat-topbar .topbar-icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chat-sidebar .sidebar-brand-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* ---- Messages: wider bubbles, less padding ---- */
+  .messages {
+    padding: 8px;
+  }
+
+  .msg-bubble-group {
+    max-width: 92%;
+  }
+
+  /* ---- Input: safe area inset for iOS home bar ---- */
+  .input-area {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  /* ---- Connection banner ---- */
+  .connection-banner {
+    top: 42px;
+  }
+
+  /* ---- Landing: single-column feature grid ---- */
+  .landing-features {
+    grid-template-columns: 1fr;
+  }
+
+  .feature:last-child {
+    grid-column: auto;
+  }
+
+  /* ---- Login: less padding ---- */
+  .login-card {
+    padding: 28px 20px;
+  }
+
+  /* ---- Preferences modal: bottom sheet ---- */
+  .chat-preferences-modal-overlay {
+    align-items: flex-end;
+  }
+
+  .pref-modal {
+    width: 100%;
+    max-width: 100%;
+    height: min(560px, 90dvh);
+    border-radius: 16px 16px 0 0;
+    flex-direction: column;
+  }
+
+  .pref-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-shrink: 0;
+    padding: 10px 8px 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(80, 73, 69, 0.35);
+    overflow-x: auto;
+    gap: 0;
+  }
+
+  .pref-sidebar-title {
+    display: none;
+  }
+
+  .pref-nav-item {
+    white-space: nowrap;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    margin: 0 2px;
+    border-radius: 8px 8px 0 0;
+  }
+
+  html[data-theme="flat"] .pref-sidebar {
+    border-right: none;
+    border-bottom-color: #3c3836;
+  }
+
+  html[data-theme="ocean"] .pref-sidebar {
+    border-right: none;
+    border-bottom-color: rgba(112, 122, 140, 0.2);
+  }
+
+  .pref-close-btn {
+    display: none;
+  }
+}

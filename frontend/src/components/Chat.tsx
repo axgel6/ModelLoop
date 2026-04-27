@@ -792,6 +792,12 @@ function Chat({
       <div className="chat-layout">
         {/* ---- Sidebar ---- */}
         {!isGuest && sidebarOpen && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        {!isGuest && sidebarOpen && (
           <aside className="chat-sidebar">
             <div className="sidebar-brand">
               <button
