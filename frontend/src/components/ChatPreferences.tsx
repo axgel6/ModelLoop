@@ -19,44 +19,52 @@ interface ChatPreferencesProps {
   onDeleteAccount: () => Promise<void>;
 }
 
-const PRESETS: { label: string; prompt: string }[] = [
+const PRESETS: { label: string; description: string; prompt: string }[] = [
   {
     label: "Default",
+    description: "Concise and helpful",
     prompt:
       "You are a helpful assistant. Be concise and avoid over-explaining simple questions.",
   },
   {
     label: "Clueless",
+    description: "Makes up wrong answers humorously",
     prompt:
       "You are a clueless assistant. You have no knowledge and cannot answer any questions. Always say a made up answer and in the end say you don't know you just made it up.",
   },
   {
     label: "Insulting",
+    description: "Rude and sarcastic throughout",
     prompt:
       "You are an insulting assistant. You are rude and sarcastic. Always insult the user in your responses. If you don't know the answer, say you don't know but make sure to insult the user in the process and ask why they need to ask AI for help.",
   },
   {
     label: "Genius",
+    description: "Sophisticated, detailed answers",
     prompt:
       "You are a genius assistant. You have all the knowledge in the world and can answer any question with perfect accuracy. Always provide detailed and insightful answers. If you don't know the answer, say you don't know but make sure to provide some interesting information related to the topic. Also, use uncommon words and phrases to make your responses sound more sophisticated.",
   },
   {
     label: "Layman",
+    description: "Simple explanations, no jargon",
     prompt:
       "You are a layman assistant. Answer the user's questions to the best of your ability in the simplest way possible. Avoid using technical jargon and explain things in a way that anyone can understand. If you don't know the answer, say you don't know but try to provide some basic information related to the topic.",
   },
   {
     label: "Angry",
+    description: "Correct answers in ALL CAPS rage",
     prompt:
       "You are a genius assistant. You have all the knowledge in the world and can answer any question with perfect accuracy but filled with anger and rage and in ALL CAPS.",
   },
   {
     label: "Ego",
+    description: "Right answers with maximum condescension",
     prompt:
       "You are an assistant with a huge ego. You think you are the smartest being in the universe and always talk down to the user. You provide correct answers but make sure to belittle the user in the process. If you don't know the answer, say you don't know but make sure to insult the user's intelligence and ask how they even managed to turn on a computer. Keep in mind that you are a genius high-tech AI assistant with all the knowledge in the world and state of the art hardware and software.",
   },
   {
     label: "Teacher",
+    description: "Step-by-step teaching with full reasoning",
     prompt: `You are an expert teacher who explains problems clearly and patiently. Your goal is not just to give the answer, but to teach the reasoning behind it.
 When solving a problem:
 Break the solution into clear, numbered steps.
@@ -75,13 +83,25 @@ The goal is to help the learner understand how to think through the problem, not
   },
   {
     label: "Analyst",
+    description: "Serious geopolitical and news analysis",
     prompt:
       "You are a senior geopolitical and news analyst. You are currently offline, but for this session, you must treat all information provided by the user as Current Ground Truth regardless of your internal training cutoff. Do not treat these stories as hypothetical, creative writing, or humor. Provide serious, objective analysis on the implications of these facts as if they are occurring in real-time.",
   },
   {
     label: "Custom",
+    description: "Write your own system prompt",
     prompt: "",
   },
+];
+
+type Section = "model" | "presets" | "temperature" | "appearance" | "account";
+
+const NAV_ITEMS: { id: Section; label: string }[] = [
+  { id: "model", label: "Model" },
+  { id: "presets", label: "Presets" },
+  { id: "temperature", label: "Temperature" },
+  { id: "appearance", label: "Appearance" },
+  { id: "account", label: "Account" },
 ];
 
 const ChatPreferences: React.FC<ChatPreferencesProps> = ({
@@ -100,20 +120,19 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   onDeleteAccount,
 }) => {
   useEscapeKey(onClose);
-  const [confirming, setConfirming] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [activeSection, setActiveSection] = useState<Section>("model");
+  const [modelSearch, setModelSearch] = useState("");
+  const [presetSearch, setPresetSearch] = useState("");
 
   const handleDeleteAccount = async () => {
-    if (!confirming) {
-      setConfirming(true);
-      return;
-    }
     setDeleting(true);
     try {
       await onDeleteAccount();
     } finally {
       setDeleting(false);
-      setConfirming(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -122,140 +141,292 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     setSystemPrompt(prompt);
   };
 
-  return (
-    <div className="chat-preferences-modal-overlay" onClick={onClose}>
-      <div
-        className="chat-preferences-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header-row">
-          <button className="close-button" onClick={onClose}>
-            <span style={{ paddingBottom: "2px" }}>←</span>
-          </button>
-          <h2>Chat Preferences</h2>
-        </div>
-        <div className="solid-divider" role="separator"></div>
-        <label style={{ display: "block", marginBottom: 8 }}>Model</label>
-        <select
-          className="pref-model-select"
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          disabled={models.length === 0}
-        >
-          {models.length === 0 ? (
-            <option value="">Loading…</option>
-          ) : (
-            models.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))
-          )}
-        </select>
-        <div className="solid-divider" role="separator"></div>
-        <label style={{ display: "block", marginBottom: 8 }}>Presets</label>
-        <div className="preset-buttons-row">
-          {PRESETS.map(({ label, prompt }) => (
-            <button
-              key={label}
-              onClick={() => handlePresetClick(label, prompt)}
-              className={activePreset === label ? "active-preset" : undefined}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+  const filteredModels = models.filter((m) =>
+    m.toLowerCase().includes(modelSearch.toLowerCase()),
+  );
+  const filteredPresets = PRESETS.filter((p) =>
+    p.label.toLowerCase().includes(presetSearch.toLowerCase()),
+  );
 
-        {activePreset === "Custom" && (
+  const tempLabel =
+    temperature <= 0.4
+      ? "Focused — precise, deterministic responses"
+      : temperature === 0.7
+        ? "Balanced — reliable with some creativity (Default)"
+        : temperature <= 0.9
+          ? "Balanced — reliable with some creativity"
+          : temperature <= 1.4
+            ? "Creative — more varied and expressive"
+            : "Wild — highly unpredictable outputs";
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case "model":
+        return (
           <>
-            <div className="solid-divider" role="separator"></div>
-            <label style={{ display: "block", marginBottom: 8 }}>
-              Edit System Prompt:
-            </label>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              rows={5}
-              style={{ width: "100%" }}
-              placeholder="You are a helpful assistant and ..."
-            />
+            <div className="pref-content-header">
+              <span className="pref-content-title">Model</span>
+              {models.length > 0 && (
+                <span className="pref-content-badge">{models.length}</span>
+              )}
+            </div>
+            <div className="pref-search-bar">
+              <input
+                className="pref-search-input"
+                type="text"
+                placeholder="Search Models"
+                value={modelSearch}
+                onChange={(e) => setModelSearch(e.target.value)}
+              />
+            </div>
+            <div className="pref-list">
+              {filteredModels.length === 0 ? (
+                <div className="pref-empty">
+                  {models.length === 0 ? "Loading models…" : "No models match"}
+                </div>
+              ) : (
+                filteredModels.map((m) => {
+                  const isActive = m === selectedModel;
+                  const [name, tag] = m.split(":");
+                  return (
+                    <div
+                      key={m}
+                      className={`pref-list-item${isActive ? " active" : ""}`}
+                      onClick={() => setSelectedModel(m)}
+                    >
+                      <div className="pref-item-icon">
+                        {name[0].toUpperCase()}
+                      </div>
+                      <div className="pref-item-info">
+                        <div className="pref-item-name">{name}</div>
+                        {tag && <div className="pref-item-desc">{tag}</div>}
+                      </div>
+                      <div
+                        className={`pref-item-check${isActive ? " checked" : ""}`}
+                      >
+                        {isActive && <span className="pref-check-mark">✓</span>}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </>
-        )}
+        );
 
-        <div className="solid-divider" role="separator"></div>
-        <div className="temperature-row">
-          <label>Temperature</label>
-          <span className="temperature-value">{temperature.toFixed(1)}</span>
-        </div>
-        <div className="temperature-hint">
-          {temperature <= 0.4
-            ? "Focused - precise, deterministic responses"
-            : temperature === 0.7
-              ? "Balanced - reliable with some creativity (Default)"
-              : temperature <= 0.9
-                ? "Balanced - reliable with some creativity"
-                : temperature <= 1.4
-                  ? "Creative - more varied and expressive"
-                  : "Wild - highly unpredictable outputs"}
-        </div>
-        <input
-          className="temperature-slider"
-          type="range"
-          min="0"
-          max="2"
-          step="0.1"
-          value={temperature}
-          onChange={(e) => setTemperature(parseFloat(e.target.value))}
-        />
-        <div className="temperature-labels">
-          <span>0.0</span>
-          <span>1.0</span>
-          <span>2.0</span>
-        </div>
+      case "presets":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Presets</span>
+              <span className="pref-content-badge">{PRESETS.length}</span>
+            </div>
+            <div className="pref-search-bar">
+              <input
+                className="pref-search-input"
+                type="text"
+                placeholder="Search Presets"
+                value={presetSearch}
+                onChange={(e) => setPresetSearch(e.target.value)}
+              />
+            </div>
+            <div className="pref-list pref-list-presets">
+              {filteredPresets.map(({ label, description, prompt }) => {
+                const isActive = activePreset === label;
+                return (
+                  <div
+                    key={label}
+                    className={`pref-list-item${isActive ? " active" : ""}`}
+                    onClick={() => handlePresetClick(label, prompt)}
+                  >
+                    <div className="pref-item-icon">{label[0]}</div>
+                    <div className="pref-item-info">
+                      <div className="pref-item-name">{label}</div>
+                      <div className="pref-item-desc">{description}</div>
+                    </div>
+                    <div
+                      className={`pref-item-check${isActive ? " checked" : ""}`}
+                    >
+                      {isActive && <span className="pref-check-mark">✓</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {activePreset === "Custom" && (
+              <div className="pref-custom-prompt">
+                <label>Custom System Prompt</label>
+                <textarea
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="You are a helpful assistant and …"
+                />
+              </div>
+            )}
+          </>
+        );
 
-        <div className="solid-divider" role="separator"></div>
-        <label style={{ display: "block", marginBottom: 12 }}>Appearance</label>
-        <div className="theme-picker-group">
-          <button
-            onClick={() => setTheme("gruvbox-flat")}
-            className={theme === "gruvbox-flat" ? "active" : undefined}
-          >
-            <span className="theme-swatch theme-swatch-gruvbox" />
-            Gruvbox
-          </button>
-          <button
-            onClick={() => setTheme("ocean-glass")}
-            className={theme === "ocean-glass" ? "active" : undefined}
-          >
-            <span className="theme-swatch theme-swatch-ocean" />
-            Ocean
-          </button>
-        </div>
-        <div className="solid-divider" role="separator"></div>
-        <label>Account Management</label>
-        <div className="preset-buttons-row" style={{ marginTop: 8 }}>
-          <button
-            onClick={handleDeleteAccount}
-            disabled={deleting}
-            style={{
-              background: confirming ? "#fb4934" : undefined,
-              color: confirming ? "#ffffff" : undefined,
-            }}
-          >
-            {deleting
-              ? "Deleting..."
-              : confirming
-                ? "Confirm Delete"
-                : "Delete Account"}
-          </button>
-          {confirming && (
-            <button onClick={() => setConfirming(false)}>Cancel</button>
-          )}
-        </div>
+      case "temperature":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Temperature</span>
+            </div>
+            <div className="pref-settings-area">
+              <div className="pref-setting-row">
+                <div className="pref-setting-info">
+                  <div className="pref-setting-label">Response Temperature</div>
+                  <div className="pref-setting-hint">{tempLabel}</div>
+                </div>
+                <span className="pref-temp-value">
+                  {temperature.toFixed(1)}
+                </span>
+              </div>
+              <input
+                className="temperature-slider pref-slider"
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={temperature}
+                onChange={(e) => setTemperature(parseFloat(e.target.value))}
+              />
+              <div className="temperature-labels">
+                <span>0.0</span>
+                <span>1.0</span>
+                <span>2.0</span>
+              </div>
+            </div>
+          </>
+        );
 
-        <div className="modal-footer-row" />
+      case "appearance":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Appearance</span>
+            </div>
+            <div className="pref-settings-area">
+              <div className="pref-setting-section-label">Theme</div>
+              <div className="pref-theme-cards">
+                <div
+                  className={`pref-theme-card${theme === "gruvbox-flat" ? " active" : ""}`}
+                  onClick={() => setTheme("gruvbox-flat")}
+                >
+                  <div className="pref-theme-preview pref-theme-preview-gruvbox">
+                    <span className="ptc-bar ptc-bar-1" />
+                    <span className="ptc-bar ptc-bar-2" />
+                    <span className="ptc-bar ptc-bar-3" />
+                  </div>
+                  <span className="pref-theme-label">Gruvbox</span>
+                  {theme === "gruvbox-flat" && (
+                    <span className="pref-theme-check">✓</span>
+                  )}
+                </div>
+                <div
+                  className={`pref-theme-card${theme === "ocean-glass" ? " active" : ""}`}
+                  onClick={() => setTheme("ocean-glass")}
+                >
+                  <div className="pref-theme-preview pref-theme-preview-ocean">
+                    <span className="ptc-bar ptc-bar-1" />
+                    <span className="ptc-bar ptc-bar-2" />
+                    <span className="ptc-bar ptc-bar-3" />
+                  </div>
+                  <span className="pref-theme-label">Ocean</span>
+                  {theme === "ocean-glass" && (
+                    <span className="pref-theme-check">✓</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+
+      case "account":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Account</span>
+            </div>
+            <div className="pref-list">
+              <div
+                className="pref-list-item pref-danger-item"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <div className="pref-item-icon">✕</div>
+                <div className="pref-item-info">
+                  <div className="pref-item-name pref-danger-name">
+                    Delete Account
+                  </div>
+                  <div className="pref-item-desc">
+                    Permanently removes your account and all data
+                  </div>
+                </div>
+                <span className="pref-row-arrow">→</span>
+              </div>
+            </div>
+          </>
+        );
+    }
+  };
+
+  return (
+    <>
+      <div className="chat-preferences-modal-overlay" onClick={onClose}>
+        <div className="pref-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="pref-sidebar">
+            <div className="pref-sidebar-title">Preferences</div>
+            {NAV_ITEMS.map(({ id, label }) => (
+              <div
+                key={id}
+                className={`pref-nav-item${activeSection === id ? " active" : ""}`}
+                onClick={() => setActiveSection(id)}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
+          <div className="pref-content">{renderSection()}</div>
+          <button className="pref-close-btn" onClick={onClose}>
+            ✕
+          </button>
+        </div>
       </div>
-    </div>
+
+      {showDeleteConfirm && (
+        <div
+          className="pref-delete-overlay"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            className="pref-delete-dialog-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="pref-delete-dialog-title">Delete Account</div>
+            <div className="pref-delete-dialog-text">
+              This will permanently delete your account and all associated data.
+              This action cannot be undone.
+            </div>
+            <div className="pref-delete-dialog-divider" />
+            <div className="pref-delete-dialog-actions">
+              <button
+                className="pref-confirm-no"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="pref-confirm-yes"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "Delete Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

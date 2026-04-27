@@ -785,7 +785,7 @@ function Chat({
     <>
       {!isConnected && (
         <div className="connection-banner">
-          Waiting for backend to wake up… (This may take a moment)
+          Initializing backend services. Estimated wait time: ~1 minute.
         </div>
       )}
 
