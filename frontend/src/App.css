@@ -3904,17 +3904,11 @@ html[data-theme="flat"] .login-guest-btn:hover:not(:disabled) {
 
 /* ---- Landing feature cards ---- */
 
-html[data-theme="flat"] .feature {
+html[data-theme="flat"] .landing-message {
   background: #3c3836;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid #504945;
-  box-shadow: none;
-}
-
-html[data-theme="flat"] .feature:hover {
-  border-color: #fabd2f;
-  background: #32302f;
+  border: none;
   box-shadow: none;
 }
 
