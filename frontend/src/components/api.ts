@@ -253,6 +253,14 @@ export async function apiGuestChatStream(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    if (res.status === 429) {
+      const isDaily = typeof err.detail === "string" && err.detail.toLowerCase().includes("daily");
+      throw new Error(
+        isDaily
+          ? "You've reached the daily guest limit. Log in or create an account to keep chatting."
+          : "You've hit the guest message limit. Wait a moment, or log in / create an account for more."
+      );
+    }
     throw new Error(err.detail || "Failed to get response");
   }
   return res;
