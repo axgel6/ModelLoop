@@ -535,13 +535,20 @@ function Chat({
       );
       return;
     }
+    if (rawInput === "/ratelimit") {
+      const info = isGuest
+        ? "**Rate limits (guest)**\nMessages: 3 per minute, 30 per day\n\nLog in or create an account to increase your limit to 10 messages per minute."
+        : "**Rate limits (account)**\nMessages: 10 per minute";
+      setMessages((prev) => [...prev, { role: "assistant", content: info }]);
+      return;
+    }
     if (rawInput === "/help") {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            "Commands: /clear, /code, /math, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
+            "Commands: /clear, /code, /math, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
         },
       ]);
       return;
