@@ -143,7 +143,10 @@ export async function apiListChats(): Promise<ChatMeta[]> {
 // Create a new blank chat and return its metadata
 export async function apiCreateChat(): Promise<ChatMeta> {
   const res = await withRefresh(() =>
-    fetch(`${API_URL}/api/v1/chats`, { method: "POST", headers: authHeaders() }),
+    fetch(`${API_URL}/api/v1/chats`, {
+      method: "POST",
+      headers: authHeaders(),
+    }),
   );
   if (!res.ok) throw new Error("Failed to create chat");
   return res.json();
@@ -211,7 +214,9 @@ export async function apiGetMessages(chatId: string): Promise<Message[]> {
 
 // Fetch the list of available Ollama models from the backend
 export async function apiGetModels(): Promise<string[]> {
-  const res = await fetch(`${API_URL}/api/v1/models`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/api/v1/models`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to fetch models");
   const data = await res.json();
   // Fall back to empty array if the backend returns no models key
@@ -254,11 +259,13 @@ export async function apiGuestChatStream(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     if (res.status === 429) {
-      const isDaily = typeof err.detail === "string" && err.detail.toLowerCase().includes("daily");
+      const isDaily =
+        typeof err.detail === "string" &&
+        err.detail.toLowerCase().includes("daily");
       throw new Error(
         isDaily
-          ? "You've reached the daily guest limit. Log in or create an account to keep chatting."
-          : "You've hit the guest message limit. Wait a moment, or log in / create an account for more."
+          ? "Daily guest limit reached - log in or create an account to keep chatting."
+          : "Guest limit: 3 messages per minute - wait a moment, or log in for more.",
       );
     }
     throw new Error(err.detail || "Failed to get response");

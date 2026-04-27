@@ -4,6 +4,7 @@ const SLASH_COMMANDS = [
   { cmd: "/clear", desc: "Clear conversation" },
   { cmd: "/code", desc: "Code mode (deepseek-r1)" },
   { cmd: "/math", desc: "Math mode (deepseek-r1)" },
+  { cmd: "/ratelimit", desc: "Show rate limit info" },
   { cmd: "/help", desc: "Show commands" },
 ];
 
