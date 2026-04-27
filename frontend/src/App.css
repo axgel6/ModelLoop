@@ -4788,4 +4788,11 @@ html[data-theme="ocean"] .chat-topbar {
   .pref-close-btn {
     display: none;
   }
+
+  /* ---- Prevent iOS auto-zoom on focus (requires font-size ≥ 16px) ---- */
+  input:not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
