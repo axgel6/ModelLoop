@@ -1,58 +1,72 @@
+import { useState, useEffect } from "react";
+
 interface LandingPageProps {
   onStart: () => void;
 }
 
+const MESSAGES = [
+  "Hello there!",
+  "Welcome to ModelLoop!",
+  "I can't wait to meet you!",
+  "Ask me anything.",
+];
+
+const CHAR_SPEED = 28;
+const MESSAGE_GAP = 380;
+
 function LandingPage({ onStart }: LandingPageProps) {
+  const [displayed, setDisplayed] = useState<string[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [currentText, setCurrentText] = useState("");
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (currentIdx >= MESSAGES.length) {
+      setDone(true);
+      return;
+    }
+
+    const target = MESSAGES[currentIdx];
+    let charIdx = 0;
+
+    const charTimer = setInterval(() => {
+      charIdx++;
+      setCurrentText(target.slice(0, charIdx));
+      if (charIdx >= target.length) {
+        clearInterval(charTimer);
+        setTimeout(() => {
+          setDisplayed((prev) => [...prev, target]);
+          setCurrentText("");
+          setCurrentIdx((prev) => prev + 1);
+        }, MESSAGE_GAP);
+      }
+    }, CHAR_SPEED);
+
+    return () => clearInterval(charTimer);
+  }, [currentIdx]);
+
   return (
     <div className="landing-page">
       <div className="landing-content">
-        <h1>ModelLoop/Welcome!</h1>
-        <p className="landing-tagline">
-          Full-stack AI: Streaming, multi-model, persistent.
-        </p>
-
-        <div className="landing-features">
-          <div className="feature">
-            <h3>Real-Time Streaming</h3>
-            <p>
-              Token-level streaming via Server-Sent Events - Responses appear as
-              they're generated, with no waiting for full replies
-            </p>
-          </div>
-          <div className="feature">
-            <h3>Guest & Account Modes</h3>
-            <p>
-              Chat instantly as a guest with no sign-up, or create an account
-              for persistent chat history across sessions
-            </p>
-          </div>
-          <div className="feature">
-            <h3>Multiple LLMs</h3>
-            <p>
-              Switch between any Ollama model running on the server - model list
-              is fetched live and cached at startup
-            </p>
-          </div>
-          <div className="feature">
-            <h3>System Prompts & Shortcuts</h3>
-            <p>
-              9 preset personalities, slash commands (/clear, /code, /math,
-              /help), along with keyboard shortcuts
-            </p>
-          </div>
-          <div className="feature">
-            <h3>Stack</h3>
-            <p>
-              FastAPI + asyncpg + PostgreSQL backend with JWT auth, bcrypt
-              password hashing, and rate limiting, React 19 + TypeScript
-              frontend
-            </p>
-          </div>
+        <div className="landing-messages">
+          {displayed.map((msg, i) => (
+            <div key={i} className="landing-message">
+              {msg}
+            </div>
+          ))}
+          {currentIdx < MESSAGES.length && (
+            <div className="landing-message">
+              {currentText}
+              <span className="landing-cursor" />
+            </div>
+          )}
         </div>
 
-        <button className="start-button" onClick={onStart}>
-          Start Chatting
-        </button>
+        {done && (
+          <button className="start-button landing-start-fade" onClick={onStart}>
+            Start Chatting
+          </button>
+        )}
 
         <div className="landing-footer">
           <p>
@@ -71,14 +85,6 @@ function LandingPage({ onStart }: LandingPageProps) {
               rel="noopener noreferrer"
             >
               GitHub
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://think-loop-client.onrender.com"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              ThinkLoop
             </a>
           </p>
           <p>

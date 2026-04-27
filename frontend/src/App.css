@@ -3465,79 +3465,61 @@ html[data-theme="ocean"] .pref-delete-dialog-divider {
   align-items: flex-start;
 }
 
-.landing-content h1 {
-  font-size: clamp(1.1rem, 4vw, 1.6rem);
-  margin: 0 0 4px;
-  color: #fabd2f;
-  font-weight: bolder;
-  letter-spacing: -0.5px;
-  line-height: 1.1;
-}
 
-.landing-tagline {
-  font-size: 0.8rem;
-  color: #b8bb26;
-  margin: 0 0 16px;
-}
-
-.landing-features {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
+.landing-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
   width: 100%;
 }
 
-.feature {
-  width: 100%;
-  background: rgba(60, 56, 54, 0.55);
-  backdrop-filter: blur(16px) saturate(130%);
-  -webkit-backdrop-filter: blur(16px) saturate(130%);
-  border: 1px solid rgba(80, 73, 69, 0.45);
-  border-radius: 14px;
-  padding: 12px 14px;
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transition:
-    border-color 0.2s,
-    background 0.2s,
-    box-shadow 0.2s;
-}
-
-.feature:last-child {
-  grid-column: span 2;
-}
-
-.feature:hover {
-  border-color: rgba(250, 189, 47, 0.6);
+.landing-message {
+  width: fit-content;
+  max-width: 85%;
+  padding: 10px 13px;
   background:
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0px,
-      transparent 2px,
-      rgba(0, 0, 0, 0.07) 2px,
-      rgba(0, 0, 0, 0.07) 4px
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0) 60%
     ),
-    rgba(50, 48, 47, 0.65);
+    rgba(60, 56, 54, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(80, 73, 69, 0.35);
   box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(250, 189, 47, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.feature h3 {
-  margin: 0 0 4px;
-  color: #fabd2f;
-  font-size: 0.82rem;
-  font-weight: bolder;
-}
-
-.feature p {
-  margin: 0;
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   color: #ebdbb2;
-  font-size: 0.76rem;
-  line-height: 1.5;
+  border-radius: 15px 15px 15px 2px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  min-height: 1.45em;
+}
+
+.landing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 0.9em;
+  background: #fabd2f;
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: landing-blink 0.7s steps(1) infinite;
+}
+
+@keyframes landing-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes landing-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.landing-start-fade {
+  animation: landing-fade-in 0.35s ease forwards;
 }
 
 .landing-footer {
@@ -4329,6 +4311,13 @@ html[data-theme="ocean"] .chat-textarea::placeholder {
 html[data-theme="ocean"] .chat-textarea:focus {
   border-color: rgba(57, 186, 230, 0.5);
   background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 2px,
+      rgba(0, 0, 0, 0.06) 2px,
+      rgba(0, 0, 0, 0.06) 4px
+    ),
     linear-gradient(
       180deg,
       rgba(255, 255, 255, 0.07) 0%,
@@ -4723,15 +4712,6 @@ html[data-theme="ocean"] .chat-topbar {
   /* ---- Connection banner ---- */
   .connection-banner {
     top: 42px;
-  }
-
-  /* ---- Landing: single-column feature grid ---- */
-  .landing-features {
-    grid-template-columns: 1fr;
-  }
-
-  .feature:last-child {
-    grid-column: auto;
   }
 
   /* ---- Login: less padding ---- */

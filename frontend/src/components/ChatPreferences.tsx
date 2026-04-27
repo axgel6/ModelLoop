@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useEscapeKey } from "./useEscapeKey";
+import { haptics } from "../haptics";
 
 export type Theme = "ocean-glass" | "gruvbox-flat";
 
@@ -373,7 +374,19 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   return (
     <>
       <div className="chat-preferences-modal-overlay" onClick={onClose}>
-        <div className="pref-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="pref-modal"
+          onClick={(e) => {
+            const t = e.target as HTMLElement;
+            if (t.closest(".pref-theme-card")) haptics.trigger("medium");
+            else if (t.closest(".pref-danger-item")) haptics.trigger("warning");
+            else if (t.closest(".pref-list-item")) haptics.trigger("light");
+            else if (t.closest(".pref-nav-item")) haptics.trigger("selection");
+            else if (t.closest("button.pref-close-btn")) haptics.trigger("light");
+            else if (t.closest("button:not(:disabled)")) haptics.trigger("selection");
+            e.stopPropagation();
+          }}
+        >
           <div className="pref-sidebar">
             <div className="pref-sidebar-title">Preferences</div>
             {NAV_ITEMS.map(({ id, label }) => (
@@ -400,7 +413,12 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         >
           <div
             className="pref-delete-dialog-box"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              const btn = (e.target as HTMLElement).closest("button:not(:disabled)") as HTMLElement | null;
+              if (btn?.classList.contains("pref-confirm-yes")) haptics.trigger("warning");
+              else if (btn) haptics.trigger("selection");
+              e.stopPropagation();
+            }}
           >
             <div className="pref-delete-dialog-title">Delete Account</div>
             <div className="pref-delete-dialog-text">
