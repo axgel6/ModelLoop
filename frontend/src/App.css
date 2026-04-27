@@ -879,7 +879,7 @@ html[data-theme="ocean"] .connection-banner {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(16, 14, 14, 0.82);
+  background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(16px) saturate(130%);
   -webkit-backdrop-filter: blur(16px) saturate(130%);
   border-right: 1px solid rgba(80, 73, 69, 0.3);
@@ -988,7 +988,7 @@ html[data-theme="ocean"] .connection-banner {
   align-items: center;
   gap: 6px;
   padding: 6px 7px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   border: 1px solid transparent;
   transition:
@@ -3465,7 +3465,6 @@ html[data-theme="ocean"] .pref-delete-dialog-divider {
   align-items: flex-start;
 }
 
-
 .landing-messages {
   display: flex;
   flex-direction: column;
@@ -3509,17 +3508,28 @@ html[data-theme="ocean"] .pref-delete-dialog-divider {
 }
 
 @keyframes landing-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 @keyframes landing-fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .landing-start-fade {
-  animation: landing-fade-in 0.35s ease forwards;
+  animation: landing-fade-in 0.1s ease forwards;
 }
 
 .landing-footer {
