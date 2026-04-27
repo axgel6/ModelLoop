@@ -4,6 +4,7 @@ import LandingPage from "./components/LandingPage";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
 import DownPage from "./components/DownPage";
+import TermsOfService from "./components/TermsOfService";
 import {
   apiListChats,
   apiLogout,
@@ -14,7 +15,7 @@ import { type Theme } from "./components/ChatPreferences";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 
-type View = "landing" | "login" | "chat";
+type View = "landing" | "login" | "chat" | "terms";
 
 const THEME_TO_DATA: Record<Theme, string> = {
   "ocean-glass": "ocean",
@@ -120,7 +121,9 @@ function App() {
 
   return (
     <>
-      {view === "login" ? (
+      {view === "terms" ? (
+        <TermsOfService onBack={() => setView("landing")} />
+      ) : view === "login" ? (
         <Login
           onLogin={handleLogin}
           onGuest={handleGuest}
@@ -136,6 +139,7 @@ function App() {
               setView("login");
             }
           }}
+          onTerms={() => setView("terms")}
         />
       ) : (
         <Chat

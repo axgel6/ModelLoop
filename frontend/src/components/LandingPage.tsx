@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 
 interface LandingPageProps {
   onStart: () => void;
+  onTerms: () => void;
 }
 
 const MESSAGES = [
@@ -11,10 +12,10 @@ const MESSAGES = [
   "Ask me anything.",
 ];
 
-const CHAR_SPEED = 28;
-const MESSAGE_GAP = 380;
+const CHAR_SPEED = 18;
+const MESSAGE_GAP = 180;
 
-function LandingPage({ onStart }: LandingPageProps) {
+function LandingPage({ onStart, onTerms }: LandingPageProps) {
   const [displayed, setDisplayed] = useState<string[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [currentText, setCurrentText] = useState("");
@@ -85,7 +86,11 @@ function LandingPage({ onStart }: LandingPageProps) {
               rel="noopener noreferrer"
             >
               GitHub
-            </a>
+            </a>{" "}
+            •{" "}
+            <span className="landing-footer-link" onClick={onTerms}>
+              Terms of Service
+            </span>
           </p>
           <p>
             ModelLoop can make mistakes. Please verify any critical information
