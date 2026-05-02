@@ -196,6 +196,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   created_at?: string;
+  images?: string[];
 }
 
 // Fetch the full message history for a chat, ordered by creation time
@@ -247,6 +248,7 @@ export async function apiGuestChatStream(
     model?: string;
     system_prompt?: string;
     temperature?: number;
+    images?: string[];
   },
   signal?: AbortSignal,
 ): Promise<Response> {
@@ -282,6 +284,7 @@ export async function apiChatStream(
     model?: string;
     system_prompt?: string;
     temperature?: number;
+    images?: string[];
   },
   signal?: AbortSignal,
 ): Promise<Response> {

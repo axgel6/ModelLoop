@@ -22,10 +22,10 @@ import {
 
 function fixMathDelimiters(text: string): string {
   text = text
-    .replace(/\\\[(.+?)\\\]/gs, "$$$$1$$")
-    .replace(/\\\((.+?)\\\)/gs, "$$$1$$")
-    .replace(/\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g, "$$$$1$$")
-    .replace(/\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g, "$$$$1$$");
+    .replace(/\\\[(.+?)\\\]/gs,                                          (_, c) => `$$${c.trim()}$$`)
+    .replace(/\\\((.+?)\\\)/gs,                                          (_, c) => `$${c.trim()}$`)
+    .replace(/\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g,                  (_, c) => `$$${c.trim()}$$`)
+    .replace(/\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g,       (_, c) => `$$${c.trim()}$$`);
 
   const saved: string[] = [];
   text = text.replace(/\$\$[\s\S]+?\$\$/g, (m) => {
@@ -295,7 +295,21 @@ const UserMessage = memo(function UserMessage({
           </div>
         </div>
       ) : (
-        <div className="message user">{msg.content}</div>
+        <div className="message user">
+          {msg.images && msg.images.length > 0 && (
+            <div className="user-message-images">
+              {msg.images.map((img, i) => (
+                <img
+                  key={i}
+                  src={`data:image/png;base64,${img}`}
+                  alt="attachment"
+                  className="user-message-image"
+                />
+              ))}
+            </div>
+          )}
+          {msg.content}
+        </div>
       )}
       <div className="msg-meta user-meta">
         {ts && <span className="msg-timestamp">{ts}</span>}
@@ -504,7 +518,7 @@ function Chat({
     }
   };
 
-  const handleAsk = async (prompt: string, historyOverride?: Message[]) => {
+  const handleAsk = async (prompt: string, historyOverride?: Message[], images?: string[]) => {
     const rawInput = prompt.trim();
     if (!rawInput || loading) return;
 
@@ -564,6 +578,7 @@ function Chat({
         role: "user",
         content: userMessage,
         created_at: new Date().toISOString(),
+        ...(images && images.length > 0 ? { images } : {}),
       },
     ]);
 
@@ -595,6 +610,7 @@ function Chat({
               model: selectedModel || undefined,
               system_prompt: withMandatoryPromptRules(systemPrompt),
               temperature,
+              images,
             },
             ctrl.signal,
           )
@@ -605,6 +621,7 @@ function Chat({
               model: selectedModel || undefined,
               system_prompt: withMandatoryPromptRules(systemPrompt),
               temperature,
+              images,
             },
             ctrl.signal,
           );
@@ -834,7 +851,14 @@ function Chat({
               />
               <div className="sidebar-chat-list">
                 {chatsLoading && visibleChats.length === 0 && (
-                  <span className="sidebar-empty">Loading…</span>
+                  <div className="sidebar-skeleton">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="sidebar-skeleton-item">
+                        <div className="sidebar-skeleton-title" style={{ width: `${55 + (i % 3) * 15}%` }} />
+                        <div className="sidebar-skeleton-date" />
+                      </div>
+                    ))}
+                  </div>
                 )}
                 {!chatsLoading && visibleChats.length === 0 && (
                   <span className="sidebar-empty">No chats yet</span>
@@ -1117,11 +1141,14 @@ function Chat({
 
           <ChatInput
             loading={loading}
-            onAsk={(prompt) => handleAsk(prompt)}
+            onAsk={(prompt, images) => handleAsk(prompt, undefined, images)}
             onStop={handleStop}
             onRegisterFocus={(focusFn) => {
               inputFocusRef.current = focusFn;
             }}
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
+            onOpenPreferences={() => setShowPreferences(true)}
           />
         </div>
       </div>

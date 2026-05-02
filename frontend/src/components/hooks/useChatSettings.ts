@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { apiGetModels, apiHealth } from "../api";
+import { DEFAULT_MODEL, MODEL_PRESETS } from "../ChatInput";
 
 const DEFAULT_SYSTEM_PROMPT =
   "You are a helpful assistant. Be concise and avoid over-explaining simple questions.";
 
 export function useChatSettings() {
   const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("");
+  const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_MODEL);
   const [isConnected, setIsConnected] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [showPreferences, setShowPreferences] = useState(false);
@@ -21,7 +22,15 @@ export function useChatSettings() {
         setModels(availableModels);
         setIsConnected(true);
         modelsLoadedRef.current = true;
-        if (availableModels.length > 0) setSelectedModel(availableModels[0]);
+        if (availableModels.length > 0) {
+          setSelectedModel((prev) => {
+            if (availableModels.includes(prev)) return prev;
+            const firstPreset = MODEL_PRESETS.find((p) =>
+              availableModels.includes(p.model),
+            );
+            return firstPreset ? firstPreset.model : availableModels[0];
+          });
+        }
         return true;
       } catch {
         setIsConnected(false);

@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(_: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS images JSON"
+        ))
     yield
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -77,6 +80,7 @@ MAX_GUEST_HISTORY        = 100
 MODEL_NAME_PATTERN       = r"^[a-zA-Z0-9._:/ -]+$"
 OLLAMA_BASE_URL   = os.environ.get("OLLAMA_URL")
 DEFAULT_MODEL     = os.environ.get("DEFAULT_MODEL", "llama3.2:latest")
+VISION_MODEL      = os.environ.get("VISION_MODEL", "gemma3:4b-it-qat")
 IS_PRODUCTION     = os.environ.get("APP_ENV", "development").lower() == "production"
 # Skip the ngrok browser interstitial page on tunnel requests
 NGROK_HEADERS     = {"ngrok-skip-browser-warning": "true"}
@@ -127,6 +131,7 @@ class ChatRequest(BaseModel):
     model:         Optional[str]   = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
     system_prompt: Optional[str]   = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
     temperature:   Optional[float] = Field(default=0.7, ge=0.0, le=2.0)
+    images:        Optional[list[str]] = Field(default=None, max_length=4)
 
 class GuestChatRequest(BaseModel):
     prompt:        str                    = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH)
@@ -135,6 +140,7 @@ class GuestChatRequest(BaseModel):
     model:         Optional[str]          = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
     system_prompt: Optional[str]          = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
     temperature:   Optional[float]        = Field(default=0.7, ge=0.0, le=2.0)
+    images:        Optional[list[str]]    = Field(default=None, max_length=4)
 
 class RenameChatRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=MAX_TITLE_LENGTH)
@@ -311,7 +317,15 @@ async def get_messages(
     msgs = await db.execute(
         select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
     )
-    return {"messages": [{"role": m.role, "content": m.content, "created_at": m.created_at.isoformat()} for m in msgs.scalars().all()]}
+    return {"messages": [
+        {
+            "role": m.role,
+            "content": m.content,
+            "created_at": m.created_at.isoformat(),
+            **({"images": m.images} if m.images else {}),
+        }
+        for m in msgs.scalars().all()
+    ]}
 
 # ----- Stream Helpers -----
 
@@ -366,9 +380,15 @@ async def chat_stream(
 
     # Build the messages array for the Ollama chat API
     system_prompt = body.system_prompt or SYSTEM_PROMPT
+    images = body.images or []
+    if images:
+        model = VISION_MODEL
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
-    messages.append({"role": "user", "content": prompt})
+    user_msg: dict = {"role": "user", "content": prompt}
+    if images:
+        user_msg["images"] = images
+    messages.append(user_msg)
 
     # Capture in local vars for use inside the generator closure
     chat_id    = body.chat_id
@@ -395,7 +415,7 @@ async def chat_stream(
 
                 # Use a fresh session: the outer session may have expired during a long stream
                 async with AsyncSessionLocal() as write_db:
-                    write_db.add(Message(chat_id=chat_id, role="user",      content=prompt))
+                    write_db.add(Message(chat_id=chat_id, role="user",      content=prompt, images=images or None))
                     write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
 
                     chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
@@ -440,9 +460,15 @@ async def guest_chat_stream(
     model  = (body.model or DEFAULT_MODEL).strip()
 
     system_prompt = body.system_prompt or SYSTEM_PROMPT
+    images = body.images or []
+    if images:
+        model = VISION_MODEL
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend({"role": m.role, "content": m.content} for m in body.messages)
-    messages.append({"role": "user", "content": prompt})
+    guest_user_msg: dict = {"role": "user", "content": prompt}
+    if images:
+        guest_user_msg["images"] = images
+    messages.append(guest_user_msg)
 
     async def generate():
         try:

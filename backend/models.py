@@ -1,9 +1,10 @@
 from datetime import datetime
-from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from database import Base
+from typing import Optional
 import uuid
 
 # ----- User Model -----
@@ -57,9 +58,10 @@ class RefreshToken(Base):
 class Message(Base):
     __tablename__ = "messages"
 
-    id:         Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    chat_id:    Mapped[uuid.UUID] = mapped_column(ForeignKey("chats.id"), nullable=False, index=True)
-    role:       Mapped[str]       = mapped_column(String(20), nullable=False)
-    content:    Mapped[str]       = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
-    chat:       Mapped["Chat"]    = relationship(back_populates="messages")
+    id:         Mapped[uuid.UUID]        = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    chat_id:    Mapped[uuid.UUID]        = mapped_column(ForeignKey("chats.id"), nullable=False, index=True)
+    role:       Mapped[str]              = mapped_column(String(20), nullable=False)
+    content:    Mapped[str]              = mapped_column(Text, nullable=False)
+    images:     Mapped[Optional[list]]   = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime]         = mapped_column(DateTime(timezone=True), server_default=func.now())
+    chat:       Mapped["Chat"]           = relationship(back_populates="messages")
