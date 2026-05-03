@@ -40,6 +40,9 @@ async def lifespan(_: FastAPI):
         await conn.execute(text(
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS images JSON"
         ))
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_context TEXT"
+        ))
     yield
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -329,6 +332,43 @@ async def get_messages(
 
 # ----- Stream Helpers -----
 
+async def _describe_images(images: list[str]) -> str:
+    """Call VISION_MODEL non-streaming to produce a detailed description of the attached images."""
+    parts = "\n".join(f"[Image {i+1}]" for i in range(len(images)))
+    payload = {
+        "model": VISION_MODEL,
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Describe the following image(s) in exhaustive detail. "
+                    "Cover every visible element: objects, people, text, colors, spatial layout, "
+                    "expressions, actions, background, and any other notable features. "
+                    "Be precise and thorough — this description will be used as the sole source "
+                    "of visual information for another model.\n" + parts
+                ),
+                "images": images,
+            }
+        ],
+        "stream": False,
+        "keep_alive": -1,
+        "options": {"temperature": 0.1},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json=payload,
+                headers=NGROK_HEADERS,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("message", {}).get("content", "").strip()
+    except Exception as e:
+        logger.warning("image_description_failed error=%s", str(e))
+        return ""
+
+
 async def _ollama_stream(messages: list, model: str, temperature: float):
     """Yield parsed JSON chunks from the Ollama chat streaming API."""
     async with httpx.AsyncClient(timeout=120) as client:
@@ -376,16 +416,29 @@ async def chat_stream(
     msgs_result = await db.execute(
         select(Message).where(Message.chat_id == body.chat_id).order_by(Message.created_at)
     )
-    history = [{"role": m.role, "content": m.content} for m in msgs_result.scalars().all()]
+    db_history = msgs_result.scalars().all()
 
     # Build the messages array for the Ollama chat API
     system_prompt = body.system_prompt or SYSTEM_PROMPT
     images = body.images or []
+
+    # Generate a detailed image description via the vision model so any model can reference it
+    image_context = ""
     if images:
-        model = VISION_MODEL
+        image_context = await _describe_images(images)
+
     messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(history)
-    user_msg: dict = {"role": "user", "content": prompt}
+    # Replay history; inject stored image descriptions invisibly before each image-bearing turn
+    for m in db_history:
+        if m.role == "user" and m.image_context:
+            messages.append({"role": "user", "content": f"<image_context>\n{m.image_context}\n</image_context>\n\n{m.content}"})
+        else:
+            messages.append({"role": m.role, "content": m.content})
+
+    user_content = prompt
+    if image_context:
+        user_content = f"<image_context>\n{image_context}\n</image_context>\n\n{prompt}"
+    user_msg: dict = {"role": "user", "content": user_content}
     if images:
         user_msg["images"] = images
     messages.append(user_msg)
@@ -415,7 +468,7 @@ async def chat_stream(
 
                 # Use a fresh session: the outer session may have expired during a long stream
                 async with AsyncSessionLocal() as write_db:
-                    write_db.add(Message(chat_id=chat_id, role="user",      content=prompt, images=images or None))
+                    write_db.add(Message(chat_id=chat_id, role="user", content=prompt, images=images or None, image_context=image_context or None))
                     write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
 
                     chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
@@ -461,11 +514,19 @@ async def guest_chat_stream(
 
     system_prompt = body.system_prompt or SYSTEM_PROMPT
     images = body.images or []
+
+    # Generate a detailed image description via the vision model so any model can reference it
+    image_context = ""
     if images:
-        model = VISION_MODEL
+        image_context = await _describe_images(images)
+
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend({"role": m.role, "content": m.content} for m in body.messages)
-    guest_user_msg: dict = {"role": "user", "content": prompt}
+
+    guest_user_content = prompt
+    if image_context:
+        guest_user_content = f"<image_context>\n{image_context}\n</image_context>\n\n{prompt}"
+    guest_user_msg: dict = {"role": "user", "content": guest_user_content}
     if images:
         guest_user_msg["images"] = images
     messages.append(guest_user_msg)

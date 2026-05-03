@@ -58,10 +58,11 @@ class RefreshToken(Base):
 class Message(Base):
     __tablename__ = "messages"
 
-    id:         Mapped[uuid.UUID]        = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    chat_id:    Mapped[uuid.UUID]        = mapped_column(ForeignKey("chats.id"), nullable=False, index=True)
-    role:       Mapped[str]              = mapped_column(String(20), nullable=False)
-    content:    Mapped[str]              = mapped_column(Text, nullable=False)
-    images:     Mapped[Optional[list]]   = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime]         = mapped_column(DateTime(timezone=True), server_default=func.now())
-    chat:       Mapped["Chat"]           = relationship(back_populates="messages")
+    id:            Mapped[uuid.UUID]        = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    chat_id:       Mapped[uuid.UUID]        = mapped_column(ForeignKey("chats.id"), nullable=False, index=True)
+    role:          Mapped[str]              = mapped_column(String(20), nullable=False)
+    content:       Mapped[str]              = mapped_column(Text, nullable=False)
+    images:        Mapped[Optional[list]]   = mapped_column(JSON, nullable=True)
+    image_context: Mapped[Optional[str]]    = mapped_column(Text, nullable=True)
+    created_at:    Mapped[datetime]         = mapped_column(DateTime(timezone=True), server_default=func.now())
+    chat:          Mapped["Chat"]           = relationship(back_populates="messages")
