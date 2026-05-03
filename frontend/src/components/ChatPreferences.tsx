@@ -96,7 +96,12 @@ The goal is to help the learner understand how to think through the problem, not
   },
 ];
 
-export type Section = "model" | "presets" | "temperature" | "appearance" | "account";
+export type Section =
+  | "model"
+  | "presets"
+  | "temperature"
+  | "appearance"
+  | "account";
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "model", label: "Model" },
@@ -125,7 +130,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   useEscapeKey(onClose);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [activeSection, setActiveSection] = useState<Section>(initialSection ?? "model");
+  const [activeSection, setActiveSection] = useState<Section>(
+    initialSection ?? "model",
+  );
   const [modelSearch, setModelSearch] = useState("");
   const [presetSearch, setPresetSearch] = useState("");
 
@@ -313,20 +320,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-section-label">Theme</div>
               <div className="pref-theme-cards">
                 <div
-                  className={`pref-theme-card${theme === "gruvbox-flat" ? " active" : ""}`}
-                  onClick={() => setTheme("gruvbox-flat")}
-                >
-                  <div className="pref-theme-preview pref-theme-preview-gruvbox">
-                    <span className="ptc-bar ptc-bar-1" />
-                    <span className="ptc-bar ptc-bar-2" />
-                    <span className="ptc-bar ptc-bar-3" />
-                  </div>
-                  <span className="pref-theme-label">Gruvbox</span>
-                  {theme === "gruvbox-flat" && (
-                    <span className="pref-theme-check">✓</span>
-                  )}
-                </div>
-                <div
                   className={`pref-theme-card${theme === "ocean-glass" ? " active" : ""}`}
                   onClick={() => setTheme("ocean-glass")}
                 >
@@ -337,6 +330,20 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                   <span className="pref-theme-label">Ocean</span>
                   {theme === "ocean-glass" && (
+                    <span className="pref-theme-check">✓</span>
+                  )}
+                </div>
+                <div
+                  className={`pref-theme-card${theme === "gruvbox-flat" ? " active" : ""}`}
+                  onClick={() => setTheme("gruvbox-flat")}
+                >
+                  <div className="pref-theme-preview pref-theme-preview-gruvbox">
+                    <span className="ptc-bar ptc-bar-1" />
+                    <span className="ptc-bar ptc-bar-2" />
+                    <span className="ptc-bar ptc-bar-3" />
+                  </div>
+                  <span className="pref-theme-label">Gruvbox</span>
+                  {theme === "gruvbox-flat" && (
                     <span className="pref-theme-check">✓</span>
                   )}
                 </div>
@@ -384,8 +391,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             else if (t.closest(".pref-danger-item")) haptics.trigger("warning");
             else if (t.closest(".pref-list-item")) haptics.trigger("light");
             else if (t.closest(".pref-nav-item")) haptics.trigger("selection");
-            else if (t.closest("button.pref-close-btn")) haptics.trigger("light");
-            else if (t.closest("button:not(:disabled)")) haptics.trigger("selection");
+            else if (t.closest("button.pref-close-btn"))
+              haptics.trigger("light");
+            else if (t.closest("button:not(:disabled)"))
+              haptics.trigger("selection");
             e.stopPropagation();
           }}
         >
@@ -416,8 +425,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           <div
             className="pref-delete-dialog-box"
             onClick={(e) => {
-              const btn = (e.target as HTMLElement).closest("button:not(:disabled)") as HTMLElement | null;
-              if (btn?.classList.contains("pref-confirm-yes")) haptics.trigger("warning");
+              const btn = (e.target as HTMLElement).closest(
+                "button:not(:disabled)",
+              ) as HTMLElement | null;
+              if (btn?.classList.contains("pref-confirm-yes"))
+                haptics.trigger("warning");
               else if (btn) haptics.trigger("selection");
               e.stopPropagation();
             }}

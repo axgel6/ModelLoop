@@ -66,7 +66,7 @@ function App() {
       stored === "gruvbox-flat"
     )
       return "gruvbox-flat";
-    return valid.includes(stored as Theme) ? (stored as Theme) : "gruvbox-flat";
+    return valid.includes(stored as Theme) ? (stored as Theme) : "ocean-glass";
   });
 
   useEffect(() => {

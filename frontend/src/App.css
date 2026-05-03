@@ -1104,6 +1104,21 @@ html[data-theme="ocean"] .image-preview-remove:hover {
   gap: 0;
 }
 
+.tool-live-indicator {
+  font-style: italic;
+  background: linear-gradient(90deg, #3c3836 25%, #665c54 50%, #3c3836 75%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: tool-skeleton 1.6s ease-in-out infinite;
+}
+
+@keyframes tool-skeleton {
+  0%   { background-position: 100% center; }
+  100% { background-position: -100% center; }
+}
+
 @keyframes thinking-bounce {
   0%,
   80%,

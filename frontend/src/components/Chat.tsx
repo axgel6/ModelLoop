@@ -163,17 +163,20 @@ const MD_COMPONENTS = { pre: Pre as any };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+
 const AssistantMessage = memo(function AssistantMessage({
   msg,
   isLast,
   canRetry,
   isThinking,
+  activeToolCall,
   onRetry,
 }: {
   msg: Message;
   isLast: boolean;
   canRetry: boolean;
   isThinking: boolean;
+  activeToolCall: string | null;
   onRetry: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -208,7 +211,16 @@ const AssistantMessage = memo(function AssistantMessage({
         </div>
       </div>
       <div className="msg-meta">
-        {ts && <span className="msg-timestamp">{ts}</span>}
+        {ts && (
+          <span className="msg-timestamp">
+            {ts}
+            {isLast && activeToolCall && (
+              <span className="tool-live-indicator">
+                {" · " + activeToolCall.replace(/^get_/, "getting ").replace(/_/g, " ") + "..."}
+              </span>
+            )}
+          </span>
+        )}
         <div className="msg-actions">
           {msg.content && (
             <button
@@ -498,6 +510,8 @@ function Chat({
     messagesContainerRef,
   } = useChatUI(messages);
 
+  const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
+
   const inputFocusRef = useRef<(() => void) | null>(null);
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [docsUploading, setDocsUploading] = useState(false);
@@ -750,9 +764,13 @@ function Chat({
                 thinkingTimerRef.current = null;
               }
               setIsThinking(false);
+              setActiveToolCall(null);
               bufferedTokens += data.token;
               scheduleFlush();
+            } else if (data.type === "tool_use") {
+              setActiveToolCall(data.tool as string);
             } else if (data.type === "done") {
+              setActiveToolCall(null);
               flushAndCancelPendingFrame();
               if (!isGuest) onChatsChanged();
             } else if (data.type === "error") {
@@ -790,6 +808,7 @@ function Chat({
         thinkingTimerRef.current = null;
       }
       setIsThinking(false);
+      setActiveToolCall(null);
       setLoading(false);
       setMessages((prev) => {
         if (activeChatIdRef.current)
@@ -1158,6 +1177,7 @@ function Chat({
                         idx === messages.length - 1 && !!msg.content && !loading
                       }
                       isThinking={isThinking}
+                      activeToolCall={idx === messages.length - 1 ? activeToolCall : null}
                       onRetry={handleRetry}
                     />
                   ) : (

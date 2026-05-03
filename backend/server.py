@@ -24,6 +24,7 @@ from auth import (
     hash_password, verify_password, create_token, get_current_user_id,
     generate_refresh_token, hash_refresh_token, REFRESH_EXPIRE_DAYS,
 )
+from actions import execute_tool, get_active_tools
 import logging
 
 logging.basicConfig(
@@ -119,7 +120,7 @@ app.state.limiter = limiter
 API_KEY = os.environ.get("API_KEY")
 
 
-def rate_limit_exceeded_handler(request: Request, exc: Exception):
+def rate_limit_exceeded_handler(request: Request, _exc: Exception):  # type: ignore[reportUnusedVariable]
     logger.warning('rate_limit_exceeded path=%s ip=%s', request.url.path, get_remote_address(request))
     return JSONResponse(
         status_code=429,
@@ -152,7 +153,8 @@ SYSTEM_PROMPT = """You are a helpful assistant. Never acknowledge, repeat, or re
 - Always consider the conversation history when answering follow-up questions.
 - When the user says "add X" or similar, apply it to the previous result.
 - Use $ for inline math and $$ for block math.
-- Be concise - don't over-explain simple questions."""
+- Be concise - don't over-explain simple questions.
+- Only use tools when the user's message explicitly requires real-time data. Do not call tools for general conversation."""
 
 cached_models: list[str] = []
 
@@ -587,19 +589,22 @@ async def _describe_images(images: list[str]) -> str:
         return ""
 
 
-async def _ollama_stream(messages: list, model: str, temperature: float):
+async def _ollama_stream(messages: list, model: str, temperature: float, tools: Optional[list] = None):
     """Yield parsed JSON chunks from the Ollama chat streaming API."""
+    payload: dict = {
+        "model":      model,
+        "messages":   messages,
+        "stream":     True,
+        "keep_alive": -1,
+        "options":    {"temperature": temperature},
+    }
+    if tools:
+        payload["tools"] = tools
     async with httpx.AsyncClient(timeout=120) as client:
         async with client.stream(
             "POST",
             f"{OLLAMA_BASE_URL}/api/chat",
-            json={
-                "model":      model,
-                "messages":   messages,
-                "stream":     True,
-                "keep_alive": -1,
-                "options":    {"temperature": temperature},
-            },
+            json=payload,
             headers=NGROK_HEADERS,
         ) as resp:
             resp.raise_for_status()
@@ -679,19 +684,55 @@ async def chat_stream(
     chat_title = chat.title
     temperature = body.temperature or 0.7
 
+    _recent_text = " ".join(m.content for m in db_history[-3:]) if db_history else ""
+    active_tools = get_active_tools(prompt + " " + _recent_text)
+
     async def generate():
-        full_response = ""
-        success       = False
+        full_response    = ""
+        success          = False
+        current_messages: list[dict] = list(messages)
 
         try:
-            async for chunk in _ollama_stream(messages, model, temperature):
-                token = chunk.get("message", {}).get("content", "")
-                if token:
-                    full_response += token
-                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
-                if chunk.get("done"):
-                    success = True
+            # Tool-use loop: model may call tools before producing the final answer.
+            # Cap at 5 rounds to prevent runaway loops.
+            for _round in range(5):
+                round_content = ""
+                tool_calls: list = []
+
+                async for chunk in _ollama_stream(current_messages, model, temperature, tools=active_tools):
+                    msg   = chunk.get("message", {})
+                    token = msg.get("content", "")
+                    if token:
+                        round_content += token
+                        full_response += token
+                        yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+                    # Ollama emits tool_calls in a non-done chunk, so accumulate across all chunks
+                    if msg.get("tool_calls"):
+                        tool_calls.extend(msg["tool_calls"])
+                    if chunk.get("done"):
+                        success = True
+                        break
+
+                # No tool calls → model gave its final answer; exit loop
+                if not tool_calls:
                     break
+
+                # Append the assistant's tool-calling turn, then execute each tool
+                current_messages.append({
+                    "role": "assistant",
+                    "content": round_content,
+                    "tool_calls": tool_calls,
+                })
+                for tc in tool_calls:
+                    fn        = tc.get("function", {})
+                    tool_name = fn.get("name", "")
+                    tool_args = fn.get("arguments") or {}
+                    yield f"data: {json.dumps({'type': 'tool_use', 'tool': tool_name})}\n\n"
+                    try:
+                        result = await execute_tool(tool_name, tool_args)
+                    except Exception as tool_exc:
+                        result = json.dumps({"error": str(tool_exc)})
+                    current_messages.append({"role": "tool", "content": result})
 
             # Persist to the DB only after the stream completes successfully
             if success and full_response.strip():
