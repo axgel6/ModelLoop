@@ -220,8 +220,8 @@ export async function apiGetModels(): Promise<string[]> {
   });
   if (!res.ok) throw new Error("Failed to fetch models");
   const data = await res.json();
-  // Fall back to empty array if the backend returns no models key
-  return data.models ?? [];
+  const all: string[] = data.models ?? [];
+  return all.filter((m) => !m.startsWith("nomic-embed-text"));
 }
 
 // Ping the health endpoint, returns false instead of throwing on network errors

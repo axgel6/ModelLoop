@@ -777,6 +777,72 @@ html[data-theme="ocean"] .image-preview-remove:hover {
   color: #665c54;
 }
 
+/* Tools dropdown */
+.tools-dropdown-wrapper {
+  position: relative;
+}
+
+.tools-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 200px;
+  background: rgba(29, 32, 33, 0.96);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(80, 73, 69, 0.4);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 50;
+  padding: 4px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.tools-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 7px 10px;
+  background: transparent !important;
+  color: #a89984;
+  border: none;
+  border-radius: 8px;
+  box-shadow: none !important;
+  cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tools-dropdown-item:hover {
+  background: rgba(80, 73, 69, 0.35) !important;
+  color: #ebdbb2;
+}
+
+.tools-dropdown-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tools-dropdown-item-label {
+  color: inherit;
+}
+
+.tools-dropdown-item-desc {
+  color: #504945;
+  font-size: 0.66rem;
+  font-weight: 400;
+}
+
+.tools-dropdown-item:hover .tools-dropdown-item-desc {
+  color: #665c54;
+}
+
 /* Send / Stop button */
 .input-toolbar .ask-button {
   flex-shrink: 0;
@@ -3856,6 +3922,38 @@ html[data-theme="ocean"] .model-dropdown-item-sub {
 html[data-theme="ocean"] .model-dropdown-item.active .model-dropdown-item-sub,
 html[data-theme="ocean"] .model-dropdown-item:hover .model-dropdown-item-sub {
   color: #4d5a6e;
+}
+
+html[data-theme="ocean"] .tools-dropdown-menu {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.22) 0px,
+      rgba(0, 0, 0, 0.22) 2px,
+      transparent 2px,
+      transparent 4px
+    ),
+    rgba(16, 20, 30, 0.94);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border-color: rgba(112, 122, 140, 0.35);
+}
+
+html[data-theme="ocean"] .tools-dropdown-item {
+  color: #cdd6f4;
+}
+
+html[data-theme="ocean"] .tools-dropdown-item:hover {
+  background: rgba(57, 186, 230, 0.1) !important;
+  color: #ffffff;
+}
+
+html[data-theme="ocean"] .tools-dropdown-item-desc {
+  color: #707a8c;
+}
+
+html[data-theme="ocean"] .tools-dropdown-item:hover .tools-dropdown-item-desc {
+  color: #8899aa;
 }
 
 /* ---- History modal ---- */

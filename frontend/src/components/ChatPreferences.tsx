@@ -18,6 +18,7 @@ interface ChatPreferencesProps {
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   onDeleteAccount: () => Promise<void>;
+  initialSection?: Section;
 }
 
 const PRESETS: { label: string; description: string; prompt: string }[] = [
@@ -95,7 +96,7 @@ The goal is to help the learner understand how to think through the problem, not
   },
 ];
 
-type Section = "model" | "presets" | "temperature" | "appearance" | "account";
+export type Section = "model" | "presets" | "temperature" | "appearance" | "account";
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "model", label: "Model" },
@@ -119,11 +120,12 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   selectedModel,
   setSelectedModel,
   onDeleteAccount,
+  initialSection,
 }) => {
   useEscapeKey(onClose);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [activeSection, setActiveSection] = useState<Section>("model");
+  const [activeSection, setActiveSection] = useState<Section>(initialSection ?? "model");
   const [modelSearch, setModelSearch] = useState("");
   const [presetSearch, setPresetSearch] = useState("");
 

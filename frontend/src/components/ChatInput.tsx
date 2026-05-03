@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+const TOOLS_ITEMS = [
+  { id: "model",       label: "Model",       desc: "Switch AI model"         },
+  { id: "presets",     label: "Presets",     desc: "System prompt personas"  },
+  { id: "temperature", label: "Temperature", desc: "Response creativity"     },
+  { id: "appearance",  label: "Appearance",  desc: "Theme & display"         },
+  { id: "account",     label: "Account",     desc: "Account settings"        },
+] as const;
+
 const SLASH_COMMANDS = [
   { cmd: "/clear", desc: "Clear conversation" },
   { cmd: "/code", desc: "Code mode (deepseek-r1)" },
@@ -23,7 +31,7 @@ interface ChatInputProps {
   onRegisterFocus?: (focusFn: () => void) => void;
   selectedModel?: string;
   setSelectedModel?: (model: string) => void;
-  onOpenPreferences?: () => void;
+  onOpenPreferences?: (section?: string) => void;
 }
 
 function ChatInput({
@@ -38,12 +46,14 @@ function ChatInput({
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const modelDropdownRef = useRef<HTMLDivElement | null>(null);
+  const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentPresetLabel =
@@ -87,6 +97,17 @@ function ChatInput({
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [modelDropdownOpen]);
+
+  useEffect(() => {
+    if (!toolsDropdownOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (!toolsDropdownRef.current?.contains(e.target as Node)) {
+        setToolsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [toolsDropdownOpen]);
 
   const handleImageFile = (file: File) => {
     if (file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif")) {
@@ -298,31 +319,54 @@ function ChatInput({
               </svg>
             </button>
             {onOpenPreferences && (
-              <button
-                className="toolbar-chip-btn"
-                onClick={onOpenPreferences}
-                title="Preferences"
-                type="button"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="13"
-                  height="13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              <div className="tools-dropdown-wrapper" ref={toolsDropdownRef}>
+                <button
+                  className="toolbar-chip-btn"
+                  onClick={() => setToolsDropdownOpen((v) => !v)}
+                  title="Tools"
+                  type="button"
                 >
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                  <circle cx="8" cy="6" r="2.2" fill="currentColor" stroke="none" />
-                  <circle cx="16" cy="12" r="2.2" fill="currentColor" stroke="none" />
-                  <circle cx="8" cy="18" r="2.2" fill="currentColor" stroke="none" />
-                </svg>
-                Tools
-              </button>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="13"
+                    height="13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                    <circle cx="8" cy="6" r="2.2" fill="currentColor" stroke="none" />
+                    <circle cx="16" cy="12" r="2.2" fill="currentColor" stroke="none" />
+                    <circle cx="8" cy="18" r="2.2" fill="currentColor" stroke="none" />
+                  </svg>
+                  Tools
+                </button>
+                {toolsDropdownOpen && (
+                  <div className="tools-dropdown-menu">
+                    {TOOLS_ITEMS.map((item) => (
+                      <button
+                        key={item.id}
+                        className="tools-dropdown-item"
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setToolsDropdownOpen(false);
+                          onOpenPreferences(item.id);
+                        }}
+                      >
+                        <span className="tools-dropdown-item-text">
+                          <span className="tools-dropdown-item-label">{item.label}</span>
+                          <span className="tools-dropdown-item-desc">{item.desc}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

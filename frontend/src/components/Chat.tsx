@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import ChatPreferences, { type Theme } from "./ChatPreferences";
+import ChatPreferences, { type Theme, type Section as PrefSection } from "./ChatPreferences";
 import ChatInput from "./ChatInput";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -462,6 +462,7 @@ function Chat({
     temperature,
     setTemperature,
   } = useChatSettings();
+  const [prefSection, setPrefSection] = useState<PrefSection>("model");
 
   const {
     sidebarOpen,
@@ -1148,7 +1149,10 @@ function Chat({
             }}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
-            onOpenPreferences={() => setShowPreferences(true)}
+            onOpenPreferences={(section) => {
+              if (section) setPrefSection(section as PrefSection);
+              setShowPreferences(true);
+            }}
           />
         </div>
       </div>
@@ -1192,6 +1196,7 @@ function Chat({
           models={models}
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
+          initialSection={prefSection}
           onDeleteAccount={async () => {
             await apiDeleteAccount();
             localStorage.removeItem("token");
