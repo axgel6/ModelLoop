@@ -1,8 +1,9 @@
 import re
 from . import get_time as _get_time
+from . import calculate as _calculate
 
 # Register action modules here when adding new tools
-_ACTIONS = [_get_time]
+_ACTIONS = [_get_time, _calculate]
 
 TOOL_DEFINITIONS = [mod.DEFINITION for mod in _ACTIONS]
 
@@ -18,5 +19,9 @@ async def execute_tool(name: str, arguments: dict) -> str:
 
 def get_active_tools(text: str) -> "list | None":
     words = set(re.sub(r"[^\w\s]", "", text.lower()).split())
-    matched = [mod.DEFINITION for mod in _ACTIONS if words & mod.KEYWORDS]
+    matched = []
+    for mod in _ACTIONS:
+        activate = mod.should_activate(text, words) if hasattr(mod, "should_activate") else bool(words & mod.KEYWORDS)
+        if activate:
+            matched.append(mod.DEFINITION)
     return matched or None

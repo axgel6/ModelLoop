@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import io
 import os
@@ -140,6 +141,8 @@ OLLAMA_BASE_URL   = os.environ.get("OLLAMA_URL")
 DEFAULT_MODEL     = os.environ.get("DEFAULT_MODEL", "llama3.2:latest")
 VISION_MODEL      = os.environ.get("VISION_MODEL", "gemma3:4b-it-qat")
 EMBED_MODEL       = os.environ.get("EMBED_MODEL", "nomic-embed-text")
+# Comma-separated substrings; any model whose name contains one of these gets think=True
+THINKING_MODELS   = [m.strip().lower() for m in os.environ.get("THINKING_MODELS", "deepseek-r1").split(",") if m.strip()]
 IS_PRODUCTION     = os.environ.get("APP_ENV", "development").lower() == "production"
 # Skip the ngrok browser interstitial page on tunnel requests
 NGROK_HEADERS     = {"ngrok-skip-browser-warning": "true"}
@@ -205,12 +208,6 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 
 async def _retrieve_rag_context(chat_id: str, user_id: str, query: str, db: AsyncSession) -> str:
-    try:
-        query_embedding = await _get_embedding(query)
-    except Exception as e:
-        logger.warning("rag_embed_failed error=%s", str(e))
-        return ""
-
     result = await db.execute(
         select(DocumentChunk)
         .join(Document, DocumentChunk.document_id == Document.id)
@@ -218,6 +215,12 @@ async def _retrieve_rag_context(chat_id: str, user_id: str, query: str, db: Asyn
     )
     chunks = result.scalars().all()
     if not chunks:
+        return ""
+
+    try:
+        query_embedding = await _get_embedding(query)
+    except Exception as e:
+        logger.warning("rag_embed_failed error=%s", str(e))
         return ""
 
     scored = sorted(chunks, key=lambda c: _cosine_similarity(query_embedding, c.embedding), reverse=True)[:RAG_TOP_K]
@@ -486,12 +489,12 @@ async def upload_document(
     await db.flush()
 
     chunks = _chunk_text(raw_text)
-    for i, chunk_text_item in enumerate(chunks):
-        try:
-            embedding = await _get_embedding(chunk_text_item)
-        except Exception as e:
-            logger.error("embed_chunk_failed doc_id=%s chunk=%d error=%s", doc.id, i, str(e))
-            raise HTTPException(status_code=502, detail="Embedding model unavailable — is nomic-embed-text pulled?")
+    try:
+        embeddings = await asyncio.gather(*[_get_embedding(c) for c in chunks])
+    except Exception as e:
+        logger.error("embed_chunk_failed doc_id=%s error=%s", doc.id, str(e))
+        raise HTTPException(status_code=502, detail="Embedding model unavailable — is nomic-embed-text pulled?")
+    for i, (chunk_text_item, embedding) in enumerate(zip(chunks, embeddings)):
         db.add(DocumentChunk(document_id=doc.id, chat_id=chat_id, content=chunk_text_item, embedding=embedding, chunk_index=i))
 
     await db.commit()
@@ -589,6 +592,11 @@ async def _describe_images(images: list[str]) -> str:
         return ""
 
 
+def _is_thinking_model(model: str) -> bool:
+    name = model.lower()
+    return any(pattern in name for pattern in THINKING_MODELS)
+
+
 async def _ollama_stream(messages: list, model: str, temperature: float, tools: Optional[list] = None):
     """Yield parsed JSON chunks from the Ollama chat streaming API."""
     payload: dict = {
@@ -598,8 +606,11 @@ async def _ollama_stream(messages: list, model: str, temperature: float, tools: 
         "keep_alive": -1,
         "options":    {"temperature": temperature},
     }
-    if tools:
+    # Thinking models don't support tools parameter; skip them
+    if tools and not _is_thinking_model(model):
         payload["tools"] = tools
+    if _is_thinking_model(model):
+        payload["think"] = True
     async with httpx.AsyncClient(timeout=120) as client:
         async with client.stream(
             "POST",
@@ -611,7 +622,11 @@ async def _ollama_stream(messages: list, model: str, temperature: float, tools: 
             async for line in resp.aiter_lines():
                 if line:
                     try:
-                        yield json.loads(line)
+                        chunk = json.loads(line)
+                        thinking = chunk.get("message", {}).get("thinking", "")
+                        if thinking:
+                            yield {"_thinking": thinking}
+                        yield chunk
                     except json.JSONDecodeError:
                         continue
 
@@ -645,13 +660,14 @@ async def chat_stream(
     system_prompt = body.system_prompt or SYSTEM_PROMPT
     images = body.images or []
 
-    # Generate a detailed image description via the vision model so any model can reference it
-    image_context = ""
-    if images:
-        image_context = await _describe_images(images)
+    # Run image description and RAG concurrently — they're independent
+    async def _image_description():
+        return await _describe_images(images) if images else ""
 
-    # Retrieve relevant document chunks for this chat (RAG)
-    rag_context = await _retrieve_rag_context(body.chat_id, user_id, prompt, db)
+    image_context, rag_context = await asyncio.gather(
+        _image_description(),
+        _retrieve_rag_context(body.chat_id, user_id, prompt, db),
+    )
 
     effective_system = system_prompt
     if rag_context:
@@ -684,8 +700,8 @@ async def chat_stream(
     chat_title = chat.title
     temperature = body.temperature or 0.7
 
-    _recent_text = " ".join(m.content for m in db_history[-3:]) if db_history else ""
-    active_tools = get_active_tools(prompt + " " + _recent_text)
+    _recent_user = " ".join(m.content for m in db_history[-6:] if m.role == "user") if db_history else ""
+    active_tools = get_active_tools(prompt + " " + _recent_user)
 
     async def generate():
         full_response    = ""
@@ -697,27 +713,32 @@ async def chat_stream(
             # Cap at 5 rounds to prevent runaway loops.
             for _round in range(5):
                 round_content = ""
+                round_tokens: list[str] = []
                 tool_calls: list = []
 
                 async for chunk in _ollama_stream(current_messages, model, temperature, tools=active_tools):
+                    if "_thinking" in chunk:
+                        yield f"data: {json.dumps({'type': 'thinking_token', 'token': chunk['_thinking']})}\n\n"
+                        continue
                     msg   = chunk.get("message", {})
                     token = msg.get("content", "")
                     if token:
                         round_content += token
-                        full_response += token
-                        yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
-                    # Ollama emits tool_calls in a non-done chunk, so accumulate across all chunks
+                        round_tokens.append(token)
                     if msg.get("tool_calls"):
                         tool_calls.extend(msg["tool_calls"])
                     if chunk.get("done"):
                         success = True
                         break
 
-                # No tool calls → model gave its final answer; exit loop
                 if not tool_calls:
+                    # Final answer round — stream tokens to client
+                    for token in round_tokens:
+                        full_response += token
+                        yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
                     break
 
-                # Append the assistant's tool-calling turn, then execute each tool
+                # Tool-calling round — discard any content the model emitted, execute tools
                 current_messages.append({
                     "role": "assistant",
                     "content": round_content,

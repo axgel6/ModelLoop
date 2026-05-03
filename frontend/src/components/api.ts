@@ -197,6 +197,7 @@ export interface Message {
   content: string;
   created_at?: string;
   images?: string[];
+  thinking?: string;
 }
 
 // Fetch the full message history for a chat, ordered by creation time

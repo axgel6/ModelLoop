@@ -163,23 +163,35 @@ const MD_COMPONENTS = { pre: Pre as any };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+const THINKING_PHRASES = [
+  "Let me think about that…",
+  "On it…",
+  "Just a moment…",
+  "Thinking this through…",
+  "Putting it together…",
+  "Give me a second…",
+  "Let me work through this…",
+  "Almost ready…",
+];
 
 const AssistantMessage = memo(function AssistantMessage({
   msg,
   isLast,
   canRetry,
   isThinking,
-  activeToolCall,
   onRetry,
 }: {
   msg: Message;
   isLast: boolean;
   canRetry: boolean;
   isThinking: boolean;
-  activeToolCall: string | null;
   onRetry: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [thinkingOpen, setThinkingOpen] = useState(false);
+  const thinkingPhrase = useRef(
+    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
+  );
   const ts = fmtTime(msg.created_at);
 
   const handleCopy = () => {
@@ -188,17 +200,38 @@ const AssistantMessage = memo(function AssistantMessage({
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const showThinking = msg.content === "" && isThinking && isLast;
+
   return (
     <div className="msg-bubble-group">
       <div className="message assistant">
         <div className="assistant-content">
-          {msg.content === "" && isThinking && isLast ? (
-            <div className="thinking-indicator">
-              Thinking
-              <span className="thinking-dot">.</span>
-              <span className="thinking-dot">.</span>
-              <span className="thinking-dot">.</span>
+          {msg.thinking && (
+            <div className="reasoning-block">
+              <button
+                className="reasoning-toggle"
+                onClick={() => setThinkingOpen((v) => !v)}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="12"
+                  height="12"
+                  fill="currentColor"
+                  style={{ transform: thinkingOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}
+                >
+                  <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
+                </svg>
+                Reasoning
+              </button>
+              {thinkingOpen && (
+                <div className="reasoning-content">
+                  {msg.thinking}
+                </div>
+              )}
             </div>
+          )}
+          {showThinking ? (
+            <span className="thinking-phrase">{thinkingPhrase.current}</span>
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
@@ -214,11 +247,6 @@ const AssistantMessage = memo(function AssistantMessage({
         {ts && (
           <span className="msg-timestamp">
             {ts}
-            {isLast && activeToolCall && (
-              <span className="tool-live-indicator">
-                {" · " + activeToolCall.replace(/^get_/, "getting ").replace(/_/g, " ") + "..."}
-              </span>
-            )}
           </span>
         )}
         <div className="msg-actions">
@@ -510,7 +538,6 @@ function Chat({
     messagesContainerRef,
   } = useChatUI(messages);
 
-  const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
 
   const inputFocusRef = useRef<(() => void) | null>(null);
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
@@ -716,18 +743,29 @@ function Chat({
       if (!reader) throw new Error("Failed to get response stream");
 
       let accumulatedResponse = "";
+      let accumulatedThinking = "";
       let bufferedTokens = "";
+      let bufferedThinking = "";
       let rafId: number | null = null;
 
       const flushBufferedTokens = () => {
-        if (!bufferedTokens) return;
-        accumulatedResponse += bufferedTokens;
-        bufferedTokens = "";
+        const hasContent = !!bufferedTokens;
+        const hasThinking = !!bufferedThinking;
+        if (!hasContent && !hasThinking) return;
+        if (hasContent) {
+          accumulatedResponse += bufferedTokens;
+          bufferedTokens = "";
+        }
+        if (hasThinking) {
+          accumulatedThinking += bufferedThinking;
+          bufferedThinking = "";
+        }
         setMessages((prev) => {
           const next = [...prev];
           next[next.length - 1] = {
             ...next[next.length - 1],
             content: accumulatedResponse,
+            ...(accumulatedThinking ? { thinking: accumulatedThinking } : {}),
           };
           return next;
         });
@@ -758,19 +796,23 @@ function Chat({
           if (!line.startsWith("data: ")) continue;
           try {
             const data = JSON.parse(line.slice(6));
-            if (data.type === "token") {
+            if (data.type === "thinking_token") {
+              if (thinkingTimerRef.current) {
+                clearTimeout(thinkingTimerRef.current);
+                thinkingTimerRef.current = null;
+              }
+              setIsThinking(true);
+              bufferedThinking += data.token;
+              scheduleFlush();
+            } else if (data.type === "token") {
               if (thinkingTimerRef.current) {
                 clearTimeout(thinkingTimerRef.current);
                 thinkingTimerRef.current = null;
               }
               setIsThinking(false);
-              setActiveToolCall(null);
               bufferedTokens += data.token;
               scheduleFlush();
-            } else if (data.type === "tool_use") {
-              setActiveToolCall(data.tool as string);
             } else if (data.type === "done") {
-              setActiveToolCall(null);
               flushAndCancelPendingFrame();
               if (!isGuest) onChatsChanged();
             } else if (data.type === "error") {
@@ -808,7 +850,6 @@ function Chat({
         thinkingTimerRef.current = null;
       }
       setIsThinking(false);
-      setActiveToolCall(null);
       setLoading(false);
       setMessages((prev) => {
         if (activeChatIdRef.current)
@@ -1177,7 +1218,6 @@ function Chat({
                         idx === messages.length - 1 && !!msg.content && !loading
                       }
                       isThinking={isThinking}
-                      activeToolCall={idx === messages.length - 1 ? activeToolCall : null}
                       onRetry={handleRetry}
                     />
                   ) : (
