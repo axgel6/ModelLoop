@@ -10,6 +10,8 @@ asyncpg
 python-jose[cryptography]
 bcrypt
 python-multipart
+numpy
+pypdf
 pytest
 pytest-asyncio
 pytest-mock

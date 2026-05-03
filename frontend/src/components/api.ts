@@ -237,6 +237,51 @@ export async function apiHealth(): Promise<boolean> {
   }
 }
 
+// ----- Documents -----
+
+export interface DocumentMeta {
+  id: string;
+  filename: string;
+  chunk_count: number;
+  created_at: string;
+}
+
+export async function apiListDocuments(chatId: string): Promise<DocumentMeta[]> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/documents`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to load documents");
+  const data = await res.json();
+  return data.documents;
+}
+
+export async function apiUploadDocument(chatId: string, file: File): Promise<DocumentMeta> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/documents`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: form,
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Upload failed");
+  }
+  return res.json();
+}
+
+export async function apiDeleteDocument(docId: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/documents/${docId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to delete document");
+}
+
 // ----- Streaming -----
 
 // Send a guest chat message, no auth required, history is passed by the caller

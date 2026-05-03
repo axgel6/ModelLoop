@@ -15,8 +15,12 @@ import {
   apiDeleteAccount,
   apiDeleteChat,
   apiGuestChatStream,
+  apiListDocuments,
+  apiUploadDocument,
+  apiDeleteDocument,
   apiRenameChat,
   type ChatMeta,
+  type DocumentMeta,
   type Message,
 } from "./api";
 
@@ -476,6 +480,10 @@ function Chat({
   } = useChatUI(messages);
 
   const inputFocusRef = useRef<(() => void) | null>(null);
+  const [documents, setDocuments] = useState<DocumentMeta[]>([]);
+  const [docsUploading, setDocsUploading] = useState(false);
+  const [docUploadError, setDocUploadError] = useState<string | null>(null);
+
   const [interactionState, dispatchInteraction] = useReducer(
     chatInteractionReducer,
     initialChatInteractionState,
@@ -503,6 +511,37 @@ function Chat({
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [showPreferences]);
+
+  useEffect(() => {
+    if (!activeChatId || isGuest) { setDocuments([]); return; }
+    apiListDocuments(activeChatId)
+      .then(setDocuments)
+      .catch(() => setDocuments([]));
+  }, [activeChatId, isGuest]);
+
+  const handleDocUpload = async (file: File) => {
+    if (!activeChatId) return;
+    setDocsUploading(true);
+    setDocUploadError(null);
+    try {
+      const doc = await apiUploadDocument(activeChatId, file);
+      setDocuments((prev) => [doc, ...prev]);
+    } catch (err) {
+      setDocUploadError(err instanceof Error ? err.message : "Upload failed");
+      setTimeout(() => setDocUploadError(null), 5000);
+    } finally {
+      setDocsUploading(false);
+    }
+  };
+
+  const handleDocDelete = async (docId: string) => {
+    try {
+      await apiDeleteDocument(docId);
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    } catch {
+      /* silent */
+    }
+  };
 
   const ensureChatId = async (): Promise<string | null> => {
     if (activeChatIdRef.current) return activeChatIdRef.current;
@@ -1153,6 +1192,13 @@ function Chat({
               if (section) setPrefSection(section as PrefSection);
               setShowPreferences(true);
             }}
+            {...(!isGuest && activeChatId ? {
+              documents,
+              docsUploading,
+              docUploadError,
+              onDocUpload: handleDocUpload,
+              onDocDelete: handleDocDelete,
+            } : {})}
           />
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { DocumentMeta } from "./api";
 
 const TOOLS_ITEMS = [
   { id: "model",       label: "Model",       desc: "Switch AI model"         },
@@ -32,6 +33,11 @@ interface ChatInputProps {
   selectedModel?: string;
   setSelectedModel?: (model: string) => void;
   onOpenPreferences?: (section?: string) => void;
+  documents?: DocumentMeta[];
+  docsUploading?: boolean;
+  docUploadError?: string | null;
+  onDocUpload?: (file: File) => void;
+  onDocDelete?: (docId: string) => void;
 }
 
 function ChatInput({
@@ -42,11 +48,17 @@ function ChatInput({
   selectedModel,
   setSelectedModel,
   onOpenPreferences,
+  documents = [],
+  docsUploading = false,
+  docUploadError,
+  onDocUpload,
+  onDocDelete,
 }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
+  const [docsDropdownOpen, setDocsDropdownOpen] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -54,7 +66,9 @@ function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const modelDropdownRef = useRef<HTMLDivElement | null>(null);
   const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
+  const docsDropdownRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const docFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentPresetLabel =
     MODEL_PRESETS.find((p) => p.model === selectedModel)?.label ?? "Custom";
@@ -108,6 +122,17 @@ function ChatInput({
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [toolsDropdownOpen]);
+
+  useEffect(() => {
+    if (!docsDropdownOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (!docsDropdownRef.current?.contains(e.target as Node)) {
+        setDocsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [docsDropdownOpen]);
 
   const handleImageFile = (file: File) => {
     if (file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif")) {
@@ -305,8 +330,8 @@ function ChatInput({
             >
               <svg
                 viewBox="0 0 24 24"
-                width="16"
-                height="16"
+                width="14"
+                height="14"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.8"
@@ -318,6 +343,101 @@ function ChatInput({
                 <polyline points="21 15 16 10 5 21" />
               </svg>
             </button>
+            {onDocUpload && (
+              <div className="tools-dropdown-wrapper" ref={docsDropdownRef}>
+                <input
+                  ref={docFileInputRef}
+                  type="file"
+                  accept=".pdf,.txt,.md"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) onDocUpload(file);
+                  }}
+                />
+                <button
+                  className={`toolbar-chip-btn${documents.length > 0 ? " doc-chip-active" : ""}`}
+                  onClick={() => setDocsDropdownOpen((v) => !v)}
+                  title="Documents (RAG)"
+                  type="button"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="13"
+                    height="13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                  </svg>
+                  {documents.length > 0 && (
+                    <span className="doc-chip-count">{documents.length}</span>
+                  )}
+                </button>
+                {docsDropdownOpen && (
+                  <div className="tools-dropdown-menu">
+                    <button
+                      className="tools-dropdown-item"
+                      type="button"
+                      disabled={docsUploading}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        docFileInputRef.current?.click();
+                      }}
+                    >
+                      <span className="tools-dropdown-item-text">
+                        <span className="tools-dropdown-item-label">
+                          {docsUploading ? "Uploading…" : "Add file"}
+                        </span>
+                        <span className="tools-dropdown-item-desc">PDF, TXT, or MD · enables RAG</span>
+                      </span>
+                    </button>
+                    {docUploadError && (
+                      <div className="tools-dropdown-item" style={{ cursor: "default", color: "#fb4934" }}>
+                        <span className="tools-dropdown-item-text">
+                          <span className="tools-dropdown-item-label" style={{ color: "#fb4934" }}>{docUploadError}</span>
+                        </span>
+                      </div>
+                    )}
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="tools-dropdown-item" style={{ cursor: "default" }}>
+                        <span className="tools-dropdown-item-text" style={{ flex: 1, minWidth: 0 }}>
+                          <span className="tools-dropdown-item-label" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }} title={doc.filename}>
+                            {doc.filename}
+                          </span>
+                          <span className="tools-dropdown-item-desc">{doc.chunk_count} chunks</span>
+                        </span>
+                        <button
+                          className="docs-item-delete"
+                          type="button"
+                          title="Remove"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            onDocDelete?.(doc.id);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    {documents.length === 0 && !docsUploading && (
+                      <div className="tools-dropdown-item" style={{ cursor: "default", pointerEvents: "none" }}>
+                        <span className="tools-dropdown-item-text">
+                          <span className="tools-dropdown-item-desc" style={{ fontSize: "0.72rem" }}>No documents yet</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {onOpenPreferences && (
               <div className="tools-dropdown-wrapper" ref={toolsDropdownRef}>
                 <button
@@ -343,7 +463,6 @@ function ChatInput({
                     <circle cx="16" cy="12" r="2.2" fill="currentColor" stroke="none" />
                     <circle cx="8" cy="18" r="2.2" fill="currentColor" stroke="none" />
                   </svg>
-                  Tools
                 </button>
                 {toolsDropdownOpen && (
                   <div className="tools-dropdown-menu">
@@ -372,38 +491,34 @@ function ChatInput({
 
           <div className="toolbar-right">
             {setSelectedModel && (
-              <div className="model-dropdown-wrapper" ref={modelDropdownRef}>
+              <div className="tools-dropdown-wrapper" ref={modelDropdownRef}>
                 <button
-                  className="model-dropdown-btn"
+                  className="toolbar-chip-btn"
                   onClick={() => setModelDropdownOpen((v) => !v)}
                   type="button"
                   title="Switch model"
                 >
-                  {currentPresetLabel}
                   <svg
                     viewBox="0 0 24 24"
-                    width="11"
-                    height="11"
+                    width="13"
+                    height="13"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2.5"
+                    strokeWidth="1.8"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{
-                      opacity: 0.55,
-                      transform: modelDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                      transition: "transform 0.2s ease",
-                    }}
                   >
-                    <polyline points="6 9 12 15 18 9" />
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
                   </svg>
+                  {currentPresetLabel}
                 </button>
                 {modelDropdownOpen && (
-                  <div className="model-dropdown-menu">
+                  <div className="tools-dropdown-menu tools-dropdown-menu--right">
                     {MODEL_PRESETS.map((preset) => (
                       <button
                         key={preset.label}
-                        className={`model-dropdown-item${selectedModel === preset.model ? " active" : ""}`}
+                        className={`tools-dropdown-item${selectedModel === preset.model ? " active" : ""}`}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           setSelectedModel(preset.model);
@@ -412,12 +527,9 @@ function ChatInput({
                         type="button"
                         title={preset.model}
                       >
-                        <span className="model-dropdown-item-dot" />
-                        <span className="model-dropdown-item-text">
-                          <span>{preset.label}</span>
-                          <span className="model-dropdown-item-sub">
-                            {preset.model}
-                          </span>
+                        <span className="tools-dropdown-item-text">
+                          <span className="tools-dropdown-item-label">{preset.label}</span>
+                          <span className="tools-dropdown-item-desc">{preset.model}</span>
                         </span>
                       </button>
                     ))}
