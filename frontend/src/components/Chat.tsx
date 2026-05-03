@@ -1,5 +1,8 @@
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import ChatPreferences, { type Theme, type Section as PrefSection } from "./ChatPreferences";
+import ChatPreferences, {
+  type Theme,
+  type Section as PrefSection,
+} from "./ChatPreferences";
 import ChatInput from "./ChatInput";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -26,10 +29,16 @@ import {
 
 function fixMathDelimiters(text: string): string {
   text = text
-    .replace(/\\\[(.+?)\\\]/gs,                                          (_, c) => `$$${c.trim()}$$`)
-    .replace(/\\\((.+?)\\\)/gs,                                          (_, c) => `$${c.trim()}$`)
-    .replace(/\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g,                  (_, c) => `$$${c.trim()}$$`)
-    .replace(/\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g,       (_, c) => `$$${c.trim()}$$`);
+    .replace(/\\\[(.+?)\\\]/gs, (_, c) => `$$${c.trim()}$$`)
+    .replace(/\\\((.+?)\\\)/gs, (_, c) => `$${c.trim()}$`)
+    .replace(
+      /\[\s*([^[\]]*\\[a-zA-Z]+[^[\]]*)\s*\]/g,
+      (_, c) => `$$${c.trim()}$$`,
+    )
+    .replace(
+      /\[\s*(\d+[^[\]]*[+\-*/=][^[\]]*\d+[^[\]]*)\s*\]/g,
+      (_, c) => `$$${c.trim()}$$`,
+    );
 
   const saved: string[] = [];
   text = text.replace(/\$\$[\s\S]+?\$\$/g, (m) => {
@@ -67,6 +76,16 @@ const SUGGESTIONS = [
   "Help me write clean code",
   "Solve a math problem step by step",
   "Summarize a topic for me",
+];
+
+const GREETINGS = [
+  "The destination is up to you.",
+  "What will you discover today?",
+  "Where shall we take you next?",
+  "The world is at your fingertips.",
+  "Your next move starts here.",
+  "Which path will you choose?",
+  "What can I help with?",
 ];
 
 const MANDATORY_SYSTEM_PROMPT_RULES = `Important rules:
@@ -490,6 +509,11 @@ function Chat({
   );
   const { deletingIds, renameState, editState } = interactionState;
 
+  const chatGreeting = useMemo(
+    () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
+    [],
+  );
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isTyping =
@@ -513,7 +537,10 @@ function Chat({
   }, [showPreferences]);
 
   useEffect(() => {
-    if (!activeChatId || isGuest) { setDocuments([]); return; }
+    if (!activeChatId || isGuest) {
+      setDocuments([]);
+      return;
+    }
     apiListDocuments(activeChatId)
       .then(setDocuments)
       .catch(() => setDocuments([]));
@@ -558,7 +585,11 @@ function Chat({
     }
   };
 
-  const handleAsk = async (prompt: string, historyOverride?: Message[], images?: string[]) => {
+  const handleAsk = async (
+    prompt: string,
+    historyOverride?: Message[],
+    images?: string[],
+  ) => {
     const rawInput = prompt.trim();
     if (!rawInput || loading) return;
 
@@ -894,7 +925,10 @@ function Chat({
                   <div className="sidebar-skeleton">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="sidebar-skeleton-item">
-                        <div className="sidebar-skeleton-title" style={{ width: `${55 + (i % 3) * 15}%` }} />
+                        <div
+                          className="sidebar-skeleton-title"
+                          style={{ width: `${55 + (i % 3) * 15}%` }}
+                        />
                         <div className="sidebar-skeleton-date" />
                       </div>
                     ))}
@@ -1090,7 +1124,7 @@ function Chat({
 
             {!messagesLoading && messages.length === 0 && (
               <div className="empty-state">
-                <h2 className="empty-title">What can I help with?</h2>
+                <h2 className="empty-title">{chatGreeting}</h2>
                 <div className="suggestion-chips">
                   {SUGGESTIONS.map((s) => (
                     <button
@@ -1192,13 +1226,15 @@ function Chat({
               if (section) setPrefSection(section as PrefSection);
               setShowPreferences(true);
             }}
-            {...(!isGuest && activeChatId ? {
-              documents,
-              docsUploading,
-              docUploadError,
-              onDocUpload: handleDocUpload,
-              onDocDelete: handleDocDelete,
-            } : {})}
+            {...(!isGuest && activeChatId
+              ? {
+                  documents,
+                  docsUploading,
+                  docUploadError,
+                  onDocUpload: handleDocUpload,
+                  onDocDelete: handleDocDelete,
+                }
+              : {})}
           />
         </div>
       </div>

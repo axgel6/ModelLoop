@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentMeta } from "./api";
 
 const TOOLS_ITEMS = [
-  { id: "model",       label: "Model",       desc: "Switch AI model"         },
-  { id: "presets",     label: "Presets",     desc: "System prompt personas"  },
-  { id: "temperature", label: "Temperature", desc: "Response creativity"     },
-  { id: "appearance",  label: "Appearance",  desc: "Theme & display"         },
-  { id: "account",     label: "Account",     desc: "Account settings"        },
+  { id: "model", label: "Model", desc: "Switch AI model" },
+  { id: "presets", label: "Presets", desc: "System prompt personas" },
+  { id: "temperature", label: "Temperature", desc: "Response creativity" },
+  { id: "appearance", label: "Appearance", desc: "Theme & display" },
+  { id: "account", label: "Account", desc: "Account settings" },
 ] as const;
 
 const SLASH_COMMANDS = [
@@ -135,8 +135,15 @@ function ChatInput({
   }, [docsDropdownOpen]);
 
   const handleImageFile = (file: File) => {
-    if (file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif")) {
-      setImageError("HEIC images aren't supported. Convert to JPEG or PNG first.");
+    if (
+      file.type === "image/heic" ||
+      file.type === "image/heif" ||
+      file.name.toLowerCase().endsWith(".heic") ||
+      file.name.toLowerCase().endsWith(".heif")
+    ) {
+      setImageError(
+        "HEIC images aren't supported. Convert to JPEG or PNG first.",
+      );
       setTimeout(() => setImageError(null), 4000);
       return;
     }
@@ -148,9 +155,11 @@ function ChatInput({
         const MAX = 512;
         const scale = Math.min(1, MAX / Math.max(img.width, img.height));
         const canvas = document.createElement("canvas");
-        canvas.width  = Math.round(img.width  * scale);
+        canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
-        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas
+          .getContext("2d")!
+          .drawImage(img, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
         setAttachedImage(dataUrl.split(",")[1]);
       };
@@ -173,7 +182,11 @@ function ChatInput({
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     dragCounterRef.current++;
-    if (Array.from(e.dataTransfer.items).some((i) => i.kind === "file" && i.type.startsWith("image/")))
+    if (
+      Array.from(e.dataTransfer.items).some(
+        (i) => i.kind === "file" && i.type.startsWith("image/"),
+      )
+    )
       setIsDragging(true);
   };
 
@@ -192,7 +205,9 @@ function ChatInput({
     e.preventDefault();
     dragCounterRef.current = 0;
     setIsDragging(false);
-    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+    const file = Array.from(e.dataTransfer.files).find((f) =>
+      f.type.startsWith("image/"),
+    );
     if (file) {
       handleImageFile(file);
     } else if (e.dataTransfer.files.length > 0) {
@@ -281,9 +296,7 @@ function ChatInput({
             e.target.value = "";
           }}
         />
-        {imageError && (
-          <div className="image-error-banner">{imageError}</div>
-        )}
+        {imageError && <div className="image-error-banner">{imageError}</div>}
         {attachedImage && (
           <div className="image-preview-strip">
             <div className="image-preview-thumb-wrap">
@@ -308,7 +321,7 @@ function ChatInput({
           className="chat-textarea"
           autoFocus
           rows={1}
-          placeholder="What's on your mind?"
+          placeholder="Ask ModelLoop"
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
@@ -396,23 +409,51 @@ function ChatInput({
                         <span className="tools-dropdown-item-label">
                           {docsUploading ? "Uploading…" : "Add file"}
                         </span>
-                        <span className="tools-dropdown-item-desc">PDF, TXT, or MD · enables RAG</span>
+                        <span className="tools-dropdown-item-desc">
+                          PDF, TXT, or MD · enables RAG
+                        </span>
                       </span>
                     </button>
                     {docUploadError && (
-                      <div className="tools-dropdown-item" style={{ cursor: "default", color: "#fb4934" }}>
+                      <div
+                        className="tools-dropdown-item"
+                        style={{ cursor: "default", color: "#fb4934" }}
+                      >
                         <span className="tools-dropdown-item-text">
-                          <span className="tools-dropdown-item-label" style={{ color: "#fb4934" }}>{docUploadError}</span>
+                          <span
+                            className="tools-dropdown-item-label"
+                            style={{ color: "#fb4934" }}
+                          >
+                            {docUploadError}
+                          </span>
                         </span>
                       </div>
                     )}
                     {documents.map((doc) => (
-                      <div key={doc.id} className="tools-dropdown-item" style={{ cursor: "default" }}>
-                        <span className="tools-dropdown-item-text" style={{ flex: 1, minWidth: 0 }}>
-                          <span className="tools-dropdown-item-label" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }} title={doc.filename}>
+                      <div
+                        key={doc.id}
+                        className="tools-dropdown-item"
+                        style={{ cursor: "default" }}
+                      >
+                        <span
+                          className="tools-dropdown-item-text"
+                          style={{ flex: 1, minWidth: 0 }}
+                        >
+                          <span
+                            className="tools-dropdown-item-label"
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              display: "block",
+                            }}
+                            title={doc.filename}
+                          >
                             {doc.filename}
                           </span>
-                          <span className="tools-dropdown-item-desc">{doc.chunk_count} chunks</span>
+                          <span className="tools-dropdown-item-desc">
+                            {doc.chunk_count} chunks
+                          </span>
                         </span>
                         <button
                           className="docs-item-delete"
@@ -428,9 +469,17 @@ function ChatInput({
                       </div>
                     ))}
                     {documents.length === 0 && !docsUploading && (
-                      <div className="tools-dropdown-item" style={{ cursor: "default", pointerEvents: "none" }}>
+                      <div
+                        className="tools-dropdown-item"
+                        style={{ cursor: "default", pointerEvents: "none" }}
+                      >
                         <span className="tools-dropdown-item-text">
-                          <span className="tools-dropdown-item-desc" style={{ fontSize: "0.72rem" }}>No documents yet</span>
+                          <span
+                            className="tools-dropdown-item-desc"
+                            style={{ fontSize: "0.72rem" }}
+                          >
+                            No documents yet
+                          </span>
                         </span>
                       </div>
                     )}
@@ -459,9 +508,27 @@ function ChatInput({
                     <line x1="3" y1="6" x2="21" y2="6" />
                     <line x1="3" y1="12" x2="21" y2="12" />
                     <line x1="3" y1="18" x2="21" y2="18" />
-                    <circle cx="8" cy="6" r="2.2" fill="currentColor" stroke="none" />
-                    <circle cx="16" cy="12" r="2.2" fill="currentColor" stroke="none" />
-                    <circle cx="8" cy="18" r="2.2" fill="currentColor" stroke="none" />
+                    <circle
+                      cx="8"
+                      cy="6"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                    <circle
+                      cx="16"
+                      cy="12"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                    <circle
+                      cx="8"
+                      cy="18"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke="none"
+                    />
                   </svg>
                 </button>
                 {toolsDropdownOpen && (
@@ -478,8 +545,12 @@ function ChatInput({
                         }}
                       >
                         <span className="tools-dropdown-item-text">
-                          <span className="tools-dropdown-item-label">{item.label}</span>
-                          <span className="tools-dropdown-item-desc">{item.desc}</span>
+                          <span className="tools-dropdown-item-label">
+                            {item.label}
+                          </span>
+                          <span className="tools-dropdown-item-desc">
+                            {item.desc}
+                          </span>
                         </span>
                       </button>
                     ))}
@@ -528,8 +599,12 @@ function ChatInput({
                         title={preset.model}
                       >
                         <span className="tools-dropdown-item-text">
-                          <span className="tools-dropdown-item-label">{preset.label}</span>
-                          <span className="tools-dropdown-item-desc">{preset.model}</span>
+                          <span className="tools-dropdown-item-label">
+                            {preset.label}
+                          </span>
+                          <span className="tools-dropdown-item-desc">
+                            {preset.model}
+                          </span>
                         </span>
                       </button>
                     ))}
@@ -544,7 +619,12 @@ function ChatInput({
               title={loading ? "Stop generation" : "Send (Enter)"}
             >
               {loading ? (
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="currentColor"
+                >
                   <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>
               ) : (
