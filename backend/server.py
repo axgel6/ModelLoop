@@ -677,7 +677,7 @@ async def chat_stream(
     # Capture in local vars for use inside the generator closure
     chat_id    = body.chat_id
     chat_title = chat.title
-    temperature = body.temperature
+    temperature = body.temperature or 0.7
 
     async def generate():
         full_response = ""
@@ -764,7 +764,7 @@ async def guest_chat_stream(
 
     async def generate():
         try:
-            async for chunk in _ollama_stream(messages, model, body.temperature):
+            async for chunk in _ollama_stream(messages, model, body.temperature or 0.7):
                 token = chunk.get("message", {}).get("content", "")
                 if token:
                     yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
