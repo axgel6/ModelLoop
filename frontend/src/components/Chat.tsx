@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { haptics } from "../haptics";
 import ChatPreferences, {
   type Theme,
   type Section as PrefSection,
@@ -17,6 +18,7 @@ import {
   apiCreateChat,
   apiDeleteAccount,
   apiDeleteChat,
+  apiGetMe,
   apiGuestChatStream,
   apiListDocuments,
   apiUploadDocument,
@@ -549,6 +551,12 @@ function Chat({
 
   const inputFocusRef = useRef<(() => void) | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isGuest) return;
+    apiGetMe().then((me) => setUserRole(me.role)).catch(() => {});
+  }, [isGuest]);
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [docsUploading, setDocsUploading] = useState(false);
   const [docUploadError, setDocUploadError] = useState<string | null>(null);
@@ -753,6 +761,7 @@ function Chat({
       let bufferedTokens = "";
       let bufferedThinking = "";
       let rafId: number | null = null;
+      let tokenHapticCounter = 0;
 
       const flushBufferedTokens = () => {
         const hasContent = !!bufferedTokens;
@@ -806,21 +815,26 @@ function Chat({
               setIsThinking(true);
               bufferedThinking += data.token;
               scheduleFlush();
+              if (++tokenHapticCounter % 12 === 0) haptics.trigger("light");
             } else if (data.type === "token") {
               setActiveTool(null);
               setIsThinking(false);
               bufferedTokens += data.token;
               scheduleFlush();
+              if (++tokenHapticCounter % 12 === 0) haptics.trigger("light");
             } else if (data.type === "tool_use") {
               setActiveTool(data.tool ?? null);
+              haptics.trigger("selection");
             } else if (data.type === "done") {
               setActiveTool(null);
               setIsThinking(false);
               flushAndCancelPendingFrame();
               setLoading(false);
+              haptics.trigger("medium");
               if (!isGuest) onChatsChanged();
             } else if (data.type === "error") {
               flushAndCancelPendingFrame();
+              haptics.trigger("warning");
               throw new Error(data.error);
             }
           } catch (e) {
@@ -963,7 +977,14 @@ function Chat({
               >
                 ←
               </button>
-              <span className="sidebar-logo">ModelLoop</span>
+              <span className="sidebar-logo">
+                ModelLoop
+                {userRole && (
+                  <span className={`sidebar-role-badge sidebar-role-${userRole}`}>
+                    {userRole}
+                  </span>
+                )}
+              </span>
               <button
                 className="sidebar-brand-btn"
                 onClick={() => setSidebarOpen(false)}

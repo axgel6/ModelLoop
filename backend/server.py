@@ -541,8 +541,8 @@ async def admin_set_role(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if user.role == "admin":
-        raise HTTPException(status_code=403, detail="Cannot change role of an admin")
+    if target_id == admin_id:
+        raise HTTPException(status_code=400, detail="Cannot change your own role")
     user.role = body.role
     await db.commit()
     logger.info('admin_set_role admin_id=%s target_id=%s role=%s', admin_id, target_id, body.role)

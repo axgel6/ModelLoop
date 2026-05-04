@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useEscapeKey } from "./useEscapeKey";
 import { haptics } from "../haptics";
 import {
@@ -145,6 +145,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [modelSearch, setModelSearch] = useState("");
   const [presetSearch, setPresetSearch] = useState("");
   const [userInfo, setUserInfo] = useState<{
+    id: string;
     email: string;
     role: string;
   } | null>(null);
@@ -154,6 +155,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [adminDeleting, setAdminDeleting] = useState<string | null>(null);
   const [adminDeleteConfirm, setAdminDeleteConfirm] = useState<AdminUser | null>(null);
   const [adminTogglingAccess, setAdminTogglingAccess] = useState<string | null>(null);
+  const [adminPromoteConfirm, setAdminPromoteConfirm] = useState<{ userId: string; newRole: string } | null>(null);
+  const [adminSearch, setAdminSearch] = useState("");
+  const [adminRoleFilter, setAdminRoleFilter] = useState("all");
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const adminErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     apiGetMe()
@@ -161,17 +167,33 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       .catch(() => {});
   }, []);
 
+  const showAdminError = (msg: string) => {
+    setAdminError(msg);
+    if (adminErrorTimer.current) clearTimeout(adminErrorTimer.current);
+    adminErrorTimer.current = setTimeout(() => setAdminError(null), 4000);
+  };
+
+  const loadAdminUsers = () => {
+    setAdminLoading(true);
+    apiAdminGetUsers()
+      .then(setAdminUsers)
+      .catch(() => showAdminError("Failed to load users."))
+      .finally(() => setAdminLoading(false));
+  };
+
   useEffect(() => {
-    if (activeSection === "users") {
-      setAdminLoading(true);
-      apiAdminGetUsers()
-        .then(setAdminUsers)
-        .catch(() => {})
-        .finally(() => setAdminLoading(false));
-    }
+    if (activeSection === "users") loadAdminUsers();
   }, [activeSection]);
 
-  const handleRoleChange = async (userId: string, role: string) => {
+  const handleRoleChange = (userId: string, role: string) => {
+    if (role === "admin") {
+      setAdminPromoteConfirm({ userId, newRole: role });
+      return;
+    }
+    commitRoleChange(userId, role);
+  };
+
+  const commitRoleChange = async (userId: string, role: string) => {
     setAdminSaving(userId);
     try {
       const updated = await apiAdminSetRole(userId, role);
@@ -181,10 +203,17 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         ),
       );
     } catch {
-      // ignore
+      showAdminError("Failed to update role.");
     } finally {
       setAdminSaving(null);
     }
+  };
+
+  const handleConfirmPromotion = () => {
+    if (!adminPromoteConfirm) return;
+    const { userId, newRole } = adminPromoteConfirm;
+    setAdminPromoteConfirm(null);
+    commitRoleChange(userId, newRole);
   };
 
   const handleToggleAccess = async (userId: string) => {
@@ -195,7 +224,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         prev.map((u) => (u.id === res.id ? { ...u, is_active: res.is_active } : u)),
       );
     } catch {
-      // ignore
+      showAdminError("Failed to toggle access.");
     } finally {
       setAdminTogglingAccess(null);
     }
@@ -211,7 +240,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       );
       setAdminDeleteConfirm(null);
     } catch {
-      // ignore
+      showAdminError("Failed to delete user.");
     } finally {
       setAdminDeleting(null);
     }
@@ -473,35 +502,76 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           </>
         );
 
-      case "users":
+      case "users": {
+        const filteredUsers = adminUsers.filter(
+          (u) =>
+            u.email.toLowerCase().includes(adminSearch.toLowerCase()) &&
+            (adminRoleFilter === "all" || u.role === adminRoleFilter),
+        );
+        const isFiltered = adminSearch !== "" || adminRoleFilter !== "all";
         return (
           <>
             <div className="pref-content-header">
               <span className="pref-content-title">Admin Control - Users</span>
-              <span className="pref-content-badge">{adminUsers.length}</span>
+              <span className="pref-content-badge">
+                {isFiltered
+                  ? `${filteredUsers.length} / ${adminUsers.length}`
+                  : adminUsers.length}
+              </span>
+              <button
+                className="pref-refresh-btn"
+                onClick={loadAdminUsers}
+                disabled={adminLoading}
+                title="Refresh"
+              >
+                ↻
+              </button>
+            </div>
+            {adminError && (
+              <div className="pref-admin-error">{adminError}</div>
+            )}
+            <div className="pref-users-toolbar">
+              <input
+                className="pref-search-input"
+                type="text"
+                placeholder="Search by email…"
+                value={adminSearch}
+                onChange={(e) => setAdminSearch(e.target.value)}
+              />
+              <select
+                className="pref-users-role-filter"
+                value={adminRoleFilter}
+                onChange={(e) => setAdminRoleFilter(e.target.value)}
+              >
+                <option value="all">All roles</option>
+                <option value="free">Free</option>
+                <option value="pro">Pro</option>
+                <option value="admin">Admin</option>
+              </select>
             </div>
             <div className="pref-users-list">
               {adminLoading ? (
                 <div className="pref-users-empty">Loading…</div>
-              ) : adminUsers.length === 0 ? (
-                <div className="pref-users-empty">No users found.</div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="pref-users-empty">
+                  {isFiltered ? "No users match the filter." : "No users found."}
+                </div>
               ) : (
-                adminUsers.map((u) => (
+                filteredUsers.map((u) => {
+                  const isSelf = u.id === userInfo?.id;
+                  const isBusy = adminSaving === u.id || adminDeleting === u.id;
+                  return (
                   <div key={u.id} className="pref-user-row">
                     <div className="pref-user-main">
                       <div className="pref-user-email">{u.email}</div>
                       <div className="pref-user-stats">
-                        {u.chats} chats · {u.messages} messages
+                        {u.chats} chats · {u.messages} msgs · joined {new Date(u.created_at).toLocaleDateString()}
                       </div>
                     </div>
                     <select
                       className={`pref-role-select pref-role-${u.role}`}
                       value={u.role}
-                      disabled={
-                        adminSaving === u.id ||
-                        adminDeleting === u.id ||
-                        u.role === "admin"
-                      }
+                      disabled={isBusy || isSelf}
                       onChange={(e) => handleRoleChange(u.id, e.target.value)}
                     >
                       <option value="free">Free</option>
@@ -510,32 +580,66 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     </select>
                     <span
                       role="button"
-                      tabIndex={adminTogglingAccess === u.id || adminDeleting === u.id || u.role === "admin" ? -1 : 0}
-                      className={`pref-user-access-toggle ${u.is_active ? "active" : "inactive"}${adminTogglingAccess === u.id || adminDeleting === u.id || u.role === "admin" ? " disabled" : ""}`}
+                      tabIndex={adminTogglingAccess === u.id || adminDeleting === u.id || isSelf ? -1 : 0}
+                      className={`pref-user-access-toggle ${u.is_active ? "active" : "inactive"}${adminTogglingAccess === u.id || adminDeleting === u.id || isSelf ? " disabled" : ""}`}
                       onClick={() => {
-                        if (adminTogglingAccess === u.id || adminDeleting === u.id || u.role === "admin") return;
+                        if (adminTogglingAccess === u.id || adminDeleting === u.id || isSelf) return;
                         handleToggleAccess(u.id);
                       }}
-                      title={u.is_active ? "Disable chat access" : "Enable chat access"}
+                      title={isSelf ? "Cannot disable your own access" : u.is_active ? "Disable chat access" : "Enable chat access"}
                     >
                       {u.is_active ? "On" : "Off"}
                     </span>
                     <span
                       role="button"
-                      tabIndex={adminSaving === u.id || adminDeleting === u.id ? -1 : 0}
-                      className={`pref-user-delete-btn${adminSaving === u.id || adminDeleting === u.id ? " disabled" : ""}`}
+                      tabIndex={isBusy || isSelf ? -1 : 0}
+                      className={`pref-user-delete-btn${isBusy || isSelf ? " disabled" : ""}`}
                       onClick={() => {
-                        if (adminSaving === u.id || adminDeleting === u.id) return;
+                        if (isBusy || isSelf) return;
                         setAdminDeleteConfirm(u);
                       }}
-                      title="Delete user"
+                      title={isSelf ? "Cannot delete your own account here" : "Delete user"}
                     >
                       ✕
                     </span>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
+            {adminPromoteConfirm && (
+              <div
+                className="pref-delete-overlay"
+                onClick={() => setAdminPromoteConfirm(null)}
+              >
+                <div
+                  className="pref-delete-dialog-box"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="pref-delete-dialog-title">Promote to Admin</div>
+                  <div className="pref-delete-dialog-text">
+                    Grant admin access to{" "}
+                    <strong>{adminUsers.find((u) => u.id === adminPromoteConfirm.userId)?.email}</strong>?
+                    They will have full control over all users.
+                  </div>
+                  <div className="pref-delete-dialog-divider" />
+                  <div className="pref-delete-dialog-actions">
+                    <button
+                      className="pref-confirm-no"
+                      onClick={() => setAdminPromoteConfirm(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="pref-confirm-yes"
+                      onClick={handleConfirmPromotion}
+                    >
+                      Promote
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {adminDeleteConfirm && (
               <div
                 className="pref-delete-overlay"
@@ -572,6 +676,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             )}
           </>
         );
+      }
     }
   };
 
