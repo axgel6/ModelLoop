@@ -192,7 +192,7 @@ const AssistantMessage = memo(function AssistantMessage({
   const [copied, setCopied] = useState(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
   const thinkingPhrase = useRef(
-    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
+    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)],
   );
   const ts = fmtTime(msg.created_at);
 
@@ -220,16 +220,17 @@ const AssistantMessage = memo(function AssistantMessage({
                   width="12"
                   height="12"
                   fill="currentColor"
-                  style={{ transform: thinkingOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}
+                  style={{
+                    transform: thinkingOpen ? "rotate(90deg)" : "none",
+                    transition: "transform 0.15s",
+                  }}
                 >
                   <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
                 </svg>
                 Reasoning
               </button>
               {thinkingOpen && (
-                <div className="reasoning-content">
-                  {msg.thinking}
-                </div>
+                <div className="reasoning-content">{msg.thinking}</div>
               )}
             </div>
           )}
@@ -249,11 +250,7 @@ const AssistantMessage = memo(function AssistantMessage({
         </div>
       </div>
       <div className="msg-meta">
-        {ts && (
-          <span className="msg-timestamp">
-            {ts}
-          </span>
-        )}
+        {ts && <span className="msg-timestamp">{ts}</span>}
         <div className="msg-actions">
           {msg.content && (
             <button
@@ -376,7 +373,15 @@ const UserMessage = memo(function UserMessage({
               ))}
             </div>
           )}
-          {msg.content}
+          <pre
+            style={{
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
+              margin: 0,
+            }}
+          >
+            {msg.content}
+          </pre>
         </div>
       )}
       <div className="msg-meta user-meta">
@@ -541,7 +546,6 @@ function Chat({
     showScrollBtn,
     messagesContainerRef,
   } = useChatUI(messages, loading);
-
 
   const inputFocusRef = useRef<(() => void) | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
@@ -1215,7 +1219,9 @@ function Chat({
                         idx === messages.length - 1 && !!msg.content && !loading
                       }
                       isThinking={isThinking}
-                      activeTool={idx === messages.length - 1 ? activeTool : null}
+                      activeTool={
+                        idx === messages.length - 1 ? activeTool : null
+                      }
                       onRetry={handleRetry}
                     />
                   ) : (
