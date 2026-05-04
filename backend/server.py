@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from database import get_db, engine, Base, AsyncSessionLocal
 from datetime import datetime, timedelta, timezone
-from models import User, Chat, Message, RefreshToken, Document, DocumentChunk
+from models import User, Chat, Message, RefreshToken, Document, DocumentChunk, AuditLog
 from auth import (
     hash_password, verify_password, create_token, get_current_user_id,
     generate_refresh_token, hash_refresh_token, REFRESH_EXPIRE_DAYS,
@@ -34,6 +34,15 @@ logging.basicConfig(
     format='{"time": "%(asctime)s", "level": "%(levelname)s", "msg": "%(message)s"}',
 )
 logger = logging.getLogger(__name__)
+
+
+# ----- Utility Functions -----
+
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request headers."""
+    if forwarded := request.headers.get("x-forwarded-for"):
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 # ----- App Setup -----
@@ -238,6 +247,32 @@ async def _retrieve_rag_context(chat_id: str, user_id: str, query: str, db: Asyn
     scored = sorted(chunks, key=lambda c: _cosine_similarity(query_embedding, c.embedding), reverse=True)[:RAG_TOP_K]
     parts = [f"[Chunk {c.chunk_index + 1}]\n{c.content}" for c in scored]
     return "\n\n---\n\n".join(parts)
+
+
+# ----- Audit Logging -----
+
+async def _log_audit(
+    db: AsyncSession,
+    action: str,
+    admin_id: Optional[str] = None,
+    target_id: Optional[str] = None,
+    details: Optional[dict] = None,
+    ip_address: Optional[str] = None,
+) -> None:
+    """Log an audit event to the database."""
+    try:
+        details_obj = details or {}
+        if ip_address:
+            details_obj["ip"] = ip_address
+        db.add(AuditLog(
+            admin_id=admin_id,
+            action=action,
+            target_id=target_id,
+            details=details_obj,
+        ))
+        await db.commit()
+    except Exception as e:
+        logger.warning("audit_log_failed action=%s error=%s", action, str(e))
 
 
 # ----- Schemas -----
@@ -513,6 +548,7 @@ async def admin_list_users(
 @app.delete("/api/v1/admin/users/{target_id}", status_code=204)
 async def admin_delete_user(
     target_id: str,
+    request: Request,
     admin_id: str = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -522,6 +558,7 @@ async def admin_delete_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    await _log_audit(db, "delete_user", admin_id, target_id, {"email": user.email}, _get_client_ip(request))
     await db.delete(user)
     await db.commit()
     logger.info('admin_delete_user admin_id=%s target_id=%s', admin_id, target_id)
@@ -532,6 +569,7 @@ async def admin_delete_user(
 async def admin_set_role(
     target_id: str,
     body: SetRoleRequest,
+    request: Request,
     admin_id: str = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -543,7 +581,9 @@ async def admin_set_role(
         raise HTTPException(status_code=404, detail="User not found")
     if target_id == admin_id:
         raise HTTPException(status_code=400, detail="Cannot change your own role")
+    old_role = user.role
     user.role = body.role
+    await _log_audit(db, "set_role", admin_id, target_id, {"old_role": old_role, "new_role": body.role}, _get_client_ip(request))
     await db.commit()
     logger.info('admin_set_role admin_id=%s target_id=%s role=%s', admin_id, target_id, body.role)
     return {"id": str(user.id), "email": user.email, "role": user.role}
@@ -553,6 +593,7 @@ async def admin_set_role(
 @app.patch("/api/v1/admin/users/{target_id}/access")
 async def admin_toggle_access(
     target_id: str,
+    request: Request,
     admin_id: str = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -562,10 +603,135 @@ async def admin_toggle_access(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    old_status = user.is_active
     user.is_active = not user.is_active
+    await _log_audit(db, "toggle_access", admin_id, target_id, {"was_active": old_status, "is_active": user.is_active}, _get_client_ip(request))
     await db.commit()
     logger.info('admin_toggle_access admin_id=%s target_id=%s is_active=%s', admin_id, target_id, user.is_active)
     return {"id": str(user.id), "is_active": user.is_active}
+
+
+# GET /api/v1/admin/audit-logs - List audit logs with optional filters
+@app.get("/api/v1/admin/audit-logs")
+async def admin_get_audit_logs(
+    _: str = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 100,
+    offset: int = 0,
+    action: Optional[str] = None,
+    admin_id: Optional[str] = None,
+):
+    query = select(AuditLog)
+    if action:
+        query = query.where(AuditLog.action == action)
+    if admin_id:
+        query = query.where(AuditLog.admin_id == admin_id)
+    
+    result = await db.execute(
+        query.order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+    )
+    logs = result.scalars().all()
+    
+    count_result = await db.execute(select(sqlfunc.count(AuditLog.id)))
+    total = count_result.scalar() or 0
+    
+    # Fetch admin and target user info for better display
+    log_dicts = []
+    for log in logs:
+        admin_email = None
+        target_email = None
+        
+        if log.admin_id:
+            admin_result = await db.execute(select(User).where(User.id == log.admin_id))
+            admin_user = admin_result.scalar_one_or_none()
+            admin_email = admin_user.email if admin_user else None
+        
+        if log.target_id:
+            try:
+                target_result = await db.execute(select(User).where(User.id == log.target_id))
+                target_user = target_result.scalar_one_or_none()
+                target_email = target_user.email if target_user else None
+            except:
+                # target_id might not be a UUID, could be a chat/doc ID
+                pass
+        
+        log_dicts.append({
+            "id": str(log.id),
+            "admin_id": str(log.admin_id) if log.admin_id else None,
+            "admin_email": admin_email,
+            "action": log.action,
+            "target_id": log.target_id,
+            "target_email": target_email,
+            "details": log.details,
+            "created_at": log.created_at.isoformat(),
+        })
+    
+    return {
+        "logs": log_dicts,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+# GET /api/v1/admin/analytics - Return system analytics and dashboard metrics
+@app.get("/api/v1/admin/analytics")
+async def admin_get_analytics(
+    _: str = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    now = datetime.now(timezone.utc)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_ago = today - timedelta(days=7)
+    
+    # Total counts
+    total_users = await db.execute(select(sqlfunc.count(User.id)))
+    total_chats = await db.execute(select(sqlfunc.count(Chat.id)))
+    total_messages = await db.execute(select(sqlfunc.count(Message.id)))
+    total_docs = await db.execute(select(sqlfunc.count(Document.id)))
+    
+    # Active users today
+    active_today = await db.execute(
+        select(sqlfunc.count(sqlfunc.distinct(Chat.user_id)))
+        .where(Chat.created_at >= today)
+    )
+    
+    # Active users this week
+    active_week = await db.execute(
+        select(sqlfunc.count(sqlfunc.distinct(Chat.user_id)))
+        .where(Chat.created_at >= week_ago)
+    )
+    
+    # User role breakdown
+    role_counts = await db.execute(
+        select(User.role, sqlfunc.count(User.id))
+        .group_by(User.role)
+    )
+    roles = {role: count for role, count in role_counts.all()}
+    
+    # Recent audit events (last 24 hours)
+    audit_result = await db.execute(
+        select(AuditLog.action, sqlfunc.count(AuditLog.id))
+        .where(AuditLog.created_at >= today)
+        .group_by(AuditLog.action)
+    )
+    recent_actions = {action: count for action, count in audit_result.all()}
+    
+    return {
+        "totals": {
+            "users": total_users.scalar() or 0,
+            "chats": total_chats.scalar() or 0,
+            "messages": total_messages.scalar() or 0,
+            "documents": total_docs.scalar() or 0,
+        },
+        "active": {
+            "today": active_today.scalar() or 0,
+            "this_week": active_week.scalar() or 0,
+        },
+        "roles": roles,
+        "recent_admin_actions": recent_actions,
+        "timestamp": now.isoformat(),
+    }
 
 
 # ----- Message Routes -----

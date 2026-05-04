@@ -92,3 +92,16 @@ class DocumentChunk(Base):
     content:     Mapped[str]       = mapped_column(Text, nullable=False)
     embedding:   Mapped[list]      = mapped_column(JSON, nullable=False)
     document:    Mapped["Document"] = relationship(back_populates="chunks")
+
+# ----- Audit Log Model -----
+
+# Logs all admin actions and system events for compliance and debugging
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id:         Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    admin_id:   Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    action:     Mapped[str]       = mapped_column(String(50), nullable=False, index=True)  # e.g., "set_role", "delete_user", "login_failed", "rate_limit"
+    target_id:  Mapped[Optional[uuid.UUID]] = mapped_column(String(36), nullable=True, index=True)  # user/chat/doc/message being affected
+    details:    Mapped[dict]      = mapped_column(JSON, nullable=False)  # structured data: {old_value, new_value, ip, reason, etc.}
+    created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

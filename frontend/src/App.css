@@ -2244,14 +2244,14 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
 .pref-refresh-btn {
   margin-left: auto;
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border-radius: 50%;
   background: none !important;
   border: none;
   color: #665c54;
-  font-size: 0.8rem;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2939,14 +2939,14 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   position: absolute;
   top: 14px;
   right: 14px;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border-radius: 50%;
   background: none !important;
   border: none;
   color: #665c54;
-  font-size: 0.8rem;
+  font-size: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5018,6 +5018,390 @@ html[data-theme="ocean"] .pref-delete-overlay {
 
 .sidebar-backdrop {
   display: none;
+}
+
+/* ============================================================
+   Analytics and Audit Logs UI
+   ============================================================ */
+
+/* ---- Analytics Container ---- */
+
+.pref-analytics-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pref-analytics-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pref-analytics-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fbf1c7;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0 2px;
+}
+
+.pref-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.pref-analytics-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 16px;
+  border: 1px solid rgba(80, 73, 69, 0.4);
+  border-radius: 12px;
+  background: rgba(29, 32, 33, 0.5);
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.pref-analytics-card:hover {
+  border-color: rgba(80, 73, 69, 0.7);
+  background: rgba(50, 48, 47, 0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pref-analytics-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #fabd2f;
+  line-height: 1;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.pref-analytics-label {
+  font-size: 0.75rem;
+  color: #928374;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+/* ---- Analytics Roles ---- */
+
+.pref-analytics-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pref-analytics-role-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(50, 48, 47, 0.4);
+  border: 1px solid rgba(80, 73, 69, 0.25);
+}
+
+.pref-role-badge {
+  font-size: 0.67rem;
+  font-weight: 800;
+  padding: 4px 11px;
+  border-radius: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 1px solid transparent;
+}
+
+.pref-role-badge.pref-role-free {
+  background: rgba(80, 73, 69, 0.35);
+  color: #c8b89a;
+  border-color: rgba(100, 92, 82, 0.55);
+}
+
+.pref-role-badge.pref-role-pro {
+  background: rgba(250, 189, 47, 0.13);
+  color: #ffd55a;
+  border-color: rgba(250, 189, 47, 0.4);
+}
+
+.pref-role-badge.pref-role-admin {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.pref-analytics-role-count {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fabd2f;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* ---- Audit Logs Toolbar ---- */
+
+.pref-audit-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid rgba(80, 73, 69, 0.25);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pref-audit-filter {
+  appearance: none;
+  background: rgba(29, 32, 33, 0.55)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5 4.5-5z' fill='%23a89984'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  border: 1px solid rgba(80, 73, 69, 0.4);
+  border-radius: 8px;
+  padding: 8px 28px 8px 10px;
+  color: #a89984;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.82rem;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.pref-audit-filter:focus {
+  border-color: rgba(131, 165, 152, 0.6);
+  background-color: rgba(40, 40, 40, 0.7);
+}
+
+/* ---- Audit Logs Container ---- */
+
+.pref-audit-logs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pref-audit-log-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 24px;
+  border-bottom: 1px solid rgba(80, 73, 69, 0.15);
+  transition: background 0.12s;
+}
+
+.pref-audit-log-item:hover {
+  background: rgba(80, 73, 69, 0.12);
+}
+
+.pref-audit-log-item:last-child {
+  border-bottom: none;
+}
+
+.pref-audit-log-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.pref-audit-log-action {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fbf1c7;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+}
+
+.pref-audit-log-change {
+  font-size: 0.8rem;
+  color: #fabd2f;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.pref-audit-log-time {
+  font-size: 0.75rem;
+  color: #928374;
+  white-space: nowrap;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.pref-audit-log-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.pref-audit-admin,
+.pref-audit-target,
+.pref-audit-ip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(80, 73, 69, 0.2);
+  color: #a89984;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  border: 1px solid rgba(80, 73, 69, 0.3);
+  word-break: break-all;
+  max-width: 100%;
+}
+
+.pref-audit-admin {
+  background: rgba(131, 165, 152, 0.08);
+  color: #83a598;
+  border-color: rgba(131, 165, 152, 0.25);
+}
+
+.pref-audit-target {
+  background: rgba(250, 189, 47, 0.08);
+  color: #fabd2f;
+  border-color: rgba(250, 189, 47, 0.25);
+}
+
+.pref-audit-ip {
+  background: rgba(184, 187, 38, 0.08);
+  color: #b8bb26;
+  border-color: rgba(184, 187, 38, 0.25);
+}
+
+/* ============================================================
+   Ocean Theme: Analytics and Audit Logs
+   ============================================================ */
+
+html[data-theme="ocean"] .pref-analytics-container {
+  padding: 20px 24px;
+}
+
+html[data-theme="ocean"] .pref-analytics-title {
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean"] .pref-analytics-card {
+  border-color: rgba(112, 122, 140, 0.25);
+  background: rgba(13, 16, 23, 0.4);
+}
+
+html[data-theme="ocean"] .pref-analytics-card:hover {
+  border-color: rgba(112, 122, 140, 0.5);
+  background: rgba(57, 186, 230, 0.06);
+  box-shadow: 0 4px 12px rgba(57, 186, 230, 0.1);
+}
+
+html[data-theme="ocean"] .pref-analytics-value {
+  color: #39bae6;
+}
+
+html[data-theme="ocean"] .pref-analytics-label {
+  color: #707a8c;
+}
+
+html[data-theme="ocean"] .pref-analytics-role-item,
+html[data-theme="ocean"] .pref-analytics-action-item {
+  border-color: rgba(112, 122, 140, 0.15);
+  background: rgba(13, 16, 23, 0.3);
+}
+
+html[data-theme="ocean"] .pref-role-badge.pref-role-free {
+  background: rgba(112, 122, 140, 0.15);
+  color: #9ba8ba;
+  border-color: rgba(112, 122, 140, 0.4);
+}
+
+html[data-theme="ocean"] .pref-role-badge.pref-role-pro {
+  background: rgba(230, 180, 80, 0.1);
+  color: #f0c060;
+  border-color: rgba(230, 180, 80, 0.3);
+}
+
+html[data-theme="ocean"] .pref-role-badge.pref-role-admin {
+  background: rgba(150, 200, 230, 0.1);
+  color: #c8d8e8;
+  border-color: rgba(150, 200, 230, 0.3);
+}
+
+html[data-theme="ocean"] .pref-analytics-role-count {
+  color: #39bae6;
+}
+
+html[data-theme="ocean"] .pref-audit-toolbar {
+  border-bottom-color: rgba(112, 122, 140, 0.15);
+}
+
+html[data-theme="ocean"] .pref-audit-filter {
+  background: rgba(13, 16, 23, 0.55)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5 4.5-5z' fill='%23707a8c'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  border-color: rgba(112, 122, 140, 0.3);
+  color: #707a8c;
+}
+
+html[data-theme="ocean"] .pref-audit-filter:focus {
+  border-color: rgba(57, 186, 230, 0.5);
+  background-color: rgba(13, 16, 23, 0.8);
+}
+
+html[data-theme="ocean"] .pref-audit-logs {
+  padding: 0;
+}
+
+html[data-theme="ocean"] .pref-audit-log-item {
+  border-bottom-color: rgba(112, 122, 140, 0.1);
+}
+
+html[data-theme="ocean"] .pref-audit-log-item:hover {
+  background: rgba(57, 186, 230, 0.05);
+}
+
+html[data-theme="ocean"] .pref-audit-log-action {
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean"] .pref-audit-log-change {
+  color: #e6b450;
+}
+
+html[data-theme="ocean"] .pref-audit-log-time {
+  color: #707a8c;
+}
+
+html[data-theme="ocean"] .pref-audit-admin {
+  background: rgba(57, 186, 230, 0.08);
+  color: #39bae6;
+  border-color: rgba(57, 186, 230, 0.25);
+}
+
+html[data-theme="ocean"] .pref-audit-target {
+  background: rgba(230, 180, 80, 0.08);
+  color: #e6b450;
+  border-color: rgba(230, 180, 80, 0.25);
+}
+
+html[data-theme="ocean"] .pref-audit-ip {
+  background: rgba(100, 200, 150, 0.08);
+  color: #64c896;
+  border-color: rgba(100, 200, 150, 0.25);
+}
+
+html[data-theme="ocean"] .pref-admin-error {
+  background: rgba(230, 120, 80, 0.1);
+  border-color: rgba(230, 120, 80, 0.28);
+  color: #e67850;
 }
 
 /* ============================================================

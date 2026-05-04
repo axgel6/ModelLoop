@@ -7,6 +7,8 @@ import {
   apiAdminSetRole,
   apiAdminToggleAccess,
   apiAdminDeleteUser,
+  apiAdminGetAuditLogs,
+  apiAdminGetAnalytics,
 } from "./api";
 import type { AdminUser } from "./api";
 
@@ -110,7 +112,9 @@ export type Section =
   | "temperature"
   | "appearance"
   | "account"
-  | "users";
+  | "users"
+  | "analytics"
+  | "audit";
 
 const BASE_NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "model", label: "Model" },
@@ -153,13 +157,25 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminSaving, setAdminSaving] = useState<string | null>(null);
   const [adminDeleting, setAdminDeleting] = useState<string | null>(null);
-  const [adminDeleteConfirm, setAdminDeleteConfirm] = useState<AdminUser | null>(null);
-  const [adminTogglingAccess, setAdminTogglingAccess] = useState<string | null>(null);
-  const [adminPromoteConfirm, setAdminPromoteConfirm] = useState<{ userId: string; newRole: string } | null>(null);
+  const [adminDeleteConfirm, setAdminDeleteConfirm] =
+    useState<AdminUser | null>(null);
+  const [adminTogglingAccess, setAdminTogglingAccess] = useState<string | null>(
+    null,
+  );
+  const [adminPromoteConfirm, setAdminPromoteConfirm] = useState<{
+    userId: string;
+    newRole: string;
+  } | null>(null);
   const [adminSearch, setAdminSearch] = useState("");
   const [adminRoleFilter, setAdminRoleFilter] = useState("all");
   const [adminError, setAdminError] = useState<string | null>(null);
   const adminErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditActionFilter, setAuditActionFilter] = useState("all");
+  const [auditOffset, setAuditOffset] = useState(0);
 
   useEffect(() => {
     apiGetMe()
@@ -181,8 +197,30 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       .finally(() => setAdminLoading(false));
   };
 
+  const loadAnalytics = () => {
+    setAnalyticsLoading(true);
+    apiAdminGetAnalytics()
+      .then(setAnalytics)
+      .catch(() => showAdminError("Failed to load analytics."))
+      .finally(() => setAnalyticsLoading(false));
+  };
+
+  const loadAuditLogs = () => {
+    setAuditLoading(true);
+    apiAdminGetAuditLogs(
+      100,
+      auditOffset,
+      auditActionFilter === "all" ? undefined : auditActionFilter,
+    )
+      .then((data) => setAuditLogs(data.logs))
+      .catch(() => showAdminError("Failed to load audit logs."))
+      .finally(() => setAuditLoading(false));
+  };
+
   useEffect(() => {
     if (activeSection === "users") loadAdminUsers();
+    else if (activeSection === "analytics") loadAnalytics();
+    else if (activeSection === "audit") loadAuditLogs();
   }, [activeSection]);
 
   const handleRoleChange = (userId: string, role: string) => {
@@ -221,7 +259,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     try {
       const res = await apiAdminToggleAccess(userId);
       setAdminUsers((prev) =>
-        prev.map((u) => (u.id === res.id ? { ...u, is_active: res.is_active } : u)),
+        prev.map((u) =>
+          u.id === res.id ? { ...u, is_active: res.is_active } : u,
+        ),
       );
     } catch {
       showAdminError("Failed to toggle access.");
@@ -248,7 +288,12 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
   const navItems: { id: Section; label: string }[] =
     userInfo?.role === "admin"
-      ? [...BASE_NAV_ITEMS, { id: "users", label: "Users" }]
+      ? [
+          ...BASE_NAV_ITEMS,
+          { id: "users", label: "Users" },
+          { id: "analytics", label: "Analytics" },
+          { id: "audit", label: "Audit Logs" },
+        ]
       : BASE_NAV_ITEMS;
 
   const handleDeleteAccount = async () => {
@@ -527,9 +572,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 ↻
               </button>
             </div>
-            {adminError && (
-              <div className="pref-admin-error">{adminError}</div>
-            )}
+            {adminError && <div className="pref-admin-error">{adminError}</div>}
             <div className="pref-users-toolbar">
               <input
                 className="pref-search-input"
@@ -554,55 +597,79 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <div className="pref-users-empty">Loading…</div>
               ) : filteredUsers.length === 0 ? (
                 <div className="pref-users-empty">
-                  {isFiltered ? "No users match the filter." : "No users found."}
+                  {isFiltered
+                    ? "No users match the filter."
+                    : "No users found."}
                 </div>
               ) : (
                 filteredUsers.map((u) => {
                   const isSelf = u.id === userInfo?.id;
                   const isBusy = adminSaving === u.id || adminDeleting === u.id;
                   return (
-                  <div key={u.id} className="pref-user-row">
-                    <div className="pref-user-main">
-                      <div className="pref-user-email">{u.email}</div>
-                      <div className="pref-user-stats">
-                        {u.chats} chats · {u.messages} msgs · joined {new Date(u.created_at).toLocaleDateString()}
+                    <div key={u.id} className="pref-user-row">
+                      <div className="pref-user-main">
+                        <div className="pref-user-email">{u.email}</div>
+                        <div className="pref-user-stats">
+                          {u.chats} chats · {u.messages} msgs · joined{" "}
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </div>
                       </div>
+                      <select
+                        className={`pref-role-select pref-role-${u.role}`}
+                        value={u.role}
+                        disabled={isBusy || isSelf}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                      >
+                        <option value="free">Free</option>
+                        <option value="pro">Pro</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <span
+                        role="button"
+                        tabIndex={
+                          adminTogglingAccess === u.id ||
+                          adminDeleting === u.id ||
+                          isSelf
+                            ? -1
+                            : 0
+                        }
+                        className={`pref-user-access-toggle ${u.is_active ? "active" : "inactive"}${adminTogglingAccess === u.id || adminDeleting === u.id || isSelf ? " disabled" : ""}`}
+                        onClick={() => {
+                          if (
+                            adminTogglingAccess === u.id ||
+                            adminDeleting === u.id ||
+                            isSelf
+                          )
+                            return;
+                          handleToggleAccess(u.id);
+                        }}
+                        title={
+                          isSelf
+                            ? "Cannot disable your own access"
+                            : u.is_active
+                              ? "Disable chat access"
+                              : "Enable chat access"
+                        }
+                      >
+                        {u.is_active ? "On" : "Off"}
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={isBusy || isSelf ? -1 : 0}
+                        className={`pref-user-delete-btn${isBusy || isSelf ? " disabled" : ""}`}
+                        onClick={() => {
+                          if (isBusy || isSelf) return;
+                          setAdminDeleteConfirm(u);
+                        }}
+                        title={
+                          isSelf
+                            ? "Cannot delete your own account here"
+                            : "Delete user"
+                        }
+                      >
+                        ✕
+                      </span>
                     </div>
-                    <select
-                      className={`pref-role-select pref-role-${u.role}`}
-                      value={u.role}
-                      disabled={isBusy || isSelf}
-                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                    >
-                      <option value="free">Free</option>
-                      <option value="pro">Pro</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    <span
-                      role="button"
-                      tabIndex={adminTogglingAccess === u.id || adminDeleting === u.id || isSelf ? -1 : 0}
-                      className={`pref-user-access-toggle ${u.is_active ? "active" : "inactive"}${adminTogglingAccess === u.id || adminDeleting === u.id || isSelf ? " disabled" : ""}`}
-                      onClick={() => {
-                        if (adminTogglingAccess === u.id || adminDeleting === u.id || isSelf) return;
-                        handleToggleAccess(u.id);
-                      }}
-                      title={isSelf ? "Cannot disable your own access" : u.is_active ? "Disable chat access" : "Enable chat access"}
-                    >
-                      {u.is_active ? "On" : "Off"}
-                    </span>
-                    <span
-                      role="button"
-                      tabIndex={isBusy || isSelf ? -1 : 0}
-                      className={`pref-user-delete-btn${isBusy || isSelf ? " disabled" : ""}`}
-                      onClick={() => {
-                        if (isBusy || isSelf) return;
-                        setAdminDeleteConfirm(u);
-                      }}
-                      title={isSelf ? "Cannot delete your own account here" : "Delete user"}
-                    >
-                      ✕
-                    </span>
-                  </div>
                   );
                 })
               )}
@@ -616,11 +683,19 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   className="pref-delete-dialog-box"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="pref-delete-dialog-title">Promote to Admin</div>
+                  <div className="pref-delete-dialog-title">
+                    Promote to Admin
+                  </div>
                   <div className="pref-delete-dialog-text">
                     Grant admin access to{" "}
-                    <strong>{adminUsers.find((u) => u.id === adminPromoteConfirm.userId)?.email}</strong>?
-                    They will have full control over all users.
+                    <strong>
+                      {
+                        adminUsers.find(
+                          (u) => u.id === adminPromoteConfirm.userId,
+                        )?.email
+                      }
+                    </strong>
+                    ? They will have full control over all users.
                   </div>
                   <div className="pref-delete-dialog-divider" />
                   <div className="pref-delete-dialog-actions">
@@ -677,6 +752,247 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           </>
         );
       }
+
+      case "analytics":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">System Analytics</span>
+              <button
+                className="pref-refresh-btn"
+                onClick={loadAnalytics}
+                disabled={analyticsLoading}
+                title="Refresh"
+              >
+                ↻
+              </button>
+            </div>
+            {adminError && <div className="pref-admin-error">{adminError}</div>}
+            {analyticsLoading ? (
+              <div
+                style={{
+                  padding: "20px",
+                  textAlign: "center",
+                  color: "#a89984",
+                }}
+              >
+                Loading analytics…
+              </div>
+            ) : analytics ? (
+              <div className="pref-analytics-container">
+                <div className="pref-analytics-section">
+                  <div className="pref-analytics-title">Totals</div>
+                  <div className="pref-analytics-grid">
+                    <div className="pref-analytics-card">
+                      <div className="pref-analytics-value">
+                        {analytics.totals.users}
+                      </div>
+                      <div className="pref-analytics-label">Users</div>
+                    </div>
+                    <div className="pref-analytics-card">
+                      <div className="pref-analytics-value">
+                        {analytics.totals.chats}
+                      </div>
+                      <div className="pref-analytics-label">Chats</div>
+                    </div>
+                    <div className="pref-analytics-card">
+                      <div className="pref-analytics-value">
+                        {analytics.totals.messages}
+                      </div>
+                      <div className="pref-analytics-label">Messages</div>
+                    </div>
+                    <div className="pref-analytics-card">
+                      <div className="pref-analytics-value">
+                        {analytics.totals.documents}
+                      </div>
+                      <div className="pref-analytics-label">Documents</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pref-analytics-section">
+                  <div className="pref-analytics-title">Active Users</div>
+                  <div className="pref-analytics-grid">
+                    <div className="pref-analytics-card">
+                      <div className="pref-analytics-value">
+                        {analytics.active.today}
+                      </div>
+                      <div className="pref-analytics-label">Today</div>
+                    </div>
+                    <div className="pref-analytics-card">
+                      <div className="pref-analytics-value">
+                        {analytics.active.this_week}
+                      </div>
+                      <div className="pref-analytics-label">This Week</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pref-analytics-section">
+                  <div className="pref-analytics-title">User Roles</div>
+                  <div className="pref-analytics-roles">
+                    {Object.entries(analytics.roles || {}).map(
+                      ([role, count]: [string, any]) => (
+                        <div key={role} className="pref-analytics-role-item">
+                          <span className={`pref-role-badge pref-role-${role}`}>
+                            {role}
+                          </span>
+                          <span className="pref-analytics-role-count">
+                            {count}
+                          </span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: "20px",
+                  textAlign: "center",
+                  color: "#a89984",
+                }}
+              >
+                No analytics available
+              </div>
+            )}
+          </>
+        );
+
+      case "audit":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Audit Logs</span>
+              <button
+                className="pref-refresh-btn"
+                onClick={loadAuditLogs}
+                disabled={auditLoading}
+                title="Refresh"
+              >
+                ↻
+              </button>
+            </div>
+            {adminError && <div className="pref-admin-error">{adminError}</div>}
+            <div className="pref-audit-toolbar">
+              <select
+                className="pref-audit-filter"
+                value={auditActionFilter}
+                onChange={(e) => {
+                  setAuditActionFilter(e.target.value);
+                  setAuditOffset(0);
+                }}
+              >
+                <option value="all">All actions</option>
+                <option value="set_role">Set Role</option>
+                <option value="delete_user">Delete User</option>
+                <option value="toggle_access">Toggle Access</option>
+              </select>
+            </div>
+            <div className="pref-audit-logs">
+              {auditLoading ? (
+                <div
+                  style={{
+                    padding: "20px",
+                    textAlign: "center",
+                    color: "#a89984",
+                  }}
+                >
+                  Loading logs…
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div
+                  style={{
+                    padding: "20px",
+                    textAlign: "center",
+                    color: "#a89984",
+                  }}
+                >
+                  No audit logs found
+                </div>
+              ) : (
+                auditLogs.map((log) => {
+                  const getActionDetails = () => {
+                    if (
+                      log.action === "set_role" &&
+                      log.details.old_role &&
+                      log.details.new_role
+                    ) {
+                      return `${log.details.old_role} → ${log.details.new_role}`;
+                    } else if (log.action === "toggle_access") {
+                      const wasActive = log.details.was_active
+                        ? "Active"
+                        : "Disabled";
+                      const nowActive = log.details.is_active
+                        ? "Active"
+                        : "Disabled";
+                      return `${wasActive} → ${nowActive}`;
+                    } else if (
+                      log.action === "delete_user" &&
+                      log.details.email
+                    ) {
+                      return `${log.details.email}`;
+                    }
+                    return null;
+                  };
+
+                  const actionDetails = getActionDetails();
+
+                  return (
+                    <div key={log.id} className="pref-audit-log-item">
+                      <div className="pref-audit-log-main">
+                        <div className="pref-audit-log-action">
+                          {log.action
+                            .split("_")
+                            .map(
+                              (word: string) =>
+                                word.charAt(0).toUpperCase() + word.slice(1),
+                            )
+                            .join(" ")}
+                          {actionDetails && (
+                            <span className="pref-audit-log-change">
+                              {" "}
+                              ({actionDetails})
+                            </span>
+                          )}
+                        </div>
+                        <div className="pref-audit-log-time">
+                          {new Date(log.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="pref-audit-log-details">
+                        {log.admin_email ? (
+                          <span className="pref-audit-admin">
+                            by {log.admin_email}
+                          </span>
+                        ) : log.admin_id ? (
+                          <span className="pref-audit-admin">
+                            by {log.admin_id.slice(0, 8)}…
+                          </span>
+                        ) : null}
+                        {log.target_email ? (
+                          <span className="pref-audit-target">
+                            target: {log.target_email}
+                          </span>
+                        ) : log.target_id ? (
+                          <span className="pref-audit-target">
+                            ID: {log.target_id.slice(0, 8)}…
+                          </span>
+                        ) : null}
+                        {log.details.ip && (
+                          <span className="pref-audit-ip">
+                            IP: {log.details.ip}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        );
     }
   };
 

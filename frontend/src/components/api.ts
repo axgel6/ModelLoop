@@ -231,6 +231,35 @@ export async function apiAdminSetRole(userId: string, role: string): Promise<Adm
   return res.json();
 }
 
+// Get audit logs (admin only)
+export async function apiAdminGetAuditLogs(
+  limit: number = 100,
+  offset: number = 0,
+  action?: string,
+  adminId?: string,
+): Promise<{ logs: any[]; total: number; limit: number; offset: number }> {
+  const params = new URLSearchParams();
+  params.append("limit", limit.toString());
+  params.append("offset", offset.toString());
+  if (action) params.append("action", action);
+  if (adminId) params.append("admin_id", adminId);
+  
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/admin/audit-logs?${params}`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to fetch audit logs");
+  return res.json();
+}
+
+// Get system analytics (admin only)
+export async function apiAdminGetAnalytics(): Promise<any> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/admin/analytics`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to fetch analytics");
+  return res.json();
+}
+
 // Delete the current user account and all their data
 export async function apiDeleteAccount(): Promise<void> {
   const res = await withRefresh(() =>
