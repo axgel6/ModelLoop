@@ -697,23 +697,20 @@ function Chat({
         created_at: new Date().toISOString(),
         ...(images && images.length > 0 ? { images } : {}),
       },
+      { role: "assistant", content: "", created_at: new Date().toISOString() },
     ]);
+    setIsThinking(true);
 
     let chatId: string | null = null;
     if (!isGuest) {
       chatId = await ensureChatId();
       if (!chatId) {
-        setMessages((prev) => prev.slice(0, -1));
+        setMessages((prev) => prev.slice(0, -2));
+        setIsThinking(false);
         setLoading(false);
         return;
       }
     }
-
-    setMessages((prev) => [
-      ...prev,
-      { role: "assistant", content: "", created_at: new Date().toISOString() },
-    ]);
-    setIsThinking(true);
 
     const ctrl = new AbortController();
     abortControllerRef.current = ctrl;

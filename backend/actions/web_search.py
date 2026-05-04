@@ -36,7 +36,7 @@ KEYWORDS = {
 }
 
 _SEARCH_TRIGGERS = re.compile(
-    r"\b(search|look up|find out|what('s| is) the (latest|current|news)|"
+    r"\b(search|look up|find out|what('s| is| are| was| were)\b|"
     r"tell me about|who (is|are|won)|when (did|is|was)|where (is|are)|"
     r"how much (is|does|did)|price of|score of|news (about|on))\b",
     re.IGNORECASE,
