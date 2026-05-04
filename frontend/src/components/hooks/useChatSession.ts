@@ -7,7 +7,6 @@ export function useChatSession(activeChatId: string | null) {
   const [isThinking, setIsThinking] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
 
-  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageCache = useRef<Map<string, Message[]>>(new Map());
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeChatIdRef = useRef<string | null>(activeChatId);
@@ -46,10 +45,6 @@ export function useChatSession(activeChatId: string | null) {
 
   useEffect(() => {
     return () => {
-      if (thinkingTimerRef.current) {
-        clearTimeout(thinkingTimerRef.current);
-        thinkingTimerRef.current = null;
-      }
       abortControllerRef.current?.abort();
     };
   }, []);
@@ -62,7 +57,6 @@ export function useChatSession(activeChatId: string | null) {
     isThinking,
     setIsThinking,
     messagesLoading,
-    thinkingTimerRef,
     messageCache,
     abortControllerRef,
     activeChatIdRef,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DocumentMeta } from "./api";
 
 const TOOLS_ITEMS = [
@@ -79,6 +79,11 @@ function ChatInput({
     ta.style.height = "auto";
     ta.style.height = Math.min(ta.scrollHeight, 180) + "px";
   };
+
+  // Run after React commits the new value so scrollHeight is accurate
+  useLayoutEffect(() => {
+    adjustTextareaHeight();
+  }, [input]);
 
   const resetTextareaHeight = () => {
     if (textareaRef.current) textareaRef.current.style.height = "auto";
@@ -325,7 +330,6 @@ function ChatInput({
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
-            adjustTextareaHeight();
             if (!e.target.value.startsWith("/")) setSlashIdx(-1);
           }}
           onKeyDown={handleKeyDown}

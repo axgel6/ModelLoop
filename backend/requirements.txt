@@ -15,3 +15,4 @@ pypdf
 pytest
 pytest-asyncio
 pytest-mock
+duckduckgo-search

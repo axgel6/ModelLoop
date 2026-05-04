@@ -26,6 +26,7 @@ from auth import (
     generate_refresh_token, hash_refresh_token, REFRESH_EXPIRE_DAYS,
 )
 from actions import execute_tool, get_active_tools
+from actions.web_search import async_execute as _run_web_search_async, should_activate as _web_search_should_activate
 import logging
 
 logging.basicConfig(
@@ -656,13 +657,31 @@ async def chat_stream(
     system_prompt = body.system_prompt or SYSTEM_PROMPT
     images = body.images or []
 
-    # Run image description and RAG concurrently — they're independent
+    _recent_user = " ".join(m.content for m in db_history[-6:] if m.role == "user") if db_history else ""
+    active_tools = get_active_tools(prompt + " " + _recent_user)
+
+    _search_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
+    _run_search = _web_search_should_activate(prompt, _search_words)
+    if _run_search and active_tools:
+        active_tools = [t for t in active_tools if t["function"]["name"] != "web_search"] or None
+
     async def _image_description():
         return await _describe_images(images) if images else ""
 
-    image_context, rag_context = await asyncio.gather(
+    async def _web_search_task():
+        if not _run_search:
+            return None
+        try:
+            return json.loads(await _run_web_search_async({"query": prompt, "max_results": 5}))
+        except Exception as _e:
+            logger.warning("proactive_web_search_failed error=%s", str(_e))
+            return None
+
+    # Run image description, RAG, and web search concurrently — all independent
+    image_context, rag_context, _search_data = await asyncio.gather(
         _image_description(),
         _retrieve_rag_context(body.chat_id, user_id, prompt, db),
+        _web_search_task(),
     )
 
     effective_system = system_prompt
@@ -691,13 +710,23 @@ async def chat_stream(
         user_msg["images"] = images
     messages.append(user_msg)
 
+    if _search_data and _search_data.get("results"):
+        _search_block = "\n".join(
+            f"[{i+1}] {r['title']}\n    URL: {r['url']}\n    {r['snippet']}"
+            for i, r in enumerate(_search_data["results"])
+        )
+        last_msg = messages[-1]
+        last_msg["content"] = (
+            f"[Live web search results fetched right now — today's date is {datetime.now(timezone.utc).strftime('%Y-%m-%d')}. "
+            f"Use these results to answer directly and specifically. Do NOT call any tools or functions — just answer using the results below.]\n\n"
+            f"{_search_block}\n\n"
+            f"User question: {last_msg['content']}"
+        )
+
     # Capture in local vars for use inside the generator closure
     chat_id    = body.chat_id
     chat_title = chat.title
     temperature = body.temperature or 0.7
-
-    _recent_user = " ".join(m.content for m in db_history[-6:] if m.role == "user") if db_history else ""
-    active_tools = get_active_tools(prompt + " " + _recent_user)
 
     async def generate():
         full_response    = ""
@@ -709,8 +738,12 @@ async def chat_stream(
             # Cap at 5 rounds to prevent runaway loops.
             for _round in range(5):
                 round_content = ""
-                round_tokens: list[str] = []
                 tool_calls: list = []
+                # Peek buffer: hold tokens until we can tell if the response is
+                # a hallucinated JSON tool call (starts with '{').  Once we know
+                # it isn't, flush the buffer and stream the rest immediately.
+                peek_buf: list[str] = []
+                streaming_live = False
 
                 async for chunk in _ollama_stream(current_messages, model, temperature, tools=active_tools):
                     if "_thinking" in chunk:
@@ -720,21 +753,45 @@ async def chat_stream(
                     token = msg.get("content", "")
                     if token:
                         round_content += token
-                        round_tokens.append(token)
+                        if streaming_live:
+                            yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+                        else:
+                            peek_buf.append(token)
+                            # Once we have enough to decide, commit to streaming or buffering
+                            if len(round_content.lstrip()) >= 2:
+                                if not round_content.lstrip().startswith("{"):
+                                    streaming_live = True
+                                    for t in peek_buf:
+                                        yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
+                                    peek_buf = []
+                                # else: keep buffering — looks like JSON
                     if msg.get("tool_calls"):
                         tool_calls.extend(msg["tool_calls"])
                     if chunk.get("done"):
                         success = True
                         break
 
+                if not tool_calls and peek_buf:
+                    # Still buffered — check if it's a hallucinated JSON tool call
+                    try:
+                        parsed = json.loads(round_content.strip())
+                        name = parsed.get("name") or parsed.get("function", {}).get("name", "")
+                        args = parsed.get("parameters") or parsed.get("arguments") or {}
+                        if name:
+                            # Treat as a tool call and run the loop again
+                            tool_calls = [{"function": {"name": name, "arguments": args}}]
+                        else:
+                            raise ValueError("no name field")
+                    except Exception:
+                        # Not a tool call — stream the buffered content as-is
+                        for t in peek_buf:
+                            yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
+
                 if not tool_calls:
-                    # Final answer round — stream tokens to client
-                    for token in round_tokens:
-                        full_response += token
-                        yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+                    full_response = round_content
                     break
 
-                # Tool-calling round — discard any content the model emitted, execute tools
+                # Tool-calling round (real or hallucinated) — execute tools
                 current_messages.append({
                     "role": "assistant",
                     "content": round_content,
@@ -747,8 +804,9 @@ async def chat_stream(
                     yield f"data: {json.dumps({'type': 'tool_use', 'tool': tool_name})}\n\n"
                     try:
                         result = await execute_tool(tool_name, tool_args)
-                    except Exception as tool_exc:
-                        result = json.dumps({"error": str(tool_exc)})
+                    except Exception:
+                        # Unknown tool — tell the model to answer directly instead
+                        result = json.dumps({"note": f"Tool '{tool_name}' does not exist. Answer the user's question directly in plain text using any context already provided."})
                     current_messages.append({"role": "tool", "content": result})
 
             # Persist to the DB only after the stream completes successfully
@@ -804,10 +862,25 @@ async def guest_chat_stream(
     system_prompt = body.system_prompt or SYSTEM_PROMPT
     images = body.images or []
 
-    # Generate a detailed image description via the vision model so any model can reference it
-    image_context = ""
-    if images:
-        image_context = await _describe_images(images)
+    _guest_search_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
+    _guest_run_search = _web_search_should_activate(prompt, _guest_search_words)
+
+    async def _guest_image_description():
+        return await _describe_images(images) if images else ""
+
+    async def _guest_web_search_task():
+        if not _guest_run_search:
+            return None
+        try:
+            return json.loads(await _run_web_search_async({"query": prompt, "max_results": 5}))
+        except Exception as _e:
+            logger.warning("guest_proactive_web_search_failed error=%s", str(_e))
+            return None
+
+    image_context, _guest_search_data = await asyncio.gather(
+        _guest_image_description(),
+        _guest_web_search_task(),
+    )
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend({"role": m.role, "content": m.content} for m in body.messages)
@@ -819,6 +892,18 @@ async def guest_chat_stream(
     if images:
         guest_user_msg["images"] = images
     messages.append(guest_user_msg)
+
+    if _guest_search_data and _guest_search_data.get("results"):
+        _guest_search_block = "\n".join(
+            f"[{i+1}] {r['title']}\n    URL: {r['url']}\n    {r['snippet']}"
+            for i, r in enumerate(_guest_search_data["results"])
+        )
+        messages[-1]["content"] = (
+            f"[Live web search results fetched right now — today's date is {datetime.now(timezone.utc).strftime('%Y-%m-%d')}. "
+            f"Use these results to answer directly and specifically. Do not say you cannot find information if it is present below.]\n\n"
+            f"{_guest_search_block}\n\n"
+            f"User question: {messages[-1]['content']}"
+        )
 
     async def generate():
         try:

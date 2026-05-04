@@ -491,7 +491,8 @@ html[data-theme="ocean"] .connection-banner {
 }
 
 .chat-textarea {
-  flex: 1;
+  flex: none;
+  width: 100%;
   min-height: 38px;
   max-height: 160px;
   padding: 10px 14px 6px;

@@ -1,9 +1,10 @@
 import re
 from . import get_time as _get_time
 from . import calculate as _calculate
+from . import web_search as _web_search
 
 # Register action modules here when adding new tools
-_ACTIONS = [_get_time, _calculate]
+_ACTIONS = [_get_time, _calculate, _web_search]
 
 TOOL_DEFINITIONS = [mod.DEFINITION for mod in _ACTIONS]
 
@@ -14,6 +15,8 @@ async def execute_tool(name: str, arguments: dict) -> str:
     mod = _REGISTRY.get(name)
     if mod is None:
         raise ValueError(f"Unknown tool: {name}")
+    if hasattr(mod, "async_execute"):
+        return await mod.async_execute(arguments)
     return mod.execute(arguments)
 
 

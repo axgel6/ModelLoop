@@ -179,12 +179,14 @@ const AssistantMessage = memo(function AssistantMessage({
   isLast,
   canRetry,
   isThinking,
+  activeTool,
   onRetry,
 }: {
   msg: Message;
   isLast: boolean;
   canRetry: boolean;
   isThinking: boolean;
+  activeTool: string | null;
   onRetry: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -201,6 +203,7 @@ const AssistantMessage = memo(function AssistantMessage({
   };
 
   const showThinking = msg.content === "" && isThinking && isLast;
+  const showToolUse = isLast && !!activeTool && msg.content === "";
 
   return (
     <div className="msg-bubble-group">
@@ -230,7 +233,9 @@ const AssistantMessage = memo(function AssistantMessage({
               )}
             </div>
           )}
-          {showThinking ? (
+          {showToolUse ? (
+            <span className="thinking-phrase">Thinking even harder…</span>
+          ) : showThinking ? (
             <span className="thinking-phrase">{thinkingPhrase.current}</span>
           ) : (
             <ReactMarkdown
@@ -504,7 +509,6 @@ function Chat({
     isThinking,
     setIsThinking,
     messagesLoading,
-    thinkingTimerRef,
     messageCache,
     abortControllerRef,
     activeChatIdRef,
@@ -536,10 +540,11 @@ function Chat({
     setShowLogoutConfirm,
     showScrollBtn,
     messagesContainerRef,
-  } = useChatUI(messages);
+  } = useChatUI(messages, loading);
 
 
   const inputFocusRef = useRef<(() => void) | null>(null);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [docsUploading, setDocsUploading] = useState(false);
   const [docUploadError, setDocUploadError] = useState<string | null>(null);
@@ -708,7 +713,7 @@ function Chat({
       ...prev,
       { role: "assistant", content: "", created_at: new Date().toISOString() },
     ]);
-    thinkingTimerRef.current = setTimeout(() => setIsThinking(true), 2000);
+    setIsThinking(true);
 
     const ctrl = new AbortController();
     abortControllerRef.current = ctrl;
@@ -797,23 +802,21 @@ function Chat({
           try {
             const data = JSON.parse(line.slice(6));
             if (data.type === "thinking_token") {
-              if (thinkingTimerRef.current) {
-                clearTimeout(thinkingTimerRef.current);
-                thinkingTimerRef.current = null;
-              }
               setIsThinking(true);
               bufferedThinking += data.token;
               scheduleFlush();
             } else if (data.type === "token") {
-              if (thinkingTimerRef.current) {
-                clearTimeout(thinkingTimerRef.current);
-                thinkingTimerRef.current = null;
-              }
+              setActiveTool(null);
               setIsThinking(false);
               bufferedTokens += data.token;
               scheduleFlush();
+            } else if (data.type === "tool_use") {
+              setActiveTool(data.tool ?? null);
             } else if (data.type === "done") {
+              setActiveTool(null);
+              setIsThinking(false);
               flushAndCancelPendingFrame();
+              setLoading(false);
               if (!isGuest) onChatsChanged();
             } else if (data.type === "error") {
               flushAndCancelPendingFrame();
@@ -845,11 +848,8 @@ function Chat({
         return next;
       });
     } finally {
-      if (thinkingTimerRef.current) {
-        clearTimeout(thinkingTimerRef.current);
-        thinkingTimerRef.current = null;
-      }
       setIsThinking(false);
+      setActiveTool(null);
       setLoading(false);
       setMessages((prev) => {
         if (activeChatIdRef.current)
@@ -1218,6 +1218,7 @@ function Chat({
                         idx === messages.length - 1 && !!msg.content && !loading
                       }
                       isThinking={isThinking}
+                      activeTool={idx === messages.length - 1 ? activeTool : null}
                       onRetry={handleRetry}
                     />
                   ) : (
