@@ -1106,8 +1106,12 @@ html[data-theme="ocean"] .image-preview-remove:hover {
 }
 
 @keyframes text-skeleton-sweep {
-  0%   { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .reasoning-block {
@@ -1181,8 +1185,13 @@ html[data-theme="ocean"] .reasoning-content {
 }
 
 @keyframes tool-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.55; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 /* ============================================================

@@ -152,7 +152,7 @@ function ChatInput({
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const MAX = 512;
+        const MAX = 1024;
         const scale = Math.min(1, MAX / Math.max(img.width, img.height));
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(img.width * scale);
@@ -160,7 +160,7 @@ function ChatInput({
         canvas
           .getContext("2d")!
           .drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
         setAttachedImage(dataUrl.split(",")[1]);
       };
       img.src = e.target?.result as string;

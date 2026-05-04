@@ -554,22 +554,18 @@ async def delete_document(
 
 async def _describe_images(images: list[str]) -> str:
     """Call VISION_MODEL non-streaming to produce a detailed description of the attached images."""
-    parts = "\n".join(f"[Image {i+1}]" for i in range(len(images)))
+    n = len(images)
+    prompt = (
+        f"Describe {'this image' if n == 1 else f'these {n} images'} in full detail. "
+        "If there is text, equations, or code, transcribe it exactly word-for-word. "
+        "If it is a photo or diagram, describe every visible element, object, color, and layout."
+    )
     payload = {
         "model": VISION_MODEL,
         "messages": [
             {
                 "role": "user",
-                "content": (
-                    "Analyze the following image(s) thoroughly.\n\n"
-                    "If the image contains text (documents, assignments, worksheets, screenshots, code, etc.), "
-                    "transcribe ALL text exactly as it appears — preserve formatting, numbering, equations, and structure. "
-                    "Do not summarize or paraphrase; reproduce the full content verbatim.\n\n"
-                    "If the image is a photo or illustration (not primarily text), describe every visible element in detail: "
-                    "objects, people, text, colors, spatial layout, expressions, actions, and background.\n\n"
-                    "This output will be the sole source of visual information for another model, so completeness is critical.\n"
-                    + parts
-                ),
+                "content": prompt,
                 "images": images,
             }
         ],
