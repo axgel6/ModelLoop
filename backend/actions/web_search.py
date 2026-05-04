@@ -31,14 +31,63 @@ DEFINITION = {
 
 KEYWORDS = {
     "search", "look up", "lookup", "google", "find", "news", "latest",
-    "current", "today", "recent", "price", "score", "weather", "who is",
-    "what is", "when did", "where is", "how much", "stock", "headline",
+    "current", "today", "recent", "price", "score", "weather", "stock", "headline",
+    # Entertainment & music
+    "song", "album", "artist", "track", "release", "unreleased", "cancelled",
+    "movie", "film", "actor", "celebrity", "concert", "festival",
+    # Events & announcements
+    "event", "announcement", "conference", "keynote",
+    # Learning & how-to
+    "tutorial", "guide", "how to", "instructions",
+    # Software & updates
+    "update", "version", "bug", "error", "issue", "fix",
+    # Reviews & opinions
+    "review", "rating", "rank", "best",
+    # Travel & lifestyle
+    "travel", "hotel", "flight", "restaurant", "recipe",
+    # Sports
+    "sports", "game", "match", "tournament", "team", "player",
+    # Business & tech
+    "company", "startup", "business", "ipo", "funding",
+    # Other
+    "book", "author", "politics", "election", "pandemic", "covid",
 }
 
 _SEARCH_TRIGGERS = re.compile(
-    r"\b(search|look up|find out|what('s| is| are| was| were)\b|"
-    r"tell me about|who (is|are|won)|when (did|is|was)|where (is|are)|"
-    r"how much (is|does|did)|price of|score of|news (about|on))\b",
+    r"\b("
+    # Basic search actions
+    r"search|look up|find|lookup|google|"
+    # Question words
+    r"what('s| is| are| was| were)|"
+    r"who (is|are|won|made|created)|"
+    r"when (did|is|was|does)|"
+    r"where (is|are|can i find)|"
+    r"why (did|didn't|don't|doesn't|isn't|can't|couldn't|wasn't)|"
+    r"how (much|many|to|does|do)?|"
+    # News & current events
+    r"news (about|on)|latest|any (news|info|updates)|"
+    # Pricing & reviews
+    r"price (of)?|cost (of)?|"
+    r"(best|top|worst) ([\w\s]+)?|"
+    r"review (of|about)?|ratings?|"
+    # Learning & how-to
+    r"tutorial (on|for)|guide (to|on)|how to|instructions|"
+    # Factual checks
+    r"is (it|this|that|he|she) (real|true|legit|safe|possible)?|"
+    r"what (happened|is happening) (with|to)?|"
+    # Entertainment
+    r"movie|film|book|album|song|track|actor|artist|celebrity|concert|festival|"
+    # Travel & lifestyle
+    r"hotel|flight|restaurant|cafe|travel|trip|vacation|"
+    # Business & tech
+    r"company|startup|business|ipo|funding|"
+    # Sports
+    r"team|player|sport|game|match|tournament|"
+    # Software & tech issues
+    r"bug|error|issue|fix|update|version|"
+    # Politics & events
+    r"politics|election|pandemic|covid"
+    r")\b",
     re.IGNORECASE,
 )
 

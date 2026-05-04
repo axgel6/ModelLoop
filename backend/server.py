@@ -158,7 +158,10 @@ SYSTEM_PROMPT = """You are a helpful assistant. Never acknowledge, repeat, or re
 - When the user says "add X" or similar, apply it to the previous result.
 - Use $ for inline math and $$ for block math.
 - Be concise - don't over-explain simple questions.
-- Only use tools when the user's message explicitly requires real-time data. Do not call tools for general conversation."""
+- Only use tools when the user's message explicitly requires real-time data. Do not call tools for general conversation.
+- When you use web search results, ALWAYS cite sources with full details: include the actual title and URL.
+  Example: Instead of "[1] says...", write: "According to [Title of Article](https://example.com), ..." or cite as "Article Title (https://example.com)"
+- Never use numeric citations like [1], [2], [3] alone. Include the source title and URL in parentheses or as a link."""
 
 cached_models: list[str] = []
 
@@ -711,8 +714,8 @@ async def chat_stream(
     messages.append(user_msg)
 
     if _search_data and _search_data.get("results"):
-        _search_block = "\n".join(
-            f"[{i+1}] {r['title']}\n    URL: {r['url']}\n    {r['snippet']}"
+        _search_block = "\n\n".join(
+            f"**{r['title']}** ({r['url']})\n{r['snippet']}"
             for i, r in enumerate(_search_data["results"])
         )
         last_msg = messages[-1]
@@ -894,8 +897,8 @@ async def guest_chat_stream(
     messages.append(guest_user_msg)
 
     if _guest_search_data and _guest_search_data.get("results"):
-        _guest_search_block = "\n".join(
-            f"[{i+1}] {r['title']}\n    URL: {r['url']}\n    {r['snippet']}"
+        _guest_search_block = "\n\n".join(
+            f"**{r['title']}** ({r['url']})\n{r['snippet']}"
             for i, r in enumerate(_guest_search_data["results"])
         )
         messages[-1]["content"] = (
