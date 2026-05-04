@@ -2156,6 +2156,219 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   border-radius: 10px;
 }
 
+/* ---- Account info ---- */
+
+.pref-account-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(80, 73, 69, 0.25);
+  flex-shrink: 0;
+}
+
+.pref-account-email {
+  font-size: 0.9rem;
+  color: #a89984;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pref-role-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.67rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+
+/* Free — slate stone */
+.pref-role-free {
+  background: rgba(80, 73, 69, 0.35);
+  color: #a89984;
+  border-color: rgba(80, 73, 69, 0.55);
+}
+
+/* Pro — amber gold, filled star */
+.pref-role-pro {
+  background: rgba(250, 189, 47, 0.13);
+  color: #fabd2f;
+  border-color: rgba(250, 189, 47, 0.32);
+}
+
+/* Admin — mauve/purple, diamond */
+.pref-role-admin {
+  background: rgba(211, 134, 155, 0.13);
+  color: #d3869b;
+  border-color: rgba(211, 134, 155, 0.32);
+}
+
+/* ---- Admin users panel ---- */
+
+.pref-users-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.pref-users-empty {
+  padding: 24px;
+  color: #a89984;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.pref-user-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  border-bottom: 1px solid rgba(80, 73, 69, 0.2);
+}
+
+.pref-user-row:last-child {
+  border-bottom: none;
+}
+
+.pref-user-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.pref-user-email {
+  font-size: 0.875rem;
+  color: #ebdbb2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pref-user-stats {
+  font-size: 0.75rem;
+  color: #a89984;
+  margin-top: 2px;
+}
+
+.pref-user-access-toggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 25px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s;
+  line-height: 1.4;
+}
+
+.pref-user-access-toggle.active {
+  background: rgba(184, 187, 38, 0.12);
+  color: #b8bb26;
+  border-color: rgba(184, 187, 38, 0.3);
+}
+
+.pref-user-access-toggle.inactive {
+  background: rgba(80, 73, 69, 0.35);
+  color: #a89984;
+  border-color: rgba(80, 73, 69, 0.5);
+}
+
+.pref-user-access-toggle.active:not(.disabled):hover {
+  background: rgba(184, 187, 38, 0.2);
+  border-color: rgba(184, 187, 38, 0.5);
+}
+
+.pref-user-access-toggle.inactive:not(.disabled):hover {
+  background: rgba(80, 73, 69, 0.55);
+  border-color: rgba(80, 73, 69, 0.75);
+}
+
+.pref-user-access-toggle.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pref-user-delete-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #a89984;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  user-select: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.pref-user-delete-btn:not(.disabled):hover {
+  color: #fb4934;
+  background: rgba(251, 73, 52, 0.12);
+}
+
+.pref-user-delete-btn.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pref-role-select {
+  appearance: none;
+  background-color: rgba(29, 32, 33, 0.7);
+  border: 1px solid #504945;
+  border-radius: 25px;
+  padding: 4px 26px 4px 10px;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  cursor: pointer;
+  outline: none;
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pref-role-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pref-role-select.pref-role-free {
+  color: #a89984;
+  border-color: rgba(80, 73, 69, 0.55);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5 4.5-5z' fill='%23a89984'/%3E%3C/svg%3E");
+}
+
+.pref-role-select.pref-role-pro {
+  color: #fabd2f;
+  border-color: rgba(250, 189, 47, 0.35);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5 4.5-5z' fill='%23fabd2f'/%3E%3C/svg%3E");
+}
+
+.pref-role-select.pref-role-admin {
+  color: #d3869b;
+  border-color: rgba(211, 134, 155, 0.35);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5 4.5-5z' fill='%23d3869b'/%3E%3C/svg%3E");
+}
+
+.pref-role-select:not(:disabled):focus {
+  border-color: #fabd2f;
+  outline: none;
+}
+
 /* ---- Search bar ---- */
 
 .pref-search-bar {
@@ -3018,6 +3231,104 @@ html[data-theme="ocean"] .pref-delete-dialog-text {
 
 html[data-theme="ocean"] .pref-delete-dialog-divider {
   background: rgba(112, 122, 140, 0.2);
+}
+
+/* ---- Ocean: role badges ---- */
+
+html[data-theme="ocean"] .pref-role-free {
+  background: rgba(112, 122, 140, 0.15);
+  color: #8892a4;
+  border-color: rgba(112, 122, 140, 0.35);
+}
+
+html[data-theme="ocean"] .pref-role-pro {
+  background: rgba(230, 180, 80, 0.12);
+  color: #e6b450;
+  border-color: rgba(230, 180, 80, 0.32);
+}
+
+html[data-theme="ocean"] .pref-role-admin {
+  background: rgba(167, 139, 250, 0.12);
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.32);
+}
+
+/* ---- Ocean: role selects ---- */
+
+/* Full background shorthand on each variant prevents the chevron SVG from tiling */
+html[data-theme="ocean"] .pref-role-select.pref-role-free {
+  color: #8892a4;
+  border-color: rgba(112, 122, 140, 0.35);
+  background: rgba(13, 16, 23, 0.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5 4.5-5z' fill='%238892a4'/%3E%3C/svg%3E") no-repeat right 9px center;
+}
+
+html[data-theme="ocean"] .pref-role-select.pref-role-pro {
+  color: #e6b450;
+  border-color: rgba(230, 180, 80, 0.35);
+  background: rgba(13, 16, 23, 0.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5 4.5-5z' fill='%23e6b450'/%3E%3C/svg%3E") no-repeat right 9px center;
+}
+
+html[data-theme="ocean"] .pref-role-select.pref-role-admin {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(13, 16, 23, 0.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5 4.5-5z' fill='%23a78bfa'/%3E%3C/svg%3E") no-repeat right 9px center;
+}
+
+html[data-theme="ocean"] .pref-role-select:not(:disabled):focus {
+  border-color: #39bae6;
+}
+
+/* ---- Ocean: admin user panel ---- */
+
+html[data-theme="ocean"] .pref-user-row {
+  border-bottom-color: rgba(112, 122, 140, 0.15);
+}
+
+html[data-theme="ocean"] .pref-user-email {
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean"] .pref-user-stats {
+  color: #707a8c;
+}
+
+html[data-theme="ocean"] .pref-account-info {
+  border-bottom-color: rgba(112, 122, 140, 0.15);
+}
+
+html[data-theme="ocean"] .pref-account-email {
+  color: #707a8c;
+}
+
+html[data-theme="ocean"] .pref-user-access-toggle.active {
+  background: rgba(106, 153, 85, 0.12);
+  color: #6a9955;
+  border-color: rgba(106, 153, 85, 0.3);
+}
+
+html[data-theme="ocean"] .pref-user-access-toggle.active:not(.disabled):hover {
+  background: rgba(106, 153, 85, 0.2);
+  border-color: rgba(106, 153, 85, 0.5);
+}
+
+html[data-theme="ocean"] .pref-user-access-toggle.inactive {
+  background: rgba(112, 122, 140, 0.12);
+  color: #3d4a5c;
+  border-color: rgba(112, 122, 140, 0.25);
+}
+
+html[data-theme="ocean"] .pref-user-access-toggle.inactive:not(.disabled):hover {
+  background: rgba(112, 122, 140, 0.22);
+  border-color: rgba(112, 122, 140, 0.45);
+}
+
+html[data-theme="ocean"] .pref-user-delete-btn {
+  color: #3d4a5c;
+}
+
+html[data-theme="ocean"] .pref-user-delete-btn:not(.disabled):hover {
+  background: none;
+  color: rgba(230, 225, 207, 0.45);
 }
 
 /* ============================================================

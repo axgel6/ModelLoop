@@ -167,6 +167,70 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("Failed to rename chat");
 }
 
+// Fetch the current user's id, email, and role
+export async function apiGetMe(): Promise<{ id: string; email: string; role: string }> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/auth/me`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to fetch user info");
+  return res.json();
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  chats: number;
+  messages: number;
+}
+
+// List all users (admin only)
+export async function apiAdminGetUsers(): Promise<AdminUser[]> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/admin/users`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to fetch users");
+  return res.json();
+}
+
+// Toggle a user's chat access (admin only)
+export async function apiAdminToggleAccess(userId: string): Promise<{ id: string; is_active: boolean }> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/admin/users/${userId}/access`, {
+      method: "PATCH",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to toggle access");
+  return res.json();
+}
+
+// Delete a user account (admin only)
+export async function apiAdminDeleteUser(userId: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/admin/users/${userId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to delete user");
+}
+
+// Update a user's role (admin only)
+export async function apiAdminSetRole(userId: string, role: string): Promise<AdminUser> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/admin/users/${userId}/role`, {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ role }),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to update role");
+  return res.json();
+}
+
 // Delete the current user account and all their data
 export async function apiDeleteAccount(): Promise<void> {
   const res = await withRefresh(() =>

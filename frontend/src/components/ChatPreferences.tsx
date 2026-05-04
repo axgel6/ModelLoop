@@ -1,6 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useEscapeKey } from "./useEscapeKey";
 import { haptics } from "../haptics";
+import {
+  apiGetMe,
+  apiAdminGetUsers,
+  apiAdminSetRole,
+  apiAdminToggleAccess,
+  apiAdminDeleteUser,
+} from "./api";
+import type { AdminUser } from "./api";
 
 export type Theme = "ocean-glass" | "gruvbox-flat";
 
@@ -101,9 +109,10 @@ export type Section =
   | "presets"
   | "temperature"
   | "appearance"
-  | "account";
+  | "account"
+  | "users";
 
-const NAV_ITEMS: { id: Section; label: string }[] = [
+const BASE_NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "model", label: "Model" },
   { id: "presets", label: "Presets" },
   { id: "temperature", label: "Temperature" },
@@ -135,6 +144,83 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   );
   const [modelSearch, setModelSearch] = useState("");
   const [presetSearch, setPresetSearch] = useState("");
+  const [userInfo, setUserInfo] = useState<{
+    email: string;
+    role: string;
+  } | null>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminSaving, setAdminSaving] = useState<string | null>(null);
+  const [adminDeleting, setAdminDeleting] = useState<string | null>(null);
+  const [adminDeleteConfirm, setAdminDeleteConfirm] = useState<AdminUser | null>(null);
+  const [adminTogglingAccess, setAdminTogglingAccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGetMe()
+      .then(setUserInfo)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === "users") {
+      setAdminLoading(true);
+      apiAdminGetUsers()
+        .then(setAdminUsers)
+        .catch(() => {})
+        .finally(() => setAdminLoading(false));
+    }
+  }, [activeSection]);
+
+  const handleRoleChange = async (userId: string, role: string) => {
+    setAdminSaving(userId);
+    try {
+      const updated = await apiAdminSetRole(userId, role);
+      setAdminUsers((prev) =>
+        prev.map((u) =>
+          u.id === updated.id ? { ...u, role: updated.role } : u,
+        ),
+      );
+    } catch {
+      // ignore
+    } finally {
+      setAdminSaving(null);
+    }
+  };
+
+  const handleToggleAccess = async (userId: string) => {
+    setAdminTogglingAccess(userId);
+    try {
+      const res = await apiAdminToggleAccess(userId);
+      setAdminUsers((prev) =>
+        prev.map((u) => (u.id === res.id ? { ...u, is_active: res.is_active } : u)),
+      );
+    } catch {
+      // ignore
+    } finally {
+      setAdminTogglingAccess(null);
+    }
+  };
+
+  const handleAdminDeleteUser = async () => {
+    if (!adminDeleteConfirm) return;
+    setAdminDeleting(adminDeleteConfirm.id);
+    try {
+      await apiAdminDeleteUser(adminDeleteConfirm.id);
+      setAdminUsers((prev) =>
+        prev.filter((u) => u.id !== adminDeleteConfirm.id),
+      );
+      setAdminDeleteConfirm(null);
+    } catch {
+      // ignore
+    } finally {
+      setAdminDeleting(null);
+    }
+  };
+
+  const navItems: { id: Section; label: string }[] =
+    userInfo?.role === "admin"
+      ? [...BASE_NAV_ITEMS, { id: "users", label: "Users" }]
+      : BASE_NAV_ITEMS;
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
@@ -358,6 +444,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             <div className="pref-content-header">
               <span className="pref-content-title">Account</span>
             </div>
+            {userInfo && (
+              <div className="pref-account-info">
+                <div className="pref-account-email">{userInfo.email}</div>
+                <span className={`pref-role-badge pref-role-${userInfo.role}`}>
+                  {userInfo.role.charAt(0).toUpperCase() +
+                    userInfo.role.slice(1)}
+                </span>
+              </div>
+            )}
             <div className="pref-list">
               <div
                 className="pref-list-item pref-danger-item"
@@ -375,6 +470,106 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span className="pref-row-arrow">→</span>
               </div>
             </div>
+          </>
+        );
+
+      case "users":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Admin Control - Users</span>
+              <span className="pref-content-badge">{adminUsers.length}</span>
+            </div>
+            <div className="pref-users-list">
+              {adminLoading ? (
+                <div className="pref-users-empty">Loading…</div>
+              ) : adminUsers.length === 0 ? (
+                <div className="pref-users-empty">No users found.</div>
+              ) : (
+                adminUsers.map((u) => (
+                  <div key={u.id} className="pref-user-row">
+                    <div className="pref-user-main">
+                      <div className="pref-user-email">{u.email}</div>
+                      <div className="pref-user-stats">
+                        {u.chats} chats · {u.messages} messages
+                      </div>
+                    </div>
+                    <select
+                      className={`pref-role-select pref-role-${u.role}`}
+                      value={u.role}
+                      disabled={
+                        adminSaving === u.id ||
+                        adminDeleting === u.id ||
+                        u.role === "admin"
+                      }
+                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                    >
+                      <option value="free">Free</option>
+                      <option value="pro">Pro</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <span
+                      role="button"
+                      tabIndex={adminTogglingAccess === u.id || adminDeleting === u.id || u.role === "admin" ? -1 : 0}
+                      className={`pref-user-access-toggle ${u.is_active ? "active" : "inactive"}${adminTogglingAccess === u.id || adminDeleting === u.id || u.role === "admin" ? " disabled" : ""}`}
+                      onClick={() => {
+                        if (adminTogglingAccess === u.id || adminDeleting === u.id || u.role === "admin") return;
+                        handleToggleAccess(u.id);
+                      }}
+                      title={u.is_active ? "Disable chat access" : "Enable chat access"}
+                    >
+                      {u.is_active ? "On" : "Off"}
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={adminSaving === u.id || adminDeleting === u.id ? -1 : 0}
+                      className={`pref-user-delete-btn${adminSaving === u.id || adminDeleting === u.id ? " disabled" : ""}`}
+                      onClick={() => {
+                        if (adminSaving === u.id || adminDeleting === u.id) return;
+                        setAdminDeleteConfirm(u);
+                      }}
+                      title="Delete user"
+                    >
+                      ✕
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            {adminDeleteConfirm && (
+              <div
+                className="pref-delete-overlay"
+                onClick={() => setAdminDeleteConfirm(null)}
+              >
+                <div
+                  className="pref-delete-dialog-box"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="pref-delete-dialog-title">Delete User</div>
+                  <div className="pref-delete-dialog-text">
+                    Permanently delete{" "}
+                    <strong>{adminDeleteConfirm.email}</strong> and all their
+                    data? This cannot be undone.
+                  </div>
+                  <div className="pref-delete-dialog-divider" />
+                  <div className="pref-delete-dialog-actions">
+                    <button
+                      className="pref-confirm-no"
+                      onClick={() => setAdminDeleteConfirm(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="pref-confirm-yes"
+                      disabled={adminDeleting !== null}
+                      onClick={handleAdminDeleteUser}
+                    >
+                      {adminDeleting ? "Deleting…" : "Delete User"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         );
     }
@@ -400,7 +595,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         >
           <div className="pref-sidebar">
             <div className="pref-sidebar-title">Preferences</div>
-            {NAV_ITEMS.map(({ id, label }) => (
+            {navItems.map(({ id, label }) => (
               <div
                 key={id}
                 className={`pref-nav-item${activeSection === id ? " active" : ""}`}

@@ -56,6 +56,9 @@ function ChatInput({
 }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
+  const inputHistoryRef = useRef<string[]>([]);
+  const historyIdxRef = useRef(-1);
+  const draftRef = useRef("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [docsDropdownOpen, setDocsDropdownOpen] = useState(false);
@@ -224,6 +227,9 @@ function ChatInput({
   const submit = (override?: string) => {
     const prompt = (override ?? input).trim();
     if (!prompt || loading) return;
+    inputHistoryRef.current.unshift(prompt);
+    historyIdxRef.current = -1;
+    draftRef.current = "";
     setInput("");
     setSlashIdx(-1);
     setAttachedImage(null);
@@ -253,6 +259,23 @@ function ChatInput({
         setSlashIdx(-1);
         return;
       }
+    }
+
+    const history = inputHistoryRef.current;
+    if (e.key === "ArrowUp" && history.length > 0 && e.currentTarget.selectionStart === 0) {
+      e.preventDefault();
+      if (historyIdxRef.current === -1) draftRef.current = input;
+      const next = Math.min(historyIdxRef.current + 1, history.length - 1);
+      historyIdxRef.current = next;
+      setInput(history[next]);
+      return;
+    }
+    if (e.key === "ArrowDown" && historyIdxRef.current >= 0) {
+      e.preventDefault();
+      const next = historyIdxRef.current - 1;
+      historyIdxRef.current = next;
+      setInput(next === -1 ? draftRef.current : history[next]);
+      return;
     }
 
     if (e.key === "Enter" && !e.shiftKey) {

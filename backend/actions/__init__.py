@@ -1,10 +1,9 @@
 import re
 from . import get_time as _get_time
-from . import calculate as _calculate
 from . import web_search as _web_search
 
 # Register action modules here when adding new tools
-_ACTIONS = [_get_time, _calculate, _web_search]
+_ACTIONS = [_get_time, _web_search]
 
 TOOL_DEFINITIONS = [mod.DEFINITION for mod in _ACTIONS]
 
