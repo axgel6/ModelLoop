@@ -1921,7 +1921,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
 
 .scroll-to-bottom-btn {
   position: absolute;
-  bottom: 64px;
+  bottom: 115px;
   right: 18px;
   z-index: 10;
   width: 30px;
@@ -1945,9 +1945,29 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
     background 0.12s;
 }
 
+.scroll-to-bottom-btn svg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .scroll-to-bottom-btn:hover {
   color: #ebdbb2 !important;
   background: rgba(60, 56, 54, 0.95) !important;
+  box-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="ocean"] .scroll-to-bottom-btn {
+  background: rgba(26, 31, 43, 0.88) !important;
+  border-color: rgba(112, 122, 140, 0.4) !important;
+  color: #707a8c !important;
+}
+
+html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
+  color: #b3c1d6 !important;
+  background: rgba(26, 31, 43, 0.95) !important;
   box-shadow:
     0 2px 14px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
