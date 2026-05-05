@@ -82,6 +82,8 @@ async def lifespan(_: FastAPI):
 
     yield
 
+    await engine.dispose()
+
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 

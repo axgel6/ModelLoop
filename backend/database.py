@@ -7,8 +7,8 @@ import os
 engine = create_async_engine(
     os.environ["DATABASE_URL"],
     echo=False,
-    pool_size=3,
-    max_overflow=4,
+    pool_size=5,
+    max_overflow=5,
     pool_recycle=1800,
     pool_pre_ping=True,
     connect_args={
