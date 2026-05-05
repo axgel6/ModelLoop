@@ -300,12 +300,12 @@ const AssistantMessage = memo(function AssistantMessage({
                 height="13"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.8"
+                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <polyline points="1 4 1 10 7 10" />
-                <path d="M3.51 15a9 9 0 1 0 .49-4" />
+                <polyline points="23 4 23 10 17 10" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
               </svg>
             </button>
           )}
@@ -558,11 +558,17 @@ function Chat({
 
   useEffect(() => {
     if (isGuest) {
-      apiGetGuestFeatures().then(setFeatures).catch(() => {});
+      apiGetGuestFeatures()
+        .then(setFeatures)
+        .catch(() => {});
       return;
     }
-    apiGetMe().then((me) => setUserRole(me.role)).catch(() => {});
-    apiGetMyFeatures().then(setFeatures).catch(() => {});
+    apiGetMe()
+      .then((me) => setUserRole(me.role))
+      .catch(() => {});
+    apiGetMyFeatures()
+      .then(setFeatures)
+      .catch(() => {});
   }, [isGuest]);
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [docsUploading, setDocsUploading] = useState(false);
@@ -595,7 +601,12 @@ function Chat({
       if (isTyping) return;
       e.stopImmediatePropagation();
       if (key === "h") setSidebarOpen((v) => !v);
-      if (key === "p" && !showPreferences && (!isGuest || features.guest_preferences)) setShowPreferences(true);
+      if (
+        key === "p" &&
+        !showPreferences &&
+        (!isGuest || features.guest_preferences)
+      )
+        setShowPreferences(true);
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
@@ -829,7 +840,9 @@ function Chat({
               bufferedTokens += data.token;
               scheduleFlush();
               if (++tokenHapticCounter % 2 === 0)
-                haptics.trigger(tokenHapticCounter % 10 === 0 ? "selection" : "light");
+                haptics.trigger(
+                  tokenHapticCounter % 10 === 0 ? "selection" : "light",
+                );
             } else if (data.type === "tool_use") {
               setActiveTool(data.tool ?? null);
               haptics.trigger("selection");
@@ -991,7 +1004,9 @@ function Chat({
               <span className="sidebar-logo">
                 ModelLoop
                 {userRole && (
-                  <span className={`sidebar-role-badge sidebar-role-${userRole}`}>
+                  <span
+                    className={`sidebar-role-badge sidebar-role-${userRole}`}
+                  >
                     {userRole}
                   </span>
                 )}
@@ -1145,25 +1160,27 @@ function Chat({
                   </svg>
                 </button>
               )}
-              {(!isGuest || features.guest_preferences) && <button
-                className="topbar-icon-btn"
-                onClick={() => setShowPreferences(true)}
-                title="Preferences (Ctrl+P)"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="15"
-                  height="15"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              {(!isGuest || features.guest_preferences) && (
+                <button
+                  className="topbar-icon-btn"
+                  onClick={() => setShowPreferences(true)}
+                  title="Preferences (Ctrl+P)"
                 >
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-              </button>}
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
+              )}
               <button
                 className="topbar-icon-btn"
                 onClick={() =>
@@ -1318,12 +1335,14 @@ function Chat({
             }}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
-            {...((!isGuest || features.guest_tools) ? {
-              onOpenPreferences: (section?: string) => {
-                if (section) setPrefSection(section as PrefSection);
-                setShowPreferences(true);
-              },
-            } : {})}
+            {...(!isGuest || features.guest_tools
+              ? {
+                  onOpenPreferences: (section?: string) => {
+                    if (section) setPrefSection(section as PrefSection);
+                    setShowPreferences(true);
+                  },
+                }
+              : {})}
             photoUploadEnabled={features.photo_upload ?? true}
             ragEnabled={features.rag ?? false}
             {...(!isGuest && activeChatId

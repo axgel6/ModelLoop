@@ -1417,14 +1417,14 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                           key={t.id}
                           className={`tier-chart-col${t.id === currentTier ? " tier-chart-col-current" : ""}`}
                         >
+                          {t.id === currentTier && (
+                            <div className="tier-chart-you">You</div>
+                          )}
                           <span
                             className={`pref-role-badge pref-role-${t.id === "guest" ? "guest" : t.id}`}
                           >
                             {t.label}
                           </span>
-                          {t.id === currentTier && (
-                            <div className="tier-chart-you">You</div>
-                          )}
                         </th>
                       ))}
                     </tr>
