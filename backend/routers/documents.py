@@ -2,16 +2,18 @@ import asyncio
 import io
 import logging
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select, func as sqlfunc
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from database import get_db
-from models import Chat, Document, DocumentChunk
+from models import Chat, Document, DocumentChunk, User
+from dependencies import get_active_user_id
+from rag import chunk_text, get_embedding
+from feature_flags import is_feature_enabled
 from config import MAX_UPLOAD_BYTES
-from routers.auth import get_active_user_id
-from services.rag import _chunk_text, _get_embedding
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(tags=["documents"])
 
 
 @router.post("/api/v1/chats/{chat_id}/documents", status_code=201)
@@ -21,6 +23,13 @@ async def upload_document(
     user_id: str = Depends(get_active_user_id),
     db: AsyncSession = Depends(get_db),
 ):
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    if not await is_feature_enabled("rag", user.role, db):
+        raise HTTPException(status_code=403, detail="Document upload is not available on your plan")
+
     result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -53,19 +62,31 @@ async def upload_document(
     db.add(doc)
     await db.flush()
 
-    chunks = _chunk_text(raw_text)
+    chunks = chunk_text(raw_text)
     try:
-        embeddings = await asyncio.gather(*[_get_embedding(c) for c in chunks])
+        embeddings = await asyncio.gather(*[get_embedding(c) for c in chunks])
     except Exception as e:
         logger.error("embed_chunk_failed doc_id=%s error=%s", doc.id, str(e))
         raise HTTPException(status_code=502, detail="Embedding model unavailable — is nomic-embed-text pulled?")
+
     for i, (chunk_text_item, embedding) in enumerate(zip(chunks, embeddings)):
-        db.add(DocumentChunk(document_id=doc.id, chat_id=chat_id, content=chunk_text_item, embedding=embedding, chunk_index=i))
+        db.add(DocumentChunk(
+            document_id=doc.id,
+            chat_id=chat_id,
+            content=chunk_text_item,
+            embedding=embedding,
+            chunk_index=i,
+        ))
 
     await db.commit()
     await db.refresh(doc)
     logger.info("document_uploaded doc_id=%s filename=%s chunks=%d", doc.id, filename, len(chunks))
-    return {"id": str(doc.id), "filename": doc.filename, "chunk_count": len(chunks), "created_at": doc.created_at.isoformat()}
+    return {
+        "id": str(doc.id),
+        "filename": doc.filename,
+        "chunk_count": len(chunks),
+        "created_at": doc.created_at.isoformat(),
+    }
 
 
 @router.get("/api/v1/chats/{chat_id}/documents")
@@ -74,6 +95,7 @@ async def list_documents(
     user_id: str = Depends(get_active_user_id),
     db: AsyncSession = Depends(get_db),
 ):
+    from sqlalchemy import func as sqlfunc
     result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -95,7 +117,12 @@ async def list_documents(
     chunk_counts = {str(doc_id): count for doc_id, count in counts_result.all()}
 
     return {"documents": [
-        {"id": str(d.id), "filename": d.filename, "chunk_count": chunk_counts.get(str(d.id), 0), "created_at": d.created_at.isoformat()}
+        {
+            "id":          str(d.id),
+            "filename":    d.filename,
+            "chunk_count": chunk_counts.get(str(d.id), 0),
+            "created_at":  d.created_at.isoformat(),
+        }
         for d in docs
     ]}
 
