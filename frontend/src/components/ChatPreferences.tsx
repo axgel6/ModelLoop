@@ -1066,14 +1066,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           { field: "admin_enabled", label: "Admin", tier: "admin" },
         ];
 
-        // Separate guest-specific flags from general flags
-        const guestFlags = featureFlags.filter((f) =>
-          ["guest_tools", "guest_preferences"].includes(f.name),
-        );
-        const generalFlags = featureFlags.filter(
-          (f) => !["guest_tools", "guest_preferences"].includes(f.name),
-        );
-
         return (
           <>
             <div className="pref-content-header">
@@ -1098,10 +1090,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             ) : featureFlags.length === 0 ? (
               <div className="pref-users-empty">No feature flags found.</div>
             ) : (
-              <>
-                {/* General Features (Tiered) Section */}
-                {generalFlags.length > 0 && (
-                  <div className="pref-flags-list">
+              <div className="pref-flags-list">
                     <div className="pref-flags-header-row">
                       <span className="pref-flags-header-spacer" />
                       <div className="pref-flags-tier-labels">
@@ -1115,7 +1104,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         ))}
                       </div>
                     </div>
-                    {generalFlags.map((flag) => (
+                    {featureFlags.map((flag) => (
                       <div key={flag.name} className="pref-flag-row">
                         <div className="pref-flag-info">
                           <div className="pref-flag-name">
@@ -1154,62 +1143,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-
-                {/* Guest Features Section */}
-                {guestFlags.length > 0 && (
-                  <div className="pref-guest-section">
-                    <div className="pref-guest-section-title">
-                      Guest Features
-                    </div>
-                    <div className="pref-guest-features">
-                      {guestFlags.map((flag) => {
-                        const isOn = flag.guest_enabled;
-                        const isSaving =
-                          flagSaving === `${flag.name}:guest_enabled`;
-                        return (
-                          <div
-                            key={flag.name}
-                            className="pref-guest-feature-row"
-                          >
-                            <div className="pref-guest-feature-info">
-                              <div className="pref-guest-feature-name">
-                                {flag.name
-                                  .split("_")
-                                  .map(
-                                    (w) =>
-                                      w.charAt(0).toUpperCase() + w.slice(1),
-                                  )
-                                  .join(" ")}
-                              </div>
-                              <div className="pref-guest-feature-desc">
-                                {flag.description}
-                              </div>
-                            </div>
-                            <span
-                              role="button"
-                              tabIndex={isSaving ? -1 : 0}
-                              className={`pref-guest-toggle${isOn ? " on" : ""}${isSaving ? " saving" : ""}`}
-                              onClick={() => {
-                                if (isSaving) return;
-                                handleFlagToggle(
-                                  flag.name,
-                                  "guest_enabled",
-                                  !isOn,
-                                );
-                              }}
-                              title={`${isOn ? "Disable" : "Enable"} for guests`}
-                            >
-                              {isSaving ? "…" : isOn ? "On" : "Off"}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </>
+                </div>
             )}
           </>
         );

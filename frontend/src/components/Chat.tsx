@@ -165,7 +165,7 @@ function Chat({
       if (
         key === "p" &&
         !showPreferences &&
-        (!isGuest || features.guest_preferences)
+        !isGuest
       )
         setShowPreferences(true);
     };
@@ -407,6 +407,18 @@ function Chat({
             } else if (data.type === "tool_use") {
               setActiveTool(data.tool ?? null);
               haptics.trigger("selection");
+            } else if (data.type === "image_context") {
+              setMessages((prev) => {
+                const next = [...prev];
+                next[next.length - 1] = { ...next[next.length - 1], image_context: data.context };
+                return next;
+              });
+            } else if (data.type === "search_context") {
+              setMessages((prev) => {
+                const next = [...prev];
+                next[next.length - 1] = { ...next[next.length - 1], search_context: data.context };
+                return next;
+              });
             } else if (data.type === "done") {
               setActiveTool(null);
               setIsThinking(false);
@@ -730,7 +742,7 @@ function Chat({
                   </svg>
                 </button>
               )}
-              {(!isGuest || features.guest_preferences) && (
+              {!isGuest && (
                 <button
                   className="topbar-icon-btn"
                   onClick={() => setShowPreferences(true)}
@@ -905,7 +917,7 @@ function Chat({
             }}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
-            {...(!isGuest || features.guest_tools
+            {...(!isGuest
               ? {
                   onOpenPreferences: (section?: string) => {
                     if (section) setPrefSection(section as PrefSection);

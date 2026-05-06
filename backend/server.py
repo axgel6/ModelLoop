@@ -70,12 +70,7 @@ async def lifespan(_: FastAPI):
             """INSERT INTO feature_flags (id, name, description, guest_enabled, free_enabled, pro_enabled, admin_enabled, updated_at)
                VALUES (gen_random_uuid(), 'rag', 'Upload documents and use retrieval-augmented generation', false, false, true, true, now())
                ON CONFLICT (name) DO NOTHING""",
-            """INSERT INTO feature_flags (id, name, description, guest_enabled, free_enabled, pro_enabled, admin_enabled, updated_at)
-               VALUES (gen_random_uuid(), 'guest_tools', 'Show tools button in input toolbar for guest users', false, false, false, false, now())
-               ON CONFLICT (name) DO NOTHING""",
-            """INSERT INTO feature_flags (id, name, description, guest_enabled, free_enabled, pro_enabled, admin_enabled, updated_at)
-               VALUES (gen_random_uuid(), 'guest_preferences', 'Show preferences button in topbar for guest users', false, false, false, false, now())
-               ON CONFLICT (name) DO NOTHING""",
+            "DELETE FROM feature_flags WHERE name IN ('guest_tools', 'guest_preferences')",
         ]
         for stmt in migrations:
             await conn.execute(text(stmt))

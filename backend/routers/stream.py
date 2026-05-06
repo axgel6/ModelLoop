@@ -83,7 +83,8 @@ async def _describe_images(images: list[str]) -> str:
     prompt = (
         f"Describe {'this image' if n == 1 else f'these {n} images'} in full detail. "
         "If there is text, equations, or code, transcribe it exactly word-for-word. "
-        "If it is a photo or diagram, describe every visible element, object, color, and layout."
+        "If it is a photo or diagram, describe every visible element, object, color, and layout. "
+        "Output only the description. Do not add any commentary, offers, or follow-up questions."
     )
     payload = {
         "model": VISION_MODEL,
@@ -374,6 +375,10 @@ async def chat_stream(
 
             if success and full_response.strip():
                 processed = fix_math_delimiters(full_response.strip())
+                if image_context:
+                    yield f"data: {json.dumps({'type': 'image_context', 'context': image_context})}\n\n"
+                if _search_ctx:
+                    yield f"data: {json.dumps({'type': 'search_context', 'context': _search_ctx})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
                 async with AsyncSessionLocal() as write_db:

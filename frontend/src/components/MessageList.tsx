@@ -95,6 +95,8 @@ export const AssistantMessage = memo(function AssistantMessage({
 }) {
   const [copied, setCopied] = useState(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
+  const [imageContextOpen, setImageContextOpen] = useState(false);
+  const [searchContextOpen, setSearchContextOpen] = useState(false);
   const thinkingPhrase = useRef(
     THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)],
   );
@@ -135,6 +137,56 @@ export const AssistantMessage = memo(function AssistantMessage({
               </button>
               {thinkingOpen && (
                 <div className="reasoning-content">{msg.thinking}</div>
+              )}
+            </div>
+          )}
+          {msg.image_context && (
+            <div className="reasoning-block">
+              <button
+                className="reasoning-toggle"
+                onClick={() => setImageContextOpen((v) => !v)}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="12"
+                  height="12"
+                  fill="currentColor"
+                  style={{
+                    transform: imageContextOpen ? "rotate(90deg)" : "none",
+                    transition: "transform 0.15s",
+                  }}
+                >
+                  <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
+                </svg>
+                Image Analysis
+              </button>
+              {imageContextOpen && (
+                <div className="reasoning-content">{msg.image_context}</div>
+              )}
+            </div>
+          )}
+          {msg.search_context && (
+            <div className="reasoning-block">
+              <button
+                className="reasoning-toggle"
+                onClick={() => setSearchContextOpen((v) => !v)}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="12"
+                  height="12"
+                  fill="currentColor"
+                  style={{
+                    transform: searchContextOpen ? "rotate(90deg)" : "none",
+                    transition: "transform 0.15s",
+                  }}
+                >
+                  <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
+                </svg>
+                Web Search
+              </button>
+              {searchContextOpen && (
+                <div className="reasoning-content">{msg.search_context}</div>
               )}
             </div>
           )}

@@ -28,22 +28,6 @@ DEFAULT_FLAGS = [
         "pro_enabled": True,
         "admin_enabled": True,
     },
-    {
-        "name": "guest_tools",
-        "description": "Show the tools/settings button in the input toolbar for guest users",
-        "guest_enabled": False,
-        "free_enabled": False,
-        "pro_enabled": False,
-        "admin_enabled": False,
-    },
-    {
-        "name": "guest_preferences",
-        "description": "Show the preferences button in the topbar for guest users",
-        "guest_enabled": False,
-        "free_enabled": False,
-        "pro_enabled": False,
-        "admin_enabled": False,
-    },
 ]
 
 
