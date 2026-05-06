@@ -25,12 +25,6 @@ import {
   type DocumentMeta,
   type Message,
 } from "./api";
-import {
-  GREETINGS,
-  SUGGESTIONS,
-  withMandatoryPromptRules,
-  formatDate,
-} from "./utils/chatUtils";
 import { AssistantMessage, UserMessage } from "./MessageList";
 import {
   chatInteractionReducer,
@@ -38,6 +32,14 @@ import {
   type EditState,
   type RenameState,
 } from "./chatReducer";
+import {
+  formatDate,
+  SUGGESTIONS,
+  GREETINGS,
+  withMandatoryPromptRules,
+} from "./utils/chatUtils";
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 interface ChatProps {
   onBack: () => void;
@@ -51,9 +53,6 @@ interface ChatProps {
   theme: Theme;
   setTheme: (theme: Theme) => void;
 }
-
-// Re-export for consumers that may import these types from Chat
-export type { EditState, RenameState };
 
 function Chat({
   onBack,
@@ -460,7 +459,7 @@ function Chat({
 
   const handleEditSubmit = () => {
     if (!editState) return;
-    const { idx, value } = editState;
+    const { idx, value } = editState as EditState;
     const trimmed = value.trim();
     dispatchInteraction({ type: "edit_cancel" });
     if (!trimmed) return;
@@ -508,7 +507,7 @@ function Chat({
 
   const handleRenameCommit = async () => {
     if (!renameState) return;
-    const { id, value } = renameState;
+    const { id, value } = renameState as RenameState;
     const trimmed = value.trim();
     dispatchInteraction({ type: "rename_cancel" });
     if (!trimmed) return;

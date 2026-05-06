@@ -55,37 +55,25 @@ def _is_thinking_model(model: str) -> bool:
 
 
 def _resolve_search_query(prompt: str, history) -> str:
-    has_pronouns = bool(_PRONOUN_RE.search(prompt))
-    rest = prompt[prompt.find(' ') + 1:] if ' ' in prompt else prompt
-    has_own_nouns = bool(_PROPER_NOUN_RE.search(rest))
-    recent_history = list(reversed(history[-10:]))
-
-    if has_pronouns:
-        # First pass: user messages without pronouns (already have casing)
-        for msg in recent_history:
-            if msg.role != "user" or _PRONOUN_RE.search(msg.content):
-                continue
-            names = [n for n in _PROPER_NOUN_RE.findall(msg.content)
-                     if n.lower() not in _QUESTION_WORDS]
-            if names:
-                return _PRONOUN_RE.sub(names[-1], prompt)
-        # Second pass: assistant messages — better capitalized, often name the subject clearly
-        for msg in recent_history:
-            if msg.role != "assistant":
-                continue
-            names = [n for n in _PROPER_NOUN_RE.findall(msg.content)
-                     if n.lower() not in _QUESTION_WORDS and len(n) > 3]
-            if names:
-                return _PRONOUN_RE.sub(names[0], prompt)
+    if not _PRONOUN_RE.search(prompt):
         return prompt
-
-    if not has_own_nouns:
-        for msg in recent_history:
-            names = [n for n in _PROPER_NOUN_RE.findall(msg.content) if n.lower() not in _QUESTION_WORDS]
-            if names:
-                context = " ".join(names[-3:])
-                return f"{context}: {prompt}"
-
+    recent_history = list(reversed(history[-10:]))
+    # First pass: user messages without pronouns
+    for msg in recent_history:
+        if msg.role != "user" or _PRONOUN_RE.search(msg.content):
+            continue
+        names = [n for n in _PROPER_NOUN_RE.findall(msg.content)
+                 if n.lower() not in _QUESTION_WORDS]
+        if names:
+            return _PRONOUN_RE.sub(names[-1], prompt)
+    # Second pass: assistant messages — better capitalized, often name the subject clearly
+    for msg in recent_history:
+        if msg.role != "assistant":
+            continue
+        names = [n for n in _PROPER_NOUN_RE.findall(msg.content)
+                 if n.lower() not in _QUESTION_WORDS and len(n) > 3]
+        if names:
+            return _PRONOUN_RE.sub(names[0], prompt)
     return prompt
 
 
@@ -189,8 +177,7 @@ async def chat_stream(
         raise HTTPException(status_code=403, detail="Image upload is not available on your plan")
 
     if actions_enabled:
-        _recent_user = " ".join(m.content for m in db_history[-6:] if m.role == "user") if db_history else ""
-        active_tools = get_active_tools(prompt + " " + _recent_user)
+        active_tools = get_active_tools(prompt)
         _search_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
         _run_search = _web_search_should_activate(prompt, _search_words)
         proactive_search_enabled = _run_search and bool(active_tools)
@@ -453,7 +440,9 @@ async def guest_chat_stream(
         if not _guest_run_search:
             return None
         try:
-            return json.loads(await _run_web_search_async({"query": prompt, "max_results": 8}))
+            return json.loads(await _run_web_search_async(
+                {"query": _resolve_search_query(prompt, body.messages), "max_results": 8}
+            ))
         except Exception as _e:
             logger.warning("guest_proactive_web_search_failed error=%s", str(_e))
             return None
