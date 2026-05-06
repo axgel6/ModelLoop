@@ -43,10 +43,10 @@ export function fmtTime(iso: string | undefined): string | null {
 }
 
 export const SUGGESTIONS = [
-  "Explain something complex simply",
-  "Help me write clean code",
-  "Solve a math problem step by step",
-  "Summarize a topic for me",
+  "Explain quantum computing simply",
+  "Write a Python script to rename files",
+  "Break down a math problem for me",
+  "Summarize a topic I choose",
 ];
 
 export const GREETINGS = [

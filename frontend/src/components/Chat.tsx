@@ -607,7 +607,7 @@ function Chat({
                   </div>
                 )}
                 {!chatsLoading && visibleChats.length === 0 && (
-                  <span className="sidebar-empty">No chats yet</span>
+                  <span className="sidebar-empty">Start a conversation to see it here</span>
                 )}
                 {visibleChats.map((c) => (
                   <div
@@ -810,7 +810,7 @@ function Chat({
           <div className="messages" ref={messagesContainerRef}>
             {messagesLoading && (
               <p id="disclaimer" className="messages-loading">
-                Loading…
+                Fetching your conversation…
               </p>
             )}
 
