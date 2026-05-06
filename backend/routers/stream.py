@@ -65,7 +65,8 @@ def _resolve_search_query(prompt: str, history) -> str:
         for msg in recent_history:
             if msg.role != "user" or _PRONOUN_RE.search(msg.content):
                 continue
-            names = _PROPER_NOUN_RE.findall(msg.content)
+            names = [n for n in _PROPER_NOUN_RE.findall(msg.content)
+                     if n.lower() not in _QUESTION_WORDS]
             if names:
                 return _PRONOUN_RE.sub(names[-1], prompt)
         # Second pass: assistant messages — better capitalized, often name the subject clearly
@@ -235,14 +236,8 @@ async def chat_stream(
     messages = [{"role": "system", "content": effective_system}]
     for m in db_history:
         content = m.content
-        if m.role == "user":
-            if m.image_context:
-                content = f"<image_context>\n{m.image_context}\n</image_context>\n\n{content}"
-            if m.search_context:
-                content = (
-                    f"[Web search results used to answer this question:]\n\n{m.search_context}\n\n"
-                    f"User question: {content}"
-                )
+        if m.role == "user" and m.image_context:
+            content = f"<image_context>\n{m.image_context}\n</image_context>\n\n{content}"
         messages.append({"role": m.role, "content": content})
 
     user_content = prompt
@@ -288,6 +283,7 @@ async def chat_stream(
         reactive_search_blocks: list[str] = []
 
         try:
+            round_content = ""
             for _round in range(5):
                 round_content  = ""
                 tool_calls:   list = []
@@ -320,7 +316,13 @@ async def chat_stream(
 
                 if not tool_calls and peek_buf:
                     try:
-                        parsed = json.loads(round_content.strip())
+                        raw = round_content.strip()
+                        # Fix common model output issue: unclosed braces
+                        open_count = raw.count('{')
+                        close_count = raw.count('}')
+                        if open_count > close_count:
+                            raw += '}' * (open_count - close_count)
+                        parsed = json.loads(raw)
                         name = parsed.get("name") or parsed.get("function", {}).get("name", "")
                         args = parsed.get("parameters") or parsed.get("arguments") or {}
                         if name:
@@ -328,8 +330,14 @@ async def chat_stream(
                         else:
                             raise ValueError("no name field")
                     except Exception:
-                        for t in peek_buf:
-                            yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
+                        # Regex fallback: extract name and query even from malformed JSON
+                        name_match = re.search(r'"name"\s*:\s*"([^"]+)"', round_content)
+                        query_match = re.search(r'"query"\s*:\s*"([^"]+)"', round_content)
+                        if name_match and query_match:
+                            tool_calls = [{"function": {"name": name_match.group(1), "arguments": {"query": query_match.group(1)}}}]
+                        else:
+                            for t in peek_buf:
+                                yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
 
                 if not tool_calls:
                     full_response = round_content
@@ -345,6 +353,11 @@ async def chat_stream(
                     fn        = tc.get("function", {})
                     tool_name = fn.get("name", "")
                     tool_args = fn.get("arguments") or {}
+                    if isinstance(tool_args, str):
+                        try:
+                            tool_args = json.loads(tool_args)
+                        except (json.JSONDecodeError, ValueError):
+                            tool_args = {}
                     yield f"data: {json.dumps({'type': 'tool_use', 'tool': tool_name})}\n\n"
                     try:
                         tool_result = await execute_tool(tool_name, tool_args)
@@ -366,6 +379,11 @@ async def chat_stream(
             # Build combined search context: proactive results + any reactive tool results
             _all_search = ([_search_block] if _search_block else []) + reactive_search_blocks
             _search_ctx = "\n\n---\n\n".join(_all_search) if _all_search else None
+
+            # If all 5 rounds were tool calls (loop exhausted without break), round_content
+            # from the last round is the final answer — full_response was never assigned.
+            if success and not full_response:
+                full_response = round_content
 
             if success and full_response.strip():
                 processed = fix_math_delimiters(full_response.strip())
