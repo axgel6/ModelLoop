@@ -386,9 +386,9 @@ pytest tests/
 ![Screenshot of the sign in page](screenshots/sign-in.png)
 ![Screenshot of the landing page](screenshots/landing-page.png)
 ![Screenshot of the chat page](screenshots/chat.png)
-![Screenshot of a chat between the AI Assistant and the user](screenshots/ai-user-chat.png)
+![Screenshot of a chat between the AI Assistant and the user about creating a Python program](screenshots/ai-user-chat.png)
+![Screenshot of another chat between AI Assistant and the user with a web search about the weather](screenshots/ai-user-chat-2.png)
 ![Screenshot of the chat preferences menu](screenshots/chat-preferences.png)
-![Screenshot of another chat between AI Assistant and the user with math help](screenshots/ai-user-chat-2.png)
 
 ---
 

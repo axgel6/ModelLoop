@@ -54,7 +54,9 @@ _SEARCH_TRIGGERS = re.compile(
     r"(stock|share) price|"
     r"(who|what|when) (won|is winning|happened) (the |this |last )?(game|match|election|race|series)|"
     r"(current|live) (standings?|rankings?|scores?)|"
-    r"(this|last) (week|month|year)'?s? .{0,30}(news|results?|winner|champion)"
+    r"(this|last) (week|month|year)'?s? .{0,30}(news|results?|winner|champion)|"
+    # Entertainment / media releases
+    r"(new|latest|recent) (single|album|song|track|movie|film|show|episode|season|release|video|tour)"
     r")\b",
     re.IGNORECASE,
 )
@@ -64,7 +66,8 @@ _ENTITY_QUESTION_RE = re.compile(
     r"\b(?:who|what)\s+(?:is|are|was|were)\b"
     r"|\btell\s+me\s+about\b"
     r"|\b(?:biography|background|profile|history|age|nationality)\s+of\b"
-    r"|\bwho\s+(?:made|created|founded|invented|wrote|directed|produced|plays?|played)\b",
+    r"|\bwho\s+(?:made|created|founded|invented|wrote|directed|produced|plays?|played)\b"
+    r"|\b(?:does|did|has|have|is|are)\s+\w+.*\b(?:new|recent|latest)\b",
     re.IGNORECASE,
 )
 
