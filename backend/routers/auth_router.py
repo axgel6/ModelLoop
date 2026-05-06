@@ -14,7 +14,7 @@ from auth import (
     get_current_user_id, generate_refresh_token,
     hash_refresh_token, REFRESH_EXPIRE_DAYS,
 )
-from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest
+from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest
 from audit import log_audit
 from dependencies import _get_client_ip
 
@@ -41,7 +41,7 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
     if existing.scalar_one_or_none():
         logger.warning('register_conflict email=%s', body.email)
         raise HTTPException(status_code=409, detail="Email already registered")
-    user = User(email=body.email, password_hash=hash_password(body.password))
+    user = User(email=body.email, password_hash=hash_password(body.password), full_name=body.full_name or None)
     db.add(user)
     await db.flush()
     logger.info('user_registered user_id=%s', user.id)
@@ -90,7 +90,22 @@ async def get_me(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"id": str(user.id), "email": user.email, "role": user.role, "is_active": user.is_active}
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active}
+
+
+@router.patch("/me")
+async def update_profile(
+    body: UpdateProfileRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.full_name = body.full_name.strip()
+    await db.commit()
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active}
 
 
 @router.get("/features")

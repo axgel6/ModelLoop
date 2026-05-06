@@ -10,6 +10,7 @@ interface LoginProps {
 function Login({ onLogin, onGuest, onBack }: LoginProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -59,7 +60,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
     try {
       const { token, refresh_token } = isLogin
         ? await apiLogin(email.trim(), password)
-        : await apiRegister(email.trim(), password);
+        : await apiRegister(email.trim(), password, fullName.trim() || undefined);
 
       localStorage.setItem("token", token);
       localStorage.setItem("refresh_token", refresh_token);
@@ -78,6 +79,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
   const switchMode = () => {
     setMode(isLogin ? "register" : "login");
     setError("");
+    setFullName("");
     setPassword("");
     setConfirm("");
   };
@@ -103,6 +105,21 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
           </div>
 
           <div className="login-form">
+            {!isLogin && (
+              <div className="login-field">
+                <label htmlFor="fullName">Full Name <span className="login-field-optional">(optional)</span></label>
+                <input
+                  id="fullName"
+                  type="text"
+                  placeholder="Your name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={loading}
+                  autoComplete="name"
+                />
+              </div>
+            )}
             <div className="login-field">
               <label htmlFor="email">Email</label>
               <input

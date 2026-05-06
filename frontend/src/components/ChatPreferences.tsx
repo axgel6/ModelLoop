@@ -3,6 +3,7 @@ import { useEscapeKey } from "./useEscapeKey";
 import { haptics } from "../haptics";
 import {
   apiGetMe,
+  apiUpdateProfile,
   apiAdminGetUsers,
   apiAdminSetRole,
   apiAdminToggleAccess,
@@ -155,8 +156,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [userInfo, setUserInfo] = useState<{
     id: string;
     email: string;
+    full_name: string | null;
     role: string;
   } | null>(null);
+  const [nameEdit, setNameEdit] = useState<string | null>(null);
+  const [nameSaving, setNameSaving] = useState(false);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminSaving, setAdminSaving] = useState<string | null>(null);
@@ -338,6 +342,21 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (nameEdit === null) return;
+    const trimmed = nameEdit.trim();
+    setNameSaving(true);
+    try {
+      await apiUpdateProfile(trimmed || (userInfo?.email ?? ""));
+      setUserInfo((prev) => prev ? { ...prev, full_name: trimmed || null } : prev);
+      setNameEdit(null);
+    } catch {
+      /* silent — keep editing open */
+    } finally {
+      setNameSaving(false);
     }
   };
 
@@ -555,6 +574,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             </div>
             {userInfo && (
               <div className="pref-account-info">
+                <div className="pref-account-display-name">
+                  {userInfo.full_name ?? userInfo.email}
+                </div>
                 <div className="pref-account-email">{userInfo.email}</div>
                 <span className={`pref-role-badge pref-role-${userInfo.role}`}>
                   {userInfo.role.charAt(0).toUpperCase() +
@@ -562,6 +584,56 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 </span>
               </div>
             )}
+            <div className="pref-section-label">Full Name</div>
+            <div className="pref-name-row">
+              {nameEdit !== null ? (
+                <>
+                  <input
+                    className="pref-name-input"
+                    value={nameEdit}
+                    maxLength={120}
+                    placeholder={userInfo?.email ?? ""}
+                    onChange={(e) => setNameEdit(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveName();
+                      if (e.key === "Escape") setNameEdit(null);
+                    }}
+                    autoFocus
+                    disabled={nameSaving}
+                  />
+                  <button
+                    className="pref-name-save-btn"
+                    onClick={handleSaveName}
+                    disabled={nameSaving}
+                  >
+                    {nameSaving ? "◌" : "Save"}
+                  </button>
+                  <button
+                    className="pref-name-cancel-btn"
+                    onClick={() => setNameEdit(null)}
+                    disabled={nameSaving}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="pref-name-value">
+                    {userInfo?.full_name ?? (
+                      <span className="pref-name-placeholder">
+                        {userInfo?.email}
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    className="pref-name-edit-btn"
+                    onClick={() => setNameEdit(userInfo?.full_name ?? "")}
+                  >
+                    Edit
+                  </button>
+                </>
+              )}
+            </div>
             <div className="pref-list">
               <div
                 className="pref-list-item"

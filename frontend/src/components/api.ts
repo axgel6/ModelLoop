@@ -69,11 +69,12 @@ async function withRefresh(
 export async function apiRegister(
   email: string,
   password: string,
+  fullName?: string,
 ): Promise<{ token: string; refresh_token: string }> {
   const res = await fetch(`${API_URL}/api/v1/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, full_name: fullName || undefined }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -167,10 +168,11 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("Failed to rename chat");
 }
 
-// Fetch the current user's id, email, and role
+// Fetch the current user's id, email, full_name, and role
 export async function apiGetMe(): Promise<{
   id: string;
   email: string;
+  full_name: string | null;
   role: string;
 }> {
   const res = await withRefresh(() =>
@@ -178,6 +180,17 @@ export async function apiGetMe(): Promise<{
   );
   if (!res.ok) throw new Error("Failed to fetch user info");
   return res.json();
+}
+
+export async function apiUpdateProfile(fullName: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/auth/me`, {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ full_name: fullName }),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to update profile");
 }
 
 export async function apiGetMyFeatures(): Promise<Record<string, boolean>> {

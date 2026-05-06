@@ -4,8 +4,13 @@ from config import MAX_PROMPT_LENGTH, MAX_SYSTEM_PROMPT_LENGTH, MAX_TITLE_LENGTH
 
 
 class RegisterRequest(BaseModel):
-    email:    EmailStr = Field(..., max_length=254)
-    password: str      = Field(..., min_length=8, max_length=128)
+    email:     EmailStr        = Field(..., max_length=254)
+    password:  str             = Field(..., min_length=8, max_length=128)
+    full_name: Optional[str]   = Field(default=None, max_length=120)
+
+
+class UpdateProfileRequest(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=120)
 
 
 class LoginRequest(BaseModel):

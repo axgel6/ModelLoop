@@ -1320,12 +1320,12 @@ html[data-theme="ocean"] .reasoning-content {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 4px 10px;
-  border: none;
   border-radius: 25px;
-  background: linear-gradient(180deg, #34d399 0%, #10b981 50%, #064e3b 100%);
-  color: #bcfaeb;
+  background: linear-gradient(180deg, #8ec07c 0%, #689d6a 50%, #2d4a2d 100%);
+  color: #0f120c;
+  border: none;
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2),
     0 2px 4px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   -webkit-user-select: none;
@@ -1362,6 +1362,40 @@ html[data-theme="ocean"] .reasoning-content {
   overflow: hidden;
   padding: 0 8px;
   gap: 4px;
+}
+
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(80, 73, 69, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-user-avatar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #504945, #3c3836);
+  color: #ebdbb2;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(80, 73, 69, 0.5);
+}
+
+.sidebar-user-email {
+  flex: 1;
+  font-size: 0.7rem;
+  color: #928374;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .sidebar-search {
@@ -2231,15 +2265,117 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   padding: 16px 24px;
   border-bottom: 1px solid rgba(80, 73, 69, 0.25);
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pref-account-display-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ebdbb2;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pref-account-email {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   color: #a89984;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pref-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #928374;
+  padding: 14px 24px 6px;
+}
+
+.pref-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px 14px;
+}
+
+.pref-name-value {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #ebdbb2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pref-name-placeholder {
+  color: #928374;
+  font-style: italic;
+}
+
+.pref-name-input {
+  flex: 1;
+  background: rgba(60, 56, 54, 0.6);
+  border: 1px solid rgba(146, 131, 116, 0.4);
+  border-radius: 6px;
+  color: #ebdbb2;
+  font-size: 0.9rem;
+  padding: 6px 10px;
+  outline: none;
+}
+
+.pref-name-input:focus {
+  border-color: rgba(214, 165, 82, 0.6);
+}
+
+.pref-name-edit-btn,
+.pref-name-save-btn,
+.pref-name-cancel-btn {
+  font-size: 0.8rem;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(146, 131, 116, 0.35);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.pref-name-edit-btn {
+  background: rgba(80, 73, 69, 0.5);
+  color: #bdae93;
+}
+
+.pref-name-edit-btn:hover {
+  background: rgba(80, 73, 69, 0.8);
+}
+
+.pref-name-save-btn {
+  background: rgba(69, 133, 136, 0.2);
+  color: #8ec07c;
+  border-color: rgba(69, 133, 136, 0.4);
+}
+
+.pref-name-save-btn:hover:not(:disabled) {
+  background: rgba(69, 133, 136, 0.35);
+}
+
+.pref-name-cancel-btn {
+  background: none;
+  color: #928374;
+}
+
+.pref-name-cancel-btn:hover {
+  color: #a89984;
+}
+
+.login-field-optional {
+  font-size: 0.78rem;
+  color: #928374;
+  font-weight: 400;
 }
 
 .pref-role-badge {
@@ -2298,7 +2434,7 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   border: none;
   border-radius: 25px;
   background: linear-gradient(180deg, #34d399 0%, #10b981 50%, #064e3b 100%);
-  color: #bcfaeb;
+  color: #0f120c;
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.3);
@@ -3647,8 +3783,50 @@ html[data-theme="ocean"] .pref-account-info {
   border-bottom-color: rgba(112, 122, 140, 0.15);
 }
 
+html[data-theme="ocean"] .pref-account-display-name {
+  color: #cdd6f4;
+}
+
 html[data-theme="ocean"] .pref-account-email {
   color: #707a8c;
+}
+
+html[data-theme="ocean"] .pref-section-label {
+  color: #6c7086;
+}
+
+html[data-theme="ocean"] .pref-name-value {
+  color: #cdd6f4;
+}
+
+html[data-theme="ocean"] .pref-name-placeholder {
+  color: #6c7086;
+}
+
+html[data-theme="ocean"] .pref-name-input {
+  background: rgba(30, 35, 55, 0.7);
+  border-color: rgba(112, 122, 140, 0.35);
+  color: #cdd6f4;
+}
+
+html[data-theme="ocean"] .pref-name-input:focus {
+  border-color: rgba(137, 180, 250, 0.5);
+}
+
+html[data-theme="ocean"] .pref-name-edit-btn {
+  background: rgba(49, 55, 80, 0.6);
+  border-color: rgba(112, 122, 140, 0.3);
+  color: #a6b0d8;
+}
+
+html[data-theme="ocean"] .pref-name-save-btn {
+  background: rgba(166, 218, 149, 0.12);
+  color: #a6da95;
+  border-color: rgba(166, 218, 149, 0.3);
+}
+
+html[data-theme="ocean"] .pref-name-cancel-btn {
+  color: #6c7086;
 }
 
 html[data-theme="ocean"] .pref-user-access-toggle.active {
@@ -5354,7 +5532,7 @@ html[data-theme="ocean"] .pref-delete-overlay {
   border: none;
   border-radius: 25px;
   background: linear-gradient(180deg, #34d399 0%, #10b981 50%, #064e3b 100%);
-  color: #bcfaeb;
+  color: #0f120c;
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.3);
