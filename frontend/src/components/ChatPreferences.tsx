@@ -31,6 +31,7 @@ interface ChatPreferencesProps {
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   onDeleteAccount: () => Promise<void>;
+  onNameChange?: (name: string | null) => void;
   initialSection?: Section;
 }
 
@@ -142,6 +143,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   selectedModel,
   setSelectedModel,
   onDeleteAccount,
+  onNameChange,
   initialSection,
 }) => {
   useEscapeKey(onClose);
@@ -351,9 +353,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     setNameSaving(true);
     try {
       await apiUpdateProfile(trimmed || (userInfo?.email ?? ""));
+      const newName = trimmed || null;
       setUserInfo((prev) =>
-        prev ? { ...prev, full_name: trimmed || null } : prev,
+        prev ? { ...prev, full_name: newName } : prev,
       );
+      onNameChange?.(newName);
       setNameEdit(null);
     } catch {
       /* silent — keep editing open */

@@ -968,6 +968,7 @@ function Chat({
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
           initialSection={prefSection}
+          onNameChange={(name) => setUserName(name)}
           onDeleteAccount={async () => {
             await apiDeleteAccount();
             localStorage.removeItem("token");
