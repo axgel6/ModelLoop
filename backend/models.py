@@ -31,7 +31,7 @@ class User(Base):
 
     id:            Mapped[uuid.UUID]      = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
     email:         Mapped[str]            = mapped_column(String, unique=True, nullable=False)
-    full_name:     Mapped[Optional[str]]  = mapped_column(String(120), nullable=True)
+    full_name:     Mapped[Optional[str]]  = mapped_column(String(120), nullable=False)
     password_hash: Mapped[str]            = mapped_column(Text, nullable=False)
     role:          Mapped[str]            = mapped_column(String(10), nullable=False, server_default="free")
     is_active:     Mapped[bool]           = mapped_column(Boolean, nullable=False, server_default="true")

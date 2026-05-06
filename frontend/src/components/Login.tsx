@@ -56,11 +56,16 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
       return;
     }
 
+    if (!isLogin && !fullName.trim()) {
+      setError("Name is required.");
+      return;
+    }
+
     setLoading(true);
     try {
       const { token, refresh_token } = isLogin
         ? await apiLogin(email.trim(), password)
-        : await apiRegister(email.trim(), password, fullName.trim() || undefined);
+        : await apiRegister(email.trim(), password, fullName.trim());
 
       localStorage.setItem("token", token);
       localStorage.setItem("refresh_token", refresh_token);
@@ -107,7 +112,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
           <div className="login-form">
             {!isLogin && (
               <div className="login-field">
-                <label htmlFor="fullName">Full Name <span className="login-field-optional">(optional)</span></label>
+                <label htmlFor="fullName">Name</label>
                 <input
                   id="fullName"
                   type="text"
@@ -117,6 +122,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
                   onKeyDown={handleKeyDown}
                   disabled={loading}
                   autoComplete="name"
+                  required
                 />
               </div>
             )}
