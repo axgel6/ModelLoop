@@ -20,7 +20,7 @@ DEFINITION = {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "The search query, e.g. 'latest Python 3.13 release notes'",
+                    "description": "The search query, e.g. 'latest Python 3.14 release notes'",
                 },
                 "max_results": {
                     "type": "integer",

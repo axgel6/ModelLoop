@@ -351,7 +351,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     setNameSaving(true);
     try {
       await apiUpdateProfile(trimmed || (userInfo?.email ?? ""));
-      setUserInfo((prev) => prev ? { ...prev, full_name: trimmed || null } : prev);
+      setUserInfo((prev) =>
+        prev ? { ...prev, full_name: trimmed || null } : prev,
+      );
       setNameEdit(null);
     } catch {
       /* silent — keep editing open */
@@ -574,9 +576,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             </div>
             {userInfo && (
               <div className="pref-account-info">
-                <div className="pref-account-display-name">
-                  {userInfo.full_name ?? userInfo.email}
-                </div>
                 <div className="pref-account-email">{userInfo.email}</div>
                 <span className={`pref-role-badge pref-role-${userInfo.role}`}>
                   {userInfo.role.charAt(0).toUpperCase() +

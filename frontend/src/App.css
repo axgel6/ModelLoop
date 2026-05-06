@@ -2318,6 +2318,8 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
 }
 
 .pref-name-input {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px !important;
   flex: 1;
   background: rgba(60, 56, 54, 0.6);
   border: 1px solid rgba(146, 131, 116, 0.4);
@@ -2335,41 +2337,15 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
 .pref-name-edit-btn,
 .pref-name-save-btn,
 .pref-name-cancel-btn {
+  background-color: #fabd2f;
   font-size: 0.8rem;
   padding: 5px 12px;
-  border-radius: 6px;
+  border-radius: 15px;
   border: 1px solid rgba(146, 131, 116, 0.35);
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
-}
-
-.pref-name-edit-btn {
-  background: rgba(80, 73, 69, 0.5);
-  color: #bdae93;
-}
-
-.pref-name-edit-btn:hover {
-  background: rgba(80, 73, 69, 0.8);
-}
-
-.pref-name-save-btn {
-  background: rgba(69, 133, 136, 0.2);
-  color: #8ec07c;
-  border-color: rgba(69, 133, 136, 0.4);
-}
-
-.pref-name-save-btn:hover:not(:disabled) {
-  background: rgba(69, 133, 136, 0.35);
-}
-
-.pref-name-cancel-btn {
-  background: none;
-  color: #928374;
-}
-
-.pref-name-cancel-btn:hover {
-  color: #a89984;
+  color: #000000 !important;
 }
 
 .login-field-optional {
@@ -3813,14 +3789,7 @@ html[data-theme="ocean"] .pref-name-input:focus {
   border-color: rgba(137, 180, 250, 0.5);
 }
 
-html[data-theme="ocean"] .pref-name-edit-btn {
-  background: rgba(49, 55, 80, 0.6);
-  border-color: rgba(112, 122, 140, 0.3);
-  color: #a6b0d8;
-}
-
 html[data-theme="ocean"] .pref-name-save-btn {
-  background: rgba(166, 218, 149, 0.12);
   color: #a6da95;
   border-color: rgba(166, 218, 149, 0.3);
 }
