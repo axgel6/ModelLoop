@@ -110,7 +110,6 @@ function Chat({
   const inputFocusRef = useRef<(() => void) | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
 
@@ -124,7 +123,6 @@ function Chat({
     apiGetMe()
       .then((me) => {
         setUserRole(me.role);
-        setUserEmail(me.email);
         setUserName(me.full_name);
       })
       .catch(() => {});
@@ -641,7 +639,9 @@ function Chat({
                   {userName ?? ""}
                 </span>
                 {userRole && (
-                  <span className={`sidebar-role-badge sidebar-role-${userRole}`}>
+                  <span
+                    className={`sidebar-role-badge sidebar-role-${userRole}`}
+                  >
                     {userRole}
                   </span>
                 )}
