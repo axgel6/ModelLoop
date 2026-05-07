@@ -21,7 +21,7 @@ from feature_flags import is_feature_enabled
 from config import (
     DEFAULT_MODEL, IS_PRODUCTION, NGROK_HEADERS, OLLAMA_BASE_URL,
     PRO_SYSTEM_PROMPT, FREE_SYSTEM_PROMPT, PROPRIETARY_INSTRUCTIONS,
-    THINKING_MODELS, API_KEY,
+    THINKING_MODELS, TOOL_CAPABLE_MODELS, API_KEY,
     fix_math_delimiters,
 )
 from actions import execute_tool, get_active_tools
@@ -52,6 +52,9 @@ _QUESTION_WORDS = {"what", "who", "where", "when", "why", "how", "which", "is", 
 
 def _is_thinking_model(model: str) -> bool:
     return any(p in model.lower() for p in THINKING_MODELS)
+
+def _supports_tools(model: str) -> bool:
+    return any(p in model.lower() for p in TOOL_CAPABLE_MODELS)
 
 
 def _resolve_search_query(prompt: str, history) -> str:
@@ -115,7 +118,7 @@ async def _ollama_stream(messages: list, model: str, temperature: float, tools: 
         "keep_alive": -1,
         "options":    {"temperature": temperature},
     }
-    if tools and not _is_thinking_model(model):
+    if tools and not _is_thinking_model(model) and _supports_tools(model):
         payload["tools"] = tools
     if _is_thinking_model(model):
         payload["think"] = True
@@ -384,7 +387,6 @@ async def chat_stream(
                     yield f"data: {json.dumps({'type': 'image_context', 'context': image_context})}\n\n"
                 if _search_ctx:
                     yield f"data: {json.dumps({'type': 'search_context', 'context': _search_ctx})}\n\n"
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
                 async with AsyncSessionLocal() as write_db:
                     write_db.add(Message(
@@ -402,6 +404,8 @@ async def chat_stream(
                         chat_row.updated_at = datetime.now(timezone.utc)
 
                     await write_db.commit()
+
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
             else:
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
 

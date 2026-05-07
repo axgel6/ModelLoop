@@ -1651,6 +1651,12 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
   box-shadow: none;
 }
 
+.chat-topbar .topbar-icon-btn:hover {
+  color: #928374;
+  background: none;
+  box-shadow: none;
+}
+
 .chat-topbar .topbar-icon-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
@@ -2730,9 +2736,11 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   font-weight: 600;
   color: #fbf1c7;
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .pref-item-desc {
@@ -2741,6 +2749,28 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pref-model-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pref-model-badge--web {
+  background: rgba(131, 165, 152, 0.18);
+  color: #83a598;
+  border: 1px solid rgba(131, 165, 152, 0.35);
+}
+
+.pref-model-badge--thinking {
+  background: rgba(211, 134, 155, 0.18);
+  color: #d3869b;
+  border: 1px solid rgba(211, 134, 155, 0.35);
 }
 
 .pref-item-check {
@@ -3546,6 +3576,18 @@ html[data-theme="ocean"] .pref-item-name {
 
 html[data-theme="ocean"] .pref-item-desc {
   color: #707a8c;
+}
+
+html[data-theme="ocean"] .pref-model-badge--web {
+  background: rgba(57, 186, 230, 0.12);
+  color: #39bae6;
+  border-color: rgba(57, 186, 230, 0.3);
+}
+
+html[data-theme="ocean"] .pref-model-badge--thinking {
+  background: rgba(207, 142, 213, 0.12);
+  color: #cf8ed5;
+  border-color: rgba(207, 142, 213, 0.3);
 }
 
 html[data-theme="ocean"] .pref-item-check {

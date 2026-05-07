@@ -386,14 +386,20 @@ export async function apiGetMessages(chatId: string): Promise<Message[]> {
 // ----- Models + Health -----
 
 // Fetch the list of available Ollama models from the backend
-export async function apiGetModels(): Promise<string[]> {
+export async function apiGetModels(): Promise<{
+  models: string[];
+  capabilities: Record<string, string[]>;
+}> {
   const res = await fetch(`${API_URL}/api/v1/models`, {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to fetch models");
   const data = await res.json();
-  const all: string[] = data.models ?? [];
-  return all.filter((m) => !m.startsWith("nomic-embed-text"));
+  const all: string[] = (data.models ?? []).filter(
+    (m: string) => !m.startsWith("nomic-embed-text"),
+  );
+  const capabilities: Record<string, string[]> = data.capabilities ?? {};
+  return { models: all, capabilities };
 }
 
 // Ping the health endpoint, returns false instead of throwing on network errors

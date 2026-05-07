@@ -82,6 +82,7 @@ function Chat({
 
   const {
     models,
+    modelCapabilities,
     selectedModel,
     setSelectedModel,
     isConnected,
@@ -207,13 +208,13 @@ function Chat({
     }
   };
 
-  const ensureChatId = async (): Promise<string | null> => {
+  const ensureChatId = async (firstPrompt?: string): Promise<string | null> => {
     if (activeChatIdRef.current) return activeChatIdRef.current;
     try {
       const chat = await apiCreateChat();
       activeChatIdRef.current = chat.id;
       justCreatedChatRef.current = true;
-      onChatCreated(chat.id, chat);
+      onChatCreated(chat.id, firstPrompt ? { ...chat, title: firstPrompt.slice(0, 60) } : chat);
       void onChatsChanged();
       return chat.id;
     } catch {
@@ -294,7 +295,7 @@ function Chat({
 
     let chatId: string | null = null;
     if (!isGuest) {
-      chatId = await ensureChatId();
+      chatId = await ensureChatId(userMessage);
       if (!chatId) {
         setMessages((prev) => prev.slice(0, -2));
         setIsThinking(false);
@@ -985,6 +986,7 @@ function Chat({
           temperature={temperature}
           setTemperature={setTemperature}
           models={models}
+          modelCapabilities={modelCapabilities}
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
           initialSection={prefSection}

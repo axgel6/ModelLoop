@@ -7,6 +7,7 @@ const DEFAULT_SYSTEM_PROMPT =
 
 export function useChatSettings() {
   const [models, setModels] = useState<string[]>([]);
+  const [modelCapabilities, setModelCapabilities] = useState<Record<string, string[]>>({});
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_MODEL);
   const [isConnected, setIsConnected] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
@@ -18,8 +19,9 @@ export function useChatSettings() {
   useEffect(() => {
     const tryLoadModels = async () => {
       try {
-        const availableModels = await apiGetModels();
+        const { models: availableModels, capabilities } = await apiGetModels();
         setModels(availableModels);
+        setModelCapabilities(capabilities);
         setIsConnected(true);
         modelsLoadedRef.current = true;
         if (availableModels.length > 0) {
@@ -67,6 +69,7 @@ export function useChatSettings() {
 
   return {
     models,
+    modelCapabilities,
     selectedModel,
     setSelectedModel,
     isConnected,

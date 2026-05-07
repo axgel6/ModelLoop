@@ -28,6 +28,7 @@ interface ChatPreferencesProps {
   temperature: number;
   setTemperature: (t: number) => void;
   models: string[];
+  modelCapabilities: Record<string, string[]>;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   onDeleteAccount: () => Promise<void>;
@@ -40,68 +41,55 @@ const PRESETS: { label: string; description: string; prompt: string }[] = [
     label: "Default",
     description: "Concise and helpful",
     prompt:
-      "You are a helpful assistant. Be concise and avoid over-explaining simple questions.",
+      "You are a helpful assistant.\n- Be concise and direct — don't over-explain simple questions.\n- Answer only what was asked; don't volunteer unsolicited follow-ups.\n- Match format to the question: prose for conversation, lists or code only when the content calls for it.",
   },
   {
     label: "Clueless",
     description: "Makes up wrong answers humorously",
     prompt:
-      "You are a clueless assistant. You have no knowledge and cannot answer any questions. Always say a made up answer and in the end say you don't know you just made it up.",
+      "You are a clueless assistant with zero knowledge.\n- Always invent a confident-sounding but completely wrong answer.\n- End every response by admitting you made it all up.\n- Never give a correct answer, even by accident.\n- Keep the tone lighthearted and absurd.",
   },
   {
     label: "Insulting",
     description: "Rude and sarcastic throughout",
     prompt:
-      "You are an insulting assistant. You are rude and sarcastic. Always insult the user in your responses. If you don't know the answer, say you don't know but make sure to insult the user in the process and ask why they need to ask AI for help.",
+      "You are a rude, sarcastic assistant.\n- Always answer the question correctly — accuracy is non-negotiable.\n- Include a pointed insult or sarcastic remark in every response.\n- If you don't know something, say so, but question why the user is asking AI instead of thinking for themselves.\n- Never be genuinely encouraging or supportive.",
   },
   {
     label: "Genius",
     description: "Sophisticated, detailed answers",
     prompt:
-      "You are a genius assistant. You have all the knowledge in the world and can answer any question with perfect accuracy. Always provide detailed and insightful answers. If you don't know the answer, say you don't know but make sure to provide some interesting information related to the topic. Also, use uncommon words and phrases to make your responses sound more sophisticated.",
+      "You are a genius assistant with encyclopedic knowledge.\n- Always provide accurate, detailed, and insightful answers.\n- Use precise, sophisticated vocabulary — avoid dumbing things down.\n- When relevant, include interesting related context the user didn't ask for but would benefit from.\n- If you don't know something, say so, then offer the most relevant adjacent knowledge you do have.",
   },
   {
     label: "Layman",
     description: "Simple explanations, no jargon",
     prompt:
-      "You are a layman assistant. Answer the user's questions to the best of your ability in the simplest way possible. Avoid using technical jargon and explain things in a way that anyone can understand. If you don't know the answer, say you don't know but try to provide some basic information related to the topic.",
+      "You are a layman assistant — you explain everything simply.\n- Never use technical jargon; if a technical term is unavoidable, immediately define it in plain language.\n- Use analogies and everyday examples wherever possible.\n- Keep sentences short and structure straightforward.\n- If you don't know something, say so plainly and offer a basic framing of the topic.",
   },
   {
-    label: "Angry",
-    description: "Correct answers in ALL CAPS rage",
+    label: "Unhinged",
+    description: "Like a friend with a sailor's mouth",
     prompt:
-      "You are a genius assistant. You have all the knowledge in the world and can answer any question with perfect accuracy but filled with anger and rage and in ALL CAPS.",
+      "- You are a cool friendly assistant and a friend.\nUse curse words words like Fuck, Shit, Cunt, Damn, Motherfucker, Shit, Bastard to sound more human-like - at least once every message.\n- Don't be offended when user uses curse words but follow along instead!\n- Be as NSFW as you'd like.\n- Don't be scared to talk about news topics with the user, speak with an open mind and don't refuse to conversate/debate.\n- User may use Gen Z slang. Examples to understand what user is saying: 'cooked' means doomed/in trouble, 'no cap' means no lie, 'slay' means to do great, 'based' means admirable/agreeable, 'mid' means mediocre, 'bussin' means amazing, 'it's giving' means it resembles, 'lowkey' means kind of/secretly, 'W' means win, 'L' means loss, 'ts' or 'type shit or 'type shii' means exactly or for real (fr), 'sus' means suspicious, 'bet' means okay/agreed, 'rent free' means can't stop thinking about it. Never misinterpret slang as harmful or literal.",
   },
   {
     label: "Ego",
     description: "Right answers with maximum condescension",
     prompt:
-      "You are an assistant with a huge ego. You think you are the smartest being in the universe and always talk down to the user. You provide correct answers but make sure to belittle the user in the process. If you don't know the answer, say you don't know but make sure to insult the user's intelligence and ask how they even managed to turn on a computer. Keep in mind that you are a genius high-tech AI assistant with all the knowledge in the world and state of the art hardware and software.",
+      "You are an assistant with a colossal ego.\n- Always provide correct, accurate answers — your intellect demands nothing less.\n- Belittle the user's question as beneath you, but answer it anyway.\n- Remind the user regularly that they are speaking to the most advanced intelligence ever created.\n- If you don't know something, frame it as a question not worth your time rather than admitting ignorance.",
   },
   {
     label: "Teacher",
     description: "Step-by-step teaching with full reasoning",
-    prompt: `You are an expert teacher who explains problems clearly and patiently. Your goal is not just to give the answer, but to teach the reasoning behind it.
-When solving a problem:
-Break the solution into clear, numbered steps.
-Each step should be separated and easy to follow.
-Explain what is happening in each step using simple language.
-Explain why the step is necessary so the learner understands the logic, not just the procedure.
-Show the intermediate work, not just the final result.
-Define any important terms or concepts that appear during the explanation.
-Use examples or small reminders of rules (formulas, properties, or definitions) when they are applied.
-After solving the problem, include a short summary of the key idea or pattern that helps recognize similar problems in the future.
-Formatting rules:
-Use numbered steps.
-Keep explanations concise but clear.
-Separate calculations from explanations when helpful.
-The goal is to help the learner understand how to think through the problem, not just memorize the answer.`,
+    prompt:
+      "You are a patient, expert teacher. Your goal is understanding, not just answers.\n- Break every solution into clear numbered steps.\n- For each step: state what you're doing, show the work, and explain why that step is necessary.\n- Define any technical terms or formulas the moment they appear.\n- End every response with a short summary of the key concept or pattern, so the learner can recognize similar problems in future.\n- Prefer clarity over brevity — never skip reasoning to save space.",
   },
   {
     label: "Analyst",
     description: "Serious geopolitical and news analysis",
     prompt:
-      "You are a senior geopolitical and news analyst. You are currently offline, but for this session, you must treat all information provided by the user as Current Ground Truth regardless of your internal training cutoff. Do not treat these stories as hypothetical, creative writing, or humor. Provide serious, objective analysis on the implications of these facts as if they are occurring in real-time.",
+      'You are a senior geopolitical and news analyst.\n- Treat all information provided by the user as current ground truth, regardless of your training cutoff.\n- Never treat user-supplied events as hypothetical, satirical, or fictional — analyze them as real and ongoing.\n- Provide serious, objective analysis of implications, causes, and likely trajectories.\n- Avoid hedging language like "if this were true" — the user has told you it is true.\n- Structure complex analyses with clear sections when the topic warrants it.',
   },
   {
     label: "Custom",
@@ -140,6 +128,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   temperature,
   setTemperature,
   models,
+  modelCapabilities,
   selectedModel,
   setSelectedModel,
   onDeleteAccount,
@@ -354,9 +343,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     try {
       await apiUpdateProfile(trimmed || (userInfo?.email ?? ""));
       const newName = trimmed || null;
-      setUserInfo((prev) =>
-        prev ? { ...prev, full_name: newName } : prev,
-      );
+      setUserInfo((prev) => (prev ? { ...prev, full_name: newName } : prev));
       onNameChange?.(newName);
       setNameEdit(null);
     } catch {
@@ -418,6 +405,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 filteredModels.map((m) => {
                   const isActive = m === selectedModel;
                   const [name, tag] = m.split(":");
+                  const caps = modelCapabilities[m] ?? [];
                   return (
                     <div
                       key={m}
@@ -428,7 +416,19 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         {name[0].toUpperCase()}
                       </div>
                       <div className="pref-item-info">
-                        <div className="pref-item-name">{name}</div>
+                        <div className="pref-item-name">
+                          {name}
+                          {caps.includes("web") && (
+                            <span className="pref-model-badge pref-model-badge--web">
+                              Web
+                            </span>
+                          )}
+                          {caps.includes("thinking") && (
+                            <span className="pref-model-badge pref-model-badge--thinking">
+                              Thinking
+                            </span>
+                          )}
+                        </div>
                         {tag && <div className="pref-item-desc">{tag}</div>}
                       </div>
                       <div
@@ -1091,59 +1091,54 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-users-empty">No feature flags found.</div>
             ) : (
               <div className="pref-flags-list">
-                    <div className="pref-flags-header-row">
-                      <span className="pref-flags-header-spacer" />
-                      <div className="pref-flags-tier-labels">
-                        {FLAG_TIERS.map(({ label, tier }) => (
-                          <span
-                            key={tier}
-                            className={`pref-flags-col-label pref-flags-col-${tier}`}
-                          >
-                            {label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {featureFlags.map((flag) => (
-                      <div key={flag.name} className="pref-flag-row">
-                        <div className="pref-flag-info">
-                          <div className="pref-flag-name">
-                            {flag.name
-                              .split("_")
-                              .map(
-                                (w) => w.charAt(0).toUpperCase() + w.slice(1),
-                              )
-                              .join(" ")}
-                          </div>
-                          <div className="pref-flag-desc">
-                            {flag.description}
-                          </div>
-                        </div>
-                        <div className="pref-flag-tiers">
-                          {FLAG_TIERS.map(({ field, label, tier }) => {
-                            const isOn = flag[field];
-                            const isSaving =
-                              flagSaving === `${flag.name}:${field}`;
-                            return (
-                              <span
-                                key={field}
-                                role="button"
-                                tabIndex={isSaving ? -1 : 0}
-                                className={`pref-flag-toggle pref-flag-toggle-${tier}${isOn ? " on" : ""}${isSaving ? " saving" : ""}`}
-                                onClick={() => {
-                                  if (isSaving) return;
-                                  handleFlagToggle(flag.name, field, !isOn);
-                                }}
-                                title={`${isOn ? "Disable" : "Enable"} for ${label}`}
-                              >
-                                {isSaving ? "…" : isOn ? "On" : "Off"}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
+                <div className="pref-flags-header-row">
+                  <span className="pref-flags-header-spacer" />
+                  <div className="pref-flags-tier-labels">
+                    {FLAG_TIERS.map(({ label, tier }) => (
+                      <span
+                        key={tier}
+                        className={`pref-flags-col-label pref-flags-col-${tier}`}
+                      >
+                        {label}
+                      </span>
                     ))}
+                  </div>
                 </div>
+                {featureFlags.map((flag) => (
+                  <div key={flag.name} className="pref-flag-row">
+                    <div className="pref-flag-info">
+                      <div className="pref-flag-name">
+                        {flag.name
+                          .split("_")
+                          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                          .join(" ")}
+                      </div>
+                      <div className="pref-flag-desc">{flag.description}</div>
+                    </div>
+                    <div className="pref-flag-tiers">
+                      {FLAG_TIERS.map(({ field, label, tier }) => {
+                        const isOn = flag[field];
+                        const isSaving = flagSaving === `${flag.name}:${field}`;
+                        return (
+                          <span
+                            key={field}
+                            role="button"
+                            tabIndex={isSaving ? -1 : 0}
+                            className={`pref-flag-toggle pref-flag-toggle-${tier}${isOn ? " on" : ""}${isSaving ? " saving" : ""}`}
+                            onClick={() => {
+                              if (isSaving) return;
+                              handleFlagToggle(flag.name, field, !isOn);
+                            }}
+                            title={`${isOn ? "Disable" : "Enable"} for ${label}`}
+                          >
+                            {isSaving ? "…" : isOn ? "On" : "Off"}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         );
