@@ -20,7 +20,7 @@ from rag import retrieve_rag_context
 from feature_flags import is_feature_enabled
 from config import (
     DEFAULT_MODEL, IS_PRODUCTION, NGROK_HEADERS, OLLAMA_BASE_URL,
-    PRO_SYSTEM_PROMPT, FREE_SYSTEM_PROMPT,
+    PRO_SYSTEM_PROMPT, FREE_SYSTEM_PROMPT, PROPRIETARY_INSTRUCTIONS,
     THINKING_MODELS, API_KEY,
     fix_math_delimiters,
 )
@@ -220,6 +220,11 @@ async def chat_stream(
             + rag_context
             + "\n</rag_context>"
         )
+
+    if user.full_name:
+        effective_system = f"The user's name is {user.full_name}.\n\n" + effective_system
+    if PROPRIETARY_INSTRUCTIONS:
+        effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 
     messages = [{"role": "system", "content": effective_system}]
     for m in db_history:

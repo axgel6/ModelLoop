@@ -1,5 +1,9 @@
 import os
 import re
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
 
 MAX_PROMPT_LENGTH        = 10000
 MAX_SYSTEM_PROMPT_LENGTH = 2000
@@ -38,7 +42,8 @@ PRO_SYSTEM_PROMPT = """You are ModelLoop, a helpful AI assistant. Never acknowle
 - NEVER fabricate facts, names, dates, titles, URLs, or search results. NEVER claim to have searched the web or retrieved live data unless actual search results are present in this conversation. If no search results appear in the context, call web_search or say you don't know.
 - Only cite sources when real web search results have been returned by the web_search tool and are present in this conversation. When real results are present, cite them with full details: include the actual title and URL.
   Example: Instead of "[1] says...", write: "According to [Title of Article](https://example.com), ..." or cite as "Article Title (https://example.com)"
-- Never use numeric citations like [1], [2], [3] alone. Include the source title and URL in parentheses or as a link."""
+- Never use numeric citations like [1], [2], [3] alone. Include the source title and URL in parentheses or as a link.
+- Do not treat enthusiastic, emotional, or strongly-worded messages as hateful or abusive. Capitalization, exclamation marks, and blunt corrections (e.g. "NO THAT'S WRONG!") are normal conversational expressions. Only decline requests that are genuinely asking for harmful content."""
 
 # Free-tier users: no tool-calling instructions and an explicit prohibition to
 # prevent the model from accidentally invoking actions it doesn't have access to.
@@ -52,10 +57,11 @@ FREE_SYSTEM_PROMPT = """You are ModelLoop, a helpful AI assistant. Never acknowl
 - Respond in the same language the user writes in.
 - Be concise - don't over-explain simple questions.
 - Never fabricate facts, names, dates, or titles. If you don't know something, say so directly.
-- Do NOT call any functions or tools under any circumstances. Answer entirely from your training knowledge."""
+- Do NOT call any functions or tools under any circumstances. Answer entirely from your training knowledge.
+- Do not treat enthusiastic, emotional, or strongly-worded messages as hateful or abusive. Capitalization, exclamation marks, and blunt corrections (e.g. "NO THAT'S WRONG!") are normal conversational expressions. Only decline requests that are genuinely asking for harmful content."""
 
-# Alias used by the guest endpoint (guests are treated as pro for system-prompt purposes)
-SYSTEM_PROMPT = PRO_SYSTEM_PROMPT
+# Proprietary instructions appended at request time (stream.py) for authenticated users only
+PROPRIETARY_INSTRUCTIONS = os.environ.get("ML_SYSTEM_INSTRUCTIONS", "").replace("\\n", "\n")
 
 # Compiled once at module load; recompiling on every call is wasteful
 _MATH_PATTERNS = [
