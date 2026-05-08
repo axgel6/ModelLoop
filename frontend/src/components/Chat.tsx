@@ -456,6 +456,11 @@ function Chat({
       setActiveTool(null);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") return;
+      // withRefresh already fires handleLogout on 401 — strip the pending assistant bubble and bail
+      if (error instanceof Error && error.message === "Unauthorized access") {
+        setMessages((prev) => prev.slice(0, -2));
+        return;
+      }
       const message =
         error instanceof Error
           ? error.message
