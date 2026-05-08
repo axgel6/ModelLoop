@@ -484,7 +484,7 @@ export async function apiGuestChatStream(
 ): Promise<Response> {
   const res = await fetch(`${API_URL}/api/v1/chat/guest/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+    headers: { "Content-Type": "application/json", ...(API_KEY ? { "X-API-Key": API_KEY } : {}) },
     body: JSON.stringify(payload),
     signal,
   });

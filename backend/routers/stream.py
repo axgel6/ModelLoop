@@ -436,7 +436,7 @@ async def guest_chat_stream(
     x_api_key: str = Header(None),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_api_key != API_KEY:
+    if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized access")
 
     prompt = body.prompt.strip()
