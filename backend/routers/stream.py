@@ -428,8 +428,8 @@ async def chat_stream(
 
 
 @router.post("/api/v1/chat/guest/stream")
-@limiter.limit("3/minute")
-@limiter.limit("30/day", error_message="Daily guest limit reached")
+@limiter.limit("5/minute")
+@limiter.limit("50/day", error_message="Daily guest limit reached")
 async def guest_chat_stream(
     request: Request,
     body: GuestChatRequest,

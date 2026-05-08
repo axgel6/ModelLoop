@@ -15,7 +15,7 @@ DEFAULT_FLAGS = [
     {
         "name": "photo_upload",
         "description": "Attach images to messages (analyzed by vision model)",
-        "guest_enabled": True,
+        "guest_enabled": False,
         "free_enabled": True,
         "pro_enabled": True,
         "admin_enabled": True,

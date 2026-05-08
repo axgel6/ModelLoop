@@ -497,7 +497,7 @@ export async function apiGuestChatStream(
       throw new Error(
         isDaily
           ? "Daily guest limit reached - log in or create an account to keep chatting."
-          : "Guest limit: 3 messages per minute - wait a moment, or log in for more.",
+          : "Guest limit: 5 messages per minute - wait a moment, or log in for more.",
       );
     }
     throw new Error(err.detail || "Failed to get response");

@@ -1370,11 +1370,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           const rows: { label: string; values: Record<string, string> }[] = [
             {
               label: "Messages / min",
-              values: { guest: "3", free: "10", pro: "30" },
+              values: { guest: "5", free: "10", pro: "30" },
             },
             {
               label: "Daily limit",
-              values: { guest: "30", free: "—", pro: "—" },
+              values: { guest: "50", free: "—", pro: "—" },
             },
             {
               label: "Chat history",
