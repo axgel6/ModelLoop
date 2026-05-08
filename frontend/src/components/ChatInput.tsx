@@ -11,16 +11,17 @@ const TOOLS_ITEMS = [
 
 const SLASH_COMMANDS = [
   { cmd: "/clear", desc: "Clear conversation" },
-  { cmd: "/code", desc: "Code mode (deepseek-r1)" },
-  { cmd: "/math", desc: "Math mode (deepseek-r1)" },
+  { cmd: "/search", desc: "Force web search for your query" },
+  { cmd: "/code", desc: "Code mode (deepseek-r1:7b)" },
+  { cmd: "/math", desc: "Math mode (deepseek-r1:7b)" },
   { cmd: "/ratelimit", desc: "Show rate limit info" },
   { cmd: "/help", desc: "Show commands" },
 ];
 
 export const MODEL_PRESETS = [
-  { label: "Fast", model: "llama3.2:latest" },
-  { label: "Pro", model: "llama3.1:latest" },
-  { label: "Thinking", model: "deepseek-r1:1.5b" },
+  { label: "Fast", model: "mistral:7b" },
+  { label: "Pro", model: "qwen2.5:7b" },
+  { label: "Thinking", model: "deepseek-r1:7b" },
 ] as const;
 
 export const DEFAULT_MODEL = MODEL_PRESETS[0].model;

@@ -515,6 +515,7 @@ export async function apiChatStream(
     system_prompt?: string;
     temperature?: number;
     images?: string[];
+    force_search?: boolean;
   },
   signal?: AbortSignal,
 ): Promise<Response> {

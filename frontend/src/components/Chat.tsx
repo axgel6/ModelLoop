@@ -227,6 +227,7 @@ function Chat({
     prompt: string,
     historyOverride?: Message[],
     images?: string[],
+    options?: { forceSearch?: boolean },
   ) => {
     const rawInput = prompt.trim();
     if (!rawInput || loading) return;
@@ -236,8 +237,18 @@ function Chat({
       onChatCreated("");
       return;
     }
+    if (rawInput.startsWith("/search ")) {
+      const query = rawInput.slice("/search ".length).trim();
+      if (!query) return;
+      void handleAsk(query, undefined, undefined, { forceSearch: true });
+      return;
+    }
+    if (rawInput === "/search") {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Usage: `/search <query>` — forces a web search regardless of the query type." }]);
+      return;
+    }
     if (rawInput === "/code") {
-      setSelectedModel("deepseek-r1:1.5b");
+      setSelectedModel("deepseek-r1:7b");
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "Switched to code mode." },
@@ -248,7 +259,7 @@ function Chat({
       return;
     }
     if (rawInput === "/math") {
-      setSelectedModel("deepseek-r1:1.5b");
+      setSelectedModel("deepseek-r1:7b");
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "Switched to math mode." },
@@ -271,7 +282,7 @@ function Chat({
         {
           role: "assistant",
           content:
-            "Commands: /clear, /code, /math, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
+            "Commands: /clear, /search <query>, /code, /math, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
         },
       ]);
       return;
@@ -328,6 +339,7 @@ function Chat({
               system_prompt: withMandatoryPromptRules(systemPrompt),
               temperature,
               images,
+              force_search: options?.forceSearch,
             },
             ctrl.signal,
           );

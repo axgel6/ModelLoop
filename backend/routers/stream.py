@@ -28,6 +28,7 @@ from actions import execute_tool, get_active_tools
 from actions.web_search import (
     async_execute as _run_web_search_async,
     should_activate as _web_search_should_activate,
+    accept_language_to_region as _accept_language_to_region,
 )
 from auth import decode_token_role
 
@@ -180,11 +181,13 @@ async def chat_stream(
     if images and not photo_enabled:
         raise HTTPException(status_code=403, detail="Image upload is not available on your plan")
 
+    search_region = _accept_language_to_region(request.headers.get("accept-language", ""))
+
     if actions_enabled:
         active_tools = get_active_tools(prompt)
         _search_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
-        _run_search = _web_search_should_activate(prompt, _search_words)
-        proactive_search_enabled = _run_search and bool(active_tools)
+        _run_search = body.force_search or (_web_search_should_activate(prompt, _search_words) and bool(active_tools))
+        proactive_search_enabled = bool(_run_search)
     else:
         active_tools = []
         proactive_search_enabled = False
@@ -197,7 +200,7 @@ async def chat_stream(
             return None
         try:
             return json.loads(await _run_web_search_async(
-                {"query": _resolve_search_query(prompt, db_history), "max_results": 8}
+                {"query": _resolve_search_query(prompt, db_history), "max_results": 8, "_region": search_region}
             ))
         except Exception as _e:
             logger.warning("proactive_web_search_failed error=%s", str(_e))
@@ -226,7 +229,7 @@ async def chat_stream(
 
     if user.full_name:
         effective_system = f"The user's name is {user.full_name}.\n\n" + effective_system
-    if PROPRIETARY_INSTRUCTIONS:
+    if PROPRIETARY_INSTRUCTIONS and not _is_thinking_model(model):
         effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 
     messages = [{"role": "system", "content": effective_system}]
@@ -355,6 +358,8 @@ async def chat_stream(
                         except (json.JSONDecodeError, ValueError):
                             tool_args = {}
                     yield f"data: {json.dumps({'type': 'tool_use', 'tool': tool_name})}\n\n"
+                    if tool_name == "web_search":
+                        tool_args["_region"] = search_region
                     try:
                         tool_result = await execute_tool(tool_name, tool_args)
                     except Exception:
@@ -372,8 +377,9 @@ async def chat_stream(
                         except Exception:
                             pass
 
-            # Build combined search context: proactive results + any reactive tool results
-            _all_search = ([_search_block] if _search_block else []) + reactive_search_blocks
+            # Build combined search context: proactive results + any reactive tool results.
+            # dict.fromkeys preserves insertion order while dropping identical duplicate blocks.
+            _all_search = list(dict.fromkeys(([_search_block] if _search_block else []) + reactive_search_blocks))
             _search_ctx = "\n\n---\n\n".join(_all_search) if _all_search else None
 
             # If all 5 rounds were tool calls (loop exhausted without break), round_content
@@ -444,8 +450,9 @@ async def guest_chat_stream(
     if images and not photo_enabled:
         raise HTTPException(status_code=403, detail="Image upload is not available")
 
-    _guest_search_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
-    _guest_run_search   = _web_search_should_activate(prompt, _guest_search_words) if actions_enabled else False
+    _guest_search_region = _accept_language_to_region(request.headers.get("accept-language", ""))
+    _guest_search_words  = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
+    _guest_run_search    = _web_search_should_activate(prompt, _guest_search_words) if actions_enabled else False
 
     async def _guest_image_description():
         return await _describe_images(images) if images else ""
@@ -455,7 +462,7 @@ async def guest_chat_stream(
             return None
         try:
             return json.loads(await _run_web_search_async(
-                {"query": _resolve_search_query(prompt, body.messages), "max_results": 8}
+                {"query": _resolve_search_query(prompt, body.messages), "max_results": 8, "_region": _guest_search_region}
             ))
         except Exception as _e:
             logger.warning("guest_proactive_web_search_failed error=%s", str(_e))

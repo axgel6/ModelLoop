@@ -82,6 +82,51 @@ _COMMON_CAPS = frozenset({
 })
 
 
+_COUNTRY_TO_DDG = {
+    "us": "us-en", "gb": "uk-en", "au": "au-en", "ca": "ca-en",
+    "de": "de-de", "fr": "fr-fr", "es": "es-es", "it": "it-it",
+    "mx": "mx-es", "br": "br-pt", "pt": "pt-pt", "nl": "nl-nl",
+    "pl": "pl-pl", "ru": "ru-ru", "jp": "jp-jp", "kr": "kr-ko",
+    "cn": "cn-zh", "in": "in-en", "ar": "ar-es", "co": "co-es",
+    "cl": "cl-es", "pe": "pe-es",
+}
+
+_LANG_TO_DDG = {
+    "en": "us-en", "de": "de-de", "fr": "fr-fr", "it": "it-it",
+    "pt": "br-pt", "nl": "nl-nl", "pl": "pl-pl", "ru": "ru-ru",
+    "ja": "jp-jp", "ko": "kr-ko", "zh": "cn-zh",
+}
+
+
+def accept_language_to_region(header: str) -> str:
+    """Map an Accept-Language header to a DDG kl region string.
+
+    Two-pass: prefer tags with explicit country codes so that es-US and
+    es-419 (Latin American Spanish) correctly resolve to us-en rather than
+    es-es, then fall back to language-only defaults.
+    """
+    tags = [p.split(";")[0].strip().lower() for p in header.split(",") if p.strip()]
+
+    # First pass — explicit country codes
+    for tag in tags:
+        parts = tag.split("-")
+        lang, country = parts[0], parts[1] if len(parts) > 1 else None
+        if lang == "es" and country == "419":   # Latin American Spanish
+            return "us-en"
+        if country:
+            region = _COUNTRY_TO_DDG.get(country)
+            if region:
+                return region
+
+    # Second pass — language-only fallbacks
+    for tag in tags:
+        region = _LANG_TO_DDG.get(tag.split("-")[0])
+        if region:
+            return region
+
+    return "us-en"
+
+
 def _has_proper_noun(text: str) -> bool:
     """Returns True if text contains a proper noun (capitalised non-common word after the first)."""
     words = text.split()
@@ -99,6 +144,9 @@ _HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
+
+_DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
+_DDG_HTML_URL = "https://html.duckduckgo.com/html/"
 
 # Module-level persistent client — reuses TCP connections across requests.
 _async_client: Optional[httpx.AsyncClient] = None
@@ -151,7 +199,7 @@ def _get_sync_client() -> httpx.Client:
     return _sync_client
 
 
-class _DDGParser(HTMLParser):
+class _DDGLiteParser(HTMLParser):
     """Parses DDG Lite HTML into a list of {title, url, snippet} dicts."""
 
     def __init__(self, max_results: int) -> None:
@@ -195,10 +243,82 @@ class _DDGParser(HTMLParser):
             self._snippet.append(data)
 
 
+class _DDGHtmlParser(HTMLParser):
+    """Parses DDG HTML endpoint (html.duckduckgo.com/html/) as a fallback."""
+
+    def __init__(self, max_results: int) -> None:
+        super().__init__(convert_charrefs=True)
+        self._max = max_results
+        self.results: list = []
+        self._in_title = False
+        self._cur_url: Optional[str] = None
+        self._cur_title: list = []
+        self._cur_snippet: list = []
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        if len(self.results) >= self._max:
+            return
+        d = dict(attrs)
+        cls = d.get("class", "")
+        if tag == "a" and "result__a" in cls:
+            self._cur_url = d.get("href", "").strip()
+            self._in_title = True
+            self._cur_title = []
+        elif tag == "a" and "result__snippet" in cls:
+            self._in_snippet = True
+            self._cur_snippet = []
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a" and self._in_title:
+            self._in_title = False
+            title = "".join(self._cur_title).strip()
+            if self._cur_url and title:
+                self.results.append({"title": title, "url": self._cur_url, "snippet": ""})
+            self._cur_url = None
+            self._cur_title = []
+        elif tag == "a" and self._in_snippet:
+            self._in_snippet = False
+            snippet = re.sub(r"\s+", " ", "".join(self._cur_snippet)).strip()
+            if self.results:
+                self.results[-1]["snippet"] = snippet
+            self._cur_snippet = []
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self._cur_title.append(data)
+        if self._in_snippet:
+            self._cur_snippet.append(data)
+
+
 def _parse_results(html: str, max_results: int) -> list:
-    parser = _DDGParser(max_results)
+    parser = _DDGLiteParser(max_results)
     parser.feed(html)
     return parser.results
+
+
+def _parse_html_results(html: str, max_results: int) -> list:
+    parser = _DDGHtmlParser(max_results)
+    parser.feed(html)
+    return parser.results
+
+
+def _parse_search_args(arguments: dict) -> tuple[str, int, str, str]:
+    query = arguments.get("query", "").strip()
+    region = arguments.get("_region", "us-en")
+    try:
+        max_results = min(max(int(arguments.get("max_results") or 8), 1), 10)
+    except (TypeError, ValueError):
+        max_results = 8
+    cache_key = f"{query.lower()}:{max_results}:{region}"
+    return query, max_results, region, cache_key
+
+
+def _build_output(query: str, results: Optional[list]) -> str:
+    return json.dumps(
+        {"query": query, "results": results}
+        if results
+        else {"query": query, "results": [], "note": "No results found"}
+    )
 
 
 def should_activate(text: str, words: set) -> bool:
@@ -215,58 +335,52 @@ def should_activate(text: str, words: set) -> bool:
 
 
 async def async_execute(arguments: dict) -> str:
-    query = arguments.get("query", "").strip()
-    try:
-        max_results = min(max(int(arguments.get("max_results") or 8), 1), 10)
-    except (TypeError, ValueError):
-        max_results = 8
+    query, max_results, region, cache_key = _parse_search_args(arguments)
     if not query:
         return json.dumps({"error": "No query provided"})
-    cache_key = f"{query}:{max_results}"
     cached = _cache_get(cache_key)
     if cached:
         return cached
+    client = _get_async_client()
+    results = None
     try:
-        client = _get_async_client()
-        resp = await client.post("https://lite.duckduckgo.com/lite/", data={"q": query})
+        resp = await client.post(_DDG_LITE_URL, data={"q": query, "kl": region})
         resp.raise_for_status()
         results = _parse_results(resp.text, max_results)
-        out = json.dumps(
-            {"query": query, "results": results}
-            if results
-            else {"query": query, "results": [], "note": "No results found"}
-        )
-        if results:
-            _cache_set(cache_key, out)
-        return out
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    except Exception:
+        try:
+            resp = await client.post(_DDG_HTML_URL, data={"q": query, "kl": region})
+            resp.raise_for_status()
+            results = _parse_html_results(resp.text, max_results)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+    out = _build_output(query, results)
+    if results:
+        _cache_set(cache_key, out)
+    return out
 
 
 def execute(arguments: dict) -> str:
-    query = arguments.get("query", "").strip()
-    try:
-        max_results = min(max(int(arguments.get("max_results") or 8), 1), 10)
-    except (TypeError, ValueError):
-        max_results = 8
+    query, max_results, region, cache_key = _parse_search_args(arguments)
     if not query:
         return json.dumps({"error": "No query provided"})
-    cache_key = f"{query}:{max_results}"
     cached = _cache_get(cache_key)
     if cached:
         return cached
+    client = _get_sync_client()
+    results = None
     try:
-        client = _get_sync_client()
-        resp = client.post("https://lite.duckduckgo.com/lite/", data={"q": query})
+        resp = client.post(_DDG_LITE_URL, data={"q": query, "kl": region})
         resp.raise_for_status()
         results = _parse_results(resp.text, max_results)
-        out = json.dumps(
-            {"query": query, "results": results}
-            if results
-            else {"query": query, "results": [], "note": "No results found"}
-        )
-        if results:
-            _cache_set(cache_key, out)
-        return out
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    except Exception:
+        try:
+            resp = client.post(_DDG_HTML_URL, data={"q": query, "kl": region})
+            resp.raise_for_status()
+            results = _parse_html_results(resp.text, max_results)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+    out = _build_output(query, results)
+    if results:
+        _cache_set(cache_key, out)
+    return out

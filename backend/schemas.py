@@ -31,6 +31,7 @@ class ChatRequest(BaseModel):
     system_prompt: Optional[str]       = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
     temperature:   Optional[float]     = Field(default=0.7, ge=0.0, le=2.0)
     images:        Optional[list[str]] = Field(default=None, max_length=4)
+    force_search:  Optional[bool]      = Field(default=False)
 
 
 class GuestChatRequest(BaseModel):
