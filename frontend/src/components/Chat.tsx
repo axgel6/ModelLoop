@@ -291,7 +291,6 @@ function Chat({
     const userMessage = rawInput;
     const historyForGuest = isGuest ? (historyOverride ?? [...messages]) : null;
 
-    haptics.unlock();
     setLoading(true);
     setMessages((prev) => [
       ...prev,
@@ -481,7 +480,6 @@ function Chat({
         return next;
       });
     } finally {
-      haptics.lock();
       setIsThinking(false);
       setActiveTool(null);
       setLoading(false);
