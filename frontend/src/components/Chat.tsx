@@ -456,8 +456,10 @@ function Chat({
       setActiveTool(null);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") return;
-      // withRefresh already fires handleLogout on 401 — strip the pending assistant bubble and bail
-      if (error instanceof Error && error.message === "Unauthorized access") {
+      // withRefresh fires handleLogout on 401 for authenticated users — strip the bubble and bail
+      // For guests the API key mismatch also surfaces as "Unauthorized access" but no logout fires,
+      // so guests fall through to show the error message instead of silently clearing.
+      if (!isGuest && error instanceof Error && error.message === "Unauthorized access") {
         setMessages((prev) => prev.slice(0, -2));
         return;
       }
