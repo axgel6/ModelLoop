@@ -251,6 +251,7 @@ class _DDGHtmlParser(HTMLParser):
         self._max = max_results
         self.results: list = []
         self._in_title = False
+        self._in_snippet = False
         self._cur_url: Optional[str] = None
         self._cur_title: list = []
         self._cur_snippet: list = []
