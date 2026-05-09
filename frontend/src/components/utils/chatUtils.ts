@@ -42,12 +42,42 @@ export function fmtTime(iso: string | undefined): string | null {
   });
 }
 
-export const SUGGESTIONS = [
+export const SUGGESTION_POOL = [
   "Explain quantum computing simply",
   "Write a Python script to rename files",
   "Break down a math problem for me",
   "Summarize a topic I choose",
+  "Help me write a cover letter",
+  "Debug this code snippet for me",
+  "Suggest a workout plan for beginners",
+  "Explain the difference between AI and ML",
+  "Write a short story about space exploration",
+  "Help me plan a weekend trip",
+  "Translate a phrase to Spanish",
+  "Give me 5 ideas for a side project",
+  "Explain how the internet works",
+  "Help me draft a professional email",
+  "What's the best way to learn a new skill?",
+  "Create a recipe with these ingredients",
+  "Explain a concept like I'm five",
+  "Write a SQL query for me",
+  "Help me brainstorm a business name",
+  "Summarize the latest trends in tech",
+  "Give me tips for better sleep",
+  "Help me outline an essay",
+  "Explain machine learning with examples",
+  "Write a poem about nature",
 ];
+
+export function pickSuggestions(n = 4): string[] {
+  const pool = [...SUGGESTION_POOL];
+  const picked: string[] = [];
+  while (picked.length < n && pool.length > 0) {
+    const i = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(i, 1)[0]);
+  }
+  return picked;
+}
 
 export const GREETINGS = [
   "The destination is up to you.",

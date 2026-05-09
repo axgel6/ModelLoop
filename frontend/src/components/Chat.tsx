@@ -35,7 +35,7 @@ import {
 } from "./chatReducer";
 import {
   formatDate,
-  SUGGESTIONS,
+  pickSuggestions,
   GREETINGS,
   withMandatoryPromptRules,
 } from "./utils/chatUtils";
@@ -185,6 +185,20 @@ function Chat({
     messagesContainerRef,
   } = useChatUI(messages, loading);
 
+  const [sidebarClosing, setSidebarClosing] = useState(false);
+
+  const closeSidebar = () => {
+    if (isMobileViewport) {
+      setSidebarOpen(false);
+      return;
+    }
+    setSidebarClosing(true);
+    setTimeout(() => {
+      setSidebarOpen(false);
+      setSidebarClosing(false);
+    }, 200);
+  };
+
   const inputFocusRef = useRef<(() => void) | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -223,6 +237,8 @@ function Chat({
     () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
     [],
   );
+
+  const chatSuggestions = useMemo(() => pickSuggestions(4), []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -698,14 +714,14 @@ function Chat({
 
       <div className="chat-layout">
         {/* ---- Sidebar ---- */}
-        {!isGuest && (sidebarOpen || isMobileViewport) && (
+        {!isGuest && (sidebarOpen || sidebarClosing || isMobileViewport) && (
           <div
             className={`sidebar-backdrop${sidebarOpen ? " open" : ""}`}
-            onClick={() => setSidebarOpen(false)}
+            onClick={closeSidebar}
           />
         )}
-        {!isGuest && (sidebarOpen || isMobileViewport) && (
-          <aside className={`chat-sidebar${sidebarOpen ? " open" : ""}`}>
+        {!isGuest && (sidebarOpen || sidebarClosing || isMobileViewport) && (
+          <aside className={`chat-sidebar${sidebarOpen ? " open" : ""}${sidebarClosing ? " closing" : ""}`}>
             <div className="sidebar-brand">
               <button
                 className="sidebar-brand-btn"
@@ -717,7 +733,7 @@ function Chat({
               <span className="sidebar-logo">ModelLoop</span>
               <button
                 className="sidebar-brand-btn"
-                onClick={() => setSidebarOpen(false)}
+                onClick={closeSidebar}
                 title="Close sidebar"
               >
                 <svg
@@ -780,7 +796,7 @@ function Chat({
                         deleting={deletingIds.has(c.id)}
                         onSelect={() => {
                           onChatCreated(c.id);
-                          if (window.innerWidth < 768) setSidebarOpen(false);
+                          if (window.innerWidth < 768) closeSidebar();
                         }}
                         onPin={(e) => {
                           e.stopPropagation();
@@ -806,7 +822,7 @@ function Chat({
                     deleting={deletingIds.has(c.id)}
                     onSelect={() => {
                       onChatCreated(c.id);
-                      if (window.innerWidth < 768) setSidebarOpen(false);
+                      if (window.innerWidth < 768) closeSidebar();
                     }}
                     onPin={(e) => {
                       e.stopPropagation();
@@ -1010,7 +1026,7 @@ function Chat({
               <div className="empty-state">
                 <h2 className="empty-title">{chatGreeting}</h2>
                 <div className="suggestion-chips">
-                  {SUGGESTIONS.map((s) => (
+                  {chatSuggestions.map((s) => (
                     <button
                       key={s}
                       className="suggestion-chip"
