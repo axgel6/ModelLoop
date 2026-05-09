@@ -248,6 +248,8 @@ async def chat_stream(
         content = m.content
         if m.role == "user" and m.image_context:
             content = f"<image_context>\n{m.image_context}\n</image_context>\n\n{content}"
+        if m.role == "user" and m.search_context:
+            content = f"<search_results>\n{m.search_context}\n</search_results>\n\n{content}"
         messages.append({"role": m.role, "content": content})
 
     user_content = prompt
@@ -266,20 +268,18 @@ async def chat_stream(
         )
         last_msg = messages[-1]
         last_msg["content"] = (
-            f"[Live web search results fetched right now — today's date is {datetime.now(timezone.utc).strftime('%Y-%m-%d')}. "
-            f"Use these results to answer directly and specifically. Do NOT call any tools or functions — just answer using the results below.]\n\n"
-            f"{_search_block}\n\n"
-            f"User question: {last_msg['content']}"
+            f"<search_results date=\"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}\">\n"
+            f"{_search_block}\n"
+            f"</search_results>\n\n"
+            f"{last_msg['content']}"
         )
     elif proactive_search_enabled:
         # Search was triggered but returned no results — tell the model explicitly so it
         # doesn't fabricate results or claim to have retrieved live data.
         last_msg = messages[-1]
         last_msg["content"] = (
-            f"[Web search was attempted but returned no results. "
-            f"You may call the web_search tool to try a different query. "
-            f"Do NOT invent URLs, citations, or claim to have retrieved live data.]\n\n"
-            f"User question: {last_msg['content']}"
+            f"[Web search returned no results. Do not invent URLs or claim to have retrieved live data.]\n\n"
+            f"{last_msg['content']}"
         )
 
     chat_id    = body.chat_id
@@ -521,16 +521,15 @@ async def guest_chat_stream(
             for r in _guest_search_data["results"]
         )
         messages[-1]["content"] = (
-            f"[Live web search results fetched right now — today's date is {datetime.now(timezone.utc).strftime('%Y-%m-%d')}. "
-            f"Use these results to answer directly and specifically. Do not say you cannot find information if it is present below.]\n\n"
-            f"{_guest_search_block}\n\n"
-            f"User question: {messages[-1]['content']}"
+            f"<search_results date=\"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}\">\n"
+            f"{_guest_search_block}\n"
+            f"</search_results>\n\n"
+            f"{messages[-1]['content']}"
         )
     elif _guest_run_search:
         messages[-1]["content"] = (
-            f"[Web search was attempted but returned no results. "
-            f"Do NOT invent URLs, citations, or claim to have retrieved live data.]\n\n"
-            f"User question: {messages[-1]['content']}"
+            f"[Web search returned no results. Do not invent URLs or claim to have retrieved live data.]\n\n"
+            f"{messages[-1]['content']}"
         )
 
     async def generate():
