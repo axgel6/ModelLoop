@@ -35,6 +35,8 @@ class User(Base):
     password_hash: Mapped[str]            = mapped_column(Text, nullable=False)
     role:          Mapped[str]            = mapped_column(String(10), nullable=False, server_default="free")
     is_active:     Mapped[bool]           = mapped_column(Boolean, nullable=False, server_default="true")
+    theme:         Mapped[str]            = mapped_column(String(20), nullable=False, server_default="ocean")
+    font:          Mapped[str]            = mapped_column(String(20), nullable=False, server_default="mono")
     created_at:    Mapped[datetime]       = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Cascade delete removes all chats when the user is deleted
     chats:         Mapped[list["Chat"]]   = relationship(back_populates="user", cascade="all, delete")

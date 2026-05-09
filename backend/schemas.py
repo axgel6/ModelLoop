@@ -13,6 +13,11 @@ class UpdateProfileRequest(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=120)
 
 
+class UpdatePreferencesRequest(BaseModel):
+    theme: Optional[str] = Field(default=None, pattern=r"^(ocean|gruvbox|dune)$")
+    font:  Optional[str] = Field(default=None, pattern=r"^(mono|inter)$")
+
+
 class LoginRequest(BaseModel):
     email:    EmailStr = Field(..., max_length=254)
     password: str      = Field(..., max_length=128)

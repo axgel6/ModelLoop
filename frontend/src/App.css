@@ -5275,6 +5275,47 @@ html[data-theme="ocean"] .pref-user-delete-btn:not(.disabled):hover {
   font-weight: bold;
 }
 
+/* ---- Landing theme picker modal ---- */
+
+.landing-theme-modal {
+  background: #282828;
+  border: 1px solid rgba(80, 73, 69, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  padding: 24px;
+  width: 92%;
+  max-width: 420px;
+  animation: modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-theme-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ebdbb2;
+}
+
+.landing-theme-modal-close {
+  background: none !important;
+  box-shadow: none !important;
+  border: none;
+  cursor: pointer;
+  color: #928374;
+  font-size: 0.9rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.landing-theme-modal-close:hover {
+  color: #ffffff;
+  background: none !important;
+  box-shadow: none !important;
+}
+
 /* ---- Terms of Service ---- */
 
 .tos-page {
@@ -7011,6 +7052,48 @@ html[data-theme="ocean"] .landing-footer-link:hover {
   color: #e6b450;
   text-decoration: underline;
   font-weight: bold;
+}
+
+html[data-theme="ocean"] .landing-theme-modal {
+  background: #0d1017;
+  border-color: rgba(57, 186, 230, 0.2);
+}
+
+html[data-theme="ocean"] .landing-theme-modal-header {
+  color: #cad3f5;
+}
+
+html[data-theme="ocean"] .landing-theme-modal-close {
+  color: rgba(179, 177, 173, 0.6);
+}
+
+html[data-theme="ocean"] .landing-theme-modal-close:hover {
+  color: #ffffff;
+  background: none;
+}
+
+html[data-theme="dune"] .landing-theme-modal {
+  background: #ffffff;
+  border-color: #e7e0d6;
+  box-shadow: 0 16px 48px rgba(28, 25, 23, 0.12);
+}
+
+html[data-theme="dune"] .landing-theme-modal-header {
+  color: #1c1917;
+}
+
+html[data-theme="dune"] .landing-theme-modal-close {
+  color: #a8a29e;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dune"] .landing-theme-modal-close:hover {
+  color: #1c1917;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 html[data-theme="ocean"] .tos-topbar {

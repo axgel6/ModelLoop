@@ -8,6 +8,8 @@ import TermsOfService from "./components/TermsOfService";
 import {
   apiListChats,
   apiLogout,
+  apiGetMe,
+  apiUpdatePreferences,
   setUnauthorizedHandler,
   type ChatMeta,
 } from "./components/api";
@@ -99,10 +101,28 @@ function App() {
     localStorage.setItem("font", font);
   }, [font]);
 
+  const handleSetTheme = (t: Theme) => {
+    setTheme(t);
+    localStorage.setItem("theme_user_set", "true");
+    if (localStorage.getItem("token")) {
+      apiUpdatePreferences({ theme: t }).catch(() => {});
+    }
+  };
+
+  const handleSetFont = (f: Font) => {
+    setFont(f);
+    localStorage.setItem("font_user_set", "true");
+    if (localStorage.getItem("token")) {
+      apiUpdatePreferences({ font: f }).catch(() => {});
+    }
+  };
+
   // ----- Auth Handlers -----
 
   const handleLogout = () => {
     apiLogout();
+    localStorage.removeItem("theme_user_set");
+    localStorage.removeItem("font_user_set");
     setActiveChatId(null);
     const wasGuest = isGuest;
     setIsGuest(false);
@@ -114,9 +134,29 @@ function App() {
     setUnauthorizedHandler(handleLogout);
   });
 
-  const handleLogin = () => {
-    // Token is already stored in localStorage by Login.tsx before this is called
+  const handleLogin = async () => {
     setIsGuest(false);
+    try {
+      const me = await apiGetMe();
+      const themeUserSet = localStorage.getItem("theme_user_set") === "true";
+      const fontUserSet = localStorage.getItem("font_user_set") === "true";
+
+      if (themeUserSet || fontUserSet) {
+        // User changed preferences while logged out — push local to DB
+        const patch: { theme?: string; font?: string } = {};
+        if (themeUserSet) patch.theme = localStorage.getItem("theme") ?? undefined;
+        if (fontUserSet) patch.font = localStorage.getItem("font") ?? undefined;
+        await apiUpdatePreferences(patch).catch(() => {});
+      } else {
+        // No local changes — apply DB preferences
+        const validThemes: Theme[] = ["ocean", "gruvbox", "dune"];
+        const validFonts: Font[] = ["mono", "inter"];
+        if (validThemes.includes(me.theme as Theme)) setTheme(me.theme as Theme);
+        if (validFonts.includes(me.font as Font)) setFont(me.font as Font);
+      }
+    } catch {
+      // If /me fails just proceed normally
+    }
     setView("chat");
   };
 
@@ -165,6 +205,8 @@ function App() {
             }
           }}
           onTerms={() => setView("terms")}
+          theme={theme}
+          onThemeChange={handleSetTheme}
         />
       ) : (
         <Chat
@@ -177,9 +219,9 @@ function App() {
           onChatsChanged={handleChatsChanged}
           isGuest={isGuest}
           theme={theme}
-          setTheme={setTheme}
+          setTheme={handleSetTheme}
           font={font}
-          setFont={setFont}
+          setFont={handleSetFont}
         />
       )}
     </>

@@ -73,6 +73,8 @@ async def lifespan(_: FastAPI):
                VALUES (gen_random_uuid(), 'rag', 'Upload documents and use retrieval-augmented generation', false, false, true, true, now())
                ON CONFLICT (name) DO NOTHING""",
             "DELETE FROM feature_flags WHERE name IN ('guest_tools', 'guest_preferences')",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'ocean'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'mono'",
         ]
         for stmt in migrations:
             await conn.execute(text(stmt))

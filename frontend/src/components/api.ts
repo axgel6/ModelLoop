@@ -178,18 +178,31 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("Failed to rename chat");
 }
 
-// Fetch the current user's id, email, full_name, and role
+// Fetch the current user's id, email, full_name, role, theme, and font
 export async function apiGetMe(): Promise<{
   id: string;
   email: string;
   full_name: string | null;
   role: string;
+  theme: string;
+  font: string;
 }> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/auth/me`, { headers: authHeaders() }),
   );
   if (!res.ok) throw new Error("Failed to fetch user info");
   return res.json();
+}
+
+export async function apiUpdatePreferences(prefs: { theme?: string; font?: string }): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/auth/preferences`, {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(prefs),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to update preferences");
 }
 
 export async function apiUpdateProfile(fullName: string): Promise<void> {
