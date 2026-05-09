@@ -76,6 +76,15 @@ function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    document.documentElement.dataset.view = view;
+    return () => {
+      if (document.documentElement.dataset.view === view) {
+        delete document.documentElement.dataset.view;
+      }
+    };
+  }, [view]);
+
   const [font, setFont] = useState<Font>(() => {
     const stored = localStorage.getItem("font");
     return stored === "inter" ? "inter" : "mono";

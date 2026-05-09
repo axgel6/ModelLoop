@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Message } from "../api";
 
 export function useChatUI(messages: Message[], loading: boolean) {
@@ -43,10 +43,12 @@ export function useChatUI(messages: Message[], loading: boolean) {
     return () => container.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (userScrolledUpRef.current) return;
     const container = messagesContainerRef.current;
-    if (container) container.scrollTo({ top: container.scrollHeight, behavior: "instant" });
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages]);
 
   return {

@@ -77,6 +77,17 @@ body {
   color: #ebdbb2;
 }
 
+html[data-view="chat"],
+html[data-view="chat"] body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html[data-view="chat"] #root {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 #root {
   width: 100%;
   max-width: 100vw;
@@ -261,6 +272,9 @@ html[data-theme="ocean"] .connection-banner {
   height: calc(100% - 96px);
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   background: transparent;
   display: flex;
   flex-direction: column;
