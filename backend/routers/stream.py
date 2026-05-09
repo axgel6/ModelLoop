@@ -237,13 +237,13 @@ async def chat_stream(
             + "\n</rag_context>"
         )
 
-    if user.full_name:
-        effective_system = f"The user's registered name is {user.full_name}.\n\n" + effective_system
-
     if PROPRIETARY_INSTRUCTIONS and not _is_thinking_model(model):
         effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 
     messages = [{"role": "system", "content": effective_system}]
+    if user.full_name:
+        messages.append({"role": "user", "content": f"My name is {user.full_name}."})
+        messages.append({"role": "assistant", "content": "Got it!"})
     for m in db_history:
         content = m.content
         if m.role == "user" and m.image_context:
