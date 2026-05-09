@@ -306,6 +306,10 @@ html[data-theme="ocean"] .connection-banner {
   border-radius: 15px 15px 2px 15px;
 }
 
+.message.user pre {
+  font-family: var(--ui-font);
+}
+
 .message.assistant {
   color: #ebdbb2;
   text-align: left;
