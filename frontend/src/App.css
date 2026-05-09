@@ -6305,6 +6305,33 @@ html[data-theme="dune"] .landing-message {
   color: #1c1917;
 }
 
+html[data-theme="dune"] .landing-footer {
+  color: #a8a29e;
+}
+
+html[data-theme="dune"] .landing-footer a {
+  color: #d97757;
+}
+
+html[data-theme="dune"] .landing-footer a:hover {
+  background-color: rgba(217, 119, 87, 0.12);
+  color: #c96344;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+html[data-theme="dune"] .landing-footer-link {
+  color: #d97757;
+}
+
+html[data-theme="dune"] .landing-footer-link:hover {
+  background-color: rgba(217, 119, 87, 0.12);
+  box-shadow: none;
+  color: #c96344;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
 /* ---- Top bar ---- */
 
 html[data-theme="dune"] .chat-topbar {
