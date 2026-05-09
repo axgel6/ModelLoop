@@ -1543,7 +1543,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
-  border-radius: 20px;
+  border-radius: 15px;
   cursor: pointer;
   border: 1px solid transparent;
   transition:
@@ -1556,7 +1556,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
 }
 
 .sidebar-chat-item.active {
-  background: rgba(60, 56, 54, 0.7);
+  background: rgb(60, 56, 54);
   border-color: rgba(250, 189, 47, 0.25);
 }
 
@@ -3600,6 +3600,10 @@ html[data-theme="dune"] .pref-item-check.checked {
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     0 1px 0 rgba(140, 55, 25, 0.4),
     0 2px 4px rgba(180, 70, 35, 0.2);
+}
+
+html[data-theme="dune"] .pref-item-check.checked .pref-check-mark {
+  color: #ffffff;
 }
 
 html[data-theme="dune"] .pref-setting-label {
@@ -6999,6 +7003,27 @@ html[data-theme="ocean"] .chat-sidebar::after {
     rgba(0, 0, 0, 0.06) 2px,
     rgba(0, 0, 0, 0.06) 4px
   );
+}
+
+html[data-theme="ocean"] .sidebar-chat-item {
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean"] .sidebar-chat-item:hover {
+  background: rgba(57, 186, 230, 0.08);
+}
+
+html[data-theme="ocean"] .sidebar-chat-item.active {
+  background: linear-gradient(
+    180deg,
+    rgba(57, 186, 230, 0.18) 0%,
+    rgba(16, 20, 30, 0.92) 100%
+  );
+  border-color: rgba(57, 186, 230, 0.35);
+}
+
+html[data-theme="ocean"] .sidebar-chat-item.active .sidebar-chat-title {
+  color: white;
 }
 
 html[data-theme="ocean"] .logout-confirm-overlay,
