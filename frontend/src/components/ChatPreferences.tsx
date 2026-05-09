@@ -16,6 +16,7 @@ import {
 import type { AdminUser, FeatureFlag } from "./api";
 
 export type Theme = "ocean" | "gruvbox" | "dune";
+export type Font = "mono" | "inter";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -25,6 +26,8 @@ interface ChatPreferencesProps {
   setActivePreset: (label: string) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  font: Font;
+  setFont: (font: Font) => void;
   temperature: number;
   setTemperature: (t: number) => void;
   models: string[];
@@ -125,6 +128,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   setActivePreset,
   theme,
   setTheme,
+  font,
+  setFont,
   temperature,
   setTemperature,
   models,
@@ -569,6 +574,23 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     <span className="ptc-bar ptc-bar-3" />
                   </div>
                   <span className="pref-theme-label">Dune</span>
+                </div>
+              </div>
+              <div className="pref-setting-section-label" style={{ marginTop: "20px" }}>Font</div>
+              <div className="pref-font-cards">
+                <div
+                  className={`pref-font-card${font === "mono" ? " active" : ""}`}
+                  onClick={() => setFont("mono")}
+                >
+                  <span className="pref-font-preview pref-font-preview-mono">Aa</span>
+                  <span className="pref-font-label">JetBrains Mono</span>
+                </div>
+                <div
+                  className={`pref-font-card${font === "inter" ? " active" : ""}`}
+                  onClick={() => setFont("inter")}
+                >
+                  <span className="pref-font-preview pref-font-preview-inter">Aa</span>
+                  <span className="pref-font-label">Inter</span>
                 </div>
               </div>
             </div>

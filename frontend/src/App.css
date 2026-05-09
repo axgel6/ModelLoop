@@ -1,4 +1,42 @@
 /* ============================================================
+   Font variables
+   ============================================================ */
+
+:root {
+  --ui-font: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+
+  font-family: var(--ui-font);
+
+  font-weight: 450;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  font-variant-ligatures: contextual;
+
+  letter-spacing: -0.02ch;
+
+  text-rendering: optimizeLegibility;
+}
+
+html[data-font="inter"] {
+  --ui-font:
+    "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+
+  font-family: var(--ui-font);
+  font-weight: 500;
+  font-optical-sizing: auto;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  text-rendering: optimizeLegibility;
+
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
    Background glow animation
    ============================================================ */
 
@@ -60,7 +98,7 @@ body {
 button {
   padding: 14px 40px;
   font-size: 0.95rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-weight: 500;
   background:
     linear-gradient(
@@ -124,7 +162,7 @@ button:hover {
   border-radius: 25px;
   cursor: pointer;
   font-size: 0.8rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-weight: 500;
   white-space: nowrap;
   box-shadow:
@@ -183,7 +221,7 @@ button:hover {
   border-radius: 25px;
   font-size: 12px;
   font-weight: 500;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
 }
 
 /* Ocean glass gets a frosted banner overlay */
@@ -503,7 +541,7 @@ html[data-theme="ocean"] .connection-banner {
   font-size: 13px;
   background: transparent;
   color: #ebdbb2;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   line-height: 1.5;
   outline: none;
   resize: none;
@@ -657,7 +695,7 @@ html[data-theme="ocean"] .image-preview-remove:hover {
   border-radius: 20px;
   box-shadow: none !important;
   cursor: pointer;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.72rem;
   font-weight: 500;
   transition: color 0.15s;
@@ -684,7 +722,7 @@ html[data-theme="ocean"] .image-preview-remove:hover {
   border-radius: 20px;
   box-shadow: none !important;
   cursor: pointer;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.76rem;
   font-weight: 500;
   transition: color 0.15s;
@@ -725,7 +763,7 @@ html[data-theme="ocean"] .image-preview-remove:hover {
   border-radius: 8px;
   box-shadow: none !important;
   cursor: pointer;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.78rem;
   font-weight: 500;
   text-align: left;
@@ -819,7 +857,7 @@ html[data-theme="ocean"] .image-preview-remove:hover {
   border-radius: 8px;
   box-shadow: none !important;
   cursor: pointer;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.78rem;
   font-weight: 500;
   text-align: left;
@@ -941,7 +979,7 @@ html[data-theme="ocean"] .image-preview-remove:hover {
 }
 
 .docs-upload-btn {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.72rem;
   font-weight: 500;
   color: #fabd2f;
@@ -1213,7 +1251,7 @@ html[data-theme="ocean"] .reasoning-content {
   display: flex;
   flex-direction: row;
   overflow: hidden;
-  font-family: "JetBrains Mono", "Fira Mono", "Consolas", monospace;
+  font-family: var(--ui-font);
   font-size: 0.95rem;
   color: #ebdbb2;
 }
@@ -1228,7 +1266,7 @@ html[data-theme="ocean"] .reasoning-content {
   border-radius: 0;
   box-shadow: none;
   color: inherit;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: inherit;
   font-weight: inherit;
   cursor: pointer;
@@ -1365,7 +1403,7 @@ html[data-theme="ocean"] .reasoning-content {
   font-size: 0.74rem;
   background: rgba(29, 32, 33, 0.45);
   color: #ebdbb2;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   outline: none;
   transition: border-color 0.2s;
   margin-bottom: 5px;
@@ -1658,7 +1696,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
 
 .topbar-rename-input {
   font-size: 0.76rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-weight: 400;
   color: #ebdbb2;
   background: rgba(29, 32, 33, 0.6);
@@ -1741,7 +1779,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
 }
 
 .logout-confirm-dialog p {
@@ -1821,7 +1859,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
   background: rgba(250, 189, 47, 0.06);
   border: 1px solid rgba(250, 189, 47, 0.2);
   color: #928374;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.74rem;
   padding: 8px 14px;
   min-height: 38px;
@@ -2135,13 +2173,13 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   font-size: 0.8rem;
   font-weight: 600;
   min-width: 56px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
 }
 
 .slash-item-desc {
   color: #665c54;
   font-size: 0.76rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
 }
 
 /* ============================================================
@@ -2337,7 +2375,7 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
 }
 
 .pref-name-input {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 12px !important;
   flex: 1;
   background: rgba(60, 56, 54, 0.6);
@@ -2508,7 +2546,7 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   border-radius: 8px;
   padding: 8px 28px 8px 10px;
   color: #a89984;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.82rem;
   cursor: pointer;
   outline: none;
@@ -2701,7 +2739,7 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   border-radius: 8px;
   padding: 8px 12px;
   color: #ebdbb2;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.85rem;
   outline: none;
   transition:
@@ -2774,7 +2812,7 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   font-weight: 700;
   color: #ebdbb2;
   flex-shrink: 0;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   letter-spacing: 0;
 }
 
@@ -3061,6 +3099,69 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   font-weight: 700;
 }
 
+/* ---- Font picker ---- */
+
+.pref-font-cards {
+  display: flex;
+  gap: 14px;
+}
+
+.pref-font-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(80, 73, 69, 0.45);
+  border-radius: 12px;
+  background: rgba(29, 32, 33, 0.3);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+  position: relative;
+  user-select: none;
+}
+
+.pref-font-card:hover {
+  border-color: rgba(80, 73, 69, 0.8);
+  background: rgba(80, 73, 69, 0.15);
+}
+
+.pref-font-card.active {
+  border-color: #fabd2f;
+  background: rgba(250, 189, 47, 0.06);
+}
+
+.pref-font-preview {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #ebdbb2;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.pref-font-preview-mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+.pref-font-preview-inter {
+  font-family: "Inter", sans-serif;
+}
+
+.pref-font-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #a89984;
+}
+
+.pref-font-card.active .pref-font-label {
+  color: #fabd2f;
+}
+
 /* ---- Account / danger section ---- */
 
 .pref-danger-item .pref-item-icon {
@@ -3090,7 +3191,7 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   color: #fbf1c7;
   padding: 9px 18px;
   font-size: 0.85rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   cursor: pointer;
   box-shadow: none;
   height: auto;
@@ -3116,7 +3217,7 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   color: #a89984;
   padding: 9px 18px;
   font-size: 0.85rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   cursor: pointer;
   box-shadow: none;
   height: auto;
@@ -3323,6 +3424,13 @@ html[data-theme="ocean"] .sidebar-role-guest {
 
 /* ---- Dune theme overrides ---- */
 
+html[data-theme="dune"] .empty-title {
+  font-size: clamp(1.05rem, 3vw, 1.5rem);
+  font-weight: 600;
+  color: #ba6444;
+  margin: 0;
+}
+
 html[data-theme="dune"] .pref-modal {
   background: #ffffff;
   backdrop-filter: none;
@@ -3509,6 +3617,37 @@ html[data-theme="dune"] .pref-theme-card.active {
 }
 
 html[data-theme="dune"] .pref-theme-card.active .pref-theme-label {
+  color: #ffffff;
+}
+
+html[data-theme="dune"] .pref-font-card {
+  background: #faf8f5;
+  border-color: #e7e0d6;
+}
+
+html[data-theme="dune"] .pref-font-card:hover {
+  border-color: #d4cdc4;
+  background: #f5f0e8;
+}
+
+html[data-theme="dune"] .pref-font-card.active {
+  background: linear-gradient(180deg, #e0815f 0%, #c96344 100%);
+  border-color: #b8522d;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 0 rgba(140, 55, 25, 0.4),
+    0 3px 8px rgba(180, 70, 35, 0.18);
+}
+
+html[data-theme="dune"] .pref-font-preview {
+  color: #1c1917;
+}
+
+html[data-theme="dune"] .pref-font-label {
+  color: #8f7964;
+}
+
+html[data-theme="dune"] .pref-font-card.active .pref-font-label {
   color: #ffffff;
 }
 
@@ -4094,7 +4233,7 @@ html[data-theme="dune"] .tier-chart-footer {
   color: #ebdbb2;
   padding: 10px 12px;
   resize: none;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.82rem;
   line-height: 1.5;
   outline: none;
@@ -4379,6 +4518,33 @@ html[data-theme="ocean"] .pref-theme-check {
   color: #39bae6;
 }
 
+html[data-theme="ocean"] .pref-font-card {
+  background: rgba(13, 16, 23, 0.3);
+  border-color: rgba(112, 122, 140, 0.3);
+}
+
+html[data-theme="ocean"] .pref-font-card:hover {
+  border-color: rgba(112, 122, 140, 0.8);
+  background: rgba(112, 122, 140, 0.1);
+}
+
+html[data-theme="ocean"] .pref-font-card.active {
+  border-color: #39bae6;
+  background: rgba(57, 186, 230, 0.06);
+}
+
+html[data-theme="ocean"] .pref-font-preview {
+  color: #e6e1cf;
+}
+
+html[data-theme="ocean"] .pref-font-label {
+  color: #4a5568;
+}
+
+html[data-theme="ocean"] .pref-font-card.active .pref-font-label {
+  color: #39bae6;
+}
+
 html[data-theme="ocean"] .pref-close-btn:hover {
   color: #ffffff;
   background: none !important;
@@ -4652,7 +4818,7 @@ html[data-theme="ocean"] .pref-user-delete-btn:not(.disabled):hover {
   border-radius: 999px;
   color: #ebdbb2;
   font-size: 0.9rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   outline: none;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.18);
   transition:
@@ -4703,7 +4869,7 @@ html[data-theme="ocean"] .pref-user-delete-btn:not(.disabled):hover {
   border: none;
   border-radius: 999px;
   font-size: 0.9rem;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-weight: 600;
   cursor: pointer;
   margin-top: 4px;
@@ -4752,7 +4918,7 @@ html[data-theme="ocean"] .pref-user-delete-btn:not(.disabled):hover {
   border-radius: 0;
   box-shadow: none;
   color: #fabd2f;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
@@ -4802,7 +4968,7 @@ html[data-theme="ocean"] .pref-user-delete-btn:not(.disabled):hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   width: 100%;
   min-height: 100vh;
   padding: 40px 20px;
@@ -4878,7 +5044,7 @@ html[data-theme="ocean"] .pref-user-delete-btn:not(.disabled):hover {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   width: 100%;
   min-height: calc(100vh);
   overflow-y: auto;
@@ -6789,7 +6955,7 @@ html[data-theme="ocean"] .pref-delete-overlay {
   font-weight: 700;
   color: #fabd2f;
   line-height: 1;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
 }
 
 .pref-analytics-label {
@@ -6822,7 +6988,7 @@ html[data-theme="ocean"] .pref-delete-overlay {
   font-size: 1.2rem;
   font-weight: 700;
   color: #fabd2f;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
 }
 
 /* ---- Audit Logs Toolbar ---- */
@@ -6845,7 +7011,7 @@ html[data-theme="ocean"] .pref-delete-overlay {
   border-radius: 8px;
   padding: 8px 28px 8px 10px;
   color: #a89984;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.82rem;
   cursor: pointer;
   outline: none;
@@ -6913,7 +7079,7 @@ html[data-theme="ocean"] .pref-delete-overlay {
   font-size: 0.75rem;
   color: #928374;
   white-space: nowrap;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
 }
 
 .pref-audit-log-details {
@@ -6933,7 +7099,7 @@ html[data-theme="ocean"] .pref-delete-overlay {
   border-radius: 8px;
   background: rgba(80, 73, 69, 0.2);
   color: #a89984;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--ui-font);
   font-size: 0.72rem;
   border: 1px solid rgba(80, 73, 69, 0.3);
   word-break: break-all;

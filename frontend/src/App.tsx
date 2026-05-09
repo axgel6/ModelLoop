@@ -11,7 +11,7 @@ import {
   setUnauthorizedHandler,
   type ChatMeta,
 } from "./components/api";
-import { type Theme } from "./components/ChatPreferences";
+import { type Theme, type Font } from "./components/ChatPreferences";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 
@@ -75,6 +75,20 @@ function App() {
     document.documentElement.dataset.theme = THEME_TO_DATA[theme];
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  const [font, setFont] = useState<Font>(() => {
+    const stored = localStorage.getItem("font");
+    return stored === "inter" ? "inter" : "mono";
+  });
+
+  useEffect(() => {
+    if (font === "inter") {
+      document.documentElement.dataset.font = "inter";
+    } else {
+      delete document.documentElement.dataset.font;
+    }
+    localStorage.setItem("font", font);
+  }, [font]);
 
   // ----- Auth Handlers -----
 
@@ -155,6 +169,8 @@ function App() {
           isGuest={isGuest}
           theme={theme}
           setTheme={setTheme}
+          font={font}
+          setFont={setFont}
         />
       )}
     </>

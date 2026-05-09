@@ -2,6 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { haptics } from "../haptics";
 import ChatPreferences, {
   type Theme,
+  type Font,
   type Section as PrefSection,
 } from "./ChatPreferences";
 import ChatInput from "./ChatInput";
@@ -96,6 +97,8 @@ interface ChatProps {
   isGuest: boolean;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  font: Font;
+  setFont: (font: Font) => void;
 }
 
 function Chat({
@@ -109,6 +112,8 @@ function Chat({
   isGuest,
   theme,
   setTheme,
+  font,
+  setFont,
 }: ChatProps) {
   const {
     messages,
@@ -1077,6 +1082,8 @@ function Chat({
           setActivePreset={setActivePreset}
           theme={theme}
           setTheme={setTheme}
+          font={font}
+          setFont={setFont}
           temperature={temperature}
           setTemperature={setTemperature}
           models={models}
