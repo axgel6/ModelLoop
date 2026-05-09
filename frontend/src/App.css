@@ -7648,6 +7648,7 @@ html[data-theme="ocean"] .pref-analytics-action-name {
   /* ---- Messages: wider bubbles, less padding ---- */
   .messages {
     padding: 8px;
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
   }
 
   .msg-bubble-group {
