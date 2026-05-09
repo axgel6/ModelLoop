@@ -183,6 +183,7 @@ function Chat({
     setShowLogoutConfirm,
     showScrollBtn,
     messagesContainerRef,
+    scrollToBottom,
   } = useChatUI(messages, loading);
 
   const [sidebarClosing, setSidebarClosing] = useState(false);
@@ -201,6 +202,7 @@ function Chat({
 
   const inputFocusRef = useRef<(() => void) | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  useEffect(() => { scrollToBottom(); }, [activeTool, scrollToBottom]);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [features, setFeatures] = useState<Record<string, boolean>>({});

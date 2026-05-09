@@ -174,7 +174,7 @@ async def chat_stream(
     msgs_result = await db.execute(
         select(Message)
         .where(Message.chat_id == body.chat_id)
-        .order_by(Message.created_at.desc())
+        .order_by(Message.created_at.desc(), Message.role.asc())
         .limit(20)
     )
     db_history = list(reversed(msgs_result.scalars().all()))

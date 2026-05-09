@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Message } from "../api";
 
 export function useChatUI(messages: Message[], loading: boolean) {
@@ -10,6 +10,12 @@ export function useChatUI(messages: Message[], loading: boolean) {
   // True when the user has scrolled up during a response, pausing auto-scroll
   const userScrolledUpRef = useRef(false);
   const lastScrollTopRef = useRef(0);
+
+  const scrollToBottom = useCallback(() => {
+    if (userScrolledUpRef.current) return;
+    const container = messagesContainerRef.current;
+    if (container) container.scrollTop = container.scrollHeight;
+  }, []);
 
   // When a new request starts, always resume auto-scroll so the new response is followed
   const prevLoadingRef = useRef(false);
@@ -44,12 +50,8 @@ export function useChatUI(messages: Message[], loading: boolean) {
   }, []);
 
   useLayoutEffect(() => {
-    if (userScrolledUpRef.current) return;
-    const container = messagesContainerRef.current;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   return {
     sidebarOpen,
@@ -60,5 +62,6 @@ export function useChatUI(messages: Message[], loading: boolean) {
     setShowLogoutConfirm,
     showScrollBtn,
     messagesContainerRef,
+    scrollToBottom,
   };
 }

@@ -19,7 +19,7 @@ async def get_messages(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Chat not found")
     msgs = await db.execute(
-        select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
+        select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.asc(), Message.role.desc())
     )
     return {"messages": [
         {
