@@ -428,21 +428,19 @@ async def chat_stream(
                     yield f"data: {json.dumps({'type': 'search_context', 'context': _search_ctx})}\n\n"
 
                 async with AsyncSessionLocal() as write_db:
-                    write_db.add(Message(
-                        chat_id=chat_id, role="user", content=prompt,
-                        images=images or None, image_context=image_context or None,
-                        search_context=_search_ctx,
-                    ))
-                    write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
-
                     chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
                     chat_row = chat_result.scalar_one_or_none()
                     if chat_row:
+                        write_db.add(Message(
+                            chat_id=chat_id, role="user", content=prompt,
+                            images=images or None, image_context=image_context or None,
+                            search_context=_search_ctx,
+                        ))
+                        write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
                         if chat_title == "New Chat":
                             chat_row.title = prompt[:60]
                         chat_row.updated_at = datetime.now(timezone.utc)
-
-                    await write_db.commit()
+                        await write_db.commit()
 
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
             else:
