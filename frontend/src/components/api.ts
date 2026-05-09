@@ -23,9 +23,11 @@ function authHeaders(
   };
 }
 
-// Silently exchange the stored refresh token for a new access + refresh token pair.
-// Returns true on success, false if the refresh token is missing or rejected.
-async function tryRefresh(): Promise<boolean> {
+// Shared promise so concurrent 401s don't each trigger an independent refresh,
+// which would rotate the token under the second caller and cause a spurious logout.
+let _refreshPromise: Promise<boolean> | null = null;
+
+async function _doRefresh(): Promise<boolean> {
   const refreshToken = localStorage.getItem("refresh_token");
   if (!refreshToken) return false;
   try {
@@ -42,6 +44,14 @@ async function tryRefresh(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// Silently exchange the stored refresh token for a new access + refresh token pair.
+// Returns true on success, false if the refresh token is missing or rejected.
+function tryRefresh(): Promise<boolean> {
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = _doRefresh().finally(() => { _refreshPromise = null; });
+  return _refreshPromise;
 }
 
 // Wraps a fetch lambda with one automatic retry after a silent token refresh.
@@ -466,6 +476,7 @@ export async function apiDeleteDocument(docId: string): Promise<void> {
   );
   if (!res.ok) throw new Error("Failed to delete document");
 }
+
 
 // ----- Streaming -----
 

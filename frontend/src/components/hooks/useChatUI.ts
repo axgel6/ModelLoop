@@ -46,7 +46,7 @@ export function useChatUI(messages: Message[], loading: boolean) {
   useEffect(() => {
     if (userScrolledUpRef.current) return;
     const container = messagesContainerRef.current;
-    if (container) container.scrollTop = container.scrollHeight;
+    if (container) container.scrollTo({ top: container.scrollHeight, behavior: "instant" });
   }, [messages]);
 
   return {

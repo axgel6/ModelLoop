@@ -39,6 +39,50 @@ import {
   withMandatoryPromptRules,
 } from "./utils/chatUtils";
 
+// ── Sidebar chat item ─────────────────────────────────────────────────────────
+
+interface SidebarChatItemProps {
+  c: ChatMeta;
+  activeChatId: string | null;
+  pinned: boolean;
+  deleting: boolean;
+  onSelect: () => void;
+  onPin: (e: React.MouseEvent) => void;
+  onDelete: (e: React.MouseEvent) => void;
+}
+
+function SidebarChatItem({ c, activeChatId, pinned, deleting, onSelect, onPin, onDelete }: SidebarChatItemProps) {
+  return (
+    <div
+      className={`sidebar-chat-item${c.id === activeChatId ? " active" : ""}${pinned ? " pinned" : ""}`}
+      onClick={onSelect}
+    >
+      <div className="sidebar-chat-info">
+        <span className="sidebar-chat-title">{c.title || "Untitled"}</span>
+        <span className="sidebar-chat-date">{formatDate(c.updated_at)}</span>
+      </div>
+      <button
+        className="sidebar-pin-btn"
+        onClick={onPin}
+        title={pinned ? "Unpin chat" : "Pin chat"}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="17" x2="12" y2="22"/>
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+        </svg>
+      </button>
+      <button
+        className="sidebar-delete-btn"
+        onClick={onDelete}
+        disabled={deleting}
+        title="Delete chat"
+      >
+        {deleting ? "…" : "✕"}
+      </button>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface ChatProps {
@@ -555,18 +599,47 @@ function Chat({
     }
   };
 
-  const visibleChats = useMemo(
-    () =>
-      chats
-        .filter((c) =>
-          (c.title || "").toLowerCase().includes(historySearch.toLowerCase()),
-        )
-        .filter((c) => !deletingIds.has(c.id)),
-    [chats, historySearch, deletingIds],
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(
+    () => new Set(JSON.parse(localStorage.getItem("pinned_chats") || "[]")),
   );
+
+  const togglePin = (id: string) => {
+    setPinnedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem("pinned_chats", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const visibleChats = useMemo(() => {
+    const filtered = chats
+      .filter((c) =>
+        (c.title || "").toLowerCase().includes(historySearch.toLowerCase()),
+      )
+      .filter((c) => !deletingIds.has(c.id));
+    const pinned = filtered.filter((c) => pinnedIds.has(c.id));
+    const rest = filtered.filter((c) => !pinnedIds.has(c.id));
+    return { pinned, rest };
+  }, [chats, historySearch, deletingIds, pinnedIds]);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
   const chatTitle = activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
+
+  const estimatedTokens = useMemo(
+    () =>
+      messages.length === 0
+        ? 0
+        : Math.round(
+            messages.reduce(
+              (sum, m) =>
+                sum + m.content.length + (m.thinking?.length ?? 0),
+              0,
+            ) / 4,
+          ),
+    [messages],
+  );
 
   return (
     <>
@@ -617,7 +690,7 @@ function Chat({
                 onChange={(e) => setHistorySearch(e.target.value)}
               />
               <div className="sidebar-chat-list">
-                {chatsLoading && visibleChats.length === 0 && (
+                {chatsLoading && visibleChats.pinned.length === 0 && visibleChats.rest.length === 0 && (
                   <div className="sidebar-skeleton">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="sidebar-skeleton-item">
@@ -630,38 +703,38 @@ function Chat({
                     ))}
                   </div>
                 )}
-                {!chatsLoading && visibleChats.length === 0 && (
+                {!chatsLoading && visibleChats.pinned.length === 0 && visibleChats.rest.length === 0 && (
                   <span className="sidebar-empty">Start a conversation to see it here</span>
                 )}
-                {visibleChats.map((c) => (
-                  <div
+                {visibleChats.pinned.length > 0 && (
+                  <>
+                    <span className="sidebar-section-label">Pinned</span>
+                    {visibleChats.pinned.map((c) => (
+                      <SidebarChatItem
+                        key={c.id}
+                        c={c}
+                        activeChatId={activeChatId}
+                        pinned
+                        deleting={deletingIds.has(c.id)}
+                        onSelect={() => { onChatCreated(c.id); if (window.innerWidth < 768) setSidebarOpen(false); }}
+                        onPin={(e) => { e.stopPropagation(); togglePin(c.id); }}
+                        onDelete={(e) => { e.stopPropagation(); handleDeleteChat(c.id); }}
+                      />
+                    ))}
+                    {visibleChats.rest.length > 0 && <div className="sidebar-section-divider" />}
+                  </>
+                )}
+                {visibleChats.rest.map((c) => (
+                  <SidebarChatItem
                     key={c.id}
-                    className={`sidebar-chat-item${c.id === activeChatId ? " active" : ""}`}
-                    onClick={() => {
-                      onChatCreated(c.id);
-                      if (window.innerWidth < 768) setSidebarOpen(false);
-                    }}
-                  >
-                    <div className="sidebar-chat-info">
-                      <span className="sidebar-chat-title">
-                        {c.title || "Untitled"}
-                      </span>
-                      <span className="sidebar-chat-date">
-                        {formatDate(c.updated_at)}
-                      </span>
-                    </div>
-                    <button
-                      className="sidebar-delete-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteChat(c.id);
-                      }}
-                      disabled={deletingIds.has(c.id)}
-                      title="Delete chat"
-                    >
-                      {deletingIds.has(c.id) ? "…" : "✕"}
-                    </button>
-                  </div>
+                    c={c}
+                    activeChatId={activeChatId}
+                    pinned={false}
+                    deleting={deletingIds.has(c.id)}
+                    onSelect={() => { onChatCreated(c.id); if (window.innerWidth < 768) setSidebarOpen(false); }}
+                    onPin={(e) => { e.stopPropagation(); togglePin(c.id); }}
+                    onDelete={(e) => { e.stopPropagation(); handleDeleteChat(c.id); }}
+                  />
                 ))}
               </div>
             </div>
@@ -945,6 +1018,8 @@ function Chat({
             }}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
+            estimatedTokens={estimatedTokens}
+            messageCount={messages.length}
             {...(!isGuest
               ? {
                   onOpenPreferences: (section?: string) => {

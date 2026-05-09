@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 
 DEFINITION = {
@@ -19,6 +20,24 @@ DEFINITION = {
 }
 
 KEYWORDS = {"time", "date", "day", "today", "now", "current", "clock", "hour", "minute", "when"}
+
+_TIME_TRIGGERS = re.compile(
+    r"\b("
+    r"what (time|day|date) is it\b|"
+    r"what'?s (the )?(time|date|day)\b|"
+    r"(current|today'?s) (time|date|day)\b|"
+    r"tell me (the )?(time|date|day)\b|"
+    r"(what|which) day (is it|is today)\b|"
+    r"(what|which) (month|year) is it\b|"
+    r"(check|get) (the )?(time|date|clock)\b|"
+    r"do you know (the )?(time|date)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def should_activate(text: str, words: set) -> bool:
+    return bool(_TIME_TRIGGERS.search(text))
 
 
 def execute(arguments: dict) -> str:

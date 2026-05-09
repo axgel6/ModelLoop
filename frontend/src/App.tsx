@@ -18,8 +18,9 @@ const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 type View = "landing" | "login" | "chat" | "terms";
 
 const THEME_TO_DATA: Record<Theme, string> = {
-  "ocean-glass": "ocean",
-  "gruvbox-flat": "flat",
+  "ocean": "ocean",
+  "gruvbox": "gruvbox",
+  "dune": "dune",
 };
 
 function App() {
@@ -50,7 +51,7 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    const valid: Theme[] = ["ocean-glass", "gruvbox-flat"];
+    const valid: Theme[] = ["ocean", "gruvbox", "dune"];
     // Migrate old theme keys to the two remaining themes
     if (
       stored === "ocean" ||
@@ -58,15 +59,16 @@ function App() {
       stored === "ocean-flat" ||
       stored === "glassy"
     )
-      return "ocean-glass";
+      return "ocean";
     if (
       stored === "glass" ||
       stored === "gruvbox-glass" ||
       stored === "flat" ||
-      stored === "gruvbox-flat"
+      stored === "gruvbox-flat" ||
+      stored === "gruvbox"
     )
-      return "gruvbox-flat";
-    return valid.includes(stored as Theme) ? (stored as Theme) : "ocean-glass";
+      return "gruvbox";
+    return valid.includes(stored as Theme) ? (stored as Theme) : "ocean";
   });
 
   useEffect(() => {

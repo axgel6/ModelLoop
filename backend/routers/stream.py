@@ -51,6 +51,16 @@ _QUESTION_WORDS = {"what", "who", "where", "when", "why", "how", "which", "is", 
                    "were", "do", "does", "did", "can", "could", "would", "will", "should",
                    "tell", "give", "show", "list", "name"}
 
+# Strips embedded tool-call JSON that some models append to their text output
+# instead of using the structured tool_calls field.
+_EMBEDDED_TOOL_RE = re.compile(
+    r'\s*[\[{]\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:.*?[\]}]\s*$',
+    re.DOTALL,
+)
+
+def _strip_embedded_tool_calls(text: str) -> str:
+    return _EMBEDDED_TOOL_RE.sub("", text).rstrip()
+
 def _is_thinking_model(model: str) -> bool:
     return any(p in model.lower() for p in THINKING_MODELS)
 
@@ -228,7 +238,8 @@ async def chat_stream(
         )
 
     if user.full_name:
-        effective_system = f"The user's name is {user.full_name}.\n\n" + effective_system
+        effective_system = f"The user's registered name is {user.full_name}.\n\n" + effective_system
+
     if PROPRIETARY_INSTRUCTIONS and not _is_thinking_model(model):
         effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 
@@ -301,8 +312,18 @@ async def chat_stream(
                             yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
                         else:
                             peek_buf.append(token)
-                            if len(round_content.lstrip()) >= 2:
-                                if not round_content.lstrip().startswith("{"):
+                            stripped = round_content.lstrip()
+                            if len(stripped) >= 2:
+                                # Hold back content that looks like a tool call:
+                                # { ... }  standard JSON tool call
+                                # [{ ...   JSON array of tool calls
+                                # [TOOL_CALLS] ...  Mistral-style prefix
+                                is_tool_like = (
+                                    stripped.startswith("{")
+                                    or stripped.startswith("[{")
+                                    or stripped.upper().startswith("[TOOL_CALLS]")
+                                )
+                                if not is_tool_like:
                                     streaming_live = True
                                     for t in peek_buf:
                                         yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
@@ -316,18 +337,30 @@ async def chat_stream(
                 if not tool_calls and peek_buf:
                     try:
                         raw = round_content.strip()
+                        # Strip Mistral-style [TOOL_CALLS] prefix
+                        if raw.upper().startswith("[TOOL_CALLS]"):
+                            raw = raw[len("[TOOL_CALLS]"):].strip()
                         # Fix common model output issue: unclosed braces
                         open_count = raw.count('{')
                         close_count = raw.count('}')
                         if open_count > close_count:
                             raw += '}' * (open_count - close_count)
                         parsed = json.loads(raw)
-                        name = parsed.get("name") or parsed.get("function", {}).get("name", "")
-                        args = parsed.get("parameters") or parsed.get("arguments") or {}
-                        if name:
-                            tool_calls = [{"function": {"name": name, "arguments": args}}]
+                        if isinstance(parsed, list):
+                            for item in parsed:
+                                name = item.get("name") or item.get("function", {}).get("name", "")
+                                args = item.get("parameters") or item.get("arguments") or {}
+                                if name:
+                                    tool_calls.append({"function": {"name": name, "arguments": args}})
+                            if not tool_calls:
+                                raise ValueError("no name field in list")
                         else:
-                            raise ValueError("no name field")
+                            name = parsed.get("name") or parsed.get("function", {}).get("name", "")
+                            args = parsed.get("parameters") or parsed.get("arguments") or {}
+                            if name:
+                                tool_calls = [{"function": {"name": name, "arguments": args}}]
+                            else:
+                                raise ValueError("no name field")
                     except Exception:
                         # Regex fallback: extract name and query even from malformed JSON
                         name_match = re.search(r'"name"\s*:\s*"([^"]+)"', round_content)
@@ -388,7 +421,7 @@ async def chat_stream(
                 full_response = round_content
 
             if success and full_response.strip():
-                processed = fix_math_delimiters(full_response.strip())
+                processed = fix_math_delimiters(_strip_embedded_tool_calls(full_response.strip()))
                 if image_context:
                     yield f"data: {json.dumps({'type': 'image_context', 'context': image_context})}\n\n"
                 if _search_ctx:

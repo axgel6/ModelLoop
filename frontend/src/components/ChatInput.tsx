@@ -41,6 +41,8 @@ interface ChatInputProps {
   onDocDelete?: (docId: string) => void;
   photoUploadEnabled?: boolean;
   ragEnabled?: boolean;
+  estimatedTokens?: number;
+  messageCount?: number;
 }
 
 function ChatInput({
@@ -58,6 +60,8 @@ function ChatInput({
   onDocDelete,
   photoUploadEnabled = true,
   ragEnabled = false,
+  estimatedTokens = 0,
+  messageCount = 0,
 }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
@@ -67,6 +71,7 @@ function ChatInput({
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [docsDropdownOpen, setDocsDropdownOpen] = useState(false);
+  const [tokenPopupOpen, setTokenPopupOpen] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -75,6 +80,7 @@ function ChatInput({
   const modelDropdownRef = useRef<HTMLDivElement | null>(null);
   const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
   const docsDropdownRef = useRef<HTMLDivElement | null>(null);
+  const tokenPopupRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const docFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -146,6 +152,17 @@ function ChatInput({
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [docsDropdownOpen]);
+
+  useEffect(() => {
+    if (!tokenPopupOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (!tokenPopupRef.current?.contains(e.target as Node)) {
+        setTokenPopupOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [tokenPopupOpen]);
 
   const handleImageFile = (file: File) => {
     if (
@@ -520,6 +537,43 @@ function ChatInput({
                         </span>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            )}
+            {estimatedTokens > 0 && (
+              <div className="tools-dropdown-wrapper" ref={tokenPopupRef}>
+                <button
+                  className="toolbar-icon-btn"
+                  onClick={() => setTokenPopupOpen((v) => !v)}
+                  title="Token usage"
+                  type="button"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="22 12 18 12 15 3 9 21 6 12 2 12" />
+                  </svg>
+                </button>
+                {tokenPopupOpen && (
+                  <div className="tools-dropdown-menu">
+                    <div className="tools-dropdown-item" style={{ cursor: "default", pointerEvents: "none" }}>
+                      <span className="tools-dropdown-item-text">
+                        <span className="tools-dropdown-item-label">
+                          ~{estimatedTokens.toLocaleString()} tokens
+                        </span>
+                        <span className="tools-dropdown-item-desc">
+                          {messageCount} message{messageCount !== 1 ? "s" : ""} · estimated
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

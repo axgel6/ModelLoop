@@ -15,7 +15,7 @@ import {
 } from "./api";
 import type { AdminUser, FeatureFlag } from "./api";
 
-export type Theme = "ocean-glass" | "gruvbox-flat";
+export type Theme = "ocean" | "gruvbox" | "dune";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -178,11 +178,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
   const [flagsLoading, setFlagsLoading] = useState(false);
   const [flagSaving, setFlagSaving] = useState<string | null>(null);
-
   useEffect(() => {
-    apiGetMe()
-      .then(setUserInfo)
-      .catch(() => {});
+    apiGetMe().then(setUserInfo).catch(() => {});
   }, []);
 
   const showAdminError = (msg: string) => {
@@ -244,6 +241,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       setFlagSaving(null);
     }
   };
+
 
   useEffect(() => {
     if (activeSection === "users") loadAdminUsers();
@@ -540,8 +538,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-section-label">Theme</div>
               <div className="pref-theme-cards">
                 <div
-                  className={`pref-theme-card${theme === "ocean-glass" ? " active" : ""}`}
-                  onClick={() => setTheme("ocean-glass")}
+                  className={`pref-theme-card${theme === "ocean" ? " active" : ""}`}
+                  onClick={() => setTheme("ocean")}
                 >
                   <div className="pref-theme-preview pref-theme-preview-ocean">
                     <span className="ptc-bar ptc-bar-1" />
@@ -549,13 +547,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     <span className="ptc-bar ptc-bar-3" />
                   </div>
                   <span className="pref-theme-label">Ocean</span>
-                  {theme === "ocean-glass" && (
-                    <span className="pref-theme-check">✓</span>
-                  )}
                 </div>
                 <div
-                  className={`pref-theme-card${theme === "gruvbox-flat" ? " active" : ""}`}
-                  onClick={() => setTheme("gruvbox-flat")}
+                  className={`pref-theme-card${theme === "gruvbox" ? " active" : ""}`}
+                  onClick={() => setTheme("gruvbox")}
                 >
                   <div className="pref-theme-preview pref-theme-preview-gruvbox">
                     <span className="ptc-bar ptc-bar-1" />
@@ -563,9 +558,17 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     <span className="ptc-bar ptc-bar-3" />
                   </div>
                   <span className="pref-theme-label">Gruvbox</span>
-                  {theme === "gruvbox-flat" && (
-                    <span className="pref-theme-check">✓</span>
-                  )}
+                </div>
+                <div
+                  className={`pref-theme-card${theme === "dune" ? " active" : ""}`}
+                  onClick={() => setTheme("dune")}
+                >
+                  <div className="pref-theme-preview pref-theme-preview-dune">
+                    <span className="ptc-bar ptc-bar-1" />
+                    <span className="ptc-bar ptc-bar-2" />
+                    <span className="ptc-bar ptc-bar-3" />
+                  </div>
+                  <span className="pref-theme-label">Dune</span>
                 </div>
               </div>
             </div>
@@ -578,64 +581,73 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             <div className="pref-content-header">
               <span className="pref-content-title">Account</span>
             </div>
-            {userInfo && (
-              <div className="pref-account-info">
-                <div className="pref-account-email">{userInfo.email}</div>
-                <span className={`pref-role-badge pref-role-${userInfo.role}`}>
-                  {userInfo.role.charAt(0).toUpperCase() +
-                    userInfo.role.slice(1)}
-                </span>
-              </div>
-            )}
-            <div className="pref-section-label">Full Name</div>
-            <div className="pref-name-row">
-              {nameEdit !== null ? (
-                <>
-                  <input
-                    className="pref-name-input"
-                    value={nameEdit}
-                    maxLength={120}
-                    placeholder={userInfo?.email ?? ""}
-                    onChange={(e) => setNameEdit(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSaveName();
-                      if (e.key === "Escape") setNameEdit(null);
-                    }}
-                    autoFocus
-                    disabled={nameSaving}
-                  />
-                  <button
-                    className="pref-name-save-btn"
-                    onClick={handleSaveName}
-                    disabled={nameSaving}
-                  >
-                    {nameSaving ? "◌" : "Save"}
-                  </button>
-                  <button
-                    className="pref-name-cancel-btn"
-                    onClick={() => setNameEdit(null)}
-                    disabled={nameSaving}
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="pref-name-value">
-                    {userInfo?.full_name ?? (
-                      <span className="pref-name-placeholder">
-                        {userInfo?.email}
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    className="pref-name-edit-btn"
-                    onClick={() => setNameEdit(userInfo?.full_name ?? "")}
-                  >
-                    Edit
-                  </button>
-                </>
+            <div className="pref-account-card">
+              {userInfo && (
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Email</div>
+                  <div className="pref-field-row">
+                    <span className="pref-account-email">{userInfo.email}</span>
+                    <span
+                      className={`pref-role-badge pref-role-${userInfo.role}`}
+                    >
+                      {userInfo.role.charAt(0).toUpperCase() +
+                        userInfo.role.slice(1)}
+                    </span>
+                  </div>
+                </div>
               )}
+              <div className="pref-account-field pref-account-field-sep">
+                <div className="pref-field-label">Full Name</div>
+                <div className="pref-name-row">
+                  {nameEdit !== null ? (
+                    <>
+                      <input
+                        className="pref-name-input"
+                        value={nameEdit}
+                        maxLength={120}
+                        placeholder={userInfo?.email ?? ""}
+                        onChange={(e) => setNameEdit(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveName();
+                          if (e.key === "Escape") setNameEdit(null);
+                        }}
+                        autoFocus
+                        disabled={nameSaving}
+                      />
+                      <button
+                        className="pref-name-save-btn"
+                        onClick={handleSaveName}
+                        disabled={nameSaving}
+                      >
+                        {nameSaving ? "◌" : "Save"}
+                      </button>
+                      <button
+                        className="pref-name-cancel-btn"
+                        onClick={() => setNameEdit(null)}
+                        disabled={nameSaving}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="pref-name-value">
+                        {userInfo?.full_name ?? (
+                          <span className="pref-name-placeholder">
+                            {userInfo?.email}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        className="pref-name-edit-btn"
+                        onClick={() => setNameEdit(userInfo?.full_name ?? "")}
+                      >
+                        Edit
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="pref-list">
               <div
