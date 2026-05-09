@@ -52,7 +52,15 @@ interface SidebarChatItemProps {
   onDelete: (e: React.MouseEvent) => void;
 }
 
-function SidebarChatItem({ c, activeChatId, pinned, deleting, onSelect, onPin, onDelete }: SidebarChatItemProps) {
+function SidebarChatItem({
+  c,
+  activeChatId,
+  pinned,
+  deleting,
+  onSelect,
+  onPin,
+  onDelete,
+}: SidebarChatItemProps) {
   return (
     <div
       className={`sidebar-chat-item${c.id === activeChatId ? " active" : ""}${pinned ? " pinned" : ""}`}
@@ -67,9 +75,18 @@ function SidebarChatItem({ c, activeChatId, pinned, deleting, onSelect, onPin, o
         onClick={onPin}
         title={pinned ? "Unpin chat" : "Pin chat"}
       >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="17" x2="12" y2="22"/>
-          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill={pinned ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <line x1="12" y1="17" x2="12" y2="22" />
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
         </svg>
       </button>
       <button
@@ -115,6 +132,17 @@ function Chat({
   font,
   setFont,
 }: ChatProps) {
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => window.innerWidth <= 640,
+  );
+
+  useEffect(() => {
+    const onResize = () => setIsMobileViewport(window.innerWidth <= 640);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const {
     messages,
     setMessages,
@@ -212,12 +240,7 @@ function Chat({
       if (isTyping) return;
       e.stopImmediatePropagation();
       if (key === "h") setSidebarOpen((v) => !v);
-      if (
-        key === "p" &&
-        !showPreferences &&
-        !isGuest
-      )
-        setShowPreferences(true);
+      if (key === "p" && !showPreferences && !isGuest) setShowPreferences(true);
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
@@ -263,7 +286,10 @@ function Chat({
       const chat = await apiCreateChat();
       activeChatIdRef.current = chat.id;
       justCreatedChatRef.current = true;
-      onChatCreated(chat.id, firstPrompt ? { ...chat, title: firstPrompt.slice(0, 60) } : chat);
+      onChatCreated(
+        chat.id,
+        firstPrompt ? { ...chat, title: firstPrompt.slice(0, 60) } : chat,
+      );
       void onChatsChanged();
       return chat.id;
     } catch {
@@ -293,7 +319,14 @@ function Chat({
       return;
     }
     if (rawInput === "/search") {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Usage: `/search <query>` — forces a web search regardless of the query type." }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Usage: `/search <query>` — forces a web search regardless of the query type.",
+        },
+      ]);
       return;
     }
     if (rawInput === "/code") {
@@ -472,13 +505,19 @@ function Chat({
             } else if (data.type === "image_context") {
               setMessages((prev) => {
                 const next = [...prev];
-                next[next.length - 1] = { ...next[next.length - 1], image_context: data.context };
+                next[next.length - 1] = {
+                  ...next[next.length - 1],
+                  image_context: data.context,
+                };
                 return next;
               });
             } else if (data.type === "search_context") {
               setMessages((prev) => {
                 const next = [...prev];
-                next[next.length - 1] = { ...next[next.length - 1], search_context: data.context };
+                next[next.length - 1] = {
+                  ...next[next.length - 1],
+                  search_context: data.context,
+                };
                 return next;
               });
             } else if (data.type === "done") {
@@ -508,7 +547,11 @@ function Chat({
       // withRefresh fires handleLogout on 401 for authenticated users — strip the bubble and bail
       // For guests the API key mismatch also surfaces as "Unauthorized access" but no logout fires,
       // so guests fall through to show the error message instead of silently clearing.
-      if (!isGuest && error instanceof Error && error.message === "Unauthorized access") {
+      if (
+        !isGuest &&
+        error instanceof Error &&
+        error.message === "Unauthorized access"
+      ) {
         setMessages((prev) => prev.slice(0, -2));
         return;
       }
@@ -638,8 +681,7 @@ function Chat({
         ? 0
         : Math.round(
             messages.reduce(
-              (sum, m) =>
-                sum + m.content.length + (m.thinking?.length ?? 0),
+              (sum, m) => sum + m.content.length + (m.thinking?.length ?? 0),
               0,
             ) / 4,
           ),
@@ -656,14 +698,14 @@ function Chat({
 
       <div className="chat-layout">
         {/* ---- Sidebar ---- */}
-        {!isGuest && sidebarOpen && (
+        {!isGuest && (sidebarOpen || isMobileViewport) && (
           <div
-            className="sidebar-backdrop"
+            className={`sidebar-backdrop${sidebarOpen ? " open" : ""}`}
             onClick={() => setSidebarOpen(false)}
           />
         )}
-        {!isGuest && sidebarOpen && (
-          <aside className="chat-sidebar">
+        {!isGuest && (sidebarOpen || isMobileViewport) && (
+          <aside className={`chat-sidebar${sidebarOpen ? " open" : ""}`}>
             <div className="sidebar-brand">
               <button
                 className="sidebar-brand-btn"
@@ -678,10 +720,19 @@ function Chat({
                 onClick={() => setSidebarOpen(false)}
                 title="Close sidebar"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <path d="M9 3v18"/>
-                  <path d="M16 9l-3 3 3 3"/>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M9 3v18" />
+                  <path d="M16 9l-3 3 3 3" />
                 </svg>
               </button>
             </div>
@@ -695,22 +746,28 @@ function Chat({
                 onChange={(e) => setHistorySearch(e.target.value)}
               />
               <div className="sidebar-chat-list">
-                {chatsLoading && visibleChats.pinned.length === 0 && visibleChats.rest.length === 0 && (
-                  <div className="sidebar-skeleton">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="sidebar-skeleton-item">
-                        <div
-                          className="sidebar-skeleton-title"
-                          style={{ width: `${55 + (i % 3) * 15}%` }}
-                        />
-                        <div className="sidebar-skeleton-date" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!chatsLoading && visibleChats.pinned.length === 0 && visibleChats.rest.length === 0 && (
-                  <span className="sidebar-empty">Start a conversation to see it here</span>
-                )}
+                {chatsLoading &&
+                  visibleChats.pinned.length === 0 &&
+                  visibleChats.rest.length === 0 && (
+                    <div className="sidebar-skeleton">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="sidebar-skeleton-item">
+                          <div
+                            className="sidebar-skeleton-title"
+                            style={{ width: `${55 + (i % 3) * 15}%` }}
+                          />
+                          <div className="sidebar-skeleton-date" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                {!chatsLoading &&
+                  visibleChats.pinned.length === 0 &&
+                  visibleChats.rest.length === 0 && (
+                    <span className="sidebar-empty">
+                      Start a conversation to see it here
+                    </span>
+                  )}
                 {visibleChats.pinned.length > 0 && (
                   <>
                     <span className="sidebar-section-label">Pinned</span>
@@ -721,12 +778,23 @@ function Chat({
                         activeChatId={activeChatId}
                         pinned
                         deleting={deletingIds.has(c.id)}
-                        onSelect={() => { onChatCreated(c.id); if (window.innerWidth < 768) setSidebarOpen(false); }}
-                        onPin={(e) => { e.stopPropagation(); togglePin(c.id); }}
-                        onDelete={(e) => { e.stopPropagation(); handleDeleteChat(c.id); }}
+                        onSelect={() => {
+                          onChatCreated(c.id);
+                          if (window.innerWidth < 768) setSidebarOpen(false);
+                        }}
+                        onPin={(e) => {
+                          e.stopPropagation();
+                          togglePin(c.id);
+                        }}
+                        onDelete={(e) => {
+                          e.stopPropagation();
+                          handleDeleteChat(c.id);
+                        }}
                       />
                     ))}
-                    {visibleChats.rest.length > 0 && <div className="sidebar-section-divider" />}
+                    {visibleChats.rest.length > 0 && (
+                      <div className="sidebar-section-divider" />
+                    )}
                   </>
                 )}
                 {visibleChats.rest.map((c) => (
@@ -736,9 +804,18 @@ function Chat({
                     activeChatId={activeChatId}
                     pinned={false}
                     deleting={deletingIds.has(c.id)}
-                    onSelect={() => { onChatCreated(c.id); if (window.innerWidth < 768) setSidebarOpen(false); }}
-                    onPin={(e) => { e.stopPropagation(); togglePin(c.id); }}
-                    onDelete={(e) => { e.stopPropagation(); handleDeleteChat(c.id); }}
+                    onSelect={() => {
+                      onChatCreated(c.id);
+                      if (window.innerWidth < 768) setSidebarOpen(false);
+                    }}
+                    onPin={(e) => {
+                      e.stopPropagation();
+                      togglePin(c.id);
+                    }}
+                    onDelete={(e) => {
+                      e.stopPropagation();
+                      handleDeleteChat(c.id);
+                    }}
                   />
                 ))}
               </div>
@@ -775,10 +852,19 @@ function Chat({
                   onClick={() => setSidebarOpen((v) => !v)}
                   title="Toggle sidebar (Ctrl+H)"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <path d="M9 3v18"/>
-                    <path d="M13 9l3 3-3 3"/>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 3v18" />
+                    <path d="M13 9l3 3-3 3" />
                   </svg>
                 </button>
               )}

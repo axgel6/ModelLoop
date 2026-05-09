@@ -18,9 +18,9 @@ const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 type View = "landing" | "login" | "chat" | "terms";
 
 const THEME_TO_DATA: Record<Theme, string> = {
-  "ocean": "ocean",
-  "gruvbox": "gruvbox",
-  "dune": "dune",
+  ocean: "ocean",
+  gruvbox: "gruvbox",
+  dune: "dune",
 };
 
 function App() {

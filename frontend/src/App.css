@@ -5849,12 +5849,148 @@ html[data-theme="dune"] .suggestion-chip:hover:not(:disabled) {
   color: #1c1917;
 }
 
+html[data-theme="dune"] .model-dropdown-menu,
+html[data-theme="dune"] .tools-dropdown-menu,
+html[data-theme="dune"] .docs-dropdown-menu,
+html[data-theme="dune"] .slash-dropdown {
+  background-color: #faf9f2;
+  border: 1px solid rgba(231, 224, 214, 0.95);
+  box-shadow:
+    0 14px 40px rgba(28, 25, 23, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+html[data-theme="dune"] .model-dropdown-menu,
+html[data-theme="dune"] .tools-dropdown-menu,
+html[data-theme="dune"] .docs-dropdown-menu {
+  border-radius: 14px;
+}
+
+html[data-theme="dune"] .slash-dropdown {
+  border-radius: 12px;
+  box-shadow:
+    0 -6px 20px rgba(28, 25, 23, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+html[data-theme="dune"] .model-dropdown-item,
+html[data-theme="dune"] .tools-dropdown-item,
+html[data-theme="dune"] .slash-item,
+html[data-theme="dune"] .docs-item {
+  color: #78716c;
+  outline: none;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 10px;
+}
+
+html[data-theme="dune"] .model-dropdown-item:focus,
+html[data-theme="dune"] .model-dropdown-item:focus-visible,
+html[data-theme="dune"] .tools-dropdown-item:focus,
+html[data-theme="dune"] .tools-dropdown-item:focus-visible,
+html[data-theme="dune"] .slash-item:focus,
+html[data-theme="dune"] .slash-item:focus-visible,
+html[data-theme="dune"] .docs-item:focus,
+html[data-theme="dune"] .docs-item:focus-visible,
+html[data-theme="dune"] .docs-item-delete:focus,
+html[data-theme="dune"] .docs-item-delete:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+html[data-theme="dune"] .model-dropdown-item:hover,
+html[data-theme="dune"] .model-dropdown-item.active,
+html[data-theme="dune"] .tools-dropdown-item:hover,
+html[data-theme="dune"] .tools-dropdown-item.active,
+html[data-theme="dune"] .slash-item:hover,
+html[data-theme="dune"] .slash-item.active,
+html[data-theme="dune"] .docs-item:hover {
+  background: rgba(231, 224, 214, 0.6) !important;
+  border-color: rgba(231, 224, 214, 0.95) !important;
+}
+
+html[data-theme="dune"] .model-dropdown-item:hover,
+html[data-theme="dune"] .model-dropdown-item.active,
+html[data-theme="dune"] .tools-dropdown-item:hover,
+html[data-theme="dune"] .tools-dropdown-item.active,
+html[data-theme="dune"] .slash-item:hover,
+html[data-theme="dune"] .slash-item.active,
+html[data-theme="dune"] .docs-item:hover,
+html[data-theme="dune"] .docs-item-name,
+html[data-theme="dune"] .docs-item-meta {
+  color: #1c1917;
+}
+
+html[data-theme="dune"] .model-dropdown-item-sub,
+html[data-theme="dune"] .tools-dropdown-item-desc,
+html[data-theme="dune"] .docs-empty,
+html[data-theme="dune"] .docs-upload-error,
+html[data-theme="dune"] .slash-item-cmd {
+  color: #a8a29e;
+}
+
+html[data-theme="dune"] .model-dropdown-item.active .model-dropdown-item-dot {
+  background: #d97757;
+}
+
+html[data-theme="dune"] .model-dropdown-item.active .model-dropdown-item-sub,
+html[data-theme="dune"] .model-dropdown-item:hover .model-dropdown-item-sub,
+html[data-theme="dune"] .tools-dropdown-item:hover .tools-dropdown-item-desc,
+html[data-theme="dune"] .tools-dropdown-item.active .tools-dropdown-item-desc {
+  color: #8f7964;
+}
+
+html[data-theme="dune"] .docs-dropdown-header {
+  border-bottom-color: #e7e0d6;
+}
+
+html[data-theme="dune"] .docs-dropdown-title {
+  color: #a8a29e;
+}
+
+html[data-theme="dune"] .docs-upload-btn {
+  background: rgba(217, 119, 87, 0.1);
+  border-color: rgba(217, 119, 87, 0.28);
+  color: #d97757;
+}
+
+html[data-theme="dune"] .docs-upload-btn:hover:not(:disabled) {
+  background: rgba(217, 119, 87, 0.16);
+}
+
+html[data-theme="dune"] .docs-list {
+  scrollbar-color: rgba(167, 157, 147, 0.55) transparent;
+}
+
+html[data-theme="dune"] .docs-item {
+  border-radius: 10px;
+}
+
+html[data-theme="dune"] .docs-item-delete {
+  color: #a8a29e;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  border: 1px solid transparent !important;
+}
+
+html[data-theme="dune"] .docs-item-delete:hover {
+  color: #1c1917;
+  background: rgba(231, 224, 214, 0.65);
+  box-shadow: none;
+}
+
+html[data-theme="dune"] .doc-chip-active {
+  color: #d97757 !important;
+}
+
 /* ---- Chat sidebar ---- */
 
 html[data-theme="dune"] .chat-sidebar {
-  background: #f2ede6;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background: rgba(242, 237, 230, 0.82);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
   border-right: 1px solid #e7e0d6;
 }
 
@@ -7623,6 +7759,19 @@ html[data-theme="ocean"] .pref-analytics-action-name {
     height: 100%;
     z-index: 200;
     width: min(280px, 85vw);
+    transform: translateX(-102%);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease;
+    will-change: transform, opacity;
+  }
+
+  .chat-sidebar.open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /* ---- Sidebar backdrop (visibility controlled by JSX) ---- */
@@ -7632,6 +7781,14 @@ html[data-theme="ocean"] .pref-analytics-action-name {
     inset: 0;
     z-index: 199;
     background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .sidebar-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /* ---- Topbar: larger touch targets ---- */
