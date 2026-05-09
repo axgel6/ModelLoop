@@ -19,7 +19,7 @@ const SLASH_COMMANDS = [
 ];
 
 export const MODEL_PRESETS = [
-  { label: "Fast", model: "mistral:7b" },
+  { label: "Fast", model: "llama3.1:8b" },
   { label: "Pro", model: "qwen2.5:7b" },
   { label: "Thinking", model: "deepseek-r1:7b" },
 ] as const;

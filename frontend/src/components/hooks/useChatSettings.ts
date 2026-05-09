@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiGetModels, apiHealth } from "../api";
 import { DEFAULT_MODEL, MODEL_PRESETS } from "../ChatInput";
 
-const DEFAULT_SYSTEM_PROMPT =
-  "You are a helpful assistant. Be concise and avoid over-explaining simple questions.";
+const DEFAULT_SYSTEM_PROMPT = "";
 
 export function useChatSettings() {
   const [models, setModels] = useState<string[]>([]);

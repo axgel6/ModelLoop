@@ -21,7 +21,7 @@ from feature_flags import is_feature_enabled
 from config import (
     DEFAULT_MODEL, IS_PRODUCTION, NGROK_HEADERS, OLLAMA_BASE_URL,
     PRO_SYSTEM_PROMPT, FREE_SYSTEM_PROMPT, PROPRIETARY_INSTRUCTIONS,
-    THINKING_MODELS, TOOL_CAPABLE_MODELS, API_KEY,
+    THINKING_MODELS, TOOL_CAPABLE_MODELS, NO_SYSTEM_PROMPT_MODELS, API_KEY,
     fix_math_delimiters,
 )
 from actions import execute_tool, get_active_tools
@@ -66,6 +66,9 @@ def _is_thinking_model(model: str) -> bool:
 
 def _supports_tools(model: str) -> bool:
     return any(p in model.lower() for p in TOOL_CAPABLE_MODELS)
+
+def _skip_system_prompt(model: str) -> bool:
+    return any(p in model.lower() for p in NO_SYSTEM_PROMPT_MODELS)
 
 
 def _resolve_search_query(prompt: str, history) -> str:
@@ -240,10 +243,16 @@ async def chat_stream(
     if PROPRIETARY_INSTRUCTIONS and not _is_thinking_model(model):
         effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 
-    messages = [{"role": "system", "content": effective_system}]
-    if user.full_name:
-        messages.append({"role": "user", "content": f"My name is {user.full_name}."})
-        messages.append({"role": "assistant", "content": "Got it!"})
+    messages = []
+    if not _skip_system_prompt(model):
+        messages.append({"role": "system", "content": effective_system})
+        if user.full_name:
+            messages.append({"role": "user", "content": f"My name is {user.full_name}."})
+            messages.append({"role": "assistant", "content": f"Hello, {user.full_name.split()[0]}! How can I help you today?"})
+        else:
+            messages.append({"role": "assistant", "content": "Hello! How can I help you today?"})
+        messages.append({"role": "user", "content": "qwzxqwzxqwzxqwzx"})
+        messages.append({"role": "assistant", "content": "I'm not sure what you meant — could you rephrase that?"})
     for m in db_history:
         content = m.content
         if m.role == "user" and m.image_context:
@@ -504,7 +513,12 @@ async def guest_chat_stream(
         _guest_web_search_task(),
     )
 
-    messages = [{"role": "system", "content": system_prompt}]
+    messages = []
+    if not _skip_system_prompt(model):
+        messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "assistant", "content": "Hello! How can I help you today?"})
+        messages.append({"role": "user", "content": "qwzxqwzxqwzxqwzx"})
+        messages.append({"role": "assistant", "content": "I'm not sure what you meant — could you rephrase that?"})
     messages.extend({"role": m.role, "content": m.content} for m in body.messages)
 
     guest_user_content = prompt
