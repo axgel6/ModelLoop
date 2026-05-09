@@ -84,6 +84,9 @@ html[data-view="chat"] body {
 }
 
 html[data-view="chat"] #root {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
   height: 100dvh;
   overflow: hidden;
 }
@@ -269,7 +272,7 @@ html[data-theme="ocean"] .connection-banner {
   padding: 14px 14px 110px;
   flex: 1 1 auto;
   min-height: 0;
-  height: calc(100% - 96px);
+  height: auto;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-y: contain;
@@ -7586,6 +7589,24 @@ html[data-theme="ocean"] .pref-analytics-action-name {
    ============================================================ */
 
 @media (max-width: 640px) {
+  html[data-view="chat"],
+  html[data-view="chat"] body {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  html[data-view="chat"] #root {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+  }
+
   /* ---- chat-main: fill the entire container so sidebar overlays on top ---- */
   .chat-main {
     position: absolute;
