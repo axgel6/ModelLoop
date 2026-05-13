@@ -213,7 +213,6 @@ button:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: 2px;
 }
 
 /* ============================================================
@@ -3804,16 +3803,22 @@ html[data-theme="dune"] .pref-row-arrow {
 }
 
 html[data-theme="dune"] .pref-confirm-yes {
-  background: #faf8f5;
-  border-color: #e7e0d6;
-  color: #1c1917;
-  box-shadow: none;
+  background: linear-gradient(180deg, #e0815f 0%, #c96344 100%);
+  border-color: #b8522d;
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 0 rgba(140, 55, 25, 0.4),
+    0 3px 8px rgba(180, 70, 35, 0.18);
 }
 
 html[data-theme="dune"] .pref-confirm-yes:hover:not(:disabled) {
-  background: #f0ebe2;
-  border-color: #d4cdc4;
-  box-shadow: none;
+  background: linear-gradient(180deg, #d4734f 0%, #be5a3a 100%);
+  border-color: #a8491f;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 0 rgba(120, 45, 15, 0.4),
+    0 3px 8px rgba(160, 60, 25, 0.18);
 }
 
 html[data-theme="dune"] .pref-confirm-no {
@@ -3829,11 +3834,23 @@ html[data-theme="dune"] .pref-confirm-no:hover {
   box-shadow: none;
 }
 
+html[data-theme="dune"] .pref-delete-overlay {
+  background: rgba(28, 25, 23, 0.4);
+}
+
 html[data-theme="dune"] .pref-delete-dialog-box {
   background: #ffffff;
   border-color: #e7e0d6;
   box-shadow: 0 12px 40px rgba(28, 25, 23, 0.12);
   color: #1c1917;
+}
+
+html[data-theme="dune"] .pref-delete-dialog-title {
+  color: #1c1917;
+}
+
+html[data-theme="dune"] .pref-delete-dialog-text {
+  color: #78716c;
 }
 
 html[data-theme="dune"] .pref-delete-dialog-divider {
@@ -5057,6 +5074,27 @@ html[data-theme="ocean"] .pref-user-delete-btn:not(.disabled):hover {
   box-shadow: none;
 }
 
+.login-brand-mark {
+  display: none;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: #665c54;
+  margin: -4px 0;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(80, 73, 69, 0.3);
+}
+
 .login-guest-btn {
   width: 100%;
   padding: 12px;
@@ -5761,13 +5799,64 @@ html[data-theme="gruvbox"] .landing-message {
 /* ---- Claude Theme ---- */
 
 html[data-theme="dune"],
+@keyframes dune-drift {
+  0% {
+    transform: translate(0%, 0%) scale(1);
+    opacity: 0.85;
+  }
+  30% {
+    transform: translate(5%, -7%) scale(1.1);
+    opacity: 1;
+  }
+  65% {
+    transform: translate(-4%, 6%) scale(0.93);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(0%, 0%) scale(1);
+    opacity: 0.85;
+  }
+}
+
 html[data-theme="dune"] body {
   background: #faf8f5;
   color: #1c1917;
 }
 
+html[data-theme="dune"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 65% 55% at 15% 88%,
+    rgba(217, 119, 87, 0.16) 0%,
+    rgba(194, 90, 52, 0.06) 45%,
+    transparent 65%
+  );
+  transform-origin: 15% 88%;
+  animation: dune-drift 22s ease-in-out infinite;
+}
+
+html[data-theme="dune"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 55% 45% at 85% 12%,
+    rgba(180, 83, 9, 0.09) 0%,
+    rgba(217, 119, 87, 0.04) 40%,
+    transparent 60%
+  );
+  transform-origin: 85% 12%;
+  animation: dune-drift 30s ease-in-out infinite reverse;
+}
+
 html[data-theme="dune"] #root {
-  background: #faf8f5;
+  background: transparent;
 }
 
 /* ---- Buttons ---- */
@@ -5833,6 +5922,46 @@ html[data-theme="dune"] .message.user {
     0 3px 8px rgba(180, 70, 35, 0.18);
 }
 
+html[data-theme="dune"] .user-edit-textarea {
+  background: rgba(255, 248, 240, 0.95);
+  border: 1px solid #d97757;
+  color: #1c1917;
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.12);
+}
+
+html[data-theme="dune"] .user-edit-textarea:focus {
+  border-color: #c5623e;
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.2);
+}
+
+html[data-theme="dune"] .edit-cancel-btn {
+  color: #78716c !important;
+}
+
+html[data-theme="dune"] .edit-cancel-btn:hover {
+  color: #1c1917 !important;
+}
+
+html[data-theme="dune"] .edit-save-btn {
+  background: linear-gradient(180deg, #e0815f 0%, #c96344 100%) !important;
+  border: 1px solid #b8522d !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 0 rgba(140, 55, 25, 0.4),
+    0 2px 6px rgba(180, 70, 35, 0.18) !important;
+}
+
+html[data-theme="dune"] .edit-save-btn:hover {
+  background: linear-gradient(180deg, #d4734f 0%, #be5a3a 100%) !important;
+  border-color: #a8491f !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 1px 0 rgba(120, 45, 15, 0.4),
+    0 2px 5px rgba(160, 60, 25, 0.18) !important;
+}
+
 html[data-theme="dune"] .message.assistant {
   background: linear-gradient(180deg, #ffffff 0%, #f5f0e8 100%);
   color: #1c1917;
@@ -5875,6 +6004,114 @@ html[data-theme="dune"] .assistant-content :not(pre) > code {
 html[data-theme="dune"] .assistant-content pre code {
   color: #1c1917;
   background: transparent;
+}
+
+html[data-theme="dune"] .code-copy-btn {
+  background: rgba(231, 224, 214, 0.9) !important;
+  border: 1px solid #d4cdc4 !important;
+  color: #78716c !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dune"] .code-copy-btn:hover {
+  background: #e7e0d6 !important;
+  color: #1c1917 !important;
+}
+
+html[data-theme="dune"] .code-copy-btn.copied {
+  color: #166534 !important;
+}
+
+/* Dune syntax highlighting — warm earthy palette for light background */
+
+html[data-theme="dune"] .hljs {
+  color: #1c1917;
+  background: transparent;
+}
+
+/* Keywords: def, for, if, import, try, except, as, return, in */
+html[data-theme="dune"] .hljs-keyword,
+html[data-theme="dune"] .hljs-doctag,
+html[data-theme="dune"] .hljs-meta .hljs-keyword,
+html[data-theme="dune"] .hljs-template-tag,
+html[data-theme="dune"] .hljs-template-variable,
+html[data-theme="dune"] .hljs-type,
+html[data-theme="dune"] .hljs-variable.language_ {
+  color: #c2410c;
+}
+
+/* Function / class names */
+html[data-theme="dune"] .hljs-title,
+html[data-theme="dune"] .hljs-title.class_,
+html[data-theme="dune"] .hljs-title.class_.inherited__,
+html[data-theme="dune"] .hljs-title.function_ {
+  color: #78350f;
+}
+
+/* Numbers, attributes, literals, operators */
+html[data-theme="dune"] .hljs-attr,
+html[data-theme="dune"] .hljs-attribute,
+html[data-theme="dune"] .hljs-literal,
+html[data-theme="dune"] .hljs-meta,
+html[data-theme="dune"] .hljs-number,
+html[data-theme="dune"] .hljs-operator,
+html[data-theme="dune"] .hljs-variable,
+html[data-theme="dune"] .hljs-selector-attr,
+html[data-theme="dune"] .hljs-selector-class,
+html[data-theme="dune"] .hljs-selector-id {
+  color: #0f766e;
+}
+
+/* Strings */
+html[data-theme="dune"] .hljs-regexp,
+html[data-theme="dune"] .hljs-string,
+html[data-theme="dune"] .hljs-meta .hljs-string {
+  color: #166534;
+}
+
+/* Built-ins: print, input, len, etc. */
+html[data-theme="dune"] .hljs-built_in,
+html[data-theme="dune"] .hljs-symbol {
+  color: #b45309;
+}
+
+/* Comments */
+html[data-theme="dune"] .hljs-comment,
+html[data-theme="dune"] .hljs-code,
+html[data-theme="dune"] .hljs-formula {
+  color: #a8a29e;
+  font-style: italic;
+}
+
+/* Tags / selector names */
+html[data-theme="dune"] .hljs-name,
+html[data-theme="dune"] .hljs-quote,
+html[data-theme="dune"] .hljs-selector-tag,
+html[data-theme="dune"] .hljs-selector-pseudo {
+  color: #4d7c0f;
+}
+
+html[data-theme="dune"] .hljs-subst {
+  color: #1c1917;
+}
+
+html[data-theme="dune"] .hljs-section {
+  color: #9a3412;
+  font-weight: bold;
+}
+
+html[data-theme="dune"] .hljs-bullet {
+  color: #b45309;
+}
+
+html[data-theme="dune"] .hljs-addition {
+  color: #166534;
+  background-color: rgba(22, 101, 52, 0.08);
+}
+
+html[data-theme="dune"] .hljs-deletion {
+  color: #9a3412;
+  background-color: rgba(154, 52, 18, 0.08);
 }
 
 /* ---- Input area ---- */
@@ -6248,15 +6485,78 @@ html[data-theme="dune"] .logout-confirm-dialog {
   color: #1c1917;
 }
 
-/* ---- Login card ---- */
+html[data-theme="dune"] .logout-confirm-dialog p {
+  color: #1c1917;
+}
+
+html[data-theme="dune"] .logout-confirm-dialog .logout-confirm-cancel {
+  background: transparent;
+  border-color: #e7e0d6;
+  color: #78716c;
+  box-shadow: none;
+}
+
+html[data-theme="dune"] .logout-confirm-dialog .logout-confirm-cancel:hover {
+  background: #faf8f5;
+  color: #1c1917;
+  box-shadow: none;
+}
+
+html[data-theme="dune"] .logout-confirm-dialog .logout-confirm-yes {
+  background: linear-gradient(180deg, #e0815f 0%, #c96344 100%);
+  border: 1px solid #b8522d;
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 0 rgba(140, 55, 25, 0.4),
+    0 3px 8px rgba(180, 70, 35, 0.18);
+}
+
+html[data-theme="dune"] .logout-confirm-dialog .logout-confirm-yes:hover {
+  background: linear-gradient(180deg, #d4734f 0%, #be5a3a 100%);
+  border-color: #a8491f;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 0 rgba(120, 45, 15, 0.4),
+    0 3px 8px rgba(160, 60, 25, 0.18);
+}
+
+/* ---- Login page ---- */
+
+html[data-theme="dune"] .login-container {
+  min-height: 100%;
+}
 
 html[data-theme="dune"] .login-card {
   background: #ffffff;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border: 1px solid #e7e0d6;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(28, 25, 23, 0.08);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 3px rgba(28, 25, 23, 0.06),
+    0 8px 32px rgba(28, 25, 23, 0.09);
+}
+
+html[data-theme="dune"] .login-brand-mark {
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e0815f 0%, #c96344 100%);
+  margin-bottom: 2px;
+}
+
+html[data-theme="dune"] .login-logo {
+  color: #1c1917;
+}
+
+html[data-theme="dune"] .login-subtitle {
+  color: #78716c;
+}
+
+html[data-theme="dune"] .login-field label {
+  color: #78716c;
 }
 
 html[data-theme="dune"] .login-field input {
@@ -6264,6 +6564,7 @@ html[data-theme="dune"] .login-field input {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border: 1px solid #e7e0d6;
+  border-radius: 999px;
   color: #1c1917;
   box-shadow: none;
 }
@@ -6278,10 +6579,18 @@ html[data-theme="dune"] .login-field input::placeholder {
   color: #a8a29e;
 }
 
+html[data-theme="dune"] .login-error {
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.06);
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  border-radius: 999px;
+}
+
 html[data-theme="dune"] .login-submit {
   background: linear-gradient(180deg, #e0815f 0%, #c96344 100%);
   color: #ffffff;
   border: 1px solid #b8522d;
+  border-radius: 999px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     0 2px 0 rgba(140, 55, 25, 0.4),
@@ -6295,6 +6604,16 @@ html[data-theme="dune"] .login-submit:hover:not(:disabled) {
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 2px 0 rgba(120, 45, 15, 0.4),
     0 3px 8px rgba(160, 60, 25, 0.18);
+}
+
+html[data-theme="dune"] .login-submit:disabled {
+  background: #e7e0d6;
+  color: #a8a29e;
+  box-shadow: none;
+}
+
+html[data-theme="dune"] .login-toggle {
+  color: #78716c;
 }
 
 html[data-theme="dune"] .login-toggle-btn {
@@ -6311,10 +6630,14 @@ html[data-theme="dune"] .login-toggle-btn:hover:not(:disabled) {
   color: #c5623e;
 }
 
-html[data-theme="dune"] .login-submit:disabled {
-  background: #e7e0d6;
+html[data-theme="dune"] .login-divider {
   color: #a8a29e;
-  box-shadow: none;
+  margin: 0;
+}
+
+html[data-theme="dune"] .login-divider::before,
+html[data-theme="dune"] .login-divider::after {
+  background: #e7e0d6;
 }
 
 html[data-theme="dune"] .login-guest-btn {
@@ -6322,14 +6645,17 @@ html[data-theme="dune"] .login-guest-btn {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border: 1px solid #e7e0d6;
+  border-radius: 999px;
   color: #78716c;
   box-shadow: none;
+  margin-top: 0;
 }
 
 html[data-theme="dune"] .login-guest-btn:hover:not(:disabled) {
   border-color: #d97757;
-  background: transparent;
+  background: rgba(217, 119, 87, 0.04);
   color: #1c1917;
+  box-shadow: none;
 }
 
 /* ---- Landing feature cards ---- */

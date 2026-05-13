@@ -99,7 +99,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
       <div className="login-container">
         <div className="login-card">
           <button className="back-to-landing" onClick={onBack}>
-            <span style={{ paddingBottom: "2px" }}>←</span>
+            ←
           </button>
 
           <div className="login-header">
@@ -194,6 +194,10 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
               {isLogin ? "Sign up" : "Sign in"}
             </button>
           </p>
+
+          <div className="login-divider">
+            <span>or</span>
+          </div>
 
           <button
             className="login-guest-btn"
