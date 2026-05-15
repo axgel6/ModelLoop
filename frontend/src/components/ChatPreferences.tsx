@@ -106,6 +106,7 @@ export type Section =
   | "presets"
   | "temperature"
   | "appearance"
+  | "shortcuts"
   | "account"
   | "users"
   | "analytics"
@@ -117,6 +118,7 @@ const BASE_NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "presets", label: "Presets" },
   { id: "temperature", label: "Temperature" },
   { id: "appearance", label: "Appearance" },
+  { id: "shortcuts", label: "Shortcuts" },
   { id: "account", label: "Account" },
 ];
 
@@ -596,6 +598,69 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             </div>
           </>
         );
+
+      case "shortcuts": {
+        const isMac = navigator.platform.toUpperCase().includes("MAC");
+        const mod = isMac ? "⌘" : "Ctrl";
+        const groups: { label: string; rows: { keys: string[]; desc: string }[] }[] = [
+          {
+            label: "Navigation",
+            rows: [
+              { keys: [mod, "H"], desc: "Toggle sidebar" },
+              { keys: [mod, "P"], desc: "Open preferences" },
+              { keys: ["/"], desc: "Focus input" },
+            ],
+          },
+          {
+            label: "Input",
+            rows: [
+              { keys: ["Enter"], desc: "Send message" },
+              { keys: ["Shift", "Enter"], desc: "New line" },
+              { keys: ["↑"], desc: "Recall previous message" },
+              { keys: ["↓"], desc: "Recall next message" },
+              { keys: ["Esc"], desc: "Clear slash command menu" },
+            ],
+          },
+          {
+            label: "Editing",
+            rows: [
+              { keys: ["Enter"], desc: "Confirm edit / rename" },
+              { keys: ["Esc"], desc: "Cancel edit" },
+            ],
+          },
+        ];
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Shortcuts</span>
+            </div>
+            <div className="pref-settings-area">
+              {groups.map((group) => (
+                <div key={group.label} className="pref-shortcut-group">
+                  <div className="pref-setting-section-label">{group.label}</div>
+                  <div className="pref-shortcut-list">
+                    {group.rows.map((row) => (
+                      <div key={row.desc} className="pref-shortcut-row">
+                        <span className="pref-shortcut-desc">{row.desc}</span>
+                        <span className="pref-shortcut-keys">
+                          {row.keys.map((k, i) => (
+                            <span key={i}>
+                              <kbd className="pref-kbd">{k}</kbd>
+                              {i < row.keys.length - 1 && (
+                                <span className="pref-kbd-plus">+</span>
+                              )}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      }
 
       case "account":
         return (

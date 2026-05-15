@@ -266,6 +266,56 @@ html[data-theme="ocean"] .connection-banner {
     inset 0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 
+@property --dune-border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+html[data-theme="dune"] .connection-banner-wrap {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  width: fit-content;
+  max-width: calc(100% - 28px);
+  padding: 2px;
+  border-radius: 27px;
+  background: conic-gradient(
+    from var(--dune-border-angle),
+    transparent 0%,
+    transparent 78%,
+    rgba(217, 119, 87, 0.35) 86%,
+    #d97757 92%,
+    rgba(217, 119, 87, 0.35) 97%,
+    transparent 100%
+  );
+  animation: dune-border-spin 2s linear infinite;
+  box-shadow:
+    0 6px 20px rgba(28, 25, 23, 0.1),
+    0 2px 6px rgba(28, 25, 23, 0.06);
+}
+
+html[data-theme="dune"] .connection-banner {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  z-index: auto;
+  width: 100%;
+  max-width: none;
+  background: linear-gradient(135deg, #faf7f2 0%, #f0e8dc 100%);
+  border: none;
+  color: #6b5c52;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+@keyframes dune-border-spin {
+  to { --dune-border-angle: 360deg; }
+}
+
 .messages {
   border-radius: 12px;
   padding: 14px;
@@ -1548,6 +1598,17 @@ html[data-theme="dune"] .tool-indicator {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes empty-state-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes chat-item-pop {
+  0%   { opacity: 0; transform: scale(0.9); }
+  60%  { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 @keyframes modal-in {
   0%   { opacity: 0;   transform: scale(0.82); }
   55%  { opacity: 1;   transform: scale(1.03); }
@@ -1636,7 +1697,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
   transition:
     background 0.12s,
     border-color 0.12s;
-  animation: fade-in 0.15s ease-out both;
+  animation: chat-item-pop 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .sidebar-chat-item:hover {
@@ -1873,6 +1934,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
 }
 
 .logout-confirm-dialog {
+  animation: modal-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   background: rgba(50, 48, 47, 0.72);
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
@@ -1944,6 +2006,7 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
   padding: 28px 16px 80px;
   text-align: center;
   margin: auto;
+  animation: empty-state-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .empty-title {
@@ -3061,6 +3124,65 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   margin-bottom: -8px;
 }
 
+.pref-shortcut-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pref-shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pref-shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.pref-shortcut-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pref-shortcut-desc {
+  font-size: 0.82rem;
+  color: #a89984;
+}
+
+.pref-shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pref-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-family: var(--ui-font);
+  font-weight: 600;
+  background: rgba(80, 73, 69, 0.5);
+  border: 1px solid rgba(102, 92, 84, 0.6);
+  border-bottom-width: 2px;
+  color: #d5c4a1;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.pref-kbd-plus {
+  font-size: 0.7rem;
+  color: #665c54;
+  margin: 0 1px;
+}
+
 .pref-temp-value {
   font-size: 1rem;
   font-weight: 700;
@@ -3363,6 +3485,7 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
 /* ---- Tier comparison chart ---- */
 
 .tier-chart-modal {
+  animation: modal-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   background: #32302f;
   border: 1px solid #504945;
   border-radius: 14px;
@@ -3714,6 +3837,25 @@ html[data-theme="dune"] .pref-setting-hint {
 }
 
 html[data-theme="dune"] .pref-setting-section-label {
+  color: #a8a29e;
+}
+
+html[data-theme="dune"] .pref-shortcut-row:nth-child(odd) {
+  background: rgba(28, 25, 23, 0.04);
+}
+
+html[data-theme="dune"] .pref-shortcut-desc {
+  color: #78716c;
+}
+
+html[data-theme="dune"] .pref-kbd {
+  background: rgba(231, 224, 214, 0.7);
+  border-color: rgba(185, 168, 150, 0.7);
+  border-bottom-color: rgba(155, 138, 120, 0.9);
+  color: #44403c;
+}
+
+html[data-theme="dune"] .pref-kbd-plus {
   color: #a8a29e;
 }
 
@@ -4283,6 +4425,7 @@ html[data-theme="dune"] .tier-chart-footer {
 }
 
 .pref-delete-dialog-box {
+  animation: modal-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   background: #32302f;
   border: 1px solid #504945;
   border-radius: 12px;
@@ -4630,6 +4773,25 @@ html[data-theme="ocean"] .pref-setting-hint {
 }
 
 html[data-theme="ocean"] .pref-setting-section-label {
+  color: #3d4a5c;
+}
+
+html[data-theme="ocean"] .pref-shortcut-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="ocean"] .pref-shortcut-desc {
+  color: #8da0b8;
+}
+
+html[data-theme="ocean"] .pref-kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  border-bottom-color: rgba(255, 255, 255, 0.25);
+  color: #ccd6e8;
+}
+
+html[data-theme="ocean"] .pref-kbd-plus {
   color: #3d4a5c;
 }
 
@@ -8381,6 +8543,10 @@ html[data-theme="ocean"] .pref-analytics-action-name {
   /* ---- Connection banner ---- */
   .connection-banner {
     top: 42px;
+  }
+
+  html[data-theme="dune"] .connection-banner-wrap {
+    top: 40px;
   }
 
   /* ---- Login: less padding ---- */

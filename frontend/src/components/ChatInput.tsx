@@ -31,6 +31,7 @@ interface ChatInputProps {
   onAsk: (prompt: string, images?: string[]) => Promise<void> | void;
   onStop: () => void;
   onRegisterFocus?: (focusFn: () => void) => void;
+  onRegisterSetInput?: (setFn: (value: string) => void) => void;
   selectedModel?: string;
   setSelectedModel?: (model: string) => void;
   onOpenPreferences?: (section?: string) => void;
@@ -50,6 +51,7 @@ function ChatInput({
   onAsk,
   onStop,
   onRegisterFocus,
+  onRegisterSetInput,
   selectedModel,
   setSelectedModel,
   onOpenPreferences,
@@ -112,13 +114,21 @@ function ChatInput({
   );
 
   useEffect(() => {
-    if (!loading) textareaRef.current?.focus();
+    textareaRef.current?.focus();
   }, [loading]);
 
   useEffect(() => {
     if (!onRegisterFocus) return;
     onRegisterFocus(() => textareaRef.current?.focus());
   }, [onRegisterFocus]);
+
+  useEffect(() => {
+    if (!onRegisterSetInput) return;
+    onRegisterSetInput((value: string) => {
+      setInput(value);
+      textareaRef.current?.focus();
+    });
+  }, [onRegisterSetInput]);
 
   useEffect(() => {
     if (!modelDropdownOpen) return;
@@ -382,7 +392,6 @@ function ChatInput({
           }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          disabled={loading}
         />
         <div className="input-toolbar">
           <div className="toolbar-left">
@@ -392,7 +401,6 @@ function ChatInput({
                 onClick={() => fileInputRef.current?.click()}
                 title="Attach image (analyzed with gemma3)"
                 type="button"
-                disabled={loading}
               >
                 <svg
                   viewBox="0 0 24 24"

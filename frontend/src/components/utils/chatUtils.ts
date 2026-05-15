@@ -25,8 +25,10 @@ export function fixMathDelimiters(text: string): string {
   return text;
 }
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "Today";
   const d = new Date(iso);
+  if (isNaN(d.getTime())) return "Today";
   const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000);
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
@@ -37,7 +39,7 @@ export function formatDate(iso: string): string {
 export function fmtTime(iso: string | undefined): string | null {
   if (!iso) return null;
   return new Date(iso).toLocaleTimeString([], {
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
   });
 }

@@ -39,6 +39,7 @@ import {
   GREETINGS,
   withMandatoryPromptRules,
 } from "./utils/chatUtils";
+import ConnectionBanner from "./ConnectionBanner";
 
 // ── Sidebar chat item ─────────────────────────────────────────────────────────
 
@@ -201,6 +202,7 @@ function Chat({
   };
 
   const inputFocusRef = useRef<(() => void) | null>(null);
+  const inputSetRef = useRef<((value: string) => void) | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   useEffect(() => { scrollToBottom(); }, [activeTool, scrollToBottom]);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -708,11 +710,7 @@ function Chat({
 
   return (
     <>
-      {!isConnected && (
-        <div className="connection-banner">
-          Initializing backend services. Estimated wait time: ~1 minute.
-        </div>
-      )}
+      {!isConnected && <ConnectionBanner />}
 
       <div className="chat-layout">
         {/* ---- Sidebar ---- */}
@@ -1032,7 +1030,7 @@ function Chat({
                     <button
                       key={s}
                       className="suggestion-chip"
-                      onClick={() => void handleAsk(s)}
+                      onClick={() => inputSetRef.current?.(s)}
                       disabled={loading}
                     >
                       {s}
@@ -1124,6 +1122,9 @@ function Chat({
             onStop={handleStop}
             onRegisterFocus={(focusFn) => {
               inputFocusRef.current = focusFn;
+            }}
+            onRegisterSetInput={(setFn) => {
+              inputSetRef.current = setFn;
             }}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}

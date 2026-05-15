@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiHealth, apiLogin, apiRegister } from "./api";
+import ConnectionBanner from "./ConnectionBanner";
 
 interface LoginProps {
   onLogin: () => void;
@@ -91,11 +92,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
 
   return (
     <>
-      {!isConnected && (
-        <div className="connection-banner">
-          Waiting for backend to wake up... (This may take a moment)
-        </div>
-      )}
+      {!isConnected && <ConnectionBanner />}
       <div className="login-container">
         <div className="login-card">
           <button className="back-to-landing" onClick={onBack}>
