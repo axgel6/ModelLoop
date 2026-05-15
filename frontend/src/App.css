@@ -3693,16 +3693,23 @@ html[data-theme="dune"] .pref-sidebar-title {
 
 html[data-theme="dune"] .pref-nav-item {
   color: #78716c;
+  border: 1px solid transparent;
 }
 
 html[data-theme="dune"] .pref-nav-item:hover {
-  background: rgba(217, 119, 87, 0.08);
+  background: rgba(217, 119, 87, 0.12);
   color: #1c1917;
 }
 
 html[data-theme="dune"] .pref-nav-item.active {
-  background: rgba(217, 119, 87, 0.1);
-  color: #1c1917;
+  background: linear-gradient(180deg, #e0815f 0%, #c96344 100%);
+  border: 1px solid #b8522d;
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 0 rgba(140, 55, 25, 0.4),
+    0 3px 8px rgba(180, 70, 35, 0.18);
+  text-shadow: 0 1px 0 rgba(100, 30, 10, 0.3);
 }
 
 html[data-theme="dune"] .pref-content-header {
