@@ -581,18 +581,18 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-section-label" style={{ marginTop: "20px" }}>Font</div>
               <div className="pref-font-cards">
                 <div
-                  className={`pref-font-card${font === "mono" ? " active" : ""}`}
-                  onClick={() => setFont("mono")}
-                >
-                  <span className="pref-font-preview pref-font-preview-mono">Aa</span>
-                  <span className="pref-font-label">JetBrains Mono</span>
-                </div>
-                <div
                   className={`pref-font-card${font === "inter" ? " active" : ""}`}
                   onClick={() => setFont("inter")}
                 >
                   <span className="pref-font-preview pref-font-preview-inter">Aa</span>
                   <span className="pref-font-label">Inter</span>
+                </div>
+                <div
+                  className={`pref-font-card${font === "mono" ? " active" : ""}`}
+                  onClick={() => setFont("mono")}
+                >
+                  <span className="pref-font-preview pref-font-preview-mono">Aa</span>
+                  <span className="pref-font-label">JetBrains Mono</span>
                 </div>
               </div>
             </div>

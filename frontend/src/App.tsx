@@ -89,7 +89,7 @@ function App() {
 
   const [font, setFont] = useState<Font>(() => {
     const stored = localStorage.getItem("font");
-    return stored === "inter" ? "inter" : "mono";
+    return stored === "mono" ? "mono" : "inter";
   });
 
   useEffect(() => {
