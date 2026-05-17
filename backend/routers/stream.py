@@ -240,6 +240,9 @@ async def chat_stream(
             + "\n</rag_context>"
         )
 
+    if user.personal_context:
+        effective_system += f"\n\n<user_context>\n{user.personal_context}\n</user_context>"
+
     if PROPRIETARY_INSTRUCTIONS and not _is_thinking_model(model):
         effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 

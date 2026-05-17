@@ -178,7 +178,7 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("Failed to rename chat");
 }
 
-// Fetch the current user's id, email, full_name, role, theme, and font
+// Fetch the current user's id, email, full_name, role, theme, font, and personal_context
 export async function apiGetMe(): Promise<{
   id: string;
   email: string;
@@ -186,6 +186,7 @@ export async function apiGetMe(): Promise<{
   role: string;
   theme: string;
   font: string;
+  personal_context: string | null;
 }> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/auth/me`, { headers: authHeaders() }),
@@ -214,6 +215,17 @@ export async function apiUpdateProfile(fullName: string): Promise<void> {
     }),
   );
   if (!res.ok) throw new Error("Failed to update profile");
+}
+
+export async function apiSavePersonalContext(personalContext: string | null): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/auth/me/context`, {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ personal_context: personalContext || null }),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to save personal context");
 }
 
 export async function apiGetMyFeatures(): Promise<Record<string, boolean>> {

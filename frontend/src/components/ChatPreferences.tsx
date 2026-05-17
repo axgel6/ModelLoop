@@ -4,6 +4,7 @@ import { haptics } from "../haptics";
 import {
   apiGetMe,
   apiUpdateProfile,
+  apiSavePersonalContext,
   apiAdminGetUsers,
   apiAdminSetRole,
   apiAdminToggleAccess,
@@ -35,6 +36,7 @@ interface ChatPreferencesProps {
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   onDeleteAccount: () => Promise<void>;
+  onClearAllChats: () => Promise<void>;
   onNameChange?: (name: string | null) => void;
   initialSection?: Section;
 }
@@ -139,12 +141,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   selectedModel,
   setSelectedModel,
   onDeleteAccount,
+  onClearAllChats,
   onNameChange,
   initialSection,
 }) => {
   useEscapeKey(onClose);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
   const [showTierChart, setShowTierChart] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>(
     initialSection ?? "model",
@@ -159,6 +164,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   } | null>(null);
   const [nameEdit, setNameEdit] = useState<string | null>(null);
   const [nameSaving, setNameSaving] = useState(false);
+  const [personalContext, setPersonalContext] = useState<string>("");
+  const [personalContextSaving, setPersonalContextSaving] = useState(false);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminSaving, setAdminSaving] = useState<string | null>(null);
@@ -186,7 +193,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [flagsLoading, setFlagsLoading] = useState(false);
   const [flagSaving, setFlagSaving] = useState<string | null>(null);
   useEffect(() => {
-    apiGetMe().then(setUserInfo).catch(() => {});
+    apiGetMe().then((info) => {
+      setUserInfo(info);
+      setPersonalContext(info.personal_context ?? "");
+    }).catch(() => {});
   }, []);
 
   const showAdminError = (msg: string) => {
@@ -338,6 +348,25 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleSavePersonalContext = async () => {
+    setPersonalContextSaving(true);
+    try {
+      await apiSavePersonalContext(personalContext || null);
+    } finally {
+      setPersonalContextSaving(false);
+    }
+  };
+
+  const handleClearAllChats = async () => {
+    setClearingAll(true);
+    try {
+      await onClearAllChats();
+    } finally {
+      setClearingAll(false);
+      setShowClearAllConfirm(false);
     }
   };
 
@@ -668,6 +697,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             <div className="pref-content-header">
               <span className="pref-content-title">Account</span>
             </div>
+            <div className="pref-account-scroll">
             <div className="pref-account-card">
               {userInfo && (
                 <div className="pref-account-field">
@@ -736,6 +766,36 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 </div>
               </div>
             </div>
+            <div className="pref-account-card">
+              <div className="pref-account-field">
+                <div className="pref-field-label">Personal Context</div>
+                <div className="pref-field-desc">
+                  Background about you that the model will always see
+                </div>
+                <textarea
+                  className="pref-context-textarea"
+                  value={personalContext}
+                  maxLength={1000}
+                  placeholder="e.g. I'm a software engineer working in TypeScript. Prefer concise answers."
+                  onChange={(e) => setPersonalContext(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSavePersonalContext();
+                  }}
+                  disabled={personalContextSaving}
+                  rows={4}
+                />
+                <div className="pref-context-footer">
+                  <span className="pref-context-count">{personalContext.length}/1000</span>
+                  <button
+                    className="pref-name-save-btn"
+                    onClick={handleSavePersonalContext}
+                    disabled={personalContextSaving}
+                  >
+                    {personalContextSaving ? "◌" : "Save"}
+                  </button>
+                </div>
+              </div>
+            </div>
             <div className="pref-list">
               <div
                 className="pref-list-item"
@@ -762,6 +822,34 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <div className="pref-item-name">View Plans</div>
                   <div className="pref-item-desc">
                     Compare features across Guest, Free, and Pro tiers
+                  </div>
+                </div>
+                <span className="pref-row-arrow">→</span>
+              </div>
+              <div
+                className="pref-list-item pref-danger-item"
+                onClick={() => setShowClearAllConfirm(true)}
+              >
+                <div className="pref-item-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  </svg>
+                </div>
+                <div className="pref-item-info">
+                  <div className="pref-item-name pref-danger-name">
+                    Clear All Chats
+                  </div>
+                  <div className="pref-item-desc">
+                    Delete all chat history permanently
                   </div>
                 </div>
                 <span className="pref-row-arrow">→</span>
@@ -800,6 +888,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <p id="acc-upgrade-message">
                 Contact administrator for account tier upgrade
               </p>
+            </div>
             </div>
           </>
         );
@@ -1453,6 +1542,48 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 disabled={deleting}
               >
                 {deleting ? "Deleting…" : "Delete Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showClearAllConfirm && (
+        <div
+          className="pref-delete-overlay"
+          onClick={() => setShowClearAllConfirm(false)}
+        >
+          <div
+            className="pref-delete-dialog-box"
+            onClick={(e) => {
+              const btn = (e.target as HTMLElement).closest(
+                "button:not(:disabled)",
+              ) as HTMLElement | null;
+              if (btn?.classList.contains("pref-confirm-yes"))
+                haptics.trigger("warning");
+              else if (btn) haptics.trigger("selection");
+              e.stopPropagation();
+            }}
+          >
+            <div className="pref-delete-dialog-title">Clear All Chats</div>
+            <div className="pref-delete-dialog-text">
+              This will permanently delete all your chat history. This action
+              cannot be undone.
+            </div>
+            <div className="pref-delete-dialog-divider" />
+            <div className="pref-delete-dialog-actions">
+              <button
+                className="pref-confirm-no"
+                onClick={() => setShowClearAllConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="pref-confirm-yes"
+                onClick={handleClearAllChats}
+                disabled={clearingAll}
+              >
+                {clearingAll ? "Clearing…" : "Clear All"}
               </button>
             </div>
           </div>

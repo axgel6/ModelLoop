@@ -18,6 +18,10 @@ class UpdatePreferencesRequest(BaseModel):
     font:  Optional[str] = Field(default=None, pattern=r"^(mono|inter)$")
 
 
+class UpdatePersonalContextRequest(BaseModel):
+    personal_context: Optional[str] = Field(default=None, max_length=1000)
+
+
 class LoginRequest(BaseModel):
     email:    EmailStr = Field(..., max_length=254)
     password: str      = Field(..., max_length=128)

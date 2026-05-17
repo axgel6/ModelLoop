@@ -75,6 +75,7 @@ async def lifespan(_: FastAPI):
             "DELETE FROM feature_flags WHERE name IN ('guest_tools', 'guest_preferences')",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'ocean'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'mono'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_context TEXT",
         ]
         for stmt in migrations:
             await conn.execute(text(stmt))

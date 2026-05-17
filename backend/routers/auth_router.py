@@ -14,7 +14,7 @@ from auth import (
     get_current_user_id, generate_refresh_token,
     hash_refresh_token, REFRESH_EXPIRE_DAYS,
 )
-from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest, UpdatePreferencesRequest
+from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest, UpdatePreferencesRequest, UpdatePersonalContextRequest
 from audit import log_audit
 from dependencies import _get_client_ip
 
@@ -90,7 +90,7 @@ async def get_me(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font}
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
 
 
 @router.patch("/me")
@@ -105,7 +105,22 @@ async def update_profile(
         raise HTTPException(status_code=404, detail="User not found")
     user.full_name = body.full_name.strip()
     await db.commit()
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font}
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
+
+
+@router.patch("/me/context")
+async def update_personal_context(
+    body: UpdatePersonalContextRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.personal_context = body.personal_context.strip() if body.personal_context else None
+    await db.commit()
+    return {"personal_context": user.personal_context}
 
 
 @router.patch("/preferences")
