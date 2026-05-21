@@ -173,7 +173,7 @@ function Chat({
     temperature,
     setTemperature,
   } = useChatSettings();
-  const [prefSection, setPrefSection] = useState<PrefSection>("model");
+  const [prefSection] = useState<PrefSection>("model");
 
   const {
     sidebarOpen,
