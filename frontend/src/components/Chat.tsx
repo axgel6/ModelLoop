@@ -1157,14 +1157,6 @@ function Chat({
             setSelectedModel={setSelectedModel}
             estimatedTokens={estimatedTokens}
             messageCount={messages.length}
-            {...(!isGuest
-              ? {
-                  onOpenPreferences: (section?: string) => {
-                    if (section) setPrefSection(section as PrefSection);
-                    setShowPreferences(true);
-                  },
-                }
-              : {})}
             photoUploadEnabled={features.photo_upload ?? true}
             ragEnabled={features.rag ?? false}
             {...(!isGuest && activeChatId

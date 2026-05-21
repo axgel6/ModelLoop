@@ -29,7 +29,6 @@ interface ChatInputProps {
   onRegisterSetInput?: (setFn: (value: string) => void) => void;
   selectedModel?: string;
   setSelectedModel?: (model: string) => void;
-  onOpenPreferences?: (section?: string) => void;
   documents?: DocumentMeta[];
   docsUploading?: boolean;
   docUploadError?: string | null;
@@ -49,7 +48,6 @@ function ChatInput({
   onRegisterSetInput,
   selectedModel,
   setSelectedModel,
-  onOpenPreferences,
   documents = [],
   docsUploading = false,
   docUploadError,
