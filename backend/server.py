@@ -16,6 +16,7 @@ from sqlalchemy import text
 from database import engine, Base
 from config import ALLOWED_ORIGINS, IS_PRODUCTION
 from routers import auth_router, chats, messages, documents, admin, models_router, stream, health
+from routers.stream import close_ollama_client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -83,6 +84,7 @@ async def lifespan(_: FastAPI):
     yield
 
     await engine.dispose()
+    await close_ollama_client()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)

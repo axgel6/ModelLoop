@@ -34,6 +34,14 @@ from auth import decode_token_role
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["stream"])
+
+_ollama_http = httpx.AsyncClient(
+    timeout=httpx.Timeout(None, connect=5.0),
+    limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+)
+
+async def close_ollama_client():
+    await _ollama_http.aclose()
 def _chat_key(request: Request) -> str:
     return (request.headers.get("Authorization") or "").removeprefix("Bearer ").strip() or get_remote_address(request)
 
@@ -111,14 +119,13 @@ async def _describe_images(images: list[str]) -> str:
         "options": {"temperature": 0.1},
     }
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                f"{OLLAMA_BASE_URL}/api/chat",
-                json=payload,
-                headers=NGROK_HEADERS,
-            )
-            resp.raise_for_status()
-            return resp.json().get("message", {}).get("content", "").strip()
+        resp = await _ollama_http.post(
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json=payload,
+            headers=NGROK_HEADERS,
+        )
+        resp.raise_for_status()
+        return resp.json().get("message", {}).get("content", "").strip()
     except Exception as e:
         logger.warning("image_description_failed error=%s", str(e))
         return ""
@@ -136,24 +143,23 @@ async def _ollama_stream(messages: list, model: str, temperature: float, tools: 
         payload["tools"] = tools
     if _is_thinking_model(model):
         payload["think"] = True
-    async with httpx.AsyncClient(timeout=120) as client:
-        async with client.stream(
-            "POST",
-            f"{OLLAMA_BASE_URL}/api/chat",
-            json=payload,
-            headers=NGROK_HEADERS,
-        ) as resp:
-            resp.raise_for_status()
-            async for line in resp.aiter_lines():
-                if line:
-                    try:
-                        chunk = json.loads(line)
-                        thinking = chunk.get("message", {}).get("thinking", "")
-                        if thinking:
-                            yield {"_thinking": thinking}
-                        yield chunk
-                    except json.JSONDecodeError:
-                        continue
+    async with _ollama_http.stream(
+        "POST",
+        f"{OLLAMA_BASE_URL}/api/chat",
+        json=payload,
+        headers=NGROK_HEADERS,
+    ) as resp:
+        resp.raise_for_status()
+        async for line in resp.aiter_lines():
+            if line:
+                try:
+                    chunk = json.loads(line)
+                    thinking = chunk.get("message", {}).get("thinking", "")
+                    if thinking:
+                        yield {"_thinking": thinking}
+                    yield chunk
+                except json.JSONDecodeError:
+                    continue
 
 
 @router.post("/api/v1/chat/stream")
@@ -439,22 +445,25 @@ async def chat_stream(
                 if _search_ctx:
                     yield f"data: {json.dumps({'type': 'search_context', 'context': _search_ctx})}\n\n"
 
-                async with AsyncSessionLocal() as write_db:
-                    chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
-                    chat_row = chat_result.scalar_one_or_none()
-                    if chat_row:
-                        write_db.add(Message(
-                            chat_id=chat_id, role="user", content=prompt,
-                            images=images or None, image_context=image_context or None,
-                            search_context=_search_ctx,
-                        ))
-                        write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
-                        if chat_title == "New Chat":
-                            chat_row.title = prompt[:60]
-                        chat_row.updated_at = datetime.now(timezone.utc)
-                        await write_db.commit()
-
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+                try:
+                    async with AsyncSessionLocal() as write_db:
+                        chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
+                        chat_row = chat_result.scalar_one_or_none()
+                        if chat_row:
+                            write_db.add(Message(
+                                chat_id=chat_id, role="user", content=prompt,
+                                images=images or None, image_context=image_context or None,
+                                search_context=_search_ctx,
+                            ))
+                            write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
+                            if chat_title == "New Chat":
+                                chat_row.title = prompt[:60]
+                            chat_row.updated_at = datetime.now(timezone.utc)
+                            await write_db.commit()
+                except Exception as db_err:
+                    logger.error('db_save_error chat_id=%s error=%s', chat_id, str(db_err))
             else:
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
 

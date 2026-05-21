@@ -399,7 +399,7 @@ function ChatInput({
               <button
                 className="toolbar-icon-btn"
                 onClick={() => fileInputRef.current?.click()}
-                title="Attach image (analyzed with gemma3)"
+                title=""
                 type="button"
               >
                 <svg
@@ -416,6 +416,7 @@ function ChatInput({
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
+                <span className="toolbar-dock-label">Attach image</span>
               </button>
             )}
             {onDocUpload && ragEnabled && (
@@ -434,7 +435,7 @@ function ChatInput({
                 <button
                   className={`toolbar-chip-btn${documents.length > 0 ? " doc-chip-active" : ""}`}
                   onClick={() => setDocsDropdownOpen((v) => !v)}
-                  title="Documents (RAG)"
+                  title=""
                   type="button"
                 >
                   <svg
@@ -455,6 +456,7 @@ function ChatInput({
                   {documents.length > 0 && (
                     <span className="doc-chip-count">{documents.length}</span>
                   )}
+                  <span className="toolbar-dock-label">Documents</span>
                 </button>
                 {docsDropdownOpen && (
                   <div className="tools-dropdown-menu">
@@ -554,7 +556,7 @@ function ChatInput({
                 <button
                   className="toolbar-icon-btn"
                   onClick={() => setTokenPopupOpen((v) => !v)}
-                  title="Token usage"
+                  title=""
                   type="button"
                 >
                   <svg
@@ -569,6 +571,7 @@ function ChatInput({
                   >
                     <polyline points="22 12 18 12 15 3 9 21 6 12 2 12" />
                   </svg>
+                  <span className="toolbar-dock-label">Token usage</span>
                 </button>
                 {tokenPopupOpen && (
                   <div className="tools-dropdown-menu">
@@ -591,7 +594,7 @@ function ChatInput({
                 <button
                   className="toolbar-chip-btn"
                   onClick={() => setToolsDropdownOpen((v) => !v)}
-                  title="Tools"
+                  title=""
                   type="button"
                 >
                   <svg
@@ -629,6 +632,7 @@ function ChatInput({
                       stroke="none"
                     />
                   </svg>
+                  <span className="toolbar-dock-label">Tools</span>
                 </button>
                 {toolsDropdownOpen && (
                   <div className="tools-dropdown-menu">

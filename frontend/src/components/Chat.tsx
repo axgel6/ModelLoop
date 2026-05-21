@@ -456,6 +456,8 @@ function Chat({
       let bufferedThinking = "";
       let rafId: number | null = null;
       let tokenHapticCounter = 0;
+      let localIsThinking = true;
+      let localActiveTool: string | null = null;
 
       const flushBufferedTokens = () => {
         const hasContent = !!bufferedTokens;
@@ -506,13 +508,16 @@ function Chat({
           try {
             const data = JSON.parse(line.slice(6));
             if (data.type === "thinking_token") {
-              setIsThinking(true);
               bufferedThinking += data.token;
               scheduleFlush();
               if (++tokenHapticCounter % 2 === 0) haptics.trigger("light");
             } else if (data.type === "token") {
-              setActiveTool(null);
-              setIsThinking(false);
+              if (localIsThinking || localActiveTool !== null) {
+                localIsThinking = false;
+                localActiveTool = null;
+                setIsThinking(false);
+                setActiveTool(null);
+              }
               bufferedTokens += data.token;
               scheduleFlush();
               if (++tokenHapticCounter % 2 === 0)
@@ -520,6 +525,7 @@ function Chat({
                   tokenHapticCounter % 10 === 0 ? "selection" : "light",
                 );
             } else if (data.type === "tool_use") {
+              localActiveTool = data.tool ?? null;
               setActiveTool(data.tool ?? null);
               haptics.trigger("selection");
             } else if (data.type === "image_context") {
@@ -933,7 +939,7 @@ function Chat({
                   className="topbar-icon-btn"
                   onClick={handleNewChat}
                   disabled={loading}
-                  title="New chat"
+                  title=""
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -948,13 +954,14 @@ function Chat({
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
+                  <span className="topbar-dock-label">New chat</span>
                 </button>
               )}
               {!isGuest && (
                 <button
                   className="topbar-icon-btn"
                   onClick={() => setShowPreferences(true)}
-                  title="Preferences (Ctrl+P)"
+                  title=""
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -969,6 +976,7 @@ function Chat({
                     <circle cx="12" cy="12" r="3" />
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                   </svg>
+                  <span className="topbar-dock-label">Preferences</span>
                 </button>
               )}
               <button
@@ -976,7 +984,7 @@ function Chat({
                 onClick={() =>
                   isGuest ? handleLogout() : setShowLogoutConfirm(true)
                 }
-                title={isGuest ? "Sign In" : "Sign Out"}
+                title=""
                 aria-label={isGuest ? "Sign In" : "Sign Out"}
               >
                 {isGuest ? (
@@ -1010,6 +1018,9 @@ function Chat({
                     <line x1="21" y1="12" x2="9" y2="12" />
                   </svg>
                 )}
+                <span className="topbar-dock-label">
+                  {isGuest ? "Sign In" : "Sign Out"}
+                </span>
               </button>
             </div>
           </div>
@@ -1057,7 +1068,7 @@ function Chat({
                       canRetry={
                         idx === messages.length - 1 && !!msg.content && !loading
                       }
-                      isThinking={isThinking}
+                      isThinking={idx === messages.length - 1 && isThinking}
                       activeTool={
                         idx === messages.length - 1 ? activeTool : null
                       }
