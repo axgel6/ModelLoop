@@ -1,19 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DocumentMeta } from "./api";
 
-const TOOLS_ITEMS = [
-  { id: "model", label: "Model", desc: "Switch AI model" },
-  { id: "presets", label: "Presets", desc: "System prompt personas" },
-  { id: "temperature", label: "Temperature", desc: "Response creativity" },
-  { id: "appearance", label: "Appearance", desc: "Theme & display" },
-  { id: "account", label: "Account", desc: "Account settings" },
-] as const;
 
 const SLASH_COMMANDS = [
   { cmd: "/clear", desc: "Clear conversation" },
   { cmd: "/search", desc: "Force web search for your query" },
-  { cmd: "/code", desc: "Code mode (deepseek-r1:7b)" },
+  { cmd: "/code", desc: "Code mode (qwen2.5-coder:7b)" },
   { cmd: "/math", desc: "Math mode (deepseek-r1:7b)" },
+  { cmd: "/think", desc: "Thinking mode (deepseek-r1:7b)" },
+  { cmd: "/fast", desc: "Fast mode (llama3.1:8b)" },
   { cmd: "/ratelimit", desc: "Show rate limit info" },
   { cmd: "/help", desc: "Show commands" },
 ];
@@ -589,78 +584,54 @@ function ChatInput({
                 )}
               </div>
             )}
-            {onOpenPreferences && (
-              <div className="tools-dropdown-wrapper" ref={toolsDropdownRef}>
-                <button
-                  className="toolbar-chip-btn"
-                  onClick={() => setToolsDropdownOpen((v) => !v)}
-                  title=""
-                  type="button"
+            <div className="tools-dropdown-wrapper" ref={toolsDropdownRef}>
+              <button
+                className="toolbar-chip-btn"
+                onClick={() => setToolsDropdownOpen((v) => !v)}
+                title="Slash commands"
+                type="button"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="13"
-                    height="13"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="3" y1="6" x2="21" y2="6" />
-                    <line x1="3" y1="12" x2="21" y2="12" />
-                    <line x1="3" y1="18" x2="21" y2="18" />
-                    <circle
-                      cx="8"
-                      cy="6"
-                      r="2.2"
-                      fill="currentColor"
-                      stroke="none"
-                    />
-                    <circle
-                      cx="16"
-                      cy="12"
-                      r="2.2"
-                      fill="currentColor"
-                      stroke="none"
-                    />
-                    <circle
-                      cx="8"
-                      cy="18"
-                      r="2.2"
-                      fill="currentColor"
-                      stroke="none"
-                    />
-                  </svg>
-                  <span className="toolbar-dock-label">Tools</span>
-                </button>
-                {toolsDropdownOpen && (
-                  <div className="tools-dropdown-menu">
-                    {TOOLS_ITEMS.map((item) => (
-                      <button
-                        key={item.id}
-                        className="tools-dropdown-item"
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setToolsDropdownOpen(false);
-                          onOpenPreferences(item.id);
-                        }}
-                      >
-                        <span className="tools-dropdown-item-text">
-                          <span className="tools-dropdown-item-label">
-                            {item.label}
-                          </span>
-                          <span className="tools-dropdown-item-desc">
-                            {item.desc}
-                          </span>
+                  <line x1="16" y1="4" x2="8" y2="20" />
+                </svg>
+                <span className="toolbar-dock-label">Commands</span>
+              </button>
+              {toolsDropdownOpen && (
+                <div className="tools-dropdown-menu">
+                  {SLASH_COMMANDS.map((item) => (
+                    <button
+                      key={item.cmd}
+                      className="tools-dropdown-item"
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setToolsDropdownOpen(false);
+                        setInput(item.cmd);
+                        setTimeout(() => textareaRef.current?.focus(), 0);
+                      }}
+                    >
+                      <span className="tools-dropdown-item-text">
+                        <span className="tools-dropdown-item-label">
+                          {item.cmd}
                         </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                        <span className="tools-dropdown-item-desc">
+                          {item.desc}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="toolbar-right">

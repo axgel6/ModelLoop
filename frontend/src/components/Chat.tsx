@@ -350,7 +350,7 @@ function Chat({
       return;
     }
     if (rawInput === "/code") {
-      setSelectedModel("deepseek-r1:7b");
+      setSelectedModel("qwen2.5-coder:7b");
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "Switched to code mode." },
@@ -371,6 +371,22 @@ function Chat({
       );
       return;
     }
+    if (rawInput === "/think") {
+      setSelectedModel("deepseek-r1:7b");
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Switched to thinking mode." },
+      ]);
+      return;
+    }
+    if (rawInput === "/fast") {
+      setSelectedModel("llama3.1:8b");
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Switched to fast mode." },
+      ]);
+      return;
+    }
     if (rawInput === "/ratelimit") {
       const info = isGuest
         ? "**Rate limits (guest)**\nMessages: 5 per minute, 50 per day\n\nLog in or create an account to increase your limit to 10 messages per minute."
@@ -384,7 +400,7 @@ function Chat({
         {
           role: "assistant",
           content:
-            "Commands: /clear, /search <query>, /code, /math, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
+            "Commands: /clear, /search <query>, /code, /math, /think, /fast, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
         },
       ]);
       return;
