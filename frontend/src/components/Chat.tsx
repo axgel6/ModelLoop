@@ -1203,6 +1203,11 @@ function Chat({
             localStorage.removeItem("refresh_token");
             onBack();
           }}
+          onClearAllChats={async () => {
+            await Promise.all(chats.map((c) => apiDeleteChat(c.id)));
+            handleNewChat();
+            await onChatsChanged();
+          }}
         />
       )}
     </>
