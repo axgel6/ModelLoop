@@ -205,6 +205,102 @@ html[data-theme="ocean"] .connection-banner {
   inherits: false;
 }
 
+@property --ocean-border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@property --gruvbox-border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Ocean animated border wrap */
+html[data-theme="ocean"] .connection-banner-wrap {
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  width: fit-content;
+  max-width: calc(100% - 28px);
+  padding: 2px;
+  border-radius: 27px;
+  background: conic-gradient(
+    from var(--ocean-border-angle),
+    transparent 0%,
+    transparent 78%,
+    rgba(254, 128, 25, 0.35) 86%,
+    #fe8019 92%,
+    rgba(254, 128, 25, 0.35) 97%,
+    transparent 100%
+  );
+  animation: ocean-border-spin 2s linear infinite;
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.22),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+html[data-theme="ocean"] .connection-banner {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  z-index: auto;
+  width: 100%;
+  max-width: none;
+  border: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
+@keyframes ocean-border-spin {
+  to { --ocean-border-angle: 360deg; }
+}
+
+/* Gruvbox animated border wrap */
+html[data-theme="gruvbox"] .connection-banner-wrap,
+html:not([data-theme]) .connection-banner-wrap {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  width: fit-content;
+  max-width: calc(100% - 28px);
+  padding: 2px;
+  border-radius: 27px;
+  background: conic-gradient(
+    from var(--gruvbox-border-angle),
+    transparent 0%,
+    transparent 78%,
+    rgba(254, 128, 25, 0.35) 86%,
+    #fe8019 92%,
+    rgba(254, 128, 25, 0.35) 97%,
+    transparent 100%
+  );
+  animation: gruvbox-border-spin 2s linear infinite;
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.3),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+html[data-theme="gruvbox"] .connection-banner,
+html:not([data-theme]) .connection-banner {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  z-index: auto;
+  width: 100%;
+  max-width: none;
+}
+
+@keyframes gruvbox-border-spin {
+  to { --gruvbox-border-angle: 360deg; }
+}
+
 html[data-theme="dune"] .connection-banner-wrap {
   position: fixed;
   top: 58px;
@@ -6105,22 +6201,9 @@ html[data-theme="gruvbox"] .landing-message {
 /* ---- Claude Theme ---- */
 
 @keyframes dune-drift {
-  0% {
-    transform: translate(0%, 0%) scale(1);
-    opacity: 0.85;
-  }
-  30% {
-    transform: translate(5%, -7%) scale(1.1);
-    opacity: 1;
-  }
-  65% {
-    transform: translate(-4%, 6%) scale(0.93);
-    opacity: 0.7;
-  }
-  100% {
-    transform: translate(0%, 0%) scale(1);
-    opacity: 0.85;
-  }
+  0%   { transform: scale(1);    opacity: 0.75; }
+  45%  { transform: scale(1.18); opacity: 1;    }
+  100% { transform: scale(1);    opacity: 0.75; }
 }
 
 html[data-theme="dune"] body {
@@ -6424,12 +6507,12 @@ html[data-theme="dune"] .hljs-deletion {
 html[data-theme="dune"] .input-wrapper {
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(245, 240, 232, 0.78) 100%
+    rgba(255, 255, 255, 0.52) 0%,
+    rgba(245, 240, 232, 0.42) 100%
   ) !important;
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
-  border: 1px solid rgba(231, 224, 214, 0.9);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(231, 224, 214, 0.6);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     0 2px 0 rgba(180, 165, 145, 0.3),
@@ -8685,8 +8768,14 @@ html[data-theme="ocean"] .pref-analytics-action-name {
     top: 42px;
   }
 
-  html[data-theme="dune"] .connection-banner-wrap {
+  html[data-theme="dune"] .connection-banner-wrap,
+  html[data-theme="ocean"] .connection-banner-wrap {
     top: 40px;
+  }
+
+  html[data-theme="gruvbox"] .connection-banner-wrap,
+  html:not([data-theme]) .connection-banner-wrap {
+    top: 42px;
   }
 
   /* ---- Login: less padding ---- */
