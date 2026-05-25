@@ -1625,6 +1625,7 @@ html[data-theme="dune"] .tool-indicator {
 .sidebar-chat-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1633,6 +1634,10 @@ html[data-theme="dune"] .tool-indicator {
 
 .sidebar-chat-list::-webkit-scrollbar {
   width: 3px;
+}
+
+.sidebar-chat-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .sidebar-chat-list::-webkit-scrollbar-thumb {
@@ -2634,6 +2639,27 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   font-size: 1.05rem;
   font-weight: 600;
   color: #fbf1c7;
+}
+
+.pref-generation-reset-btn {
+  margin-left: auto;
+  background: rgba(29, 32, 33, 0.55);
+  border: 1px solid rgba(80, 73, 69, 0.4);
+  border-radius: 8px;
+  padding: 5px 12px;
+  color: #000000;
+  font-family: var(--ui-font);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  box-shadow: none;
+}
+
+.pref-generation-reset-btn:hover {
+  border-color: rgba(131, 165, 152, 0.6);
+  color: #000000;
+  background: rgba(29, 32, 33, 0.55);
+  box-shadow: none;
 }
 
 .pref-content-badge {
@@ -4820,6 +4846,8 @@ html[data-theme="dune"] .pref-refresh-btn:hover {
   box-shadow: none !important;
 }
 
+
+
 /* ---- Analytics ---- */
 
 html[data-theme="dune"] .pref-analytics-title {
@@ -6735,6 +6763,11 @@ html[data-theme="dune"] button:hover {
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 2px 0 rgba(120, 45, 15, 0.4),
     0 3px 8px rgba(160, 60, 25, 0.18);
+}
+
+html[data-theme="dune"] .pref-generation-reset-btn,
+html[data-theme="dune"] .pref-generation-reset-btn:hover {
+  color: #ffffff;
 }
 
 html[data-theme="dune"] .back-to-landing {

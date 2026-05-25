@@ -603,6 +603,17 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           <>
             <div className="pref-content-header">
               <span className="pref-content-title">Generation</span>
+              <button
+                className="pref-generation-reset-btn"
+                onClick={() => {
+                  setTemperature(0.7);
+                  setTopP(0.9);
+                  setNumPredict(-1);
+                }}
+                title="Reset to defaults"
+              >
+                Reset to defaults
+              </button>
             </div>
             <div className="pref-settings-area">
               <div className="pref-setting-row">
