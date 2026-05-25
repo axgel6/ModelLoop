@@ -61,25 +61,6 @@ _SEARCH_TRIGGERS = re.compile(
     re.IGNORECASE,
 )
 
-# Entity question patterns — must pair with a proper noun check to avoid firing on coding questions.
-_ENTITY_QUESTION_RE = re.compile(
-    r"\b(?:who|what)\s+(?:is|are|was|were)\b"
-    r"|\btell\s+me\s+about\b"
-    r"|\b(?:biography|background|profile|history|age|nationality)\s+of\b"
-    r"|\bwho\s+(?:made|created|founded|invented|wrote|directed|produced|plays?|played)\b"
-    r"|\b(?:does|did|has|have|is|are)\s+\w+.*\b(?:new|recent|latest)\b",
-    re.IGNORECASE,
-)
-
-# Words that appear capitalised but are NOT proper nouns (sentence starters, articles, etc.)
-_COMMON_CAPS = frozenset({
-    "The", "A", "An", "Is", "Are", "Was", "Were", "Who", "What", "Where",
-    "When", "Why", "How", "Do", "Does", "Did", "Can", "Could", "Would",
-    "Will", "Should", "He", "She", "They", "We", "You", "His", "Her",
-    "Their", "Its", "My", "Your", "Our", "This", "That", "These", "Those",
-    "In", "On", "At", "For", "Of", "To", "By", "With", "From", "And",
-    "Or", "But", "So", "If", "Tell", "Give", "Show", "List",
-})
 
 
 _COUNTRY_TO_DDG = {
@@ -126,15 +107,6 @@ def accept_language_to_region(header: str) -> str:
 
     return "us-en"
 
-
-def _has_proper_noun(text: str) -> bool:
-    """Returns True if text contains a proper noun (capitalised non-common word after the first)."""
-    words = text.split()
-    for word in words[1:]:  # skip first word — sentence-start capital is meaningless
-        clean = re.sub(r"[^\w]", "", word)
-        if clean and clean[0].isupper() and clean not in _COMMON_CAPS:
-            return True
-    return False
 
 _HEADERS = {
     "User-Agent": (
@@ -325,14 +297,7 @@ def _build_output(query: str, results: Optional[list]) -> str:
 def should_activate(text: str, words: set) -> bool:
     if words & KEYWORDS:
         return True
-    if _SEARCH_TRIGGERS.search(text):
-        return True
-    # Entity queries ("who is X", "what is X", "tell me about X") only trigger when
-    # the query contains a proper noun — this avoids firing on coding questions like
-    # "who is the function caller" or "what is a variable".
-    if _ENTITY_QUESTION_RE.search(text) and _has_proper_noun(text):
-        return True
-    return False
+    return bool(_SEARCH_TRIGGERS.search(text))
 
 
 async def async_execute(arguments: dict) -> str:

@@ -68,14 +68,14 @@ function Pre({
 const MD_COMPONENTS = { pre: Pre as any };
 
 const THINKING_PHRASES = [
-  "Let me think about that…",
-  "On it…",
-  "Just a moment…",
-  "Thinking this through…",
-  "Putting it together…",
-  "Give me a second…",
-  "Let me work through this…",
-  "Almost ready…",
+  "On it...",
+  "Right on it...",
+  "Sure thing...",
+  "Got it...",
+  "Working on that...",
+  "Looking into it...",
+  "On that now...",
+  "Already on it...",
 ];
 
 export const AssistantMessage = memo(function AssistantMessage({
@@ -191,7 +191,9 @@ export const AssistantMessage = memo(function AssistantMessage({
             </div>
           )}
           {showToolUse ? (
-            <span className="thinking-phrase">Thinking even harder…</span>
+            <span className="thinking-phrase">
+              {activeTool === "web_search" ? "Searching the web..." : activeTool === "get_time" ? "Checking the time..." : activeTool === "wikipedia_summary" ? "Looking up Wikipedia..." : "Using a tool..."}
+            </span>
           ) : showThinking ? (
             <span className="thinking-phrase">{thinkingPhrase.current}</span>
           ) : (

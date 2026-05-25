@@ -32,12 +32,18 @@ DEFAULT_FLAGS = [
 
 
 async def is_feature_enabled(name: str, role: str, db: AsyncSession) -> bool:
-    """Return True if the named feature flag is enabled for the given role."""
     result = await db.execute(select(FeatureFlag).where(FeatureFlag.name == name))
     flag = result.scalar_one_or_none()
     if not flag:
         return False
     return bool(getattr(flag, f"{role}_enabled", False))
+
+
+async def get_features_for_role(names: list[str], role: str, db: AsyncSession) -> dict[str, bool]:
+    """Fetch multiple feature flags in one query. Returns name→bool for each requested name."""
+    result = await db.execute(select(FeatureFlag).where(FeatureFlag.name.in_(names)))
+    flags = {f.name: bool(getattr(f, f"{role}_enabled", False)) for f in result.scalars().all()}
+    return {name: flags.get(name, False) for name in names}
 
 
 async def get_all_flags(db: AsyncSession) -> list[FeatureFlag]:

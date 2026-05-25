@@ -17,7 +17,7 @@ from models import User, Chat, Message
 from schemas import ChatRequest, GuestChatRequest
 from dependencies import get_active_user
 from rag import retrieve_rag_context
-from feature_flags import is_feature_enabled
+from feature_flags import get_features_for_role
 import config as _config
 from config import (
     IS_PRODUCTION, NGROK_HEADERS,
@@ -178,23 +178,26 @@ async def chat_stream(
     user_id  = str(user.id)
     role     = user.role
 
-    result = await db.execute(select(Chat).where(Chat.id == body.chat_id, Chat.user_id == user_id))
-    chat = result.scalar_one_or_none()
+    chat_result = await db.execute(select(Chat).where(Chat.id == body.chat_id, Chat.user_id == user_id))
+    chat = chat_result.scalar_one_or_none()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    msgs_result = await db.execute(
-        select(Message)
-        .where(Message.chat_id == body.chat_id)
-        .order_by(Message.created_at.desc(), Message.role.asc())
-        .limit(20)
+    msgs_result, feature_map = await asyncio.gather(
+        db.execute(
+            select(Message)
+            .where(Message.chat_id == body.chat_id)
+            .order_by(Message.created_at.desc(), Message.role.asc())
+            .limit(20)
+        ),
+        get_features_for_role(["actions", "photo_upload", "rag"], role, db),
     )
     db_history = list(reversed(msgs_result.scalars().all()))
 
     # Determine capabilities based on feature flags
-    actions_enabled = await is_feature_enabled("actions", role, db)
-    photo_enabled   = await is_feature_enabled("photo_upload", role, db)
-    rag_enabled     = await is_feature_enabled("rag", role, db)
+    actions_enabled = feature_map["actions"]
+    photo_enabled   = feature_map["photo_upload"]
+    rag_enabled     = feature_map["rag"]
 
     system_prompt_default = PRO_SYSTEM_PROMPT if actions_enabled else FREE_SYSTEM_PROMPT
     system_prompt = body.system_prompt or system_prompt_default
@@ -222,7 +225,7 @@ async def chat_stream(
             return None
         try:
             return json.loads(await _run_web_search_async(
-                {"query": _resolve_search_query(prompt, db_history), "max_results": 8, "_region": search_region}
+                {"query": _resolve_search_query(prompt, db_history), "max_results": 5, "_region": search_region}
             ))
         except Exception as _e:
             logger.warning("proactive_web_search_failed error=%s", str(_e))
@@ -323,6 +326,7 @@ async def chat_stream(
                 peek_buf:     list[str] = []
                 streaming_live = False
 
+                tool_use_announced = False
                 async for chunk in _ollama_stream(current_messages, model, temperature, top_p=top_p, num_predict=num_predict, tools=active_tools or None):
                     if "_thinking" in chunk:
                         yield f"data: {json.dumps({'type': 'thinking_token', 'token': chunk['_thinking']})}\n\n"
@@ -351,7 +355,17 @@ async def chat_stream(
                                     for t in peek_buf:
                                         yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
                                     peek_buf = []
-                    if msg.get("tool_calls"):
+                                elif not tool_use_announced:
+                                    name_match = re.search(r'"name"\s*:\s*"([^"]+)"', round_content)
+                                    if name_match:
+                                        tool_use_announced = True
+                                        yield f"data: {json.dumps({'type': 'tool_use', 'tool': name_match.group(1)})}\n\n"
+                    if msg.get("tool_calls") and not tool_use_announced:
+                        tool_use_announced = True
+                        first = msg["tool_calls"][0]
+                        yield f"data: {json.dumps({'type': 'tool_use', 'tool': first.get('function', {}).get('name', '')})}\n\n"
+                        tool_calls.extend(msg["tool_calls"])
+                    elif msg.get("tool_calls"):
                         tool_calls.extend(msg["tool_calls"])
                     if chunk.get("done"):
                         success = True
@@ -413,7 +427,6 @@ async def chat_stream(
                             tool_args = json.loads(tool_args)
                         except (json.JSONDecodeError, ValueError):
                             tool_args = {}
-                    yield f"data: {json.dumps({'type': 'tool_use', 'tool': tool_name})}\n\n"
                     if tool_name == "web_search":
                         tool_args["_region"] = search_region
                     try:
@@ -497,10 +510,11 @@ async def guest_chat_stream(
         raise HTTPException(status_code=401, detail="Unauthorized access")
 
     prompt = body.prompt.strip()
-    model  = (body.model or DEFAULT_MODEL).strip()
+    model  = (body.model or _config.DEFAULT_MODEL).strip()
     
-    actions_enabled = await is_feature_enabled("actions", "guest", db)
-    photo_enabled   = await is_feature_enabled("photo_upload", "guest", db)
+    feature_map     = await get_features_for_role(["actions", "photo_upload"], "guest", db)
+    actions_enabled = feature_map["actions"]
+    photo_enabled   = feature_map["photo_upload"]
     system_prompt_default = PRO_SYSTEM_PROMPT if actions_enabled else FREE_SYSTEM_PROMPT
     system_prompt = body.system_prompt or system_prompt_default
     images = body.images or []
