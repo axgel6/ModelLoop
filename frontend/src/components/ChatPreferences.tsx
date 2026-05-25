@@ -204,6 +204,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditActionFilter, setAuditActionFilter] = useState("all");
   const [auditOffset, setAuditOffset] = useState(0);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const AUDIT_PAGE_SIZE = 20;
   const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
   const [flagsLoading, setFlagsLoading] = useState(false);
   const [flagSaving, setFlagSaving] = useState<string | null>(null);
@@ -245,16 +247,26 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       .finally(() => setAnalyticsLoading(false));
   };
 
-  const loadAuditLogs = () => {
+  const fetchAuditLogs = (offset: number, action: string) => {
     setAuditLoading(true);
     apiAdminGetAuditLogs(
-      100,
-      auditOffset,
-      auditActionFilter === "all" ? undefined : auditActionFilter,
+      AUDIT_PAGE_SIZE,
+      offset,
+      action === "all" ? undefined : action,
     )
-      .then((data) => setAuditLogs(data.logs))
+      .then((data) => {
+        setAuditLogs(data.logs);
+        setAuditTotal(data.total);
+      })
       .catch(() => showAdminError("Failed to load audit logs."))
       .finally(() => setAuditLoading(false));
+  };
+
+  const loadAuditLogs = () => fetchAuditLogs(auditOffset, auditActionFilter);
+
+  const goAuditPage = (newOffset: number) => {
+    setAuditOffset(newOffset);
+    fetchAuditLogs(newOffset, auditActionFilter);
   };
 
   const loadFeatureFlags = () => {
@@ -1536,8 +1548,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-audit-filter"
                 value={auditActionFilter}
                 onChange={(e) => {
-                  setAuditActionFilter(e.target.value);
+                  const newAction = e.target.value;
+                  setAuditActionFilter(newAction);
                   setAuditOffset(0);
+                  fetchAuditLogs(0, newAction);
                 }}
               >
                 <option value="all">All actions</option>
@@ -1545,7 +1559,29 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <option value="delete_user">Delete User</option>
                 <option value="toggle_access">Toggle Access</option>
                 <option value="update_feature_flag">Update Feature Flag</option>
+                <option value="update_server_config">Update Server Config</option>
               </select>
+              <div className="pref-audit-pagination">
+                <button
+                  className="pref-audit-page-btn"
+                  onClick={() => goAuditPage(auditOffset - AUDIT_PAGE_SIZE)}
+                  disabled={auditOffset === 0 || auditLoading}
+                >
+                  Prev
+                </button>
+                <span className="pref-audit-page-info">
+                  {auditTotal === 0
+                    ? "0 results"
+                    : `${auditOffset + 1}-${Math.min(auditOffset + AUDIT_PAGE_SIZE, auditTotal)} of ${auditTotal}`}
+                </span>
+                <button
+                  className="pref-audit-page-btn"
+                  onClick={() => goAuditPage(auditOffset + AUDIT_PAGE_SIZE)}
+                  disabled={auditOffset + AUDIT_PAGE_SIZE >= auditTotal || auditLoading}
+                >
+                  Next
+                </button>
+              </div>
             </div>
             <div className="pref-audit-logs">
               {auditLoading ? (

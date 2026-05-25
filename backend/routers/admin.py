@@ -142,52 +142,54 @@ async def admin_toggle_access(
 async def admin_get_audit_logs(
     _: str = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-    limit: int = 100,
+    limit: int = 20,
     offset: int = 0,
     action: Optional[str] = None,
     admin_id: Optional[str] = None,
 ):
-    query = select(AuditLog)
+    base_filter = []
     if action:
-        query = query.where(AuditLog.action == action)
+        base_filter.append(AuditLog.action == action)
     if admin_id:
-        query = query.where(AuditLog.admin_id == admin_id)
+        base_filter.append(AuditLog.admin_id == admin_id)
+
+    count_result = await db.execute(
+        select(sqlfunc.count(AuditLog.id)).where(*base_filter)
+    )
+    total = count_result.scalar() or 0
 
     result = await db.execute(
-        query.order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+        select(AuditLog)
+        .where(*base_filter)
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     logs = result.scalars().all()
 
-    count_result = await db.execute(select(sqlfunc.count(AuditLog.id)))
-    total = count_result.scalar() or 0
+    # Bulk-fetch all referenced user emails in two queries instead of N*2
+    admin_ids = {log.admin_id for log in logs if log.admin_id}
+    target_ids = {log.target_id for log in logs if log.target_id}
+    all_ids = admin_ids | target_ids
 
-    log_dicts = []
-    for log in logs:
-        admin_email = target_email = None
+    email_map: dict[str, str] = {}
+    if all_ids:
+        users_result = await db.execute(select(User.id, User.email).where(User.id.in_(all_ids)))
+        email_map = {str(row.id): row.email for row in users_result.all()}
 
-        if log.admin_id:
-            admin_result = await db.execute(select(User).where(User.id == log.admin_id))
-            admin_user = admin_result.scalar_one_or_none()
-            admin_email = admin_user.email if admin_user else None
-
-        if log.target_id:
-            try:
-                target_result = await db.execute(select(User).where(User.id == log.target_id))
-                target_user = target_result.scalar_one_or_none()
-                target_email = target_user.email if target_user else None
-            except Exception:
-                pass
-
-        log_dicts.append({
+    log_dicts = [
+        {
             "id":           str(log.id),
             "admin_id":     str(log.admin_id) if log.admin_id else None,
-            "admin_email":  admin_email,
+            "admin_email":  email_map.get(str(log.admin_id)) if log.admin_id else None,
             "action":       log.action,
-            "target_id":    log.target_id,
-            "target_email": target_email,
+            "target_id":    str(log.target_id) if log.target_id else None,
+            "target_email": email_map.get(str(log.target_id)) if log.target_id else None,
             "details":      log.details,
             "created_at":   log.created_at.isoformat(),
-        })
+        }
+        for log in logs
+    ]
 
     return {"logs": log_dicts, "total": total, "limit": limit, "offset": offset}
 
