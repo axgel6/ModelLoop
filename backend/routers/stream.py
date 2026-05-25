@@ -18,8 +18,9 @@ from schemas import ChatRequest, GuestChatRequest
 from dependencies import get_active_user
 from rag import retrieve_rag_context
 from feature_flags import is_feature_enabled
+import config as _config
 from config import (
-    DEFAULT_MODEL, IS_PRODUCTION, NGROK_HEADERS, OLLAMA_BASE_URL,
+    IS_PRODUCTION, NGROK_HEADERS,
     PRO_SYSTEM_PROMPT, FREE_SYSTEM_PROMPT, PROPRIETARY_INSTRUCTIONS,
     THINKING_MODELS, TOOL_CAPABLE_MODELS, NO_SYSTEM_PROMPT_MODELS, API_KEY,
     fix_math_delimiters,
@@ -103,7 +104,6 @@ def _resolve_search_query(prompt: str, history) -> str:
 
 
 async def _describe_images(images: list[str]) -> str:
-    from config import VISION_MODEL
     n = len(images)
     prompt = (
         f"Describe {'this image' if n == 1 else f'these {n} images'} in full detail. "
@@ -112,7 +112,7 @@ async def _describe_images(images: list[str]) -> str:
         "Output only the description. Do not add any commentary, offers, or follow-up questions."
     )
     payload = {
-        "model": VISION_MODEL,
+        "model": _config.VISION_MODEL,
         "messages": [{"role": "user", "content": prompt, "images": images}],
         "stream": False,
         "keep_alive": -1,
@@ -120,7 +120,7 @@ async def _describe_images(images: list[str]) -> str:
     }
     try:
         resp = await _ollama_http.post(
-            f"{OLLAMA_BASE_URL}/api/chat",
+            f"{_config.OLLAMA_BASE_URL}/api/chat",
             json=payload,
             headers=NGROK_HEADERS,
         )
@@ -131,13 +131,16 @@ async def _describe_images(images: list[str]) -> str:
         return ""
 
 
-async def _ollama_stream(messages: list, model: str, temperature: float, tools: Optional[list] = None):
+async def _ollama_stream(messages: list, model: str, temperature: float, top_p: float = 0.9, num_predict: int = -1, tools: Optional[list] = None):
+    options: dict = {"temperature": temperature, "top_p": top_p}
+    if num_predict != -1:
+        options["num_predict"] = num_predict
     payload: dict = {
         "model":      model,
         "messages":   messages,
         "stream":     True,
         "keep_alive": -1,
-        "options":    {"temperature": temperature},
+        "options":    options,
     }
     if tools and not _is_thinking_model(model) and _supports_tools(model):
         payload["tools"] = tools
@@ -145,7 +148,7 @@ async def _ollama_stream(messages: list, model: str, temperature: float, tools: 
         payload["think"] = True
     async with _ollama_http.stream(
         "POST",
-        f"{OLLAMA_BASE_URL}/api/chat",
+        f"{_config.OLLAMA_BASE_URL}/api/chat",
         json=payload,
         headers=NGROK_HEADERS,
     ) as resp:
@@ -171,7 +174,7 @@ async def chat_stream(
     db: AsyncSession = Depends(get_db),
 ):
     prompt   = body.prompt.strip()
-    model    = (body.model or DEFAULT_MODEL).strip()
+    model    = (body.model or _config.DEFAULT_MODEL).strip()
     user_id  = str(user.id)
     role     = user.role
 
@@ -300,9 +303,11 @@ async def chat_stream(
             f"{last_msg['content']}"
         )
 
-    chat_id    = body.chat_id
-    chat_title = chat.title
+    chat_id     = body.chat_id
+    chat_title  = chat.title
     temperature = body.temperature or 0.7
+    top_p       = body.top_p if body.top_p is not None else 0.9
+    num_predict = body.num_predict if body.num_predict is not None else -1
 
     async def generate():
         full_response = ""
@@ -318,7 +323,7 @@ async def chat_stream(
                 peek_buf:     list[str] = []
                 streaming_live = False
 
-                async for chunk in _ollama_stream(current_messages, model, temperature, tools=active_tools or None):
+                async for chunk in _ollama_stream(current_messages, model, temperature, top_p=top_p, num_predict=num_predict, tools=active_tools or None):
                     if "_thinking" in chunk:
                         yield f"data: {json.dumps({'type': 'thinking_token', 'token': chunk['_thinking']})}\n\n"
                         continue
@@ -560,7 +565,7 @@ async def guest_chat_stream(
 
     async def generate():
         try:
-            async for chunk in _ollama_stream(messages, model, body.temperature or 0.7):
+            async for chunk in _ollama_stream(messages, model, body.temperature or 0.7, top_p=body.top_p if body.top_p is not None else 0.9, num_predict=body.num_predict if body.num_predict is not None else -1):
                 token = chunk.get("message", {}).get("content", "")
                 if token:
                     yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"

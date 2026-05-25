@@ -13,6 +13,8 @@ export function useChatSettings() {
   const [showPreferences, setShowPreferences] = useState(false);
   const [activePreset, setActivePreset] = useState<string>("Default");
   const [temperature, setTemperature] = useState(0.7);
+  const [topP, setTopP] = useState(0.9);
+  const [numPredict, setNumPredict] = useState(-1);
   const modelsLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -80,5 +82,9 @@ export function useChatSettings() {
     setActivePreset,
     temperature,
     setTemperature,
+    topP,
+    setTopP,
+    numPredict,
+    setNumPredict,
   };
 }

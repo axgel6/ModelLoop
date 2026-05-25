@@ -92,6 +92,16 @@ function App() {
     return stored === "mono" ? "mono" : "inter";
   });
 
+  const [avatarColor, setAvatarColorState] = useState<string | null>(() =>
+    localStorage.getItem("avatar_color"),
+  );
+
+  const handleSetAvatarColor = (color: string | null) => {
+    setAvatarColorState(color);
+    if (color) localStorage.setItem("avatar_color", color);
+    else localStorage.removeItem("avatar_color");
+  };
+
   useEffect(() => {
     if (font === "inter") {
       document.documentElement.dataset.font = "inter";
@@ -222,6 +232,8 @@ function App() {
           setTheme={handleSetTheme}
           font={font}
           setFont={handleSetFont}
+          avatarColor={avatarColor}
+          setAvatarColor={handleSetAvatarColor}
         />
       )}
     </>

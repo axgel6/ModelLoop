@@ -1,18 +1,34 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy import func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import config as _config
 from database import get_db
 from models import User, Chat, Message, Document, AuditLog, FeatureFlag
-from schemas import SetRoleRequest, UpdateFeatureFlagRequest
+from schemas import SetRoleRequest, UpdateFeatureFlagRequest, UpdateServerConfigRequest
 from dependencies import require_admin, _get_client_ip
 from audit import log_audit
 from config import VALID_ROLES
 from feature_flags import get_all_flags
+
+_ENV_PATH = Path(__file__).parent.parent / ".env"
+
+
+def _write_env_key(key: str, value: str) -> None:
+    text = _ENV_PATH.read_text() if _ENV_PATH.exists() else ""
+    pattern = re.compile(rf'^{re.escape(key)}\s*=.*$', re.MULTILINE)
+    quoted = f'{key}="{value}"'
+    if pattern.search(text):
+        text = pattern.sub(quoted, text)
+    else:
+        text = text.rstrip("\n") + f"\n{quoted}\n"
+    _ENV_PATH.write_text(text)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -290,3 +306,76 @@ async def admin_update_feature_flag(
         "admin_enabled":  flag.admin_enabled,
         "updated_at":     flag.updated_at.isoformat() if flag.updated_at else None,
     }
+
+
+# ----- Server Config Management -----
+
+@router.get("/server-config")
+async def admin_get_server_config(_: str = Depends(require_admin)):
+    return {
+        "ollama_url":              _config.OLLAMA_BASE_URL or "",
+        "default_model":           _config.DEFAULT_MODEL,
+        "vision_model":            _config.VISION_MODEL,
+        "embed_model":             _config.EMBED_MODEL,
+        "thinking_models":         ",".join(_config.THINKING_MODELS),
+        "tool_capable_models":     ",".join(_config.TOOL_CAPABLE_MODELS),
+        "no_system_prompt_models": ",".join(_config.NO_SYSTEM_PROMPT_MODELS),
+    }
+
+
+@router.patch("/server-config")
+async def admin_update_server_config(
+    body: UpdateServerConfigRequest,
+    request: Request,
+    admin_id: str = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    changes: dict = {}
+
+    if body.ollama_url is not None:
+        changes["ollama_url"] = body.ollama_url
+        _config.OLLAMA_BASE_URL = body.ollama_url.rstrip("/")
+        _write_env_key("OLLAMA_URL", body.ollama_url.rstrip("/"))
+
+    if body.default_model is not None:
+        changes["default_model"] = body.default_model
+        _config.DEFAULT_MODEL = body.default_model
+        _write_env_key("DEFAULT_MODEL", body.default_model)
+
+    if body.vision_model is not None:
+        changes["vision_model"] = body.vision_model
+        _config.VISION_MODEL = body.vision_model
+        _write_env_key("VISION_MODEL", body.vision_model)
+
+    if body.embed_model is not None:
+        changes["embed_model"] = body.embed_model
+        _config.EMBED_MODEL = body.embed_model
+        _write_env_key("EMBED_MODEL", body.embed_model)
+
+    if body.thinking_models is not None:
+        parsed = [m.strip().lower() for m in body.thinking_models.split(",") if m.strip()]
+        changes["thinking_models"] = parsed
+        _config.THINKING_MODELS.clear()
+        _config.THINKING_MODELS.extend(parsed)
+        _write_env_key("THINKING_MODELS", body.thinking_models)
+
+    if body.tool_capable_models is not None:
+        parsed = [m.strip().lower() for m in body.tool_capable_models.split(",") if m.strip()]
+        changes["tool_capable_models"] = parsed
+        _config.TOOL_CAPABLE_MODELS.clear()
+        _config.TOOL_CAPABLE_MODELS.extend(parsed)
+        _write_env_key("TOOL_CAPABLE_MODELS", body.tool_capable_models)
+
+    if body.no_system_prompt_models is not None:
+        parsed = [m.strip().lower() for m in body.no_system_prompt_models.split(",") if m.strip()]
+        changes["no_system_prompt_models"] = parsed
+        _config.NO_SYSTEM_PROMPT_MODELS.clear()
+        _config.NO_SYSTEM_PROMPT_MODELS.extend(parsed)
+        _write_env_key("NO_SYSTEM_PROMPT_MODELS", body.no_system_prompt_models)
+
+    if not changes:
+        raise HTTPException(status_code=400, detail="No changes provided")
+
+    await log_audit(db, "update_server_config", admin_id, None, changes, _get_client_ip(request))
+    logger.info('admin_update_server_config admin_id=%s changes=%s', admin_id, list(changes.keys()))
+    return {"updated": list(changes.keys())}

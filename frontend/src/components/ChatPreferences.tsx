@@ -13,8 +13,10 @@ import {
   apiAdminGetAnalytics,
   apiAdminGetFeatureFlags,
   apiAdminUpdateFeatureFlag,
+  apiAdminGetServerConfig,
+  apiAdminUpdateServerConfig,
 } from "./api";
-import type { AdminUser, FeatureFlag } from "./api";
+import type { AdminUser, FeatureFlag, ServerConfig } from "./api";
 
 export type Theme = "ocean" | "gruvbox" | "dune";
 export type Font = "mono" | "inter";
@@ -29,8 +31,14 @@ interface ChatPreferencesProps {
   setTheme: (theme: Theme) => void;
   font: Font;
   setFont: (font: Font) => void;
+  avatarColor: string | null;
+  setAvatarColor: (c: string | null) => void;
   temperature: number;
   setTemperature: (t: number) => void;
+  topP: number;
+  setTopP: (v: number) => void;
+  numPredict: number;
+  setNumPredict: (v: number) => void;
   models: string[];
   modelCapabilities: Record<string, string[]>;
   selectedModel: string;
@@ -113,12 +121,13 @@ export type Section =
   | "users"
   | "analytics"
   | "audit"
-  | "flags";
+  | "flags"
+  | "connections";
 
 const BASE_NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "model", label: "Model" },
   { id: "presets", label: "Presets" },
-  { id: "temperature", label: "Temperature" },
+  { id: "temperature", label: "Generation" },
   { id: "appearance", label: "Appearance" },
   { id: "shortcuts", label: "Shortcuts" },
   { id: "account", label: "Account" },
@@ -134,8 +143,14 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   setTheme,
   font,
   setFont,
+  avatarColor,
+  setAvatarColor,
   temperature,
   setTemperature,
+  topP,
+  setTopP,
+  numPredict,
+  setNumPredict,
   models,
   modelCapabilities,
   selectedModel,
@@ -192,11 +207,20 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
   const [flagsLoading, setFlagsLoading] = useState(false);
   const [flagSaving, setFlagSaving] = useState<string | null>(null);
+  const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null);
+  const [showOllamaUrl, setShowOllamaUrl] = useState(false);
+  const [serverConfigDraft, setServerConfigDraft] = useState<Partial<ServerConfig>>({});
+  const [serverConfigLoading, setServerConfigLoading] = useState(false);
+  const [serverConfigSaving, setServerConfigSaving] = useState(false);
+  const [serverConfigError, setServerConfigError] = useState<string | null>(null);
+  const [serverConfigSuccess, setServerConfigSuccess] = useState<string | null>(null);
   useEffect(() => {
-    apiGetMe().then((info) => {
-      setUserInfo(info);
-      setPersonalContext(info.personal_context ?? "");
-    }).catch(() => {});
+    apiGetMe()
+      .then((info) => {
+        setUserInfo(info);
+        setPersonalContext(info.personal_context ?? "");
+      })
+      .catch(() => {});
   }, []);
 
   const showAdminError = (msg: string) => {
@@ -241,6 +265,37 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       .finally(() => setFlagsLoading(false));
   };
 
+  const loadServerConfig = () => {
+    setServerConfigLoading(true);
+    apiAdminGetServerConfig()
+      .then((cfg) => {
+        setServerConfig(cfg);
+        setServerConfigDraft({});
+      })
+      .catch(() => setServerConfigError("Failed to load server config."))
+      .finally(() => setServerConfigLoading(false));
+  };
+
+  const handleServerConfigSave = async () => {
+    if (!Object.keys(serverConfigDraft).length) return;
+    setServerConfigSaving(true);
+    setServerConfigError(null);
+    setServerConfigSuccess(null);
+    try {
+      await apiAdminUpdateServerConfig(serverConfigDraft);
+      await apiAdminGetServerConfig().then((cfg) => {
+        setServerConfig(cfg);
+        setServerConfigDraft({});
+      });
+      setServerConfigSuccess("Saved successfully.");
+      setTimeout(() => setServerConfigSuccess(null), 3000);
+    } catch (e: any) {
+      setServerConfigError(e.message || "Failed to save.");
+    } finally {
+      setServerConfigSaving(false);
+    }
+  };
+
   const handleFlagToggle = async (
     name: string,
     field: "guest_enabled" | "free_enabled" | "pro_enabled" | "admin_enabled",
@@ -259,12 +314,12 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     }
   };
 
-
   useEffect(() => {
     if (activeSection === "users") loadAdminUsers();
     else if (activeSection === "analytics") loadAnalytics();
     else if (activeSection === "audit") loadAuditLogs();
     else if (activeSection === "flags") loadFeatureFlags();
+    else if (activeSection === "connections") loadServerConfig();
   }, [activeSection]);
 
   const handleRoleChange = (userId: string, role: string) => {
@@ -338,6 +393,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           { id: "analytics", label: "Analytics" },
           { id: "audit", label: "Audit Logs" },
           { id: "flags", label: "Feature Flags" },
+          { id: "connections", label: "Connections" },
         ]
       : BASE_NAV_ITEMS;
 
@@ -401,14 +457,14 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
   const tempLabel =
     temperature <= 0.4
-      ? "Focused — precise, deterministic responses"
+      ? "Focused - precise, deterministic responses"
       : temperature === 0.7
-        ? "Balanced — reliable with some creativity (Default)"
+        ? "Balanced - reliable with some creativity (Default)"
         : temperature <= 0.9
-          ? "Balanced — reliable with some creativity"
+          ? "Balanced - reliable with some creativity"
           : temperature <= 1.4
-            ? "Creative — more varied and expressive"
-            : "Wild — highly unpredictable outputs";
+            ? "Creative - more varied and expressive"
+            : "Wild - highly unpredictable outputs";
 
   const renderSection = () => {
     switch (activeSection) {
@@ -534,12 +590,12 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">Temperature</span>
+              <span className="pref-content-title">Generation</span>
             </div>
             <div className="pref-settings-area">
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
-                  <div className="pref-setting-label">Response Temperature</div>
+                  <div className="pref-setting-label">Temperature</div>
                   <div className="pref-setting-hint">{tempLabel}</div>
                 </div>
                 <span className="pref-temp-value">
@@ -559,6 +615,72 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span>0.0</span>
                 <span>1.0</span>
                 <span>2.0</span>
+              </div>
+
+              <div className="pref-setting-divider" />
+
+              <div className="pref-setting-row">
+                <div className="pref-setting-info">
+                  <div className="pref-setting-label">Top P</div>
+                  <div className="pref-setting-hint">
+                    {topP <= 0.5
+                      ? "Narrow - only high-probability tokens"
+                      : topP <= 0.85
+                        ? "Balanced - moderate token diversity"
+                        : topP === 0.9
+                          ? "Balanced - moderate token diversity (Default)"
+                          : "Broad - considers a wide range of tokens"}
+                  </div>
+                </div>
+                <span className="pref-temp-value">{topP.toFixed(2)}</span>
+              </div>
+              <input
+                className="temperature-slider pref-slider"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={topP}
+                onChange={(e) => setTopP(parseFloat(e.target.value))}
+              />
+              <div className="temperature-labels">
+                <span>0.0</span>
+                <span>0.5</span>
+                <span>1.0</span>
+              </div>
+
+              <div className="pref-setting-divider" />
+
+              <div className="pref-setting-row">
+                <div className="pref-setting-info">
+                  <div className="pref-setting-label">Max Tokens</div>
+                  <div className="pref-setting-hint">
+                    {numPredict === -1
+                      ? "Unlimited - model decides when to stop (Default)"
+                      : numPredict <= 512
+                        ? "Short - brief responses only"
+                        : numPredict <= 2048
+                          ? "Medium - suitable for most tasks"
+                          : "Long - extended responses and analysis"}
+                  </div>
+                </div>
+                <span className="pref-temp-value">
+                  {numPredict === -1 ? "∞" : numPredict}
+                </span>
+              </div>
+              <input
+                className="temperature-slider pref-slider"
+                type="range"
+                min="-1"
+                max="8192"
+                step="256"
+                value={numPredict}
+                onChange={(e) => setNumPredict(parseInt(e.target.value))}
+              />
+              <div className="temperature-labels">
+                <span>∞</span>
+                <span>4096</span>
+                <span>8192</span>
               </div>
             </div>
           </>
@@ -607,20 +729,29 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <span className="pref-theme-label">Dune</span>
                 </div>
               </div>
-              <div className="pref-setting-section-label" style={{ marginTop: "20px" }}>Font</div>
+              <div
+                className="pref-setting-section-label"
+                style={{ marginTop: "20px" }}
+              >
+                Font
+              </div>
               <div className="pref-font-cards">
                 <div
                   className={`pref-font-card${font === "inter" ? " active" : ""}`}
                   onClick={() => setFont("inter")}
                 >
-                  <span className="pref-font-preview pref-font-preview-inter">Aa</span>
+                  <span className="pref-font-preview pref-font-preview-inter">
+                    Aa
+                  </span>
                   <span className="pref-font-label">Inter</span>
                 </div>
                 <div
                   className={`pref-font-card${font === "mono" ? " active" : ""}`}
                   onClick={() => setFont("mono")}
                 >
-                  <span className="pref-font-preview pref-font-preview-mono">Aa</span>
+                  <span className="pref-font-preview pref-font-preview-mono">
+                    Aa
+                  </span>
                   <span className="pref-font-label">JetBrains Mono</span>
                 </div>
               </div>
@@ -631,7 +762,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       case "shortcuts": {
         const isMac = navigator.platform.toUpperCase().includes("MAC");
         const mod = isMac ? "⌘" : "Ctrl";
-        const groups: { label: string; rows: { keys: string[]; desc: string }[] }[] = [
+        const groups: {
+          label: string;
+          rows: { keys: string[]; desc: string }[];
+        }[] = [
           {
             label: "Navigation",
             rows: [
@@ -666,7 +800,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             <div className="pref-settings-area">
               {groups.map((group) => (
                 <div key={group.label} className="pref-shortcut-group">
-                  <div className="pref-setting-section-label">{group.label}</div>
+                  <div className="pref-setting-section-label">
+                    {group.label}
+                  </div>
                   <div className="pref-shortcut-list">
                     {group.rows.map((row) => (
                       <div key={row.desc} className="pref-shortcut-row">
@@ -698,197 +834,245 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <span className="pref-content-title">Account</span>
             </div>
             <div className="pref-account-scroll">
-            <div className="pref-account-card">
-              {userInfo && (
-                <div className="pref-account-field">
-                  <div className="pref-field-label">Email</div>
-                  <div className="pref-field-row">
-                    <span className="pref-account-email">{userInfo.email}</span>
-                    <span
-                      className={`pref-role-badge pref-role-${userInfo.role}`}
-                    >
-                      {userInfo.role.charAt(0).toUpperCase() +
-                        userInfo.role.slice(1)}
-                    </span>
-                  </div>
-                </div>
-              )}
-              <div className="pref-account-field pref-account-field-sep">
-                <div className="pref-field-label">Full Name</div>
-                <div className="pref-name-row">
-                  {nameEdit !== null ? (
-                    <>
-                      <input
-                        className="pref-name-input"
-                        value={nameEdit}
-                        maxLength={120}
-                        placeholder={userInfo?.email ?? ""}
-                        onChange={(e) => setNameEdit(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSaveName();
-                          if (e.key === "Escape") setNameEdit(null);
-                        }}
-                        autoFocus
-                        disabled={nameSaving}
-                      />
-                      <button
-                        className="pref-name-save-btn"
-                        onClick={handleSaveName}
-                        disabled={nameSaving}
-                      >
-                        {nameSaving ? "◌" : "Save"}
-                      </button>
-                      <button
-                        className="pref-name-cancel-btn"
-                        onClick={() => setNameEdit(null)}
-                        disabled={nameSaving}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="pref-name-value">
-                        {userInfo?.full_name ?? (
-                          <span className="pref-name-placeholder">
-                            {userInfo?.email}
-                          </span>
-                        )}
+              <div className="pref-account-card">
+                {userInfo && (
+                  <div className="pref-account-field">
+                    <div className="pref-field-label">Email</div>
+                    <div className="pref-field-row">
+                      <span className="pref-account-email">
+                        {userInfo.email}
                       </span>
-                      <button
-                        className="pref-name-edit-btn"
-                        onClick={() => setNameEdit(userInfo?.full_name ?? "")}
+                      <span
+                        className={`pref-role-badge pref-role-${userInfo.role}`}
                       >
-                        Edit
-                      </button>
-                    </>
-                  )}
+                        {userInfo.role.charAt(0).toUpperCase() +
+                          userInfo.role.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="pref-account-field pref-account-field-sep">
+                  <div className="pref-field-label">Full Name</div>
+                  <div className="pref-name-row">
+                    {nameEdit !== null ? (
+                      <>
+                        <input
+                          className="pref-name-input"
+                          value={nameEdit}
+                          maxLength={120}
+                          placeholder={userInfo?.email ?? ""}
+                          onChange={(e) => setNameEdit(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveName();
+                            if (e.key === "Escape") setNameEdit(null);
+                          }}
+                          autoFocus
+                          disabled={nameSaving}
+                        />
+                        <button
+                          className="pref-name-save-btn"
+                          onClick={handleSaveName}
+                          disabled={nameSaving}
+                        >
+                          {nameSaving ? "◌" : "Save"}
+                        </button>
+                        <button
+                          className="pref-name-cancel-btn"
+                          onClick={() => setNameEdit(null)}
+                          disabled={nameSaving}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="pref-name-value">
+                          {userInfo?.full_name ?? (
+                            <span className="pref-name-placeholder">
+                              {userInfo?.email}
+                            </span>
+                          )}
+                        </span>
+                        <button
+                          className="pref-name-edit-btn"
+                          onClick={() => setNameEdit(userInfo?.full_name ?? "")}
+                        >
+                          Edit
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="pref-account-card">
-              <div className="pref-account-field">
-                <div className="pref-field-label">Personal Context</div>
-                <div className="pref-field-desc">
-                  Background about you that the model will always see
-                </div>
-                <textarea
-                  className="pref-context-textarea"
-                  value={personalContext}
-                  maxLength={1000}
-                  placeholder="e.g. I'm a software engineer working in TypeScript. Prefer concise answers."
-                  onChange={(e) => setPersonalContext(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSavePersonalContext();
-                  }}
-                  disabled={personalContextSaving}
-                  rows={4}
-                />
-                <div className="pref-context-footer">
-                  <span className="pref-context-count">{personalContext.length}/1000</span>
-                  <button
-                    className="pref-name-save-btn"
-                    onClick={handleSavePersonalContext}
+              <div className="pref-account-card">
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Personal Context</div>
+                  <div className="pref-field-desc">
+                    Background about you that the model will always see
+                  </div>
+                  <textarea
+                    className="pref-context-textarea"
+                    value={personalContext}
+                    maxLength={1000}
+                    placeholder="e.g. I'm a software engineer working in TypeScript. Prefer concise answers."
+                    onChange={(e) => setPersonalContext(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                        handleSavePersonalContext();
+                    }}
                     disabled={personalContextSaving}
-                  >
-                    {personalContextSaving ? "◌" : "Save"}
-                  </button>
+                    rows={4}
+                  />
+                  <div className="pref-context-footer">
+                    <span className="pref-context-count">
+                      {personalContext.length}/1000
+                    </span>
+                    <button
+                      className="pref-name-save-btn"
+                      onClick={handleSavePersonalContext}
+                      disabled={personalContextSaving}
+                    >
+                      {personalContextSaving ? "◌" : "Save"}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="pref-list">
-              <div
-                className="pref-list-item"
-                onClick={() => setShowTierChart(true)}
-              >
-                <div className="pref-item-icon">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="15"
-                    height="15"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <rect x="14" y="14" width="7" height="7" rx="1" />
-                  </svg>
-                </div>
-                <div className="pref-item-info">
-                  <div className="pref-item-name">View Plans</div>
-                  <div className="pref-item-desc">
-                    Compare features across Guest, Free, and Pro tiers
+
+              <div className="pref-account-card" style={{ marginTop: 10 }}>
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Icon Color</div>
+                  <div className="pref-avatar-preview-row">
+                    <div
+                      className="pref-avatar-preview"
+                      style={avatarColor ? { background: avatarColor } : undefined}
+                    >
+                      {(userInfo?.full_name ?? userInfo?.email ?? "?")[0].toUpperCase()}
+                    </div>
+                    <div className="pref-avatar-swatches">
+                      <button
+                        className={`pref-avatar-swatch pref-avatar-swatch--default${!avatarColor ? " active" : ""}`}
+                        onClick={() => setAvatarColor(null)}
+                        title="Default"
+                      />
+                      {[
+                        "#cc241d",
+                        "#d65d0e",
+                        "#b57614",
+                        "#98971a",
+                        "#689d6a",
+                        "#458588",
+                        "#3d5a80",
+                        "#83a598",
+                        "#b16286",
+                        "#d3869b",
+                        "#665c54",
+                      ].map((color) => (
+                        <button
+                          key={color}
+                          className={`pref-avatar-swatch${avatarColor === color ? " active" : ""}`}
+                          style={{ background: color }}
+                          onClick={() => setAvatarColor(color)}
+                          title={color}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <span className="pref-row-arrow">→</span>
               </div>
-              <div
-                className="pref-list-item pref-danger-item"
-                onClick={() => setShowClearAllConfirm(true)}
-              >
-                <div className="pref-item-icon">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="15"
-                    height="15"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                  </svg>
-                </div>
-                <div className="pref-item-info">
-                  <div className="pref-item-name pref-danger-name">
-                    Clear All Chats
+
+              <div className="pref-list">
+                <div
+                  className="pref-list-item"
+                  onClick={() => setShowTierChart(true)}
+                >
+                  <div className="pref-item-icon">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="15"
+                      height="15"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="3" width="7" height="7" rx="1" />
+                      <rect x="14" y="3" width="7" height="7" rx="1" />
+                      <rect x="3" y="14" width="7" height="7" rx="1" />
+                      <rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
                   </div>
-                  <div className="pref-item-desc">
-                    Delete all chat history permanently
+                  <div className="pref-item-info">
+                    <div className="pref-item-name">View Plans</div>
+                    <div className="pref-item-desc">
+                      Compare features across Guest, Free, and Pro tiers
+                    </div>
                   </div>
+                  <span className="pref-row-arrow">→</span>
                 </div>
-                <span className="pref-row-arrow">→</span>
+                <div
+                  className="pref-list-item pref-danger-item"
+                  onClick={() => setShowClearAllConfirm(true)}
+                >
+                  <div className="pref-item-icon">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="15"
+                      height="15"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    </svg>
+                  </div>
+                  <div className="pref-item-info">
+                    <div className="pref-item-name pref-danger-name">
+                      Clear All Chats
+                    </div>
+                    <div className="pref-item-desc">
+                      Delete all chat history permanently
+                    </div>
+                  </div>
+                  <span className="pref-row-arrow">→</span>
+                </div>
+                <div
+                  className="pref-list-item pref-danger-item"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <div className="pref-item-icon">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="15"
+                      height="15"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6" />
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    </svg>
+                  </div>
+                  <div className="pref-item-info">
+                    <div className="pref-item-name pref-danger-name">
+                      Delete Account
+                    </div>
+                    <div className="pref-item-desc">
+                      Permanently removes your account and all data
+                    </div>
+                  </div>
+                  <span className="pref-row-arrow">→</span>
+                </div>
+                <p id="acc-upgrade-message">
+                  Contact administrator for account tier upgrade
+                </p>
               </div>
-              <div
-                className="pref-list-item pref-danger-item"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <div className="pref-item-icon">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="15"
-                    height="15"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                    <path d="M10 11v6M14 11v6" />
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                  </svg>
-                </div>
-                <div className="pref-item-info">
-                  <div className="pref-item-name pref-danger-name">
-                    Delete Account
-                  </div>
-                  <div className="pref-item-desc">
-                    Permanently removes your account and all data
-                  </div>
-                </div>
-                <span className="pref-row-arrow">→</span>
-              </div>
-              <p id="acc-upgrade-message">
-                Contact administrator for account tier upgrade
-              </p>
-            </div>
             </div>
           </>
         );
@@ -1466,6 +1650,197 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             </div>
           </>
         );
+
+      case "connections": {
+        const cfg = serverConfig;
+        const draft = serverConfigDraft;
+        const val = (key: keyof typeof draft) =>
+          key in draft ? (draft[key] as string) ?? "" : (cfg?.[key as keyof ServerConfig] as string) ?? "";
+        const set = (key: keyof typeof draft, v: string) =>
+          setServerConfigDraft((prev) => ({ ...prev, [key]: v }));
+        const isDirty = Object.keys(draft).length > 0;
+
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Connections</span>
+              <button
+                className="pref-refresh-btn"
+                onClick={loadServerConfig}
+                disabled={serverConfigLoading}
+                title="Refresh"
+              >↻</button>
+            </div>
+
+            {serverConfigError && <div className="pref-admin-error">{serverConfigError}</div>}
+            {serverConfigSuccess && <div className="pref-admin-success">{serverConfigSuccess}</div>}
+
+            {serverConfigLoading ? (
+              <div className="pref-users-empty">Loading…</div>
+            ) : (
+              <div className="pref-settings-area">
+
+                <div className="pref-setting-section-label">Ollama</div>
+                <div className="pref-conn-field">
+                  <label className="pref-conn-label">Base URL</label>
+                  <div className="pref-conn-input-wrap">
+                    <input
+                      className="pref-conn-input pref-conn-input--inrow"
+                      type={showOllamaUrl ? "text" : "password"}
+                      placeholder="http://localhost:11434"
+                      value={val("ollama_url")}
+                      onChange={(e) => set("ollama_url", e.target.value)}
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      className="pref-conn-reveal-btn"
+                      onClick={() => setShowOllamaUrl((v) => !v)}
+                      title={showOllamaUrl ? "Hide URL" : "Show URL"}
+                    >
+                      {showOllamaUrl ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                          <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pref-setting-divider" />
+                <div className="pref-setting-section-label">Installed Models</div>
+                <div className="pref-conn-model-list">
+                  {models.length === 0 ? (
+                    <div className="pref-conn-model-empty">No models available</div>
+                  ) : (
+                    models.map((m) => {
+                      const [name, tag] = m.split(":");
+                      const caps = modelCapabilities[m] ?? [];
+                      return (
+                        <div key={m} className="pref-conn-model-row">
+                          <div className="pref-conn-model-name">
+                            {name}
+                            {tag && <span className="pref-conn-model-tag">{tag}</span>}
+                          </div>
+                          <div className="pref-conn-model-caps">
+                            {caps.includes("thinking") && (
+                              <span className="pref-model-badge pref-model-badge--thinking">Thinking</span>
+                            )}
+                            {caps.includes("web") && (
+                              <span className="pref-model-badge pref-model-badge--web">Web</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="pref-setting-divider" />
+                <div className="pref-setting-section-label">Model Defaults</div>
+
+                <div className="pref-conn-field">
+                  <label className="pref-conn-label">Default Model</label>
+                  <input
+                    className="pref-conn-input"
+                    type="text"
+                    placeholder="llama3.1:8b"
+                    value={val("default_model")}
+                    onChange={(e) => set("default_model", e.target.value)}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="pref-conn-field">
+                  <label className="pref-conn-label">Vision Model</label>
+                  <input
+                    className="pref-conn-input"
+                    type="text"
+                    placeholder="gemma3:4b-it-qat"
+                    value={val("vision_model")}
+                    onChange={(e) => set("vision_model", e.target.value)}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="pref-conn-field">
+                  <label className="pref-conn-label">Embed Model</label>
+                  <input
+                    className="pref-conn-input"
+                    type="text"
+                    placeholder="nomic-embed-text"
+                    value={val("embed_model")}
+                    onChange={(e) => set("embed_model", e.target.value)}
+                    spellCheck={false}
+                  />
+                </div>
+
+                <div className="pref-setting-divider" />
+                <div className="pref-setting-section-label">Model Lists <span className="pref-conn-hint">(comma-separated)</span></div>
+
+                <div className="pref-conn-field">
+                  <label className="pref-conn-label">Thinking Models</label>
+                  <input
+                    className="pref-conn-input"
+                    type="text"
+                    placeholder="deepseek-r1"
+                    value={val("thinking_models")}
+                    onChange={(e) => set("thinking_models", e.target.value)}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="pref-conn-field">
+                  <label className="pref-conn-label">Tool-Capable Models</label>
+                  <input
+                    className="pref-conn-input"
+                    type="text"
+                    placeholder="llama3.1,qwen2.5,phi4"
+                    value={val("tool_capable_models")}
+                    onChange={(e) => set("tool_capable_models", e.target.value)}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="pref-conn-field">
+                  <label className="pref-conn-label">No System Prompt Models</label>
+                  <input
+                    className="pref-conn-input"
+                    type="text"
+                    placeholder="dolphin"
+                    value={val("no_system_prompt_models")}
+                    onChange={(e) => set("no_system_prompt_models", e.target.value)}
+                    spellCheck={false}
+                  />
+                </div>
+
+
+                <div className="pref-conn-actions">
+                  <button
+                    className="pref-conn-save-btn"
+                    disabled={!isDirty || serverConfigSaving}
+                    onClick={handleServerConfigSave}
+                  >
+                    {serverConfigSaving ? "Saving…" : "Apply Changes"}
+                  </button>
+                  {isDirty && (
+                    <button
+                      className="pref-conn-cancel-btn"
+                      onClick={() => setServerConfigDraft({})}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        );
+      }
     }
   };
 

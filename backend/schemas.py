@@ -39,6 +39,8 @@ class ChatRequest(BaseModel):
     model:         Optional[str]       = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
     system_prompt: Optional[str]       = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
     temperature:   Optional[float]     = Field(default=0.7, ge=0.0, le=2.0)
+    top_p:         Optional[float]     = Field(default=0.9, ge=0.0, le=1.0)
+    num_predict:   Optional[int]       = Field(default=-1, ge=-1, le=32768)
     images:        Optional[list[str]] = Field(default=None, max_length=4)
     force_search:  Optional[bool]      = Field(default=False)
 
@@ -49,6 +51,8 @@ class GuestChatRequest(BaseModel):
     model:         Optional[str]        = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
     system_prompt: Optional[str]        = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
     temperature:   Optional[float]      = Field(default=0.7, ge=0.0, le=2.0)
+    top_p:         Optional[float]      = Field(default=0.9, ge=0.0, le=1.0)
+    num_predict:   Optional[int]        = Field(default=-1, ge=-1, le=32768)
     images:        Optional[list[str]]  = Field(default=None, max_length=4)
 
 
@@ -73,3 +77,13 @@ class UpdateFeatureFlagRequest(BaseModel):
     free_enabled:  Optional[bool] = None
     pro_enabled:   Optional[bool] = None
     admin_enabled: Optional[bool] = None
+
+
+class UpdateServerConfigRequest(BaseModel):
+    ollama_url:              Optional[str] = Field(default=None, max_length=500)
+    default_model:           Optional[str] = Field(default=None, max_length=100)
+    vision_model:            Optional[str] = Field(default=None, max_length=100)
+    embed_model:             Optional[str] = Field(default=None, max_length=100)
+    thinking_models:         Optional[str] = Field(default=None, max_length=500)
+    tool_capable_models:     Optional[str] = Field(default=None, max_length=500)
+    no_system_prompt_models: Optional[str] = Field(default=None, max_length=500)

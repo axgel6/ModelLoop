@@ -117,6 +117,8 @@ interface ChatProps {
   setTheme: (theme: Theme) => void;
   font: Font;
   setFont: (font: Font) => void;
+  avatarColor: string | null;
+  setAvatarColor: (c: string | null) => void;
 }
 
 function Chat({
@@ -132,6 +134,8 @@ function Chat({
   setTheme,
   font,
   setFont,
+  avatarColor,
+  setAvatarColor,
 }: ChatProps) {
   const [isMobileViewport, setIsMobileViewport] = useState(
     () => window.innerWidth <= 640,
@@ -172,6 +176,10 @@ function Chat({
     setActivePreset,
     temperature,
     setTemperature,
+    topP,
+    setTopP,
+    numPredict,
+    setNumPredict,
   } = useChatSettings();
   const [prefSection] = useState<PrefSection>("model");
 
@@ -445,6 +453,8 @@ function Chat({
               model: selectedModel || undefined,
               system_prompt: systemPrompt.trim() ? withMandatoryPromptRules(systemPrompt) : undefined,
               temperature,
+              top_p: topP,
+              num_predict: numPredict,
               images,
             },
             ctrl.signal,
@@ -456,6 +466,8 @@ function Chat({
               model: selectedModel || undefined,
               system_prompt: systemPrompt.trim() ? withMandatoryPromptRules(systemPrompt) : undefined,
               temperature,
+              top_p: topP,
+              num_predict: numPredict,
               images,
               force_search: options?.forceSearch,
             },
@@ -861,7 +873,10 @@ function Chat({
 
             {(userRole || userName) && (
               <div className="sidebar-footer">
-                <div className="sidebar-user-avatar">
+                <div
+                  className="sidebar-user-avatar"
+                  style={avatarColor ? { background: avatarColor } : undefined}
+                >
                   {(userName ?? userRole ?? "?")[0].toUpperCase()}
                 </div>
                 <span className="sidebar-user-email" title={userName ?? ""}>
@@ -1208,8 +1223,14 @@ function Chat({
           setTheme={setTheme}
           font={font}
           setFont={setFont}
+          avatarColor={avatarColor}
+          setAvatarColor={setAvatarColor}
           temperature={temperature}
           setTemperature={setTemperature}
+          topP={topP}
+          setTopP={setTopP}
+          numPredict={numPredict}
+          setNumPredict={setNumPredict}
           models={models}
           modelCapabilities={modelCapabilities}
           selectedModel={selectedModel}

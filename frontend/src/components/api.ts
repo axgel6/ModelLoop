@@ -371,6 +371,41 @@ export async function apiAdminUpdateFeatureFlag(
   return res.json();
 }
 
+export interface ServerConfig {
+  ollama_url: string;
+  default_model: string;
+  vision_model: string;
+  embed_model: string;
+  thinking_models: string;
+  tool_capable_models: string;
+  no_system_prompt_models: string;
+}
+
+export async function apiAdminGetServerConfig(): Promise<ServerConfig> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/admin/server-config`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to fetch server config");
+  return res.json();
+}
+
+export async function apiAdminUpdateServerConfig(
+  changes: Partial<ServerConfig>,
+): Promise<{ updated: string[] }> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/admin/server-config`, {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(changes),
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update server config");
+  }
+  return res.json();
+}
+
 // Delete the current user account and all their data
 export async function apiDeleteAccount(): Promise<void> {
   const res = await withRefresh(() =>
@@ -514,6 +549,8 @@ export async function apiGuestChatStream(
     model?: string;
     system_prompt?: string;
     temperature?: number;
+    top_p?: number;
+    num_predict?: number;
     images?: string[];
   },
   signal?: AbortSignal,
@@ -550,6 +587,8 @@ export async function apiChatStream(
     model?: string;
     system_prompt?: string;
     temperature?: number;
+    top_p?: number;
+    num_predict?: number;
     images?: string[];
     force_search?: boolean;
   },
