@@ -15,7 +15,7 @@ from schemas import SetRoleRequest, UpdateFeatureFlagRequest, UpdateServerConfig
 from dependencies import require_admin, _get_client_ip
 from audit import log_audit
 from config import VALID_ROLES
-from feature_flags import get_all_flags
+from feature_flags import get_all_flags, bust_flag_cache
 
 _ENV_PATH = Path(__file__).parent.parent / ".env"
 
@@ -298,6 +298,7 @@ async def admin_update_feature_flag(
     await log_audit(db, "update_feature_flag", admin_id, None, {"flag": name, "changes": changes}, _get_client_ip(request))
     await db.commit()
     await db.refresh(flag)
+    bust_flag_cache()  # invalidate the in-process cache so next request sees the new values
     logger.info('admin_update_feature_flag admin_id=%s flag=%s changes=%s', admin_id, name, changes)
     return {
         "name":           flag.name,

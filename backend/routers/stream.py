@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
@@ -92,7 +92,7 @@ def _resolve_search_query(prompt: str, history) -> str:
                  if n.lower() not in _QUESTION_WORDS]
         if names:
             return _PRONOUN_RE.sub(names[-1], prompt)
-    # Second pass: assistant messages — better capitalized, often name the subject clearly
+    # Second pass: assistant messages, better capitalized, often name the subject clearly
     for msg in recent_history:
         if msg.role != "assistant":
             continue
@@ -267,7 +267,7 @@ async def chat_stream(
         else:
             messages.append({"role": "assistant", "content": "Hello! How can I help you today?"})
         messages.append({"role": "user", "content": "qwzxqwzxqwzxqwzx"})
-        messages.append({"role": "assistant", "content": "I'm not sure what you meant — could you rephrase that?"})
+        messages.append({"role": "assistant", "content": "I'm not sure what you meant, could you rephrase that?"})
     for m in db_history:
         content = m.content
         if m.role == "user" and m.image_context:
@@ -298,7 +298,7 @@ async def chat_stream(
             f"{last_msg['content']}"
         )
     elif proactive_search_enabled:
-        # Search was triggered but returned no results — tell the model explicitly so it
+        # Search was triggered but returned no results; tell the model explicitly so it
         # doesn't fabricate results or claim to have retrieved live data.
         last_msg = messages[-1]
         last_msg["content"] = (
@@ -452,7 +452,7 @@ async def chat_stream(
             _search_ctx = "\n\n---\n\n".join(_all_search) if _all_search else None
 
             # If all 5 rounds were tool calls (loop exhausted without break), round_content
-            # from the last round is the final answer — full_response was never assigned.
+            # from the last round is the final answer; full_response was never assigned.
             if success and not full_response:
                 full_response = round_content
 
@@ -467,19 +467,21 @@ async def chat_stream(
 
                 try:
                     async with AsyncSessionLocal() as write_db:
-                        chat_result = await write_db.execute(select(Chat).where(Chat.id == chat_id))
-                        chat_row = chat_result.scalar_one_or_none()
-                        if chat_row:
-                            write_db.add(Message(
-                                chat_id=chat_id, role="user", content=prompt,
-                                images=images or None, image_context=image_context or None,
-                                search_context=_search_ctx,
-                            ))
-                            write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
-                            if chat_title == "New Chat":
-                                chat_row.title = prompt[:60]
-                            chat_row.updated_at = datetime.now(timezone.utc)
-                            await write_db.commit()
+                        # Insert both messages in the same flush as the chat UPDATE;
+                        # avoids a redundant SELECT to re-fetch a row we already own.
+                        write_db.add(Message(
+                            chat_id=chat_id, role="user", content=prompt,
+                            images=images or None, image_context=image_context or None,
+                            search_context=_search_ctx,
+                        ))
+                        write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
+                        chat_update: dict = {"updated_at": datetime.now(timezone.utc)}
+                        if chat_title == "New Chat":
+                            chat_update["title"] = prompt[:60]
+                        await write_db.execute(
+                            update(Chat).where(Chat.id == chat_id).values(**chat_update)
+                        )
+                        await write_db.commit()
                 except Exception as db_err:
                     logger.error('db_save_error chat_id=%s error=%s', chat_id, str(db_err))
             else:
@@ -549,7 +551,7 @@ async def guest_chat_stream(
         messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "assistant", "content": "Hello! How can I help you today?"})
         messages.append({"role": "user", "content": "qwzxqwzxqwzxqwzx"})
-        messages.append({"role": "assistant", "content": "I'm not sure what you meant — could you rephrase that?"})
+        messages.append({"role": "assistant", "content": "I'm not sure what you meant, could you rephrase that?"})
     messages.extend({"role": m.role, "content": m.content} for m in body.messages)
 
     guest_user_content = prompt

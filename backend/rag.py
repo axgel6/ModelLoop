@@ -8,6 +8,19 @@ from config import OLLAMA_BASE_URL, EMBED_MODEL, NGROK_HEADERS, CHUNK_SIZE, CHUN
 
 logger = logging.getLogger(__name__)
 
+# Persistent client: reuses TCP connections to Ollama across embedding calls.
+# Creating a fresh AsyncClient per call (as done previously) paid TCP handshake
+# and TLS setup costs on every request; this eliminates that overhead.
+_embed_http = httpx.AsyncClient(
+    timeout=60,
+    limits=httpx.Limits(max_connections=5, max_keepalive_connections=3),
+)
+
+
+async def close_embed_client() -> None:
+    """Gracefully close the shared embedding HTTP client on server shutdown."""
+    await _embed_http.aclose()
+
 
 def chunk_text(text: str) -> list[str]:
     chunks, start = [], 0
@@ -21,14 +34,13 @@ def chunk_text(text: str) -> list[str]:
 
 
 async def get_embedding(text: str) -> list[float]:
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(
-            f"{OLLAMA_BASE_URL}/api/embeddings",
-            json={"model": EMBED_MODEL, "prompt": text},
-            headers=NGROK_HEADERS,
-        )
-        resp.raise_for_status()
-        return resp.json()["embedding"]
+    resp = await _embed_http.post(
+        f"{OLLAMA_BASE_URL}/api/embeddings",
+        json={"model": EMBED_MODEL, "prompt": text},
+        headers=NGROK_HEADERS,
+    )
+    resp.raise_for_status()
+    return resp.json()["embedding"]
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:

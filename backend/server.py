@@ -17,6 +17,7 @@ from database import engine, Base
 from config import ALLOWED_ORIGINS, IS_PRODUCTION
 from routers import auth_router, chats, messages, documents, admin, models_router, stream, health
 from routers.stream import close_ollama_client
+from rag import close_embed_client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,7 +32,7 @@ async def lifespan(_: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-        # Schema migrations (idempotent — safe to run on every startup)
+        # Schema migrations (idempotent; safe to run on every startup)
         migrations = [
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS images JSON",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_context TEXT",
@@ -63,7 +64,7 @@ async def lifespan(_: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(10) NOT NULL DEFAULT 'free'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true",
             "ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS guest_enabled BOOLEAN NOT NULL DEFAULT false",
-            # Seed default feature flags — ON CONFLICT (name) DO NOTHING is idempotent
+            # Seed default feature flags; ON CONFLICT (name) DO NOTHING is idempotent
             """INSERT INTO feature_flags (id, name, description, guest_enabled, free_enabled, pro_enabled, admin_enabled, updated_at)
                VALUES (gen_random_uuid(), 'actions', 'Tool-calling actions (web search, get_time, etc.)', false, false, true, true, now())
                ON CONFLICT (name) DO NOTHING""",
@@ -85,6 +86,7 @@ async def lifespan(_: FastAPI):
 
     await engine.dispose()
     await close_ollama_client()
+    await close_embed_client()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
