@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DocumentMeta } from "./api";
+import { MODEL_PRESETS } from "./models";
+import type { VoiceStatus } from "./hooks/useVoiceConversation";
 
+export { MODEL_PRESETS, DEFAULT_MODEL } from "./models";
 
 const SLASH_COMMANDS = [
   { cmd: "/clear", desc: "Clear conversation" },
@@ -12,14 +15,6 @@ const SLASH_COMMANDS = [
   { cmd: "/ratelimit", desc: "Show rate limit info" },
   { cmd: "/help", desc: "Show commands" },
 ];
-
-export const MODEL_PRESETS = [
-  { label: "Fast", model: "llama3.1:8b" },
-  { label: "Pro", model: "qwen2.5:7b" },
-  { label: "Thinking", model: "deepseek-r1:7b" },
-] as const;
-
-export const DEFAULT_MODEL = MODEL_PRESETS[0].model;
 
 interface ChatInputProps {
   loading: boolean;
@@ -38,6 +33,12 @@ interface ChatInputProps {
   ragEnabled?: boolean;
   estimatedTokens?: number;
   messageCount?: number;
+  voiceActive?: boolean;
+  voiceStatus?: VoiceStatus;
+  voiceStatusLabel?: string;
+  voiceTranscript?: string;
+  voiceError?: string | null;
+  onVoiceToggle?: () => void;
 }
 
 function ChatInput({
@@ -57,6 +58,12 @@ function ChatInput({
   ragEnabled = false,
   estimatedTokens = 0,
   messageCount = 0,
+  voiceActive = false,
+  voiceStatus = "idle",
+  voiceStatusLabel = "",
+  voiceTranscript = "",
+  voiceError = null,
+  onVoiceToggle,
 }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
@@ -334,8 +341,9 @@ function ChatInput({
           ))}
         </div>
       )}
+
       <div
-        className={`input-wrapper${isDragging ? " drag-over" : ""}`}
+        className={`input-wrapper${isDragging ? " drag-over" : ""}${voiceActive ? ` voice-active voice-${voiceStatus}` : ""}`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -352,7 +360,9 @@ function ChatInput({
             e.target.value = "";
           }}
         />
-        {imageError && <div className="image-error-banner">{imageError}</div>}
+        {(imageError ?? voiceError) && (
+          <div className="image-error-banner">{imageError ?? voiceError}</div>
+        )}
         {attachedImage && (
           <div className="image-preview-strip">
             <div className="image-preview-thumb-wrap">
@@ -374,12 +384,14 @@ function ChatInput({
         )}
         <textarea
           ref={textareaRef}
-          className="chat-textarea"
+          className={`chat-textarea${voiceActive && voiceStatus === "listening" ? " voice-listening" : ""}`}
           autoFocus
           rows={1}
-          placeholder="Ask ModelLoop"
-          value={input}
+          placeholder={voiceActive ? voiceStatusLabel || "Voice conversation active…" : "Ask ModelLoop"}
+          value={voiceActive && voiceStatus === "listening" ? voiceTranscript : input}
+          readOnly={voiceActive && voiceStatus === "listening"}
           onChange={(e) => {
+            if (voiceActive && voiceStatus === "listening") return;
             setInput(e.target.value);
             if (!e.target.value.startsWith("/")) setSlashIdx(-1);
           }}
@@ -682,6 +694,35 @@ function ChatInput({
                   </div>
                 )}
               </div>
+            )}
+            {onVoiceToggle && (
+              <button
+                className={`toolbar-icon-btn mic-btn${voiceActive ? ` voice-active voice-${voiceStatus}` : ""}`}
+                onClick={onVoiceToggle}
+                title={voiceActive ? `${voiceStatusLabel} — click to end` : "Voice conversation"}
+                type="button"
+              >
+                {voiceActive && voiceStatus === "listening" && (
+                  <div className="mic-state-dots"><span /><span /><span /></div>
+                )}
+                {voiceActive && voiceStatus === "processing" && (
+                  <div className="mic-state-spinner" />
+                )}
+                {voiceActive && voiceStatus === "speaking" && (
+                  <div className="mic-state-bars"><span /><span /><span /><span /></div>
+                )}
+                {!voiceActive && (
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="2" width="6" height="11" rx="3" />
+                    <path d="M5 10a7 7 0 0 0 14 0" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                    <line x1="9" y1="21" x2="15" y2="21" />
+                  </svg>
+                )}
+                <span className="toolbar-dock-label">
+                  {voiceActive ? voiceStatusLabel : "Voice conversation"}
+                </span>
+              </button>
             )}
             <button
               className={`ask-button${loading ? " stopping" : ""}`}

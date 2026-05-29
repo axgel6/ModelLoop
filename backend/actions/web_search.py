@@ -263,16 +263,25 @@ class _DDGHtmlParser(HTMLParser):
             self._cur_snippet.append(data)
 
 
+def _is_ad_url(url: str) -> bool:
+    """DDG ad links route through duckduckgo.com/y.js before reaching the advertiser."""
+    return "duckduckgo.com/y.js" in url or "ad_domain=" in url or "ad_provider=" in url
+
+
+def _filter_ads(results: list) -> list:
+    return [r for r in results if not _is_ad_url(r.get("url", ""))]
+
+
 def _parse_results(html: str, max_results: int) -> list:
-    parser = _DDGLiteParser(max_results)
+    parser = _DDGLiteParser(max_results + 5)  # fetch extra to account for filtered ads
     parser.feed(html)
-    return parser.results
+    return _filter_ads(parser.results)[:max_results]
 
 
 def _parse_html_results(html: str, max_results: int) -> list:
-    parser = _DDGHtmlParser(max_results)
+    parser = _DDGHtmlParser(max_results + 5)
     parser.feed(html)
-    return parser.results
+    return _filter_ads(parser.results)[:max_results]
 
 
 def _parse_search_args(arguments: dict) -> tuple[str, int, str, str]:

@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -6,6 +6,24 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { type Message } from "./api";
 import { fixMathDelimiters, fmtTime } from "./utils/chatUtils";
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`[^`]+`/g, "")
+    .replace(/#{1,6}\s/gm, "")
+    .replace(/\*\*(.+?)\*\*/gs, "$1")
+    .replace(/\*(.+?)\*/gs, "$1")
+    .replace(/__(.+?)__/gs, "$1")
+    .replace(/_(.+?)_/gs, "$1")
+    .replace(/\[(.+?)\]\(.+?\)/g, "$1")
+    .replace(/^[-*+]\s/gm, "")
+    .replace(/^\d+\.\s/gm, "")
+    .replace(/^>\s/gm, "")
+    .replace(/\n{2,}/g, ". ")
+    .replace(/\n/g, " ")
+    .trim();
+}
 
 function Pre({
   children,
@@ -94,6 +112,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   onRetry: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
   const [imageContextOpen, setImageContextOpen] = useState(false);
   const [searchContextOpen, setSearchContextOpen] = useState(false);
@@ -107,6 +126,31 @@ export const AssistantMessage = memo(function AssistantMessage({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  const handleListen = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    const cleaned = stripMarkdown(msg.content);
+    if (!cleaned) return;
+    // cancel() stops whatever is currently playing and fires its onend,
+    // resetting that component's isSpeaking. Chrome drops speak() if called
+    // immediately after cancel(), so defer it one tick.
+    window.speechSynthesis.cancel();
+    const rate = parseFloat(localStorage.getItem("voice_speech_rate") || "1.0");
+    const utterance = new SpeechSynthesisUtterance(cleaned);
+    utterance.rate = rate;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    setTimeout(() => window.speechSynthesis.speak(utterance), 50);
+  };
+
+  useEffect(() => {
+    return () => { if (isSpeaking) window.speechSynthesis.cancel(); };
+  }, [isSpeaking]);
 
   const showThinking = msg.content === "" && isThinking && isLast;
   const showToolUse = isLast && !!activeTool && msg.content === "";
@@ -242,6 +286,40 @@ export const AssistantMessage = memo(function AssistantMessage({
                 >
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              )}
+            </button>
+          )}
+          {msg.content && (
+            <button
+              className={`listen-btn${isSpeaking ? " speaking" : ""}`}
+              onClick={handleListen}
+              title={isSpeaking ? "Stop" : "Listen"}
+            >
+              {isSpeaking ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="currentColor"
+                  stroke="none"
+                >
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                </svg>
+              ) : (
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                 </svg>
               )}
             </button>

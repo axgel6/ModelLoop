@@ -15,6 +15,10 @@ export function useChatSettings() {
   const [temperature, setTemperature] = useState(0.7);
   const [topP, setTopP] = useState(0.9);
   const [numPredict, setNumPredict] = useState(-1);
+  const [speechRate, setSpeechRateState] = useState<number>(() => {
+    const stored = localStorage.getItem("voice_speech_rate");
+    return stored ? parseFloat(stored) : 1.0;
+  });
   const modelsLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -68,6 +72,11 @@ export function useChatSettings() {
     };
   }, []);
 
+  const setSpeechRate = (rate: number) => {
+    localStorage.setItem("voice_speech_rate", String(rate));
+    setSpeechRateState(rate);
+  };
+
   return {
     models,
     modelCapabilities,
@@ -86,5 +95,7 @@ export function useChatSettings() {
     setTopP,
     numPredict,
     setNumPredict,
+    speechRate,
+    setSpeechRate,
   };
 }

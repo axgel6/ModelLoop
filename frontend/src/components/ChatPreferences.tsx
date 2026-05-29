@@ -39,6 +39,8 @@ interface ChatPreferencesProps {
   setTopP: (v: number) => void;
   numPredict: number;
   setNumPredict: (v: number) => void;
+  speechRate: number;
+  setSpeechRate: (rate: number) => void;
   models: string[];
   modelCapabilities: Record<string, string[]>;
   selectedModel: string;
@@ -151,6 +153,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   setTopP,
   numPredict,
   setNumPredict,
+  speechRate,
+  setSpeechRate,
   models,
   modelCapabilities,
   selectedModel,
@@ -609,6 +613,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   setTemperature(0.7);
                   setTopP(0.9);
                   setNumPredict(-1);
+                  setSpeechRate(1.0);
                 }}
                 title="Reset to defaults"
               >
@@ -704,6 +709,40 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span>∞</span>
                 <span>4096</span>
                 <span>8192</span>
+              </div>
+
+              <div className="pref-setting-divider" />
+
+              <div className="pref-setting-row">
+                <div className="pref-setting-info">
+                  <div className="pref-setting-label">Voice Speed</div>
+                  <div className="pref-setting-hint">
+                    {speechRate <= 0.7
+                      ? "Slow — easier to follow"
+                      : speechRate <= 1.1
+                        ? speechRate === 1.0
+                          ? "Normal — natural pace (Default)"
+                          : "Normal — natural pace"
+                        : speechRate <= 1.5
+                          ? "Fast — quicker delivery"
+                          : "Very fast — for rapid listening"}
+                  </div>
+                </div>
+                <span className="pref-temp-value">{speechRate.toFixed(1)}×</span>
+              </div>
+              <input
+                className="temperature-slider pref-slider"
+                type="range"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value={speechRate}
+                onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+              />
+              <div className="temperature-labels">
+                <span>0.5×</span>
+                <span>1.0×</span>
+                <span>2.0×</span>
               </div>
             </div>
           </>

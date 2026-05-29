@@ -9,6 +9,7 @@ import ChatInput from "./ChatInput";
 import { useChatSession } from "./hooks/useChatSession";
 import { useChatSettings } from "./hooks/useChatSettings";
 import { useChatUI } from "./hooks/useChatUI";
+import { useVoiceConversation } from "./hooks/useVoiceConversation";
 import {
   apiChatStream,
   apiCreateChat,
@@ -180,6 +181,8 @@ function Chat({
     setTopP,
     numPredict,
     setNumPredict,
+    speechRate,
+    setSpeechRate,
   } = useChatSettings();
   const [prefSection] = useState<PrefSection>("model");
 
@@ -638,6 +641,18 @@ function Chat({
   };
 
   const handleStop = () => abortControllerRef.current?.abort();
+
+  const lastAssistantText = useMemo(() => {
+    const last = messages[messages.length - 1];
+    return last?.role === "assistant" ? (last.content ?? "") : "";
+  }, [messages]);
+
+  const voice = useVoiceConversation({
+    onSubmit: (text) => void handleAsk(text),
+    loading,
+    lastResponseText: lastAssistantText,
+    speechRate,
+  });
 
   const handleEditSubmit = () => {
     if (!editState) return;
@@ -1174,6 +1189,12 @@ function Chat({
             messageCount={messages.length}
             photoUploadEnabled={features.photo_upload ?? true}
             ragEnabled={features.rag ?? false}
+            voiceActive={voice.isActive}
+            voiceStatus={voice.status}
+            voiceStatusLabel={voice.statusLabel}
+            voiceTranscript={voice.transcript}
+            voiceError={voice.error}
+            onVoiceToggle={voice.toggle}
             {...(!isGuest && activeChatId
               ? {
                   documents,
@@ -1231,6 +1252,8 @@ function Chat({
           setTopP={setTopP}
           numPredict={numPredict}
           setNumPredict={setNumPredict}
+          speechRate={speechRate}
+          setSpeechRate={setSpeechRate}
           models={models}
           modelCapabilities={modelCapabilities}
           selectedModel={selectedModel}
