@@ -1295,26 +1295,12 @@ function Chat({
 
             {/* ── Orb ── */}
             <div
-              className={`voice-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}
+              className={`voice-orb-wrap${voice.status === "speaking" ? " voice-orb-wrap--speaking" : ""}`}
               onClick={voice.interrupt}
             >
-              <div className="voice-orb-shimmer" aria-hidden="true" />
-              <div className="voice-orb-content">
-                {voice.status === "listening" && (
-                  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="2" width="6" height="11" rx="3" />
-                    <path d="M5 10a7 7 0 0 0 14 0" />
-                    <line x1="12" y1="17" x2="12" y2="21" />
-                    <line x1="9" y1="21" x2="15" y2="21" />
-                  </svg>
-                )}
-                {voice.status === "speaking" && (
-                  <div className="voice-orb-bars-large">
-                    <span /><span /><span /><span /><span />
-                  </div>
-                )}
+              <div className={`voice-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}>
+                <div className="voice-orb-shimmer" aria-hidden="true" />
               </div>
-              <div className="voice-orb-highlight" aria-hidden="true" />
             </div>
 
             {/* ── Transcript ── */}

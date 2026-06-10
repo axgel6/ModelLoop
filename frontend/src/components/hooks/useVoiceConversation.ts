@@ -24,6 +24,28 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
+function prepareForSpeech(text: string): string {
+  return text
+    // Em/en dashes → natural spoken pause
+    .replace(/\s*[—–]\s*/g, ", ")
+    // Semicolons → softer pause
+    .replace(/;\s*/g, ", ")
+    // Common abbreviations → full spoken form
+    .replace(/\be\.g\.\s*/gi, "for example, ")
+    .replace(/\bi\.e\.\s*/gi, "that is, ")
+    .replace(/\betc\.\s*/gi, "and so on")
+    .replace(/\bvs\.\s*/gi, "versus ")
+    .replace(/\bapprox\.\s*/gi, "approximately ")
+    // Numbers + units
+    .replace(/(\d+)%/g, "$1 percent")
+    .replace(/(\d+)x\b/gi, "$1 times")
+    // Clean up any double punctuation introduced
+    .replace(/,\s*,/g, ",")
+    .replace(/\.\s*\./g, ".")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // Common abbreviations that end with a dot but don't terminate a sentence.
 const ABBREVS = new Set([
   "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "rev", "gen", "sgt", "cpl",
@@ -61,13 +83,30 @@ function getSpeechRecognitionCtor(): (typeof SpeechRecognition) | undefined {
   );
 }
 
+// Ordered by quality: macOS premium > Microsoft Neural > Google Neural > generic online
+const VOICE_PRIORITY = [
+  "Samantha", "Alex",                                                  // macOS premium
+  "Microsoft Aria Online", "Microsoft Jenny Online",                   // Edge Neural
+  "Microsoft Guy Online", "Microsoft Ava Online",                      // Edge Neural
+  "Microsoft Emma Online", "Microsoft Brian Online",                   // Edge Neural
+  "Google US English", "Google UK English Female",                     // Chrome Neural
+  "Google UK English Male", "Google Australia English",                // Chrome Neural
+];
+
 function getPreferredVoice(lang: string): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
   const base = lang.split("-")[0];
   const langVoices = voices.filter((v) => v.lang.startsWith(base));
+  if (!langVoices.length) return voices[0] ?? null;
+
+  for (const name of VOICE_PRIORITY) {
+    const match = langVoices.find((v) => v.name.includes(name));
+    if (match) return match;
+  }
   return (
-    langVoices.find((v) => v.name.includes("Google")) ??
+    langVoices.find((v) => v.name.toLowerCase().includes("natural")) ??
+    langVoices.find((v) => v.name.toLowerCase().includes("neural")) ??
     langVoices.find((v) => !v.localService) ??
     langVoices[0] ??
     null
@@ -207,9 +246,10 @@ export function useVoiceConversation({
       }
 
       isSpeakingRef.current = true;
-      const utterance = new SpeechSynthesisUtterance(cleaned);
+      const utterance = new SpeechSynthesisUtterance(prepareForSpeech(cleaned));
       utterance.lang = navigator.language || "en-US";
       utterance.rate = speechRateRef.current;
+      utterance.pitch = 0.95;
       if (voiceRef.current) utterance.voice = voiceRef.current;
       utterance.onend  = () => processQueueRef.current();
       utterance.onerror = () => processQueueRef.current();
