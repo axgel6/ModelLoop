@@ -184,7 +184,7 @@ function Chat({
     speechRate,
     setSpeechRate,
   } = useChatSettings();
-  const [prefSection] = useState<PrefSection>("model");
+  const [prefSection, setPrefSection] = useState<PrefSection>("model");
 
   const {
     sidebarOpen,
@@ -199,6 +199,7 @@ function Chat({
   } = useChatUI(messages, loading);
 
   const [sidebarClosing, setSidebarClosing] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const closeSidebar = () => {
     if (isMobileViewport) {
@@ -214,6 +215,7 @@ function Chat({
 
   const inputFocusRef = useRef<(() => void) | null>(null);
   const inputSetRef = useRef<((value: string) => void) | null>(null);
+  const footerWrapperRef = useRef<HTMLDivElement>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   useEffect(() => { scrollToBottom(); }, [activeTool, scrollToBottom]);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -887,23 +889,96 @@ function Chat({
             </div>
 
             {(userRole || userName) && (
-              <div className="sidebar-footer">
+              <div className="sidebar-footer-wrapper" ref={footerWrapperRef}>
+                {showUserMenu && (() => {
+                  const rect = footerWrapperRef.current?.getBoundingClientRect();
+                  return (
+                    <>
+                      <div
+                        className="sidebar-user-menu-backdrop"
+                        onClick={() => setShowUserMenu(false)}
+                      />
+                      <div
+                        className="sidebar-user-menu"
+                        onClick={(e) => e.stopPropagation()}
+                        style={rect ? {
+                          position: "fixed",
+                          bottom: `calc(100vh - ${rect.top}px + 8px)`,
+                          left: rect.left + 8,
+                        } : undefined}
+                      >
+                        <button
+                          className="sidebar-user-menu-item"
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            setPrefSection("account");
+                            setShowPreferences(true);
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="14"
+                            height="14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
+                          Account Settings
+                        </button>
+                        <button
+                          className="sidebar-user-menu-item"
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            setShowLogoutConfirm(true);
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="14"
+                            height="14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                          </svg>
+                          Sign Out
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div
-                  className="sidebar-user-avatar"
-                  style={avatarColor ? { background: avatarColor } : undefined}
+                  className="sidebar-footer"
+                  onClick={() => setShowUserMenu((v) => !v)}
+                  style={{ cursor: "pointer" }}
                 >
-                  {(userName ?? userRole ?? "?")[0].toUpperCase()}
-                </div>
-                <span className="sidebar-user-email" title={userName ?? ""}>
-                  {userName ?? ""}
-                </span>
-                {userRole && (
-                  <span
-                    className={`sidebar-role-badge sidebar-role-${userRole}`}
+                  <div
+                    className="sidebar-user-avatar"
+                    style={avatarColor ? { background: avatarColor } : undefined}
                   >
-                    {userRole}
+                    {(userName ?? userRole ?? "?")[0].toUpperCase()}
+                  </div>
+                  <span className="sidebar-user-email" title={userName ?? ""}>
+                    {userName ?? ""}
                   </span>
-                )}
+                  {userRole && (
+                    <span
+                      className={`sidebar-role-badge sidebar-role-${userRole}`}
+                    >
+                      {userRole}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </aside>
@@ -1025,15 +1100,13 @@ function Chat({
                   <span className="topbar-dock-label">Preferences</span>
                 </button>
               )}
-              <button
-                className="topbar-icon-btn"
-                onClick={() =>
-                  isGuest ? handleLogout() : setShowLogoutConfirm(true)
-                }
-                title=""
-                aria-label={isGuest ? "Sign In" : "Sign Out"}
-              >
-                {isGuest ? (
+              {isGuest && (
+                <button
+                  className="topbar-icon-btn"
+                  onClick={handleLogout}
+                  title=""
+                  aria-label="Sign In"
+                >
                   <svg
                     viewBox="0 0 24 24"
                     width="15"
@@ -1048,26 +1121,9 @@ function Chat({
                     <polyline points="10 17 15 12 10 7" />
                     <line x1="15" y1="12" x2="3" y2="12" />
                   </svg>
-                ) : (
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="15"
-                    height="15"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                )}
-                <span className="topbar-dock-label">
-                  {isGuest ? "Sign In" : "Sign Out"}
-                </span>
-              </button>
+                  <span className="topbar-dock-label">Sign In</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1233,11 +1289,50 @@ function Chat({
         </div>
       )}
 
+      {voice.isActive && (
+        <div className="voice-overlay" onClick={voice.toggle}>
+          <div className={`voice-panel voice-panel--${voice.status}`} onClick={e => e.stopPropagation()}>
+
+            {/* ── Orb ── */}
+            <div
+              className={`voice-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}
+              onClick={voice.interrupt}
+            >
+              <div className="voice-orb-shimmer" aria-hidden="true" />
+              <div className="voice-orb-content">
+                {voice.status === "listening" && (
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="2" width="6" height="11" rx="3" />
+                    <path d="M5 10a7 7 0 0 0 14 0" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                    <line x1="9" y1="21" x2="15" y2="21" />
+                  </svg>
+                )}
+                {voice.status === "speaking" && (
+                  <div className="voice-orb-bars-large">
+                    <span /><span /><span /><span /><span />
+                  </div>
+                )}
+              </div>
+              <div className="voice-orb-highlight" aria-hidden="true" />
+            </div>
+
+            {/* ── Transcript ── */}
+            {voice.transcript && (
+              <div className="voice-panel-transcript" key={voice.transcript}>
+                {voice.transcript}
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
       {showPreferences && (
         <ChatPreferences
           systemPrompt={systemPrompt}
           setSystemPrompt={setSystemPrompt}
-          onClose={() => setShowPreferences(false)}
+          onClose={() => { setShowPreferences(false); setPrefSection("model"); }}
           activePreset={activePreset}
           setActivePreset={setActivePreset}
           theme={theme}
@@ -1260,6 +1355,10 @@ function Chat({
           setSelectedModel={setSelectedModel}
           initialSection={prefSection}
           onNameChange={(name) => setUserName(name)}
+          onLogout={() => {
+            setShowPreferences(false);
+            setShowLogoutConfirm(true);
+          }}
           onDeleteAccount={async () => {
             await apiDeleteAccount();
             localStorage.removeItem("token");

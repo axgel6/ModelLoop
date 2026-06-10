@@ -91,6 +91,7 @@ export interface VoiceConversationHandle {
   error: string | null;
   toggle: () => void;
   stop: () => void;
+  interrupt: () => void;
 }
 
 export function useVoiceConversation({
@@ -376,10 +377,19 @@ export function useVoiceConversation({
     return () => { stopRecognition(); cancelSpeech(); clearSilenceTimer(); };
   }, []);
 
+  // Interrupt: cancel TTS and return to listening (user wants to speak again)
+  const interrupt = useCallback(() => {
+    if (!isActiveRef.current || statusRef.current !== "speaking") return;
+    cancelSpeech();
+    spokenUpToRef.current = lastResponseTextRef.current.length;
+    loadingDoneRef.current = false;
+    startListeningRef.current();
+  }, []);
+
   const statusLabel =
     status === "listening"  ? "Listening…"  :
     status === "processing" ? "Processing…" :
     status === "speaking"   ? "Speaking…"   : "";
 
-  return { isActive, status, statusLabel, transcript, error, toggle, stop: stopAll };
+  return { isActive, status, statusLabel, transcript, error, toggle, stop: stopAll, interrupt };
 }
