@@ -32,14 +32,16 @@ DEFINITION = {
     },
 }
 
-# Tight keyword set — only genuine time-sensitive / real-world-lookup signals.
-# Broad terms like "bug", "error", "how to", "what is" are intentionally excluded:
-# they fire on nearly every coding question, injecting irrelevant search results
-# that confuse the model. The model can call the tool itself when it decides to.
+# Tight keyword set — only domain-specific, unambiguous lookup signals.
+# Temporal words like "today", "current", "latest", "recent", "live" are intentionally
+# excluded here: they are too common in casual conversation (e.g. "how are you today?")
+# and cause false alarms. Those words are already covered by _SEARCH_TRIGGERS when
+# paired with search-worthy context (e.g. "today's weather", "latest news").
 KEYWORDS = {
-    "news", "latest", "current", "today", "recent", "live",
-    "price", "cost", "stock", "weather", "forecast", "score",
-    "headline", "trending",
+    "news", "headline", "trending",
+    "weather", "forecast",
+    "price", "cost", "stock",
+    "score",
     "search", "lookup",
 }
 
