@@ -664,18 +664,25 @@ function Chat({
 
   // ── Focused mode ─────────────────────────────────────────────────────────
   const [focusedMode, setFocusedMode] = useState(false);
-  const [focusedLines, setFocusedLines] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [focusedLines, setFocusedLines] = useState<
+    { role: "user" | "assistant"; text: string }[]
+  >([]);
   const [focusedInput, setFocusedInput] = useState("");
   const focusedTextareaRef = useRef<HTMLTextAreaElement>(null);
   const focusedScrollRef = useRef<HTMLDivElement>(null);
   const prevLoadingRef = useRef(loading);
   const focusedPendingUserText = useRef("");
 
-  const stripMd = (s: string) => s
-    .replace(/```[\s\S]*?```/g, " [code] ").replace(/`[^`]+`/g, "[code]")
-    .replace(/#{1,6}\s/gm, "").replace(/\*\*(.+?)\*\*/gs, "$1")
-    .replace(/\*(.+?)\*/gs, "$1").replace(/\[(?!code\])(.+?)\]\(.+?\)/g, "$1")
-    .replace(/\n+/g, " ").trim();
+  const stripMd = (s: string) =>
+    s
+      .replace(/```[\s\S]*?```/g, " [code] ")
+      .replace(/`[^`]+`/g, "[code]")
+      .replace(/#{1,6}\s/gm, "")
+      .replace(/\*\*(.+?)\*\*/gs, "$1")
+      .replace(/\*(.+?)\*/gs, "$1")
+      .replace(/\[(?!code\])(.+?)\]\(.+?\)/g, "$1")
+      .replace(/\n+/g, " ")
+      .trim();
 
   const renderLyric = (text: string) => {
     if (!text.includes("[code]")) return text;
@@ -695,16 +702,22 @@ function Chat({
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (focusedScrollRef.current)
-            focusedScrollRef.current.scrollTop = focusedScrollRef.current.scrollHeight;
+            focusedScrollRef.current.scrollTop =
+              focusedScrollRef.current.scrollHeight;
         });
       });
     }, delay);
 
   useEffect(() => {
-    if (!focusedMode) { setFocusedLines([]); setFocusedInput(""); return; }
-    const history = messages.map(m => ({
+    if (!focusedMode) {
+      setFocusedLines([]);
+      setFocusedInput("");
+      return;
+    }
+    const history = messages.map((m) => ({
       role: m.role as "user" | "assistant",
-      text: m.role === "assistant" ? stripMd(m.content ?? "") : (m.content ?? ""),
+      text:
+        m.role === "assistant" ? stripMd(m.content ?? "") : (m.content ?? ""),
     }));
     setFocusedLines(history);
     scrollFocusedToBottom();
@@ -717,9 +730,13 @@ function Chat({
     if (wasLoading && !loading && focusedMode) {
       const last = messages[messages.length - 1];
       if (last?.role === "assistant" && last.content) {
-        setFocusedLines(ls => [...ls, { role: "assistant" as const, text: stripMd(last.content!) }]);
+        setFocusedLines((ls) => [
+          ...ls,
+          { role: "assistant" as const, text: stripMd(last.content!) },
+        ]);
         scrollFocusedToBottom();
       }
+      setTimeout(() => focusedTextareaRef.current?.focus(), 50);
     }
   }, [loading, focusedMode, messages]);
 
@@ -731,7 +748,7 @@ function Chat({
     const text = focusedInput.trim();
     if (!text || loading) return;
     focusedPendingUserText.current = text;
-    setFocusedLines(ls => [...ls, { role: "user" as const, text }]);
+    setFocusedLines((ls) => [...ls, { role: "user" as const, text }]);
     scrollFocusedToBottom();
     setFocusedInput("");
     void handleAsk(text);
@@ -744,7 +761,10 @@ function Chat({
   const prevSpeakingTextRef = useRef("");
 
   useEffect(() => {
-    if (!voice.isActive) { setVoiceLines([]); return; }
+    if (!voice.isActive) {
+      setVoiceLines([]);
+      return;
+    }
   }, [voice.isActive]);
 
   // Capture completed user utterance when transcript clears on submit
@@ -752,7 +772,9 @@ function Chat({
     const prev = prevVoiceTranscriptRef.current;
     prevVoiceTranscriptRef.current = voice.transcript;
     if (prev && !voice.transcript && voice.status === "processing") {
-      setVoiceLines((ls) => [...ls, { role: "user" as const, text: prev }].slice(-6));
+      setVoiceLines((ls) =>
+        [...ls, { role: "user" as const, text: prev }].slice(-6),
+      );
     }
   }, [voice.transcript, voice.status]);
 
@@ -761,7 +783,9 @@ function Chat({
     const prev = prevSpeakingTextRef.current;
     prevSpeakingTextRef.current = voice.speakingText;
     if (prev && voice.speakingText !== prev) {
-      setVoiceLines((ls) => [...ls, { role: "assistant" as const, text: prev }].slice(-6));
+      setVoiceLines((ls) =>
+        [...ls, { role: "assistant" as const, text: prev }].slice(-6),
+      );
     }
   }, [voice.speakingText]);
 
@@ -1375,7 +1399,7 @@ function Chat({
             voiceError={voice.error}
             onVoiceToggle={voice.toggle}
             focusedMode={focusedMode}
-            onFocusedModeToggle={() => setFocusedMode(f => !f)}
+            onFocusedModeToggle={() => setFocusedMode((f) => !f)}
             {...(!isGuest && activeChatId
               ? {
                   documents,
@@ -1461,12 +1485,18 @@ function Chat({
               );
             })}
             {voice.transcript && (
-              <p className="voice-lyric voice-lyric--current voice-lyric--user" key="user-live">
+              <p
+                className="voice-lyric voice-lyric--current voice-lyric--user"
+                key="user-live"
+              >
                 {voice.transcript}
               </p>
             )}
             {voice.speakingText && (
-              <p className="voice-lyric voice-lyric--current voice-lyric--assistant" key="assistant-live">
+              <p
+                className="voice-lyric voice-lyric--current voice-lyric--assistant"
+                key="assistant-live"
+              >
                 {voice.speakingText}
               </p>
             )}
@@ -1476,8 +1506,20 @@ function Chat({
 
       {focusedMode && (
         <div className="voice-overlay focused-overlay">
-          <button className="voice-close-btn" onClick={() => setFocusedMode(false)} aria-label="Exit focused mode">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <button
+            className="voice-close-btn"
+            onClick={() => setFocusedMode(false)}
+            aria-label="Exit focused mode"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 18 18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            >
               <line x1="2" y1="2" x2="16" y2="16" />
               <line x1="16" y1="2" x2="2" y2="16" />
             </svg>
@@ -1487,30 +1529,40 @@ function Chat({
             <div className="voice-lyrics">
               {focusedLines.map((line, i) => {
                 const age = focusedLines.length - 1 - i;
-                const ageClass = age <= 2 ? `voice-lyric--age-${age}` : "voice-lyric--history";
+                const ageClass =
+                  age <= 2 ? `voice-lyric--age-${age}` : "voice-lyric--history";
                 return (
-                  <p key={i} className={`voice-lyric ${ageClass} voice-lyric--${line.role}`}>
+                  <p
+                    key={i}
+                    className={`voice-lyric ${ageClass} voice-lyric--${line.role}`}
+                  >
                     {renderLyric(line.text)}
                   </p>
                 );
               })}
               {loading && lastAssistantText && (
-                <p className="voice-lyric voice-lyric--current voice-lyric--assistant" key="assistant-live">
+                <p
+                  className="voice-lyric voice-lyric--current voice-lyric--assistant"
+                  key="assistant-live"
+                >
                   {renderLyric(stripMd(lastAssistantText))}
                 </p>
               )}
             </div>
           </div>
 
-          <div className="focused-input-wrap">
+          <div className={`focused-input-wrap${loading ? " thinking" : ""}`}>
             <div className="focused-input-row">
               <textarea
                 ref={focusedTextareaRef}
                 className="focused-textarea"
                 value={focusedInput}
-                onChange={e => setFocusedInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitFocused(); }
+                onChange={(e) => setFocusedInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    submitFocused();
+                  }
                 }}
                 placeholder="Type your message…"
                 rows={1}
@@ -1518,11 +1570,16 @@ function Chat({
               />
               <button
                 className="focused-orb-btn"
-                onClick={() => { setFocusedMode(false); if (!voice.isActive) voice.toggle(); }}
+                onClick={() => {
+                  setFocusedMode(false);
+                  if (!voice.isActive) voice.toggle();
+                }}
                 title="Switch to Talk"
                 type="button"
               >
-                <div className={`voice-orb-core focused-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}>
+                <div
+                  className={`voice-orb-core focused-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}
+                >
                   <div className="voice-orb-shimmer" aria-hidden="true" />
                 </div>
               </button>
