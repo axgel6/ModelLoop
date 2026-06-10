@@ -39,6 +39,8 @@ interface ChatInputProps {
   voiceTranscript?: string;
   voiceError?: string | null;
   onVoiceToggle?: () => void;
+  focusedMode?: boolean;
+  onFocusedModeToggle?: () => void;
 }
 
 function ChatInput({
@@ -64,6 +66,8 @@ function ChatInput({
   voiceTranscript = "",
   voiceError = null,
   onVoiceToggle,
+  focusedMode = false,
+  onFocusedModeToggle,
 }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
@@ -297,7 +301,11 @@ function ChatInput({
     }
 
     const history = inputHistoryRef.current;
-    if (e.key === "ArrowUp" && history.length > 0 && e.currentTarget.selectionStart === 0) {
+    if (
+      e.key === "ArrowUp" &&
+      history.length > 0 &&
+      e.currentTarget.selectionStart === 0
+    ) {
       e.preventDefault();
       if (historyIdxRef.current === -1) draftRef.current = input;
       const next = Math.min(historyIdxRef.current + 1, history.length - 1);
@@ -387,8 +395,14 @@ function ChatInput({
           className={`chat-textarea${voiceActive && voiceStatus === "listening" ? " voice-listening" : ""}`}
           autoFocus
           rows={1}
-          placeholder={voiceActive ? voiceStatusLabel || "Voice conversation active…" : "Ask ModelLoop"}
-          value={voiceActive && voiceStatus === "listening" ? voiceTranscript : input}
+          placeholder={
+            voiceActive
+              ? voiceStatusLabel || "Voice conversation active…"
+              : "Ask ModelLoop"
+          }
+          value={
+            voiceActive && voiceStatus === "listening" ? voiceTranscript : input
+          }
           readOnly={voiceActive && voiceStatus === "listening"}
           onChange={(e) => {
             if (voiceActive && voiceStatus === "listening") return;
@@ -580,13 +594,17 @@ function ChatInput({
                 </button>
                 {tokenPopupOpen && (
                   <div className="tools-dropdown-menu">
-                    <div className="tools-dropdown-item" style={{ cursor: "default", pointerEvents: "none" }}>
+                    <div
+                      className="tools-dropdown-item"
+                      style={{ cursor: "default", pointerEvents: "none" }}
+                    >
                       <span className="tools-dropdown-item-text">
                         <span className="tools-dropdown-item-label">
                           ~{estimatedTokens.toLocaleString()} tokens
                         </span>
                         <span className="tools-dropdown-item-desc">
-                          {messageCount} message{messageCount !== 1 ? "s" : ""} · estimated
+                          {messageCount} message{messageCount !== 1 ? "s" : ""}{" "}
+                          · estimated
                         </span>
                       </span>
                     </div>
@@ -695,24 +713,60 @@ function ChatInput({
                 )}
               </div>
             )}
+            {onFocusedModeToggle && (
+              <button
+                className={`toolbar-icon-btn${focusedMode ? " focused-mode-active" : ""}`}
+                onClick={onFocusedModeToggle}
+                title="Focused Mode"
+                type="button"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+                <span className="toolbar-dock-label">Focused</span>
+              </button>
+            )}
             {onVoiceToggle && (
               <button
                 className={`toolbar-icon-btn mic-btn${voiceActive ? ` voice-active voice-${voiceStatus}` : ""}`}
                 onClick={onVoiceToggle}
-                title={voiceActive ? `${voiceStatusLabel} — click to end` : "Voice conversation"}
+                title={
+                  voiceActive ? `${voiceStatusLabel} — click to end` : "Talk"
+                }
                 type="button"
               >
                 {voiceActive && voiceStatus === "listening" && (
-                  <div className="mic-state-dots"><span /><span /><span /></div>
+                  <div className="mic-state-dots">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
                 )}
                 {voiceActive && voiceStatus === "processing" && (
                   <div className="mic-state-spinner" />
                 )}
                 {voiceActive && voiceStatus === "speaking" && (
-                  <div className="mic-state-bars"><span /><span /><span /><span /></div>
+                  <div className="mic-state-bars">
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </div>
                 )}
                 {!voiceActive && (
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <rect x="9" y="2" width="6" height="11" rx="3" />
                     <path d="M5 10a7 7 0 0 0 14 0" />
                     <line x1="12" y1="17" x2="12" y2="21" />
@@ -720,7 +774,7 @@ function ChatInput({
                   </svg>
                 )}
                 <span className="toolbar-dock-label">
-                  {voiceActive ? voiceStatusLabel : "Voice conversation"}
+                  {voiceActive ? voiceStatusLabel : "Talk"}
                 </span>
               </button>
             )}

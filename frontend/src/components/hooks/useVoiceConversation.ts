@@ -127,6 +127,7 @@ export interface VoiceConversationHandle {
   status: VoiceStatus;
   statusLabel: string;
   transcript: string;
+  speakingText: string;
   error: string | null;
   toggle: () => void;
   stop: () => void;
@@ -142,6 +143,7 @@ export function useVoiceConversation({
   const [isActive, setIsActive] = useState(false);
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [transcript, setTranscript] = useState("");
+  const [speakingText, setSpeakingText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const isActiveRef       = useRef(false);
@@ -241,11 +243,13 @@ export function useVoiceConversation({
 
       if (!cleaned) {
         isSpeakingRef.current = false;
+        setSpeakingText("");
         checkAllDone();
         return;
       }
 
       isSpeakingRef.current = true;
+      setSpeakingText(cleaned);
       const utterance = new SpeechSynthesisUtterance(prepareForSpeech(cleaned));
       utterance.lang = navigator.language || "en-US";
       utterance.rate = speechRateRef.current;
@@ -389,6 +393,7 @@ export function useVoiceConversation({
     setIsActive(false);
     setStatusSync("idle");
     setTranscript("");
+    setSpeakingText("");
     spokenUpToRef.current = 0;
     loadingDoneRef.current = false;
     clearSilenceTimer();
@@ -431,5 +436,5 @@ export function useVoiceConversation({
     status === "processing" ? "Processing…" :
     status === "speaking"   ? "Speaking…"   : "";
 
-  return { isActive, status, statusLabel, transcript, error, toggle, stop: stopAll, interrupt };
+  return { isActive, status, statusLabel, transcript, speakingText, error, toggle, stop: stopAll, interrupt };
 }

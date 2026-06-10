@@ -217,7 +217,9 @@ function Chat({
   const inputSetRef = useRef<((value: string) => void) | null>(null);
   const footerWrapperRef = useRef<HTMLDivElement>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
-  useEffect(() => { scrollToBottom(); }, [activeTool, scrollToBottom]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [activeTool, scrollToBottom]);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
@@ -456,7 +458,9 @@ function Chat({
               prompt: userMessage,
               messages: historyForGuest!,
               model: selectedModel || undefined,
-              system_prompt: systemPrompt.trim() ? withMandatoryPromptRules(systemPrompt) : undefined,
+              system_prompt: systemPrompt.trim()
+                ? withMandatoryPromptRules(systemPrompt)
+                : undefined,
               temperature,
               top_p: topP,
               num_predict: numPredict,
@@ -469,7 +473,9 @@ function Chat({
               prompt: userMessage,
               chat_id: chatId!,
               model: selectedModel || undefined,
-              system_prompt: systemPrompt.trim() ? withMandatoryPromptRules(systemPrompt) : undefined,
+              system_prompt: systemPrompt.trim()
+                ? withMandatoryPromptRules(systemPrompt)
+                : undefined,
               temperature,
               top_p: topP,
               num_predict: numPredict,
@@ -656,6 +662,109 @@ function Chat({
     speechRate,
   });
 
+  // ── Focused mode ─────────────────────────────────────────────────────────
+  const [focusedMode, setFocusedMode] = useState(false);
+  const [focusedLines, setFocusedLines] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [focusedInput, setFocusedInput] = useState("");
+  const focusedTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const focusedScrollRef = useRef<HTMLDivElement>(null);
+  const prevLoadingRef = useRef(loading);
+  const focusedPendingUserText = useRef("");
+
+  const stripMd = (s: string) => s
+    .replace(/```[\s\S]*?```/g, " [code] ").replace(/`[^`]+`/g, "[code]")
+    .replace(/#{1,6}\s/gm, "").replace(/\*\*(.+?)\*\*/gs, "$1")
+    .replace(/\*(.+?)\*/gs, "$1").replace(/\[(?!code\])(.+?)\]\(.+?\)/g, "$1")
+    .replace(/\n+/g, " ").trim();
+
+  const renderLyric = (text: string) => {
+    if (!text.includes("[code]")) return text;
+    const parts = text.split("[code]");
+    return parts.map((part, i) => (
+      <span key={i}>
+        {part}
+        {i < parts.length - 1 && (
+          <span className="focused-code-pill">{"{ }"}</span>
+        )}
+      </span>
+    ));
+  };
+
+  const scrollFocusedToBottom = (delay = 0) =>
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (focusedScrollRef.current)
+            focusedScrollRef.current.scrollTop = focusedScrollRef.current.scrollHeight;
+        });
+      });
+    }, delay);
+
+  useEffect(() => {
+    if (!focusedMode) { setFocusedLines([]); setFocusedInput(""); return; }
+    const history = messages.map(m => ({
+      role: m.role as "user" | "assistant",
+      text: m.role === "assistant" ? stripMd(m.content ?? "") : (m.content ?? ""),
+    }));
+    setFocusedLines(history);
+    scrollFocusedToBottom();
+    setTimeout(() => focusedTextareaRef.current?.focus(), 50);
+  }, [focusedMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const wasLoading = prevLoadingRef.current;
+    prevLoadingRef.current = loading;
+    if (wasLoading && !loading && focusedMode) {
+      const last = messages[messages.length - 1];
+      if (last?.role === "assistant" && last.content) {
+        setFocusedLines(ls => [...ls, { role: "assistant" as const, text: stripMd(last.content!) }]);
+        scrollFocusedToBottom();
+      }
+    }
+  }, [loading, focusedMode, messages]);
+
+  useEffect(() => {
+    if (focusedMode && loading) scrollFocusedToBottom();
+  }, [lastAssistantText, focusedMode, loading]);
+
+  const submitFocused = () => {
+    const text = focusedInput.trim();
+    if (!text || loading) return;
+    focusedPendingUserText.current = text;
+    setFocusedLines(ls => [...ls, { role: "user" as const, text }]);
+    scrollFocusedToBottom();
+    setFocusedInput("");
+    void handleAsk(text);
+  };
+
+  // ── Voice lyrics history ──────────────────────────────────────────────────
+  type VoiceLine = { role: "user" | "assistant"; text: string };
+  const [voiceLines, setVoiceLines] = useState<VoiceLine[]>([]);
+  const prevVoiceTranscriptRef = useRef("");
+  const prevSpeakingTextRef = useRef("");
+
+  useEffect(() => {
+    if (!voice.isActive) { setVoiceLines([]); return; }
+  }, [voice.isActive]);
+
+  // Capture completed user utterance when transcript clears on submit
+  useEffect(() => {
+    const prev = prevVoiceTranscriptRef.current;
+    prevVoiceTranscriptRef.current = voice.transcript;
+    if (prev && !voice.transcript && voice.status === "processing") {
+      setVoiceLines((ls) => [...ls, { role: "user", text: prev }].slice(-6));
+    }
+  }, [voice.transcript, voice.status]);
+
+  // Capture each assistant sentence as it finishes (sentence N ends when sentence N+1 starts)
+  useEffect(() => {
+    const prev = prevSpeakingTextRef.current;
+    prevSpeakingTextRef.current = voice.speakingText;
+    if (prev && voice.speakingText !== prev) {
+      setVoiceLines((ls) => [...ls, { role: "assistant" as const, text: prev }].slice(-6));
+    }
+  }, [voice.speakingText]);
+
   const handleEditSubmit = () => {
     if (!editState) return;
     const { idx, value } = editState as EditState;
@@ -772,7 +881,9 @@ function Chat({
           />
         )}
         {!isGuest && (sidebarOpen || sidebarClosing || isMobileViewport) && (
-          <aside className={`chat-sidebar${sidebarOpen ? " open" : ""}${sidebarClosing ? " closing" : ""}`}>
+          <aside
+            className={`chat-sidebar${sidebarOpen ? " open" : ""}${sidebarClosing ? " closing" : ""}`}
+          >
             <div className="sidebar-brand">
               <button
                 className="sidebar-brand-btn"
@@ -890,73 +1001,79 @@ function Chat({
 
             {(userRole || userName) && (
               <div className="sidebar-footer-wrapper" ref={footerWrapperRef}>
-                {showUserMenu && (() => {
-                  const rect = footerWrapperRef.current?.getBoundingClientRect();
-                  return (
-                    <>
-                      <div
-                        className="sidebar-user-menu-backdrop"
-                        onClick={() => setShowUserMenu(false)}
-                      />
-                      <div
-                        className="sidebar-user-menu"
-                        onClick={(e) => e.stopPropagation()}
-                        style={rect ? {
-                          position: "fixed",
-                          bottom: `calc(100vh - ${rect.top}px + 8px)`,
-                          left: rect.left + 8,
-                        } : undefined}
-                      >
-                        <button
-                          className="sidebar-user-menu-item"
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            setPrefSection("account");
-                            setShowPreferences(true);
-                          }}
+                {showUserMenu &&
+                  (() => {
+                    const rect =
+                      footerWrapperRef.current?.getBoundingClientRect();
+                    return (
+                      <>
+                        <div
+                          className="sidebar-user-menu-backdrop"
+                          onClick={() => setShowUserMenu(false)}
+                        />
+                        <div
+                          className="sidebar-user-menu"
+                          onClick={(e) => e.stopPropagation()}
+                          style={
+                            rect
+                              ? {
+                                  position: "fixed",
+                                  bottom: `calc(100vh - ${rect.top}px + 8px)`,
+                                  left: rect.left + 8,
+                                }
+                              : undefined
+                          }
                         >
-                          <svg
-                            viewBox="0 0 24 24"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                          <button
+                            className="sidebar-user-menu-item"
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              setPrefSection("account");
+                              setShowPreferences(true);
+                            }}
                           >
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                            <circle cx="12" cy="7" r="4" />
-                          </svg>
-                          Account Settings
-                        </button>
-                        <button
-                          className="sidebar-user-menu-item"
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            setShowLogoutConfirm(true);
-                          }}
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="14"
+                              height="14"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                              <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            Account Settings
+                          </button>
+                          <button
+                            className="sidebar-user-menu-item"
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              setShowLogoutConfirm(true);
+                            }}
                           >
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                            <polyline points="16 17 21 12 16 7" />
-                            <line x1="21" y1="12" x2="9" y2="12" />
-                          </svg>
-                          Sign Out
-                        </button>
-                      </div>
-                    </>
-                  );
-                })()}
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="14"
+                              height="14"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                              <polyline points="16 17 21 12 16 7" />
+                              <line x1="21" y1="12" x2="9" y2="12" />
+                            </svg>
+                            Sign Out
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
                 <div
                   className="sidebar-footer"
                   onClick={() => setShowUserMenu((v) => !v)}
@@ -964,7 +1081,9 @@ function Chat({
                 >
                   <div
                     className="sidebar-user-avatar"
-                    style={avatarColor ? { background: avatarColor } : undefined}
+                    style={
+                      avatarColor ? { background: avatarColor } : undefined
+                    }
                   >
                     {(userName ?? userRole ?? "?")[0].toUpperCase()}
                   </div>
@@ -1128,7 +1247,11 @@ function Chat({
           </div>
 
           {/* Messages */}
-          <div className="messages" ref={messagesContainerRef}>
+          <div
+            className="messages"
+            ref={messagesContainerRef}
+            style={voice.isActive ? { visibility: "hidden" } : undefined}
+          >
             {messagesLoading && (
               <p id="disclaimer" className="messages-loading">
                 Fetching your conversation…
@@ -1251,6 +1374,8 @@ function Chat({
             voiceTranscript={voice.transcript}
             voiceError={voice.error}
             onVoiceToggle={voice.toggle}
+            focusedMode={focusedMode}
+            onFocusedModeToggle={() => setFocusedMode(f => !f)}
             {...(!isGuest && activeChatId
               ? {
                   documents,
@@ -1290,27 +1415,118 @@ function Chat({
       )}
 
       {voice.isActive && (
-        <div className="voice-overlay" onClick={voice.toggle}>
-          <div className={`voice-panel voice-panel--${voice.status}`} onClick={e => e.stopPropagation()}>
-
-            {/* ── Orb ── */}
-            <div
-              className={`voice-orb-wrap${voice.status === "speaking" ? " voice-orb-wrap--speaking" : ""}`}
-              onClick={voice.interrupt}
+        <div className={`voice-overlay voice-overlay--${voice.status}`}>
+          {/* ── X close button ── */}
+          <button
+            className="voice-close-btn"
+            onClick={voice.toggle}
+            aria-label="End conversation"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 18 18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
             >
-              <div className={`voice-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}>
-                <div className="voice-orb-shimmer" aria-hidden="true" />
-              </div>
+              <line x1="2" y1="2" x2="16" y2="16" />
+              <line x1="16" y1="2" x2="2" y2="16" />
+            </svg>
+          </button>
+
+          {/* ── Orb ── */}
+          <div
+            className={`voice-orb-wrap${voice.status === "speaking" ? " voice-orb-wrap--speaking" : ""}`}
+            onClick={voice.status === "speaking" ? voice.interrupt : undefined}
+          >
+            <div
+              className={`voice-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}
+            >
+              <div className="voice-orb-shimmer" aria-hidden="true" />
             </div>
+          </div>
 
-            {/* ── Transcript (user) ── */}
+          <div className="voice-lyrics">
+            {voiceLines.map((line, i) => {
+              const age = voiceLines.length - 1 - i;
+              return (
+                <p
+                  key={i}
+                  className={`voice-lyric voice-lyric--age-${Math.min(age, 3)} voice-lyric--${line.role}`}
+                >
+                  {line.text}
+                </p>
+              );
+            })}
             {voice.transcript && (
-              <div className="voice-panel-transcript" key={voice.transcript}>
+              <p className="voice-lyric voice-lyric--current voice-lyric--user" key="user-live">
                 {voice.transcript}
-              </div>
+              </p>
             )}
+            {voice.speakingText && (
+              <p className="voice-lyric voice-lyric--current voice-lyric--assistant" key="assistant-live">
+                {voice.speakingText}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
+      {focusedMode && (
+        <div className="voice-overlay focused-overlay">
+          <button className="voice-close-btn" onClick={() => setFocusedMode(false)} aria-label="Exit focused mode">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <line x1="2" y1="2" x2="16" y2="16" />
+              <line x1="16" y1="2" x2="2" y2="16" />
+            </svg>
+          </button>
 
+          <div className="focused-scroll" ref={focusedScrollRef}>
+            <div className="voice-lyrics">
+              {focusedLines.map((line, i) => {
+                const age = focusedLines.length - 1 - i;
+                const ageClass = age <= 2 ? `voice-lyric--age-${age}` : "voice-lyric--history";
+                return (
+                  <p key={i} className={`voice-lyric ${ageClass} voice-lyric--${line.role}`}>
+                    {renderLyric(line.text)}
+                  </p>
+                );
+              })}
+              {loading && lastAssistantText && (
+                <p className="voice-lyric voice-lyric--current voice-lyric--assistant" key="assistant-live">
+                  {renderLyric(stripMd(lastAssistantText))}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="focused-input-wrap">
+            <div className="focused-input-row">
+              <textarea
+                ref={focusedTextareaRef}
+                className="focused-textarea"
+                value={focusedInput}
+                onChange={e => setFocusedInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitFocused(); }
+                }}
+                placeholder="Type your message…"
+                rows={1}
+                disabled={loading}
+              />
+              <button
+                className="focused-orb-btn"
+                onClick={() => { setFocusedMode(false); if (!voice.isActive) voice.toggle(); }}
+                title="Switch to Talk"
+                type="button"
+              >
+                <div className={`voice-orb-core focused-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}>
+                  <div className="voice-orb-shimmer" aria-hidden="true" />
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1319,7 +1535,10 @@ function Chat({
         <ChatPreferences
           systemPrompt={systemPrompt}
           setSystemPrompt={setSystemPrompt}
-          onClose={() => { setShowPreferences(false); setPrefSection("model"); }}
+          onClose={() => {
+            setShowPreferences(false);
+            setPrefSection("model");
+          }}
           activePreset={activePreset}
           setActivePreset={setActivePreset}
           theme={theme}
