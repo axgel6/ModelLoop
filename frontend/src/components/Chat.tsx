@@ -752,7 +752,7 @@ function Chat({
     const prev = prevVoiceTranscriptRef.current;
     prevVoiceTranscriptRef.current = voice.transcript;
     if (prev && !voice.transcript && voice.status === "processing") {
-      setVoiceLines((ls) => [...ls, { role: "user", text: prev }].slice(-6));
+      setVoiceLines((ls) => [...ls, { role: "user" as const, text: prev }].slice(-6));
     }
   }, [voice.transcript, voice.status]);
 
