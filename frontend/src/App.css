@@ -1498,11 +1498,9 @@ html[data-theme="ocean"] .image-preview-remove:hover {
 @keyframes orb-breathe-speak {
   0%, 100% {
     transform: scale(0.97);
-    filter: drop-shadow(0 0 10px rgba(140, 80, 255, 0.55)) drop-shadow(0 0 22px rgba(60, 130, 255, 0.35));
   }
   50% {
     transform: scale(1.14);
-    filter: drop-shadow(0 0 18px rgba(160, 100, 255, 0.80)) drop-shadow(0 0 36px rgba(80, 150, 255, 0.55));
   }
 }
 
@@ -1612,7 +1610,7 @@ html[data-theme="ocean"] .image-preview-remove:hover {
     ),
     radial-gradient(
       ellipse at 76% 82%,
-      rgba(30, 210, 190, 0.72) 0%,
+      rgba(80, 60, 255, 0.65) 0%,
       transparent 46%
     ),
     radial-gradient(
@@ -1633,7 +1631,7 @@ html[data-theme="ocean"] .image-preview-remove:hover {
   animation-duration: 2.8s;
 }
 .voice-panel--speaking .voice-orb-shimmer {
-  animation-duration: 3.5s;
+  animation-play-state: paused;
 }
 
 @keyframes shimmer-spin {

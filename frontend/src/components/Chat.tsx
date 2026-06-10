@@ -1303,12 +1303,13 @@ function Chat({
               </div>
             </div>
 
-            {/* ── Transcript ── */}
+            {/* ── Transcript (user) ── */}
             {voice.transcript && (
               <div className="voice-panel-transcript" key={voice.transcript}>
                 {voice.transcript}
               </div>
             )}
+
 
           </div>
         </div>
