@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { haptics } from "../haptics";
 import ChatPreferences, {
   type Theme,
@@ -909,13 +910,6 @@ function Chat({
             className={`chat-sidebar${sidebarOpen ? " open" : ""}${sidebarClosing ? " closing" : ""}`}
           >
             <div className="sidebar-brand">
-              <button
-                className="sidebar-brand-btn"
-                onClick={onBack}
-                title="Back to home"
-              >
-                ←
-              </button>
               <span className="sidebar-logo">ModelLoop</span>
               <button
                 className="sidebar-brand-btn"
@@ -1156,46 +1150,57 @@ function Chat({
               )}
             </div>
 
-            {activeChatId && !isGuest && renameState?.id === activeChatId ? (
-              <input
-                className="topbar-rename-input"
-                value={renameState.value}
-                onChange={(e) =>
-                  dispatchInteraction({
-                    type: "rename_update",
-                    value: e.target.value,
-                  })
-                }
-                onBlur={handleRenameCommit}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRenameCommit();
-                  if (e.key === "Escape") {
-                    dispatchInteraction({ type: "rename_cancel" });
-                  }
-                  e.stopPropagation();
-                }}
-                autoFocus
-              />
-            ) : (
-              <span
-                className="topbar-title"
-                onDoubleClick={() => {
-                  if (!activeChatId || isGuest) return;
-                  dispatchInteraction({
-                    type: "rename_start",
-                    id: activeChatId,
-                    value: activeChat?.title || "",
-                  });
-                }}
-                title={
-                  activeChatId && !isGuest
-                    ? "Double-click to rename"
-                    : undefined
-                }
-              >
-                {chatTitle}
-              </span>
-            )}
+            <span
+              className="topbar-title"
+              onClick={() => {
+                if (!activeChatId || isGuest) return;
+                dispatchInteraction({
+                  type: "rename_start",
+                  id: activeChatId,
+                  value: activeChat?.title || "",
+                });
+              }}
+              title={
+                activeChatId && !isGuest
+                  ? "Click to rename"
+                  : undefined
+              }
+            >
+              {chatTitle}
+            </span>
+
+            {activeChatId && !isGuest && renameState?.id === activeChatId &&
+              createPortal(
+                <div className="spotlight-overlay">
+                  <div
+                    className="spotlight-dismiss"
+                    onMouseDown={() => dispatchInteraction({ type: "rename_cancel" })}
+                  />
+                  <div className="spotlight-box">
+                    <input
+                      className="spotlight-input"
+                      value={renameState.value}
+                      onChange={(e) =>
+                        dispatchInteraction({
+                          type: "rename_update",
+                          value: e.target.value,
+                        })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleRenameCommit();
+                        if (e.key === "Escape") {
+                          dispatchInteraction({ type: "rename_cancel" });
+                        }
+                        e.stopPropagation();
+                      }}
+                      autoFocus
+                      placeholder="Rename chat..."
+                    />
+                  </div>
+                </div>,
+                document.body
+              )
+            }
 
             <div className="topbar-right">
               {!isGuest && (
