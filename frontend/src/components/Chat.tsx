@@ -25,7 +25,6 @@ import {
   apiUploadDocument,
   apiDeleteDocument,
   apiRenameChat,
-  apiGetFriendRequests,
   type ChatMeta,
   type DocumentMeta,
   type Message,
@@ -284,17 +283,6 @@ function Chat({
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [docsUploading, setDocsUploading] = useState(false);
   const [docUploadError, setDocUploadError] = useState<string | null>(null);
-
-  // Incoming friend request count for badge (loaded on mount)
-  const [incomingRequestCount, setIncomingRequestCount] = useState(0);
-
-  useEffect(() => {
-    if (!isGuest) {
-      apiGetFriendRequests()
-        .then((reqs) => setIncomingRequestCount(reqs.filter((r) => r.direction === "incoming").length))
-        .catch(() => {});
-    }
-  }, [isGuest]);
 
   const openSharePanel = () => {
     setPrefSection("friends");
