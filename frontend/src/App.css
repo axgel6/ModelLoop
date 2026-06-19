@@ -4030,6 +4030,21 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   flex-shrink: 0;
 }
 
+.btn-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.65s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
 .pref-friends-section-label {
   font-size: 0.75rem;
   font-weight: 600;

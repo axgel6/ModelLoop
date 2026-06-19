@@ -177,7 +177,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
               onClick={handleSubmit}
               disabled={loading}
             >
-              {loading ? "◌" : isLogin ? "Sign In" : "Create Account"}
+              {loading ? <span className="btn-spinner" /> : isLogin ? "Sign In" : "Create Account"}
             </button>
           </div>
 

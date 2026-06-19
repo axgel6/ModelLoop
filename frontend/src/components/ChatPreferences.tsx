@@ -251,7 +251,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [friendAddLoading, setFriendAddLoading] = useState(false);
   const [friendAddError, setFriendAddError] = useState<string | null>(null);
   const [friendAddSuccess, setFriendAddSuccess] = useState<string | null>(null);
-  const friendAddErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const friendAddErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [usernameEdit, setUsernameEdit] = useState<string | null>(null);
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -331,7 +333,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const showFriendAddError = (msg: string) => {
     setFriendAddError(msg);
     if (friendAddErrorTimer.current) clearTimeout(friendAddErrorTimer.current);
-    friendAddErrorTimer.current = setTimeout(() => setFriendAddError(null), 4000);
+    friendAddErrorTimer.current = setTimeout(
+      () => setFriendAddError(null),
+      4000,
+    );
   };
 
   const handleSendFriendRequest = async () => {
@@ -378,7 +383,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     setUsernameError(null);
     try {
       const result = await apiSetUsername(trimmed);
-      setUserInfo((prev) => (prev ? { ...prev, username: result.username } : prev));
+      setUserInfo((prev) =>
+        prev ? { ...prev, username: result.username } : prev,
+      );
       setUsernameEdit(null);
     } catch (e: any) {
       setUsernameError(e.message || "Failed to set username");
@@ -1072,7 +1079,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                           onClick={handleSaveName}
                           disabled={nameSaving}
                         >
-                          {nameSaving ? "◌" : "Save"}
+                          {nameSaving ? (
+                            <span className="btn-spinner" />
+                          ) : (
+                            "Save"
+                          )}
                         </button>
                         <button
                           className="pref-name-cancel-btn"
@@ -1130,7 +1141,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       onClick={handleSavePersonalContext}
                       disabled={personalContextSaving}
                     >
-                      {personalContextSaving ? "◌" : "Save"}
+                      {personalContextSaving ? (
+                        <span className="btn-spinner" />
+                      ) : (
+                        "Save"
+                      )}
                     </button>
                   </div>
                 </div>
@@ -2174,11 +2189,18 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       maxLength={30}
                       placeholder="letters, numbers, underscores"
                       onChange={(e) =>
-                        setUsernameEdit(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
+                        setUsernameEdit(
+                          e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9_]/g, ""),
+                        )
                       }
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleSaveUsername();
-                        if (e.key === "Escape") { setUsernameEdit(null); setUsernameError(null); }
+                        if (e.key === "Escape") {
+                          setUsernameEdit(null);
+                          setUsernameError(null);
+                        }
                       }}
                       autoFocus
                       disabled={usernameSaving}
@@ -2188,11 +2210,18 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       onClick={handleSaveUsername}
                       disabled={usernameSaving || usernameEdit.length < 3}
                     >
-                      {usernameSaving ? "◌" : "Save"}
+                      {usernameSaving ? (
+                        <span className="btn-spinner" />
+                      ) : (
+                        "Save"
+                      )}
                     </button>
                     <button
                       className="pref-name-cancel-btn"
-                      onClick={() => { setUsernameEdit(null); setUsernameError(null); }}
+                      onClick={() => {
+                        setUsernameEdit(null);
+                        setUsernameError(null);
+                      }}
                       disabled={usernameSaving}
                     >
                       Cancel
@@ -2202,7 +2231,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <div className="pref-name-row" style={{ marginTop: 6 }}>
                     <span className="pref-name-value">
                       {userInfo?.username ? (
-                        <span className="pref-friends-username-display">@{userInfo.username}</span>
+                        <span className="pref-friends-username-display">
+                          @{userInfo.username}
+                        </span>
                       ) : (
                         <span className="pref-name-placeholder">Not set</span>
                       )}
@@ -2233,7 +2264,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     maxLength={30}
                     placeholder="username"
                     onChange={(e) =>
-                      setFriendAddInput(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
+                      setFriendAddInput(
+                        e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
+                      )
                     }
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleSendFriendRequest();
@@ -2245,7 +2278,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     onClick={handleSendFriendRequest}
                     disabled={friendAddLoading || friendAddInput.length < 3}
                   >
-                    {friendAddLoading ? "◌" : "Send"}
+                    {friendAddLoading ? (
+                      <span className="btn-spinner" />
+                    ) : (
+                      "Send"
+                    )}
                   </button>
                 </div>
                 {friendAddError && (
@@ -2262,8 +2299,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-friends-section-label">
                 Requests
                 <span className="pref-content-badge" style={{ marginLeft: 6 }}>
-                  {friendRequests.filter((r) => r.direction === "incoming").length > 0
-                    ? friendRequests.filter((r) => r.direction === "incoming").length
+                  {friendRequests.filter((r) => r.direction === "incoming")
+                    .length > 0
+                    ? friendRequests.filter((r) => r.direction === "incoming")
+                        .length
                     : null}
                 </span>
               </div>
@@ -2271,7 +2310,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             {friendRequests.map((req) => (
               <div key={req.friendship_id} className="pref-friends-row">
                 <div className="pref-item-icon">
-                  {(req.user.full_name ?? req.user.username ?? "?")[0].toUpperCase()}
+                  {(req.user.full_name ??
+                    req.user.username ??
+                    "?")[0].toUpperCase()}
                 </div>
                 <div className="pref-item-info">
                   <div className="pref-item-name">
@@ -2281,7 +2322,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     <div className="pref-item-desc">@{req.user.username}</div>
                   )}
                 </div>
-                <span className={`pref-friends-direction pref-friends-direction--${req.direction}`}>
+                <span
+                  className={`pref-friends-direction pref-friends-direction--${req.direction}`}
+                >
                   {req.direction === "incoming" ? "Incoming" : "Sent"}
                 </span>
                 {req.direction === "incoming" && (
@@ -2304,7 +2347,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
             {/* Friends list */}
             {friends.length > 0 && (
-              <div className="pref-friends-section-label" style={{ marginTop: friendRequests.length > 0 ? 12 : 0 }}>
+              <div
+                className="pref-friends-section-label"
+                style={{ marginTop: friendRequests.length > 0 ? 12 : 0 }}
+              >
                 Friends
               </div>
             )}
@@ -2318,7 +2364,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               friends.map((f) => (
                 <div key={f.friendship_id} className="pref-friends-row">
                   <div className="pref-item-icon">
-                    {(f.user.full_name ?? f.user.username ?? "?")[0].toUpperCase()}
+                    {(f.user.full_name ??
+                      f.user.username ??
+                      "?")[0].toUpperCase()}
                   </div>
                   <div className="pref-item-info">
                     <div className="pref-item-name">
@@ -2360,7 +2408,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-account-card">
                 <div className="pref-account-field">
                   <div className="pref-field-label">Version</div>
-                  <div className="pref-about-meta-value">v1.4.0</div>
+                  <div className="pref-about-meta-value">v1.4.1</div>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
                   <div className="pref-field-label">Built by</div>
