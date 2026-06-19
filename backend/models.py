@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Integer, UniqueConstraint
+from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Integer, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -132,6 +132,23 @@ class Friendship(Base):
 
     requester: Mapped["User"] = relationship(foreign_keys=[requester_id])
     addressee: Mapped["User"] = relationship(foreign_keys=[addressee_id])
+
+# ----- Shared Chat Model -----
+
+class SharedChat(Base):
+    __tablename__ = "shared_chats"
+    __table_args__ = (
+        UniqueConstraint("chat_id", "to_user_id", name="uq_shared_chat_recipient"),
+    )
+
+    id:           Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    chat_id:      Mapped[uuid.UUID] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
+    from_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    to_user_id:   Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    shared_at:    Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    chat:      Mapped["Chat"] = relationship(foreign_keys=[chat_id])
+    from_user: Mapped["User"] = relationship(foreign_keys=[from_user_id])
 
 # ----- Audit Log Model -----
 

@@ -25,6 +25,7 @@ import {
   apiUploadDocument,
   apiDeleteDocument,
   apiRenameChat,
+  apiGetFriendRequests,
   type ChatMeta,
   type DocumentMeta,
   type Message,
@@ -67,13 +68,39 @@ function SidebarChatItem({
 }: SidebarChatItemProps) {
   return (
     <div
-      className={`sidebar-chat-item${c.id === activeChatId ? " active" : ""}${pinned ? " pinned" : ""}`}
+      className={`sidebar-chat-item${c.id === activeChatId ? " active" : ""}${pinned ? " pinned" : ""}${c.is_shared ? " shared" : ""}`}
       onClick={onSelect}
     >
       <div className="sidebar-chat-info">
-        <span className="sidebar-chat-title">{c.title || "Untitled"}</span>
-        <span className="sidebar-chat-date">{formatDate(c.updated_at)}</span>
+        <span className="sidebar-chat-title">
+          {c.is_shared && (
+            <svg
+              className="sidebar-shared-icon"
+              viewBox="0 0 24 24"
+              width="11"
+              height="11"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="18" cy="5" r="3" />
+              <circle cx="6" cy="12" r="3" />
+              <circle cx="18" cy="19" r="3" />
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+            </svg>
+          )}
+          {c.title || "Untitled"}
+        </span>
+        {c.is_shared ? (
+          <span className="sidebar-chat-date">from @{c.shared_from}</span>
+        ) : (
+          <span className="sidebar-chat-date">{formatDate(c.updated_at)}</span>
+        )}
       </div>
+      {!c.is_shared && (
       <button
         className="sidebar-pin-btn"
         onClick={onPin}
@@ -93,14 +120,17 @@ function SidebarChatItem({
           <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
         </svg>
       </button>
-      <button
-        className="sidebar-delete-btn"
-        onClick={onDelete}
-        disabled={deleting}
-        title="Delete chat"
-      >
-        {deleting ? "…" : "✕"}
-      </button>
+      )}
+      {!c.is_shared && (
+        <button
+          className="sidebar-delete-btn"
+          onClick={onDelete}
+          disabled={deleting}
+          title="Delete chat"
+        >
+          {deleting ? "…" : "✕"}
+        </button>
+      )}
     </div>
   );
 }
@@ -255,6 +285,22 @@ function Chat({
   const [docsUploading, setDocsUploading] = useState(false);
   const [docUploadError, setDocUploadError] = useState<string | null>(null);
 
+  // Incoming friend request count for badge (loaded on mount)
+  const [incomingRequestCount, setIncomingRequestCount] = useState(0);
+
+  useEffect(() => {
+    if (!isGuest) {
+      apiGetFriendRequests()
+        .then((reqs) => setIncomingRequestCount(reqs.filter((r) => r.direction === "incoming").length))
+        .catch(() => {});
+    }
+  }, [isGuest]);
+
+  const openSharePanel = () => {
+    setPrefSection("friends");
+    setShowPreferences(true);
+  };
+
   const [interactionState, dispatchInteraction] = useReducer(
     chatInteractionReducer,
     initialChatInteractionState,
@@ -361,21 +407,31 @@ function Chat({
       onChatCreated("");
       return;
     }
-    if (rawInput.startsWith("/search ")) {
+    if (rawInput.startsWith("/search ") || rawInput === "/search") {
+      if (!features.actions) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "Web search is not available on your current plan.",
+          },
+        ]);
+        return;
+      }
+      if (rawInput === "/search") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content:
+              "Usage: `/search <query>` — forces a web search regardless of the query type.",
+          },
+        ]);
+        return;
+      }
       const query = rawInput.slice("/search ".length).trim();
       if (!query) return;
       void handleAsk(query, undefined, undefined, { forceSearch: true });
-      return;
-    }
-    if (rawInput === "/search") {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "Usage: `/search <query>` — forces a web search regardless of the query type.",
-        },
-      ]);
       return;
     }
     if (rawInput === "/code") {
@@ -424,12 +480,13 @@ function Chat({
       return;
     }
     if (rawInput === "/help") {
+      const searchCmd = features.actions ? ", /search <query>" : "";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            "Commands: /clear, /search <query>, /code, /math, /think, /fast, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)",
+            `Commands: /clear${searchCmd}, /code, /math, /think, /fast, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)`,
         },
       ]);
       return;
@@ -1521,6 +1578,9 @@ function Chat({
                   onDocDelete: handleDocDelete,
                 }
               : {})}
+            {...(!isGuest && activeChatId && !chats.find((c) => c.id === activeChatId)?.is_shared
+              ? { onShare: openSharePanel }
+              : {})}
           />
         </div>
       </div>
@@ -1731,6 +1791,7 @@ function Chat({
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
           initialSection={prefSection}
+          shareChatId={prefSection === "friends" && activeChatId && !chats.find((c) => c.id === activeChatId)?.is_shared ? activeChatId : undefined}
           onNameChange={(name) => setUserName(name)}
           onLogout={() => {
             setShowPreferences(false);

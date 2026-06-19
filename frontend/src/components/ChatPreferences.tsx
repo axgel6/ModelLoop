@@ -11,6 +11,7 @@ import {
   apiSendFriendRequest,
   apiAcceptFriendRequest,
   apiRemoveFriend,
+  apiShareChat,
   apiAdminGetUsers,
   apiAdminSetRole,
   apiAdminToggleAccess,
@@ -59,6 +60,7 @@ interface ChatPreferencesProps {
   onNameChange?: (name: string | null) => void;
   onLogout?: () => void;
   initialSection?: Section;
+  shareChatId?: string;
 }
 
 const PRESETS: { label: string; description: string; prompt: string }[] = [
@@ -180,6 +182,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   onNameChange,
   onLogout,
   initialSection,
+  shareChatId,
 }) => {
   useEscapeKey(onClose);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -247,6 +250,13 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [friends, setFriends] = useState<FriendEntry[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendEntry[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(false);
+  const [incomingRequestCount, setIncomingRequestCount] = useState(0);
+  const [shareTarget, setShareTarget] = useState<string | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareResult, setShareResult] = useState<{
+    ok: boolean;
+    msg: string;
+  } | null>(null);
   const [friendAddInput, setFriendAddInput] = useState("");
   const [friendAddLoading, setFriendAddLoading] = useState(false);
   const [friendAddError, setFriendAddError] = useState<string | null>(null);
@@ -264,6 +274,13 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         setUserInfo(info);
         setPersonalContext(info.personal_context ?? "");
       })
+      .catch(() => {});
+    apiGetFriendRequests()
+      .then((reqs) =>
+        setIncomingRequestCount(
+          reqs.filter((r) => r.direction === "incoming").length,
+        ),
+      )
       .catch(() => {});
   }, []);
 
@@ -449,7 +466,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     else if (activeSection === "audit") loadAuditLogs();
     else if (activeSection === "flags") loadFeatureFlags();
     else if (activeSection === "connections") loadServerConfig();
-    else if (activeSection === "friends") loadFriends();
+    else if (activeSection === "friends") {
+      loadFriends();
+      setIncomingRequestCount(0);
+    }
   }, [activeSection]);
 
   const handleRoleChange = (userId: string, role: string) => {
@@ -2173,219 +2193,346 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               </button>
             </div>
 
-            {/* Username setup */}
-            <div className="pref-account-card" style={{ marginBottom: 12 }}>
-              <div className="pref-account-field">
-                <div className="pref-field-label">Your Username</div>
-                <div className="pref-field-desc">
-                  Others use your username to add you as a friend
+            <div className="pref-account-scroll">
+              {/* Share a chat */}
+              {shareChatId && (
+                <div className="pref-account-card" style={{ marginBottom: 12 }}>
+                  <div className="pref-account-field">
+                    <div className="pref-field-label">Share this chat</div>
+                    <div className="pref-field-desc">
+                      Select a friend to share with
+                    </div>
+                    {shareResult ? (
+                      <div
+                        className={
+                          shareResult.ok
+                            ? "pref-friends-success"
+                            : "pref-friends-error"
+                        }
+                        style={{ marginTop: 8 }}
+                      >
+                        {shareResult.msg}
+                      </div>
+                    ) : (
+                      <>
+                        {friendsLoading ? (
+                          <div
+                            className="pref-friends-error"
+                            style={{ color: "#a89984", marginTop: 8 }}
+                          >
+                            Loading…
+                          </div>
+                        ) : friends.length === 0 ? (
+                          <div
+                            className="pref-friends-error"
+                            style={{ color: "#a89984", marginTop: 8 }}
+                          >
+                            No friends yet — add friends below first.
+                          </div>
+                        ) : (
+                          <div className="pref-list" style={{ marginTop: 8, marginLeft: -16, marginRight: -16 }}>
+                            {friends.map((f) => {
+                              const isSelected =
+                                shareTarget === f.user.username;
+                              return (
+                                <div
+                                  key={f.friendship_id}
+                                  className={`pref-list-item${isSelected ? " active" : ""}`}
+                                  onClick={() =>
+                                    setShareTarget(
+                                      isSelected ? null : f.user.username,
+                                    )
+                                  }
+                                >
+                                  <div className="pref-item-icon">
+                                    {(f.user.full_name ||
+                                      f.user.username ||
+                                      "?")[0].toUpperCase()}
+                                  </div>
+                                  <div className="pref-item-info">
+                                    <div className="pref-item-name">
+                                      {f.user.full_name || f.user.username}
+                                    </div>
+                                    <div className="pref-item-desc">
+                                      @{f.user.username}
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <div className="pref-item-check checked">
+                                      <span className="pref-check-mark">✓</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            marginTop: 10,
+                          }}
+                        >
+                          <button
+                            className="pref-name-save-btn"
+                            disabled={!shareTarget || shareLoading}
+                            onClick={async () => {
+                              if (!shareTarget) return;
+                              setShareLoading(true);
+                              try {
+                                await apiShareChat(shareChatId, shareTarget);
+                                setShareResult({
+                                  ok: true,
+                                  msg: `Shared with @${shareTarget}`,
+                                });
+                                setShareTarget(null);
+                              } catch (e: any) {
+                                setShareResult({
+                                  ok: false,
+                                  msg: e.message || "Failed to share",
+                                });
+                              } finally {
+                                setShareLoading(false);
+                              }
+                            }}
+                          >
+                            {shareLoading ? (
+                              <span className="btn-spinner" />
+                            ) : (
+                              "Share"
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-                {usernameEdit !== null ? (
-                  <div className="pref-friends-username-row">
+              )}
+
+              {/* Username setup */}
+              <div className="pref-account-card" style={{ marginBottom: 12 }}>
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Your Username</div>
+                  <div className="pref-field-desc">
+                    Others use your username to add you as a friend
+                  </div>
+                  {usernameEdit !== null ? (
+                    <div className="pref-friends-username-row">
+                      <span className="pref-friends-at">@</span>
+                      <input
+                        className="pref-name-input"
+                        value={usernameEdit}
+                        maxLength={30}
+                        placeholder="letters, numbers, underscores"
+                        onChange={(e) =>
+                          setUsernameEdit(
+                            e.target.value
+                              .toLowerCase()
+                              .replace(/[^a-z0-9_]/g, ""),
+                          )
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveUsername();
+                          if (e.key === "Escape") {
+                            setUsernameEdit(null);
+                            setUsernameError(null);
+                          }
+                        }}
+                        autoFocus
+                        disabled={usernameSaving}
+                      />
+                      <button
+                        className="pref-name-save-btn"
+                        onClick={handleSaveUsername}
+                        disabled={usernameSaving || usernameEdit.length < 3}
+                      >
+                        {usernameSaving ? (
+                          <span className="btn-spinner" />
+                        ) : (
+                          "Save"
+                        )}
+                      </button>
+                      <button
+                        className="pref-name-cancel-btn"
+                        onClick={() => {
+                          setUsernameEdit(null);
+                          setUsernameError(null);
+                        }}
+                        disabled={usernameSaving}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="pref-name-row" style={{ marginTop: 6 }}>
+                      <span className="pref-name-value">
+                        {userInfo?.username ? (
+                          <span className="pref-friends-username-display">
+                            @{userInfo.username}
+                          </span>
+                        ) : (
+                          <span className="pref-name-placeholder">Not set</span>
+                        )}
+                      </span>
+                      <button
+                        className="pref-name-edit-btn"
+                        onClick={() =>
+                          setUsernameEdit(userInfo?.username ?? "")
+                        }
+                      >
+                        {userInfo?.username ? "Change" : "Set"}
+                      </button>
+                    </div>
+                  )}
+                  {usernameError && (
+                    <div className="pref-friends-error">{usernameError}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Add friend */}
+              <div className="pref-account-card" style={{ marginBottom: 12 }}>
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Add Friend</div>
+                  <div className="pref-friends-add-row">
                     <span className="pref-friends-at">@</span>
                     <input
-                      className="pref-name-input"
-                      value={usernameEdit}
+                      className="pref-name-input pref-friends-add-input"
+                      value={friendAddInput}
                       maxLength={30}
-                      placeholder="letters, numbers, underscores"
+                      placeholder="username"
                       onChange={(e) =>
-                        setUsernameEdit(
+                        setFriendAddInput(
                           e.target.value
                             .toLowerCase()
                             .replace(/[^a-z0-9_]/g, ""),
                         )
                       }
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") handleSaveUsername();
-                        if (e.key === "Escape") {
-                          setUsernameEdit(null);
-                          setUsernameError(null);
-                        }
+                        if (e.key === "Enter") handleSendFriendRequest();
                       }}
-                      autoFocus
-                      disabled={usernameSaving}
+                      disabled={friendAddLoading}
                     />
                     <button
                       className="pref-name-save-btn"
-                      onClick={handleSaveUsername}
-                      disabled={usernameSaving || usernameEdit.length < 3}
+                      onClick={handleSendFriendRequest}
+                      disabled={friendAddLoading || friendAddInput.length < 3}
                     >
-                      {usernameSaving ? (
+                      {friendAddLoading ? (
                         <span className="btn-spinner" />
                       ) : (
-                        "Save"
+                        "Send"
                       )}
                     </button>
-                    <button
-                      className="pref-name-cancel-btn"
-                      onClick={() => {
-                        setUsernameEdit(null);
-                        setUsernameError(null);
-                      }}
-                      disabled={usernameSaving}
-                    >
-                      Cancel
-                    </button>
                   </div>
-                ) : (
-                  <div className="pref-name-row" style={{ marginTop: 6 }}>
-                    <span className="pref-name-value">
-                      {userInfo?.username ? (
-                        <span className="pref-friends-username-display">
-                          @{userInfo.username}
-                        </span>
-                      ) : (
-                        <span className="pref-name-placeholder">Not set</span>
-                      )}
-                    </span>
-                    <button
-                      className="pref-name-edit-btn"
-                      onClick={() => setUsernameEdit(userInfo?.username ?? "")}
-                    >
-                      {userInfo?.username ? "Change" : "Set"}
-                    </button>
-                  </div>
-                )}
-                {usernameError && (
-                  <div className="pref-friends-error">{usernameError}</div>
-                )}
-              </div>
-            </div>
-
-            {/* Add friend */}
-            <div className="pref-account-card" style={{ marginBottom: 12 }}>
-              <div className="pref-account-field">
-                <div className="pref-field-label">Add Friend</div>
-                <div className="pref-friends-add-row">
-                  <span className="pref-friends-at">@</span>
-                  <input
-                    className="pref-name-input pref-friends-add-input"
-                    value={friendAddInput}
-                    maxLength={30}
-                    placeholder="username"
-                    onChange={(e) =>
-                      setFriendAddInput(
-                        e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-                      )
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSendFriendRequest();
-                    }}
-                    disabled={friendAddLoading}
-                  />
-                  <button
-                    className="pref-name-save-btn"
-                    onClick={handleSendFriendRequest}
-                    disabled={friendAddLoading || friendAddInput.length < 3}
-                  >
-                    {friendAddLoading ? (
-                      <span className="btn-spinner" />
-                    ) : (
-                      "Send"
-                    )}
-                  </button>
-                </div>
-                {friendAddError && (
-                  <div className="pref-friends-error">{friendAddError}</div>
-                )}
-                {friendAddSuccess && (
-                  <div className="pref-friends-success">{friendAddSuccess}</div>
-                )}
-              </div>
-            </div>
-
-            {/* Pending requests */}
-            {friendRequests.length > 0 && (
-              <div className="pref-friends-section-label">
-                Requests
-                <span className="pref-content-badge" style={{ marginLeft: 6 }}>
-                  {friendRequests.filter((r) => r.direction === "incoming")
-                    .length > 0
-                    ? friendRequests.filter((r) => r.direction === "incoming")
-                        .length
-                    : null}
-                </span>
-              </div>
-            )}
-            {friendRequests.map((req) => (
-              <div key={req.friendship_id} className="pref-friends-row">
-                <div className="pref-item-icon">
-                  {(req.user.full_name ??
-                    req.user.username ??
-                    "?")[0].toUpperCase()}
-                </div>
-                <div className="pref-item-info">
-                  <div className="pref-item-name">
-                    {req.user.full_name ?? req.user.username}
-                  </div>
-                  {req.user.username && (
-                    <div className="pref-item-desc">@{req.user.username}</div>
+                  {friendAddError && (
+                    <div className="pref-friends-error">{friendAddError}</div>
+                  )}
+                  {friendAddSuccess && (
+                    <div className="pref-friends-success">
+                      {friendAddSuccess}
+                    </div>
                   )}
                 </div>
-                <span
-                  className={`pref-friends-direction pref-friends-direction--${req.direction}`}
-                >
-                  {req.direction === "incoming" ? "Incoming" : "Sent"}
-                </span>
-                {req.direction === "incoming" && (
-                  <button
-                    className="pref-friends-accept-btn"
-                    onClick={() => handleAcceptFriend(req.friendship_id)}
-                  >
-                    Accept
-                  </button>
-                )}
-                <button
-                  className="pref-friends-decline-btn"
-                  onClick={() => handleRemoveFriend(req.friendship_id)}
-                  title={req.direction === "incoming" ? "Decline" : "Cancel"}
-                >
-                  ✕
-                </button>
               </div>
-            ))}
 
-            {/* Friends list */}
-            {friends.length > 0 && (
-              <div
-                className="pref-friends-section-label"
-                style={{ marginTop: friendRequests.length > 0 ? 12 : 0 }}
-              >
-                Friends
-              </div>
-            )}
-            {friendsLoading ? (
-              <div className="pref-users-empty">Loading…</div>
-            ) : friends.length === 0 && friendRequests.length === 0 ? (
-              <div className="pref-users-empty">
-                No friends yet. Add someone by username above.
-              </div>
-            ) : (
-              friends.map((f) => (
-                <div key={f.friendship_id} className="pref-friends-row">
+              {/* Pending requests */}
+              {friendRequests.length > 0 && (
+                <div className="pref-friends-section-label">
+                  Requests
+                  <span
+                    className="pref-content-badge"
+                    style={{ marginLeft: 6 }}
+                  >
+                    {friendRequests.filter((r) => r.direction === "incoming")
+                      .length > 0
+                      ? friendRequests.filter((r) => r.direction === "incoming")
+                          .length
+                      : null}
+                  </span>
+                </div>
+              )}
+              {friendRequests.map((req) => (
+                <div key={req.friendship_id} className="pref-friends-row">
                   <div className="pref-item-icon">
-                    {(f.user.full_name ??
-                      f.user.username ??
+                    {(req.user.full_name ??
+                      req.user.username ??
                       "?")[0].toUpperCase()}
                   </div>
                   <div className="pref-item-info">
                     <div className="pref-item-name">
-                      {f.user.full_name ?? f.user.username}
+                      {req.user.full_name ?? req.user.username}
                     </div>
-                    {f.user.username && (
-                      <div className="pref-item-desc">@{f.user.username}</div>
+                    {req.user.username && (
+                      <div className="pref-item-desc">@{req.user.username}</div>
                     )}
                   </div>
+                  <span
+                    className={`pref-friends-direction pref-friends-direction--${req.direction}`}
+                  >
+                    {req.direction === "incoming" ? "Incoming" : "Sent"}
+                  </span>
+                  {req.direction === "incoming" && (
+                    <button
+                      className="pref-friends-accept-btn"
+                      onClick={() => handleAcceptFriend(req.friendship_id)}
+                    >
+                      Accept
+                    </button>
+                  )}
                   <button
                     className="pref-friends-decline-btn"
-                    onClick={() => handleRemoveFriend(f.friendship_id)}
-                    title="Remove friend"
+                    onClick={() => handleRemoveFriend(req.friendship_id)}
+                    title={req.direction === "incoming" ? "Decline" : "Cancel"}
                   >
                     ✕
                   </button>
                 </div>
-              ))
-            )}
+              ))}
+
+              {/* Friends list */}
+              {friends.length > 0 && (
+                <div
+                  className="pref-friends-section-label"
+                  style={{ marginTop: friendRequests.length > 0 ? 12 : 0 }}
+                >
+                  Friends
+                </div>
+              )}
+              {friendsLoading ? (
+                <div className="pref-users-empty">Loading…</div>
+              ) : friends.length === 0 && friendRequests.length === 0 ? (
+                <div className="pref-users-empty">
+                  No friends yet. Add someone by username above.
+                </div>
+              ) : (
+                friends.map((f) => (
+                  <div key={f.friendship_id} className="pref-friends-row">
+                    <div className="pref-item-icon">
+                      {(f.user.full_name ??
+                        f.user.username ??
+                        "?")[0].toUpperCase()}
+                    </div>
+                    <div className="pref-item-info">
+                      <div className="pref-item-name">
+                        {f.user.full_name ?? f.user.username}
+                      </div>
+                      {f.user.username && (
+                        <div className="pref-item-desc">@{f.user.username}</div>
+                      )}
+                    </div>
+                    <button
+                      className="pref-friends-decline-btn"
+                      onClick={() => handleRemoveFriend(f.friendship_id)}
+                      title="Remove friend"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </>
         );
 
@@ -2408,7 +2555,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-account-card">
                 <div className="pref-account-field">
                   <div className="pref-field-label">Version</div>
-                  <div className="pref-about-meta-value">v1.4.1</div>
+                  <div className="pref-about-meta-value">v1.4.2</div>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
                   <div className="pref-field-label">Built by</div>
@@ -2466,6 +2613,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 onClick={() => setActiveSection(id)}
               >
                 {label}
+                {id === "friends" && incomingRequestCount > 0 && (
+                  <span className="pref-nav-badge">{incomingRequestCount}</span>
+                )}
               </div>
             ))}
           </div>

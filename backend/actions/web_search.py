@@ -54,7 +54,10 @@ _SEARCH_TRIGGERS = re.compile(
     r"(news|headlines?) (about|on|regarding)|"
     r"weather (in|for|today|tonight|tomorrow)|"
     r"(stock|share) price|"
+    r"(who|what teams?) (is|are) playing (tonight|today|now|this (week|weekend))|"
     r"(who|what|when) (won|is winning|happened) (the |this |last )?(game|match|election|race|series)|"
+    r"(game|match|fixture)s? (tonight|today|this (week|weekend))|"
+    r"(tonight|today)'?s? (game|match|schedule|lineup|fixture|standings?|results?)|"
     r"(current|live) (standings?|rankings?|scores?)|"
     r"(this|last) (week|month|year)'?s? .{0,30}(news|results?|winner|champion)|"
     # Entertainment / media releases

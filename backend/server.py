@@ -79,6 +79,16 @@ async def lifespan(_: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'ocean'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'mono'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_context TEXT",
+            """CREATE TABLE IF NOT EXISTS shared_chats (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+                from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                shared_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                UNIQUE(chat_id, to_user_id)
+            )""",
+            "CREATE INDEX IF NOT EXISTS ix_shared_chats_to_user_id ON shared_chats (to_user_id)",
+            "CREATE INDEX IF NOT EXISTS ix_shared_chats_chat_id ON shared_chats (chat_id)",
         ]
         for stmt in migrations:
             await conn.execute(text(stmt))

@@ -139,6 +139,8 @@ export interface ChatMeta {
   title: string;
   created_at: string;
   updated_at: string;
+  is_shared?: boolean;
+  shared_from?: string;
 }
 
 // Fetch all chats for the authenticated user, ordered newest first
@@ -586,6 +588,21 @@ export async function apiGetFriendRequests(): Promise<FriendEntry[]> {
   if (!res.ok) throw new Error("Failed to load friend requests");
   const data = await res.json();
   return data.requests;
+}
+
+export async function apiShareChat(chatId: string, username: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/share`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ username }),
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const detail = typeof err.detail === "string" ? err.detail : "Failed to share chat";
+    throw new Error(detail);
+  }
 }
 
 export async function apiSendFriendRequest(username: string): Promise<void> {

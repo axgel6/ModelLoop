@@ -95,3 +95,7 @@ class SetUsernameRequest(BaseModel):
 
 class FriendRequestBody(BaseModel):
     username: str = Field(..., min_length=3, max_length=30)
+
+
+class ShareChatRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=30)

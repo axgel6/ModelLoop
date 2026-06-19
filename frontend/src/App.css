@@ -2658,6 +2658,9 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .sidebar-chat-item.active .sidebar-chat-title {
@@ -2667,6 +2670,20 @@ html[data-theme="ocean"] .sidebar-skeleton-date {
 .sidebar-chat-date {
   font-size: 0.62rem;
   color: #9b9795;
+}
+
+.sidebar-shared-icon {
+  flex-shrink: 0;
+  opacity: 0.6;
+  color: #83a598;
+}
+
+.sidebar-chat-item.shared .sidebar-chat-title {
+  color: #83a598;
+}
+
+.sidebar-chat-item.shared.active .sidebar-chat-title {
+  color: #83a598;
 }
 
 .chat-sidebar .sidebar-delete-btn {
@@ -3636,6 +3653,22 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   font-weight: 500;
 }
 
+.pref-nav-badge {
+  margin-left: auto;
+  background: #fb4934;
+  color: #fbf1c7;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
 /* ---- Content panel ---- */
 
 .pref-content {
@@ -4147,8 +4180,8 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
 }
 
 .pref-friends-decline-btn:hover {
-  color: #fb4934;
-  border-color: rgba(251, 73, 52, 0.4);
+  color: #ebdbb2;
+  border-color: rgba(168, 153, 132, 0.5);
 }
 
 .pref-friends-error {
