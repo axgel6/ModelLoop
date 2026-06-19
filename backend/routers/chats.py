@@ -138,3 +138,22 @@ async def share_chat(
     db.add(SharedChat(chat_id=chat_id, from_user_id=user_id, to_user_id=str(target.id)))
     await db.commit()
     return {"shared": True}
+
+
+@router.delete("/{chat_id}/share", status_code=204)
+async def remove_shared_chat(
+    chat_id: str,
+    user_id: str = Depends(get_active_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a chat that was shared with the current user from their list."""
+    result = await db.execute(
+        select(SharedChat).where(
+            SharedChat.chat_id == chat_id, SharedChat.to_user_id == user_id
+        )
+    )
+    shared = result.scalar_one_or_none()
+    if not shared:
+        raise HTTPException(status_code=404, detail="Shared chat not found")
+    await db.delete(shared)
+    await db.commit()

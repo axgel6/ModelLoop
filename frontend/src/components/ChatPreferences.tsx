@@ -2230,7 +2230,14 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                             No friends yet — add friends below first.
                           </div>
                         ) : (
-                          <div className="pref-list" style={{ marginTop: 8, marginLeft: -16, marginRight: -16 }}>
+                          <div
+                            className="pref-list"
+                            style={{
+                              marginTop: 8,
+                              marginLeft: -16,
+                              marginRight: -16,
+                            }}
+                          >
                             {friends.map((f) => {
                               const isSelected =
                                 shareTarget === f.user.username;
@@ -2555,7 +2562,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-account-card">
                 <div className="pref-account-field">
                   <div className="pref-field-label">Version</div>
-                  <div className="pref-about-meta-value">v1.4.2</div>
+                  <div className="pref-about-meta-value">v1.4.3</div>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
                   <div className="pref-field-label">Built by</div>

@@ -17,6 +17,7 @@ import {
   apiCreateChat,
   apiDeleteAccount,
   apiDeleteChat,
+  apiRemoveSharedChat,
   apiGetMe,
   apiGetMyFeatures,
   apiGetGuestFeatures,
@@ -120,16 +121,14 @@ function SidebarChatItem({
         </svg>
       </button>
       )}
-      {!c.is_shared && (
-        <button
-          className="sidebar-delete-btn"
-          onClick={onDelete}
-          disabled={deleting}
-          title="Delete chat"
-        >
-          {deleting ? "…" : "✕"}
-        </button>
-      )}
+      <button
+        className="sidebar-delete-btn"
+        onClick={onDelete}
+        disabled={deleting}
+        title={c.is_shared ? "Remove from your list" : "Delete chat"}
+      >
+        {deleting ? "…" : "✕"}
+      </button>
     </div>
   );
 }
@@ -896,6 +895,19 @@ function Chat({
     }
   };
 
+  const handleRemoveSharedChat = async (id: string) => {
+    dispatchInteraction({ type: "delete_start", id });
+    if (id === activeChatId) handleNewChat();
+    try {
+      await apiRemoveSharedChat(id);
+      await onChatsChanged();
+    } catch {
+      /* silently ignore */
+    } finally {
+      dispatchInteraction({ type: "delete_finish", id });
+    }
+  };
+
   const handleRenameCommit = async () => {
     if (!renameState) return;
     const { id, value } = renameState as RenameState;
@@ -924,12 +936,25 @@ function Chat({
     });
   };
 
+  const [sharedSectionOpen, setSharedSectionOpen] = useState(
+    () => localStorage.getItem("shared_section_open") !== "false",
+  );
+
+  const toggleSharedSection = () => {
+    setSharedSectionOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem("shared_section_open", String(next));
+      return next;
+    });
+  };
+
   const visibleChats = useMemo(() => {
-    const filtered = chats
-      .filter((c) => !deletingIds.has(c.id));
-    const pinned = filtered.filter((c) => pinnedIds.has(c.id));
-    const rest = filtered.filter((c) => !pinnedIds.has(c.id));
-    return { pinned, rest };
+    const filtered = chats.filter((c) => !deletingIds.has(c.id));
+    const shared = filtered.filter((c) => c.is_shared);
+    const owned = filtered.filter((c) => !c.is_shared);
+    const pinned = owned.filter((c) => pinnedIds.has(c.id));
+    const rest = owned.filter((c) => !pinnedIds.has(c.id));
+    return { shared, pinned, rest };
   }, [chats, deletingIds, pinnedIds]);
 
   const searchResults = useMemo(() => {
@@ -943,6 +968,7 @@ function Chat({
   }, [chats, historySearch, deletingIds]);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
+  const activeChatIsShared = !!activeChat?.is_shared;
   const chatTitle = activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
 
   const estimatedTokens = useMemo(
@@ -1038,11 +1064,54 @@ function Chat({
                   )}
                 {!chatsLoading &&
                   visibleChats.pinned.length === 0 &&
-                  visibleChats.rest.length === 0 && (
+                  visibleChats.rest.length === 0 &&
+                  visibleChats.shared.length === 0 && (
                     <span className="sidebar-empty">
                       Start a conversation to see it here
                     </span>
                   )}
+                {visibleChats.shared.length > 0 && (
+                  <>
+                    <button
+                      className="sidebar-shared-section-btn"
+                      onClick={toggleSharedSection}
+                    >
+                      <svg className="sidebar-shared-section-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-1a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v1h-3zM4.75 14.094A5.973 5.973 0 004 17v1H1v-1a3 3 0 013.75-2.906z" />
+                      </svg>
+                      <span>Shared with me</span>
+                      <span className="sidebar-shared-section-count">{visibleChats.shared.length}</span>
+                      <svg
+                        className={`sidebar-shared-section-chevron${sharedSectionOpen ? " open" : ""}`}
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {sharedSectionOpen && visibleChats.shared.map((c) => (
+                      <SidebarChatItem
+                        key={c.id}
+                        c={c}
+                        activeChatId={activeChatId}
+                        pinned={false}
+                        deleting={deletingIds.has(c.id)}
+                        onSelect={() => {
+                          onChatCreated(c.id);
+                          if (window.innerWidth < 768) closeSidebar();
+                        }}
+                        onPin={(e) => e.stopPropagation()}
+                        onDelete={(e) => {
+                          e.stopPropagation();
+                          handleRemoveSharedChat(c.id);
+                        }}
+                      />
+                    ))}
+                    {(visibleChats.pinned.length > 0 || visibleChats.rest.length > 0) && (
+                      <div className="sidebar-section-divider" />
+                    )}
+                  </>
+                )}
                 {visibleChats.pinned.length > 0 && (
                   <>
                     <span className="sidebar-section-label">Pinned</span>
@@ -1533,6 +1602,27 @@ function Chat({
             </button>
           )}
 
+          {activeChatIsShared ? (
+            <div className="shared-readonly-notice">
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              <span>Shared by @{activeChat?.shared_from}. This chat is read-only.</span>
+            </div>
+          ) : (
           <ChatInput
             loading={loading}
             onAsk={(prompt, images) => handleAsk(prompt, undefined, images)}
@@ -1570,6 +1660,7 @@ function Chat({
               ? { onShare: openSharePanel }
               : {})}
           />
+          )}
         </div>
       </div>
 

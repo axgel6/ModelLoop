@@ -605,6 +605,16 @@ export async function apiShareChat(chatId: string, username: string): Promise<vo
   }
 }
 
+export async function apiRemoveSharedChat(chatId: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/share`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to remove shared chat");
+}
+
 export async function apiSendFriendRequest(username: string): Promise<void> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/friends/request`, {
