@@ -1,6 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, or_, and_
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -35,7 +36,9 @@ async def list_friends(
 ):
     """Return all accepted friends."""
     result = await db.execute(
-        select(Friendship).where(
+        select(Friendship)
+        .options(selectinload(Friendship.requester), selectinload(Friendship.addressee))
+        .where(
             and_(
                 Friendship.status == "accepted",
                 or_(
@@ -46,13 +49,7 @@ async def list_friends(
         )
     )
     rows = result.scalars().all()
-    # Eagerly load related users
-    friends = []
-    for row in rows:
-        if not row.requester:
-            await db.refresh(row, ["requester", "addressee"])
-        friends.append(_friendship_user_view(row, user_id))
-    return {"friends": friends}
+    return {"friends": [_friendship_user_view(row, user_id) for row in rows]}
 
 
 @router.get("/requests")
@@ -62,7 +59,9 @@ async def list_requests(
 ):
     """Return all pending friend requests (incoming and outgoing)."""
     result = await db.execute(
-        select(Friendship).where(
+        select(Friendship)
+        .options(selectinload(Friendship.requester), selectinload(Friendship.addressee))
+        .where(
             and_(
                 Friendship.status == "pending",
                 or_(
@@ -73,12 +72,7 @@ async def list_requests(
         )
     )
     rows = result.scalars().all()
-    requests = []
-    for row in rows:
-        if not row.requester:
-            await db.refresh(row, ["requester", "addressee"])
-        requests.append(_friendship_user_view(row, user_id))
-    return {"requests": requests}
+    return {"requests": [_friendship_user_view(row, user_id) for row in rows]}
 
 
 @router.post("/request", status_code=201)
