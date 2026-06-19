@@ -87,3 +87,11 @@ class UpdateServerConfigRequest(BaseModel):
     thinking_models:         Optional[str] = Field(default=None, max_length=500)
     tool_capable_models:     Optional[str] = Field(default=None, max_length=500)
     no_system_prompt_models: Optional[str] = Field(default=None, max_length=500)
+
+
+class SetUsernameRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=30, pattern=r"^[a-z0-9_]+$")
+
+
+class FriendRequestBody(BaseModel):
+    username: str = Field(..., min_length=3, max_length=30)

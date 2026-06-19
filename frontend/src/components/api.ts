@@ -178,10 +178,11 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("Failed to rename chat");
 }
 
-// Fetch the current user's id, email, full_name, role, theme, font, and personal_context
+// Fetch the current user's id, email, username, full_name, role, theme, font, and personal_context
 export async function apiGetMe(): Promise<{
   id: string;
   email: string;
+  username: string | null;
   full_name: string | null;
   role: string;
   theme: string;
@@ -537,6 +538,89 @@ export async function apiDeleteDocument(docId: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete document");
 }
 
+
+// ----- Friends -----
+
+export interface FriendUser {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+}
+
+export interface FriendEntry {
+  friendship_id: string;
+  status: "pending" | "accepted";
+  direction: "incoming" | "outgoing";
+  user: FriendUser;
+}
+
+export async function apiSetUsername(username: string): Promise<{ username: string }> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/auth/me/username`, {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ username }),
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const detail = typeof err.detail === "string" ? err.detail : "Failed to set username";
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+export async function apiGetFriends(): Promise<FriendEntry[]> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/friends`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to load friends");
+  const data = await res.json();
+  return data.friends;
+}
+
+export async function apiGetFriendRequests(): Promise<FriendEntry[]> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/friends/requests`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to load friend requests");
+  const data = await res.json();
+  return data.requests;
+}
+
+export async function apiSendFriendRequest(username: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/friends/request`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ username }),
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err.detail === "string" ? err.detail : "Failed to send friend request");
+  }
+}
+
+export async function apiAcceptFriendRequest(friendshipId: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/friends/${friendshipId}/accept`, {
+      method: "PATCH",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to accept friend request");
+}
+
+export async function apiRemoveFriend(friendshipId: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/friends/${friendshipId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to remove friend");
+}
 
 // ----- Streaming -----
 

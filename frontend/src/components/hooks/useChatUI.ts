@@ -4,6 +4,7 @@ import type { Message } from "../api";
 export function useChatUI(messages: Message[], loading: boolean) {
   const [sidebarOpen, setSidebarOpen] = useState(window.screen.width >= 1024);
   const [historySearch, setHistorySearch] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -58,6 +59,8 @@ export function useChatUI(messages: Message[], loading: boolean) {
     setSidebarOpen,
     historySearch,
     setHistorySearch,
+    showSearch,
+    setShowSearch,
     showLogoutConfirm,
     setShowLogoutConfirm,
     showScrollBtn,

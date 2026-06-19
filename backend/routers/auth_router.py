@@ -14,7 +14,7 @@ from auth import (
     get_current_user_id, generate_refresh_token,
     hash_refresh_token, REFRESH_EXPIRE_DAYS,
 )
-from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest, UpdatePreferencesRequest, UpdatePersonalContextRequest
+from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest, UpdatePreferencesRequest, UpdatePersonalContextRequest, SetUsernameRequest
 from audit import log_audit
 from dependencies import _get_client_ip
 
@@ -90,7 +90,7 @@ async def get_me(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
+    return {"id": str(user.id), "email": user.email, "username": user.username, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
 
 
 @router.patch("/me")
@@ -105,7 +105,7 @@ async def update_profile(
         raise HTTPException(status_code=404, detail="User not found")
     user.full_name = body.full_name.strip()
     await db.commit()
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
+    return {"id": str(user.id), "email": user.email, "username": user.username, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
 
 
 @router.patch("/me/context")
@@ -172,6 +172,26 @@ async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depen
         await db.commit()
         await log_audit(db, "logout", target_id=str(rt.user_id), ip_address=_get_client_ip(request))
     return {"ok": True}
+
+
+@router.patch("/me/username")
+@limiter.limit("5/minute")
+async def set_username(
+    request: Request,
+    body: SetUsernameRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    taken = await db.execute(select(User).where(User.username == body.username))
+    if taken.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Username already taken")
+    user.username = body.username
+    await db.commit()
+    return {"username": user.username}
 
 
 @router.delete("/account", status_code=204)

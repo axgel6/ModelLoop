@@ -16,6 +16,7 @@ from sqlalchemy import text
 from database import engine, Base
 from config import ALLOWED_ORIGINS, IS_PRODUCTION
 from routers import auth_router, chats, messages, documents, admin, models_router, stream, health
+from routers import friends
 from routers.stream import close_ollama_client
 from rag import close_embed_client
 
@@ -119,6 +120,7 @@ app.include_router(admin.router)
 app.include_router(models_router.router)
 app.include_router(stream.router)
 app.include_router(health.router)
+app.include_router(friends.router)
 
 
 if __name__ == "__main__":

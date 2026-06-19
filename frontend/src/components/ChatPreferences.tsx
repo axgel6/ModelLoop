@@ -5,6 +5,12 @@ import {
   apiGetMe,
   apiUpdateProfile,
   apiSavePersonalContext,
+  apiSetUsername,
+  apiGetFriends,
+  apiGetFriendRequests,
+  apiSendFriendRequest,
+  apiAcceptFriendRequest,
+  apiRemoveFriend,
   apiAdminGetUsers,
   apiAdminSetRole,
   apiAdminToggleAccess,
@@ -16,10 +22,11 @@ import {
   apiAdminGetServerConfig,
   apiAdminUpdateServerConfig,
 } from "./api";
-import type { AdminUser, FeatureFlag, ServerConfig } from "./api";
+import type { AdminUser, FeatureFlag, ServerConfig, FriendEntry } from "./api";
 
 export type Theme = "ocean" | "gruvbox" | "dune";
 export type Font = "mono" | "inter";
+export type TextSize = "xs" | "small" | "medium" | "large";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -31,6 +38,8 @@ interface ChatPreferencesProps {
   setTheme: (theme: Theme) => void;
   font: Font;
   setFont: (font: Font) => void;
+  textSize: TextSize;
+  setTextSize: (size: TextSize) => void;
   avatarColor: string | null;
   setAvatarColor: (c: string | null) => void;
   temperature: number;
@@ -121,6 +130,8 @@ export type Section =
   | "appearance"
   | "shortcuts"
   | "account"
+  | "friends"
+  | "about"
   | "users"
   | "analytics"
   | "audit"
@@ -134,6 +145,8 @@ const BASE_NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "appearance", label: "Appearance" },
   { id: "shortcuts", label: "Shortcuts" },
   { id: "account", label: "Account" },
+  { id: "friends", label: "Friends" },
+  { id: "about", label: "About" },
 ];
 
 const ChatPreferences: React.FC<ChatPreferencesProps> = ({
@@ -146,6 +159,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   setTheme,
   font,
   setFont,
+  textSize,
+  setTextSize,
   avatarColor,
   setAvatarColor,
   temperature,
@@ -180,6 +195,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [userInfo, setUserInfo] = useState<{
     id: string;
     email: string;
+    username: string | null;
     full_name: string | null;
     role: string;
   } | null>(null);
@@ -217,11 +233,29 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [flagSaving, setFlagSaving] = useState<string | null>(null);
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null);
   const [showOllamaUrl, setShowOllamaUrl] = useState(false);
-  const [serverConfigDraft, setServerConfigDraft] = useState<Partial<ServerConfig>>({});
+  const [serverConfigDraft, setServerConfigDraft] = useState<
+    Partial<ServerConfig>
+  >({});
   const [serverConfigLoading, setServerConfigLoading] = useState(false);
   const [serverConfigSaving, setServerConfigSaving] = useState(false);
-  const [serverConfigError, setServerConfigError] = useState<string | null>(null);
-  const [serverConfigSuccess, setServerConfigSuccess] = useState<string | null>(null);
+  const [serverConfigError, setServerConfigError] = useState<string | null>(
+    null,
+  );
+  const [serverConfigSuccess, setServerConfigSuccess] = useState<string | null>(
+    null,
+  );
+  const [friends, setFriends] = useState<FriendEntry[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendEntry[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [friendAddInput, setFriendAddInput] = useState("");
+  const [friendAddLoading, setFriendAddLoading] = useState(false);
+  const [friendAddError, setFriendAddError] = useState<string | null>(null);
+  const [friendAddSuccess, setFriendAddSuccess] = useState<string | null>(null);
+  const friendAddErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [usernameEdit, setUsernameEdit] = useState<string | null>(null);
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+
   useEffect(() => {
     apiGetMe()
       .then((info) => {
@@ -283,6 +317,76 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       .finally(() => setFlagsLoading(false));
   };
 
+  const loadFriends = () => {
+    setFriendsLoading(true);
+    Promise.all([apiGetFriends(), apiGetFriendRequests()])
+      .then(([f, r]) => {
+        setFriends(f);
+        setFriendRequests(r);
+      })
+      .catch(() => {})
+      .finally(() => setFriendsLoading(false));
+  };
+
+  const showFriendAddError = (msg: string) => {
+    setFriendAddError(msg);
+    if (friendAddErrorTimer.current) clearTimeout(friendAddErrorTimer.current);
+    friendAddErrorTimer.current = setTimeout(() => setFriendAddError(null), 4000);
+  };
+
+  const handleSendFriendRequest = async () => {
+    const trimmed = friendAddInput.trim().toLowerCase();
+    if (!trimmed) return;
+    setFriendAddLoading(true);
+    setFriendAddSuccess(null);
+    try {
+      await apiSendFriendRequest(trimmed);
+      setFriendAddInput("");
+      setFriendAddSuccess(`Request sent to @${trimmed}`);
+      setTimeout(() => setFriendAddSuccess(null), 3000);
+      loadFriends();
+    } catch (e: any) {
+      showFriendAddError(e.message || "Failed to send request");
+    } finally {
+      setFriendAddLoading(false);
+    }
+  };
+
+  const handleAcceptFriend = async (friendshipId: string) => {
+    try {
+      await apiAcceptFriendRequest(friendshipId);
+      loadFriends();
+    } catch {
+      showFriendAddError("Failed to accept request");
+    }
+  };
+
+  const handleRemoveFriend = async (friendshipId: string) => {
+    try {
+      await apiRemoveFriend(friendshipId);
+      loadFriends();
+    } catch {
+      showFriendAddError("Failed to remove friend");
+    }
+  };
+
+  const handleSaveUsername = async () => {
+    if (usernameEdit === null) return;
+    const trimmed = usernameEdit.trim().toLowerCase();
+    if (!trimmed) return;
+    setUsernameSaving(true);
+    setUsernameError(null);
+    try {
+      const result = await apiSetUsername(trimmed);
+      setUserInfo((prev) => (prev ? { ...prev, username: result.username } : prev));
+      setUsernameEdit(null);
+    } catch (e: any) {
+      setUsernameError(e.message || "Failed to set username");
+    } finally {
+      setUsernameSaving(false);
+    }
+  };
+
   const loadServerConfig = () => {
     setServerConfigLoading(true);
     apiAdminGetServerConfig()
@@ -338,6 +442,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     else if (activeSection === "audit") loadAuditLogs();
     else if (activeSection === "flags") loadFeatureFlags();
     else if (activeSection === "connections") loadServerConfig();
+    else if (activeSection === "friends") loadFriends();
   }, [activeSection]);
 
   const handleRoleChange = (userId: string, role: string) => {
@@ -730,7 +835,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                           : "Very fast — for rapid listening"}
                   </div>
                 </div>
-                <span className="pref-temp-value">{speechRate.toFixed(1)}×</span>
+                <span className="pref-temp-value">
+                  {speechRate.toFixed(1)}×
+                </span>
               </div>
               <input
                 className="temperature-slider pref-slider"
@@ -818,6 +925,33 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </span>
                   <span className="pref-font-label">JetBrains Mono</span>
                 </div>
+              </div>
+              <div
+                className="pref-setting-section-label"
+                style={{ marginTop: "20px" }}
+              >
+                Chat Size
+              </div>
+              <input
+                type="range"
+                className="temperature-slider pref-slider"
+                min={0}
+                max={3}
+                step={1}
+                value={["xs", "small", "medium", "large"].indexOf(textSize)}
+                onChange={(e) =>
+                  setTextSize(
+                    (["xs", "small", "medium", "large"] as TextSize[])[
+                      Number(e.target.value)
+                    ],
+                  )
+                }
+              />
+              <div className="temperature-labels">
+                <span>XS</span>
+                <span>S</span>
+                <span>M (Default)</span>
+                <span>L</span>
               </div>
             </div>
           </>
@@ -1008,9 +1142,13 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <div className="pref-avatar-preview-row">
                     <div
                       className="pref-avatar-preview"
-                      style={avatarColor ? { background: avatarColor } : undefined}
+                      style={
+                        avatarColor ? { background: avatarColor } : undefined
+                      }
                     >
-                      {(userInfo?.full_name ?? userInfo?.email ?? "?")[0].toUpperCase()}
+                      {(userInfo?.full_name ??
+                        userInfo?.email ??
+                        "?")[0].toUpperCase()}
                     </div>
                     <div className="pref-avatar-swatches">
                       <button
@@ -1075,10 +1213,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <span className="pref-row-arrow">→</span>
                 </div>
                 {onLogout && (
-                  <div
-                    className="pref-list-item"
-                    onClick={onLogout}
-                  >
+                  <div className="pref-list-item" onClick={onLogout}>
                     <div className="pref-item-icon">
                       <svg
                         viewBox="0 0 24 24"
@@ -1641,7 +1776,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <option value="delete_user">Delete User</option>
                 <option value="toggle_access">Toggle Access</option>
                 <option value="update_feature_flag">Update Feature Flag</option>
-                <option value="update_server_config">Update Server Config</option>
+                <option value="update_server_config">
+                  Update Server Config
+                </option>
               </select>
               <div className="pref-audit-pagination">
                 <button
@@ -1659,7 +1796,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <button
                   className="pref-audit-page-btn"
                   onClick={() => goAuditPage(auditOffset + AUDIT_PAGE_SIZE)}
-                  disabled={auditOffset + AUDIT_PAGE_SIZE >= auditTotal || auditLoading}
+                  disabled={
+                    auditOffset + AUDIT_PAGE_SIZE >= auditTotal || auditLoading
+                  }
                 >
                   Next
                 </button>
@@ -1773,7 +1912,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         const cfg = serverConfig;
         const draft = serverConfigDraft;
         const val = (key: keyof typeof draft) =>
-          key in draft ? (draft[key] as string) ?? "" : (cfg?.[key as keyof ServerConfig] as string) ?? "";
+          key in draft
+            ? ((draft[key] as string) ?? "")
+            : ((cfg?.[key as keyof ServerConfig] as string) ?? "");
         const set = (key: keyof typeof draft, v: string) =>
           setServerConfigDraft((prev) => ({ ...prev, [key]: v }));
         const isDirty = Object.keys(draft).length > 0;
@@ -1787,17 +1928,22 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 onClick={loadServerConfig}
                 disabled={serverConfigLoading}
                 title="Refresh"
-              >↻</button>
+              >
+                ↻
+              </button>
             </div>
 
-            {serverConfigError && <div className="pref-admin-error">{serverConfigError}</div>}
-            {serverConfigSuccess && <div className="pref-admin-success">{serverConfigSuccess}</div>}
+            {serverConfigError && (
+              <div className="pref-admin-error">{serverConfigError}</div>
+            )}
+            {serverConfigSuccess && (
+              <div className="pref-admin-success">{serverConfigSuccess}</div>
+            )}
 
             {serverConfigLoading ? (
               <div className="pref-users-empty">Loading…</div>
             ) : (
               <div className="pref-settings-area">
-
                 <div className="pref-setting-section-label">Ollama</div>
                 <div className="pref-conn-field">
                   <label className="pref-conn-label">Base URL</label>
@@ -1818,15 +1964,33 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       title={showOllamaUrl ? "Hide URL" : "Show URL"}
                     >
                       {showOllamaUrl ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
                         </svg>
                       ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                          <circle cx="12" cy="12" r="3"/>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
                         </svg>
                       )}
                     </button>
@@ -1834,10 +1998,14 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 </div>
 
                 <div className="pref-setting-divider" />
-                <div className="pref-setting-section-label">Installed Models</div>
+                <div className="pref-setting-section-label">
+                  Installed Models
+                </div>
                 <div className="pref-conn-model-list">
                   {models.length === 0 ? (
-                    <div className="pref-conn-model-empty">No models available</div>
+                    <div className="pref-conn-model-empty">
+                      No models available
+                    </div>
                   ) : (
                     models.map((m) => {
                       const [name, tag] = m.split(":");
@@ -1846,14 +2014,20 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         <div key={m} className="pref-conn-model-row">
                           <div className="pref-conn-model-name">
                             {name}
-                            {tag && <span className="pref-conn-model-tag">{tag}</span>}
+                            {tag && (
+                              <span className="pref-conn-model-tag">{tag}</span>
+                            )}
                           </div>
                           <div className="pref-conn-model-caps">
                             {caps.includes("thinking") && (
-                              <span className="pref-model-badge pref-model-badge--thinking">Thinking</span>
+                              <span className="pref-model-badge pref-model-badge--thinking">
+                                Thinking
+                              </span>
                             )}
                             {caps.includes("web") && (
-                              <span className="pref-model-badge pref-model-badge--web">Web</span>
+                              <span className="pref-model-badge pref-model-badge--web">
+                                Web
+                              </span>
                             )}
                           </div>
                         </div>
@@ -1900,7 +2074,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 </div>
 
                 <div className="pref-setting-divider" />
-                <div className="pref-setting-section-label">Model Lists <span className="pref-conn-hint">(comma-separated)</span></div>
+                <div className="pref-setting-section-label">
+                  Model Lists{" "}
+                  <span className="pref-conn-hint">(comma-separated)</span>
+                </div>
 
                 <div className="pref-conn-field">
                   <label className="pref-conn-label">Thinking Models</label>
@@ -1925,17 +2102,20 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   />
                 </div>
                 <div className="pref-conn-field">
-                  <label className="pref-conn-label">No System Prompt Models</label>
+                  <label className="pref-conn-label">
+                    No System Prompt Models
+                  </label>
                   <input
                     className="pref-conn-input"
                     type="text"
                     placeholder="dolphin"
                     value={val("no_system_prompt_models")}
-                    onChange={(e) => set("no_system_prompt_models", e.target.value)}
+                    onChange={(e) =>
+                      set("no_system_prompt_models", e.target.value)
+                    }
                     spellCheck={false}
                   />
                 </div>
-
 
                 <div className="pref-conn-actions">
                   <button
@@ -1959,6 +2139,255 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           </>
         );
       }
+
+      case "friends":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Friends</span>
+              {friends.length > 0 && (
+                <span className="pref-content-badge">{friends.length}</span>
+              )}
+              <button
+                className="pref-refresh-btn"
+                onClick={loadFriends}
+                disabled={friendsLoading}
+                title="Refresh"
+              >
+                ↻
+              </button>
+            </div>
+
+            {/* Username setup */}
+            <div className="pref-account-card" style={{ marginBottom: 12 }}>
+              <div className="pref-account-field">
+                <div className="pref-field-label">Your Username</div>
+                <div className="pref-field-desc">
+                  Others use your username to add you as a friend
+                </div>
+                {usernameEdit !== null ? (
+                  <div className="pref-friends-username-row">
+                    <span className="pref-friends-at">@</span>
+                    <input
+                      className="pref-name-input"
+                      value={usernameEdit}
+                      maxLength={30}
+                      placeholder="letters, numbers, underscores"
+                      onChange={(e) =>
+                        setUsernameEdit(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveUsername();
+                        if (e.key === "Escape") { setUsernameEdit(null); setUsernameError(null); }
+                      }}
+                      autoFocus
+                      disabled={usernameSaving}
+                    />
+                    <button
+                      className="pref-name-save-btn"
+                      onClick={handleSaveUsername}
+                      disabled={usernameSaving || usernameEdit.length < 3}
+                    >
+                      {usernameSaving ? "◌" : "Save"}
+                    </button>
+                    <button
+                      className="pref-name-cancel-btn"
+                      onClick={() => { setUsernameEdit(null); setUsernameError(null); }}
+                      disabled={usernameSaving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pref-name-row" style={{ marginTop: 6 }}>
+                    <span className="pref-name-value">
+                      {userInfo?.username ? (
+                        <span className="pref-friends-username-display">@{userInfo.username}</span>
+                      ) : (
+                        <span className="pref-name-placeholder">Not set</span>
+                      )}
+                    </span>
+                    <button
+                      className="pref-name-edit-btn"
+                      onClick={() => setUsernameEdit(userInfo?.username ?? "")}
+                    >
+                      {userInfo?.username ? "Change" : "Set"}
+                    </button>
+                  </div>
+                )}
+                {usernameError && (
+                  <div className="pref-friends-error">{usernameError}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Add friend */}
+            <div className="pref-account-card" style={{ marginBottom: 12 }}>
+              <div className="pref-account-field">
+                <div className="pref-field-label">Add Friend</div>
+                <div className="pref-friends-add-row">
+                  <span className="pref-friends-at">@</span>
+                  <input
+                    className="pref-name-input pref-friends-add-input"
+                    value={friendAddInput}
+                    maxLength={30}
+                    placeholder="username"
+                    onChange={(e) =>
+                      setFriendAddInput(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSendFriendRequest();
+                    }}
+                    disabled={friendAddLoading}
+                  />
+                  <button
+                    className="pref-name-save-btn"
+                    onClick={handleSendFriendRequest}
+                    disabled={friendAddLoading || friendAddInput.length < 3}
+                  >
+                    {friendAddLoading ? "◌" : "Send"}
+                  </button>
+                </div>
+                {friendAddError && (
+                  <div className="pref-friends-error">{friendAddError}</div>
+                )}
+                {friendAddSuccess && (
+                  <div className="pref-friends-success">{friendAddSuccess}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Pending requests */}
+            {friendRequests.length > 0 && (
+              <div className="pref-friends-section-label">
+                Requests
+                <span className="pref-content-badge" style={{ marginLeft: 6 }}>
+                  {friendRequests.filter((r) => r.direction === "incoming").length > 0
+                    ? friendRequests.filter((r) => r.direction === "incoming").length
+                    : null}
+                </span>
+              </div>
+            )}
+            {friendRequests.map((req) => (
+              <div key={req.friendship_id} className="pref-friends-row">
+                <div className="pref-item-icon">
+                  {(req.user.full_name ?? req.user.username ?? "?")[0].toUpperCase()}
+                </div>
+                <div className="pref-item-info">
+                  <div className="pref-item-name">
+                    {req.user.full_name ?? req.user.username}
+                  </div>
+                  {req.user.username && (
+                    <div className="pref-item-desc">@{req.user.username}</div>
+                  )}
+                </div>
+                <span className={`pref-friends-direction pref-friends-direction--${req.direction}`}>
+                  {req.direction === "incoming" ? "Incoming" : "Sent"}
+                </span>
+                {req.direction === "incoming" && (
+                  <button
+                    className="pref-friends-accept-btn"
+                    onClick={() => handleAcceptFriend(req.friendship_id)}
+                  >
+                    Accept
+                  </button>
+                )}
+                <button
+                  className="pref-friends-decline-btn"
+                  onClick={() => handleRemoveFriend(req.friendship_id)}
+                  title={req.direction === "incoming" ? "Decline" : "Cancel"}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+
+            {/* Friends list */}
+            {friends.length > 0 && (
+              <div className="pref-friends-section-label" style={{ marginTop: friendRequests.length > 0 ? 12 : 0 }}>
+                Friends
+              </div>
+            )}
+            {friendsLoading ? (
+              <div className="pref-users-empty">Loading…</div>
+            ) : friends.length === 0 && friendRequests.length === 0 ? (
+              <div className="pref-users-empty">
+                No friends yet. Add someone by username above.
+              </div>
+            ) : (
+              friends.map((f) => (
+                <div key={f.friendship_id} className="pref-friends-row">
+                  <div className="pref-item-icon">
+                    {(f.user.full_name ?? f.user.username ?? "?")[0].toUpperCase()}
+                  </div>
+                  <div className="pref-item-info">
+                    <div className="pref-item-name">
+                      {f.user.full_name ?? f.user.username}
+                    </div>
+                    {f.user.username && (
+                      <div className="pref-item-desc">@{f.user.username}</div>
+                    )}
+                  </div>
+                  <button
+                    className="pref-friends-decline-btn"
+                    onClick={() => handleRemoveFriend(f.friendship_id)}
+                    title="Remove friend"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))
+            )}
+          </>
+        );
+
+      case "about":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">About</span>
+            </div>
+            <div className="pref-account-scroll">
+              <div className="pref-about-hero">
+                <div className="pref-about-wordmark">ModelLoop</div>
+                <div className="pref-about-build">
+                  Latest Build Date: Jun 19, 2026
+                </div>
+                <div className="pref-about-tagline">
+                  Self-hosted AI chat powered by Ollama
+                </div>
+              </div>
+              <div className="pref-account-card">
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Version</div>
+                  <div className="pref-about-meta-value">v1.4.0</div>
+                </div>
+                <div className="pref-account-field pref-account-field-sep">
+                  <div className="pref-field-label">Built by</div>
+                  <a
+                    href="https://aynjel.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pref-about-link"
+                  >
+                    Angel Gutierrez
+                  </a>
+                </div>
+                <div className="pref-account-field pref-account-field-sep">
+                  <div className="pref-field-label">Source</div>
+                  <a
+                    href="https://github.com/axgel6/ModelLoop"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pref-about-link"
+                  >
+                    github.com/axgel6/ModelLoop
+                  </a>
+                </div>
+              </div>
+            </div>
+          </>
+        );
     }
   };
 

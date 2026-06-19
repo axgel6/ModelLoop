@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Integer
+from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -29,18 +29,19 @@ class FeatureFlag(Base):
 class User(Base):
     __tablename__ = "users"
 
-    id:            Mapped[uuid.UUID]      = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    email:         Mapped[str]            = mapped_column(String, unique=True, nullable=False)
-    full_name:     Mapped[Optional[str]]  = mapped_column(String(120), nullable=False)
-    password_hash: Mapped[str]            = mapped_column(Text, nullable=False)
-    role:          Mapped[str]            = mapped_column(String(10), nullable=False, server_default="free")
-    is_active:     Mapped[bool]           = mapped_column(Boolean, nullable=False, server_default="true")
+    id:               Mapped[uuid.UUID]      = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    email:            Mapped[str]            = mapped_column(String, unique=True, nullable=False)
+    username:         Mapped[Optional[str]]  = mapped_column(String(30), unique=True, nullable=True, index=True)
+    full_name:        Mapped[Optional[str]]  = mapped_column(String(120), nullable=False)
+    password_hash:    Mapped[str]            = mapped_column(Text, nullable=False)
+    role:             Mapped[str]            = mapped_column(String(10), nullable=False, server_default="free")
+    is_active:        Mapped[bool]           = mapped_column(Boolean, nullable=False, server_default="true")
     theme:            Mapped[str]            = mapped_column(String(20), nullable=False, server_default="ocean")
     font:             Mapped[str]            = mapped_column(String(20), nullable=False, server_default="mono")
     personal_context: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
     created_at:       Mapped[datetime]       = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Cascade delete removes all chats when the user is deleted
-    chats:         Mapped[list["Chat"]]   = relationship(back_populates="user", cascade="all, delete")
+    chats:            Mapped[list["Chat"]]   = relationship(back_populates="user", cascade="all, delete")
 
 # ----- Chat Model -----
 
@@ -113,6 +114,24 @@ class DocumentChunk(Base):
     content:     Mapped[str]       = mapped_column(Text, nullable=False)
     embedding:   Mapped[list]      = mapped_column(JSON, nullable=False)
     document:    Mapped["Document"] = relationship(back_populates="chunks")
+
+# ----- Friendship Model -----
+
+class Friendship(Base):
+    __tablename__ = "friendships"
+    __table_args__ = (
+        UniqueConstraint("requester_id", "addressee_id", name="uq_friendship_pair"),
+    )
+
+    id:           Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    requester_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    addressee_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # pending = request sent, not yet accepted; accepted = both are friends
+    status:       Mapped[str]       = mapped_column(String(10), nullable=False, default="pending")
+    created_at:   Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    requester: Mapped["User"] = relationship(foreign_keys=[requester_id])
+    addressee: Mapped["User"] = relationship(foreign_keys=[addressee_id])
 
 # ----- Audit Log Model -----
 

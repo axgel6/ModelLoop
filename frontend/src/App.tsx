@@ -13,7 +13,7 @@ import {
   setUnauthorizedHandler,
   type ChatMeta,
 } from "./components/api";
-import { type Theme, type Font } from "./components/ChatPreferences";
+import { type Theme, type Font, type TextSize } from "./components/ChatPreferences";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 
@@ -91,6 +91,31 @@ function App() {
     const stored = localStorage.getItem("font");
     return stored === "mono" ? "mono" : "inter";
   });
+
+  const [textSize, setTextSizeState] = useState<TextSize>(() => {
+    const stored = localStorage.getItem("text_size");
+    return (["xs", "small", "medium", "large"] as TextSize[]).includes(stored as TextSize)
+      ? (stored as TextSize)
+      : "medium";
+  });
+
+  const setTextSize = (size: TextSize) => {
+    setTextSizeState(size);
+    localStorage.setItem("text_size", size);
+    if (size === "medium") {
+      delete document.documentElement.dataset.textSize;
+    } else {
+      document.documentElement.dataset.textSize = size;
+    }
+  };
+
+  useEffect(() => {
+    if (textSize === "medium") {
+      delete document.documentElement.dataset.textSize;
+    } else {
+      document.documentElement.dataset.textSize = textSize;
+    }
+  }, []);
 
   const [avatarColor, setAvatarColorState] = useState<string | null>(() =>
     localStorage.getItem("avatar_color"),
@@ -232,6 +257,8 @@ function App() {
           setTheme={handleSetTheme}
           font={font}
           setFont={handleSetFont}
+          textSize={textSize}
+          setTextSize={setTextSize}
           avatarColor={avatarColor}
           setAvatarColor={handleSetAvatarColor}
         />

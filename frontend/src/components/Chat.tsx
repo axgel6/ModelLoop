@@ -4,6 +4,7 @@ import { haptics } from "../haptics";
 import ChatPreferences, {
   type Theme,
   type Font,
+  type TextSize,
   type Section as PrefSection,
 } from "./ChatPreferences";
 import ChatInput from "./ChatInput";
@@ -119,6 +120,8 @@ interface ChatProps {
   setTheme: (theme: Theme) => void;
   font: Font;
   setFont: (font: Font) => void;
+  textSize: TextSize;
+  setTextSize: (size: TextSize) => void;
   avatarColor: string | null;
   setAvatarColor: (c: string | null) => void;
 }
@@ -136,6 +139,8 @@ function Chat({
   setTheme,
   font,
   setFont,
+  textSize,
+  setTextSize,
   avatarColor,
   setAvatarColor,
 }: ChatProps) {
@@ -192,6 +197,8 @@ function Chat({
     setSidebarOpen,
     historySearch,
     setHistorySearch,
+    showSearch,
+    setShowSearch,
     showLogoutConfirm,
     setShowLogoutConfirm,
     showScrollBtn,
@@ -201,6 +208,7 @@ function Chat({
 
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [searchIndex, setSearchIndex] = useState(0);
 
   const closeSidebar = () => {
     if (isMobileViewport) {
@@ -271,8 +279,13 @@ function Chat({
       }
       if (!e.ctrlKey || e.altKey || e.metaKey) return;
       const key = e.key.toLowerCase();
-      if (key !== "h" && key !== "p") return;
+      if (key !== "h" && key !== "p" && key !== "k") return;
       e.preventDefault();
+      if (isTyping && key !== "k") return;
+      if (key === "k") {
+        if (!isGuest) { setShowSearch(true); setSidebarOpen(true); }
+        return;
+      }
       if (isTyping) return;
       e.stopImmediatePropagation();
       if (key === "h") setSidebarOpen((v) => !v);
@@ -280,7 +293,7 @@ function Chat({
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [showPreferences]);
+  }, [showPreferences, isGuest]);
 
   useEffect(() => {
     if (!activeChatId || isGuest) {
@@ -416,7 +429,7 @@ function Chat({
         {
           role: "assistant",
           content:
-            "Commands: /clear, /search <query>, /code, /math, /think, /fast, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+P (preferences)",
+            "Commands: /clear, /search <query>, /code, /math, /think, /fast, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)",
         },
       ]);
       return;
@@ -868,14 +881,21 @@ function Chat({
 
   const visibleChats = useMemo(() => {
     const filtered = chats
-      .filter((c) =>
-        (c.title || "").toLowerCase().includes(historySearch.toLowerCase()),
-      )
       .filter((c) => !deletingIds.has(c.id));
     const pinned = filtered.filter((c) => pinnedIds.has(c.id));
     const rest = filtered.filter((c) => !pinnedIds.has(c.id));
     return { pinned, rest };
-  }, [chats, historySearch, deletingIds, pinnedIds]);
+  }, [chats, deletingIds, pinnedIds]);
+
+  const searchResults = useMemo(() => {
+    if (!historySearch.trim()) return [];
+    return chats
+      .filter((c) =>
+        (c.title || "").toLowerCase().includes(historySearch.toLowerCase()),
+      )
+      .filter((c) => !deletingIds.has(c.id))
+      .slice(0, 9);
+  }, [chats, historySearch, deletingIds]);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
   const chatTitle = activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
@@ -911,36 +931,50 @@ function Chat({
           >
             <div className="sidebar-brand">
               <span className="sidebar-logo">ModelLoop</span>
-              <button
-                className="sidebar-brand-btn"
-                onClick={closeSidebar}
-                title="Close sidebar"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              <div className="sidebar-brand-actions">
+                <button
+                  className="sidebar-brand-btn"
+                  onClick={() => setShowSearch(true)}
+                  title="Search chats (Ctrl+K)"
                 >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M9 3v18" />
-                  <path d="M16 9l-3 3 3 3" />
-                </svg>
-              </button>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </button>
+                <button
+                  className="sidebar-brand-btn"
+                  onClick={closeSidebar}
+                  title="Close sidebar"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 3v18" />
+                    <path d="M16 9l-3 3 3 3" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div className="sidebar-history">
-              <input
-                type="text"
-                className="sidebar-search"
-                placeholder="Search chats"
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-              />
               <div className="sidebar-chat-list">
                 {chatsLoading &&
                   visibleChats.pinned.length === 0 &&
@@ -1052,8 +1086,8 @@ function Chat({
                           >
                             <svg
                               viewBox="0 0 24 24"
-                              width="14"
-                              height="14"
+                              width="12"
+                              height="12"
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="2"
@@ -1074,8 +1108,8 @@ function Chat({
                           >
                             <svg
                               viewBox="0 0 24 24"
-                              width="14"
-                              height="14"
+                              width="12"
+                              height="12"
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="2"
@@ -1150,52 +1184,125 @@ function Chat({
               )}
             </div>
 
-            <span
-              className="topbar-title"
-              onClick={() => {
-                if (!activeChatId || isGuest) return;
-                dispatchInteraction({
-                  type: "rename_start",
-                  id: activeChatId,
-                  value: activeChat?.title || "",
-                });
-              }}
-              title={
-                activeChatId && !isGuest
-                  ? "Click to rename"
-                  : undefined
-              }
-            >
-              {chatTitle}
-            </span>
+            {activeChatId && !isGuest && renameState?.id === activeChatId ? (
+              <input
+                className="topbar-rename-input"
+                value={renameState.value}
+                onChange={(e) =>
+                  dispatchInteraction({
+                    type: "rename_update",
+                    value: e.target.value,
+                  })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRenameCommit();
+                  if (e.key === "Escape") dispatchInteraction({ type: "rename_cancel" });
+                  e.stopPropagation();
+                }}
+                onBlur={handleRenameCommit}
+                autoFocus
+                placeholder="Chat name"
+              />
+            ) : (
+              <span
+                className="topbar-title"
+                onClick={() => {
+                  if (!activeChatId || isGuest) return;
+                  dispatchInteraction({
+                    type: "rename_start",
+                    id: activeChatId,
+                    value: activeChat?.title || "",
+                  });
+                }}
+                title={activeChatId && !isGuest ? "Click to rename" : undefined}
+              >
+                {chatTitle}
+              </span>
+            )}
 
-            {activeChatId && !isGuest && renameState?.id === activeChatId &&
+            {showSearch && !isGuest &&
               createPortal(
                 <div className="spotlight-overlay">
                   <div
                     className="spotlight-dismiss"
-                    onMouseDown={() => dispatchInteraction({ type: "rename_cancel" })}
+                    onMouseDown={() => { setShowSearch(false); setHistorySearch(""); setSearchIndex(0); }}
                   />
-                  <div className="spotlight-box">
-                    <input
-                      className="spotlight-input"
-                      value={renameState.value}
-                      onChange={(e) =>
-                        dispatchInteraction({
-                          type: "rename_update",
-                          value: e.target.value,
-                        })
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleRenameCommit();
-                        if (e.key === "Escape") {
-                          dispatchInteraction({ type: "rename_cancel" });
-                        }
-                        e.stopPropagation();
-                      }}
-                      autoFocus
-                      placeholder="Rename chat..."
-                    />
+                  <div className={`spotlight-box${searchResults.length > 0 ? " has-results" : ""}`}>
+                    <div className="spotlight-input-row">
+                      <svg
+                        className="spotlight-search-icon"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      <input
+                        className="spotlight-input"
+                        value={historySearch}
+                        onChange={(e) => { setHistorySearch(e.target.value); setSearchIndex(0); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setShowSearch(false);
+                            setHistorySearch("");
+                            setSearchIndex(0);
+                          } else if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setSearchIndex((i) => Math.min(i + 1, searchResults.length - 1));
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setSearchIndex((i) => Math.max(i - 1, 0));
+                          } else if (e.key === "Enter" && searchResults.length > 0) {
+                            onChatCreated(searchResults[searchIndex].id);
+                            setShowSearch(false);
+                            setHistorySearch("");
+                            setSearchIndex(0);
+                          }
+                          e.stopPropagation();
+                        }}
+                        autoFocus
+                        placeholder="Search chats"
+                      />
+                    </div>
+                    {searchResults.length > 0 && (
+                      <div className="spotlight-results">
+                        {searchResults.map((c, i) => (
+                          <div
+                            key={c.id}
+                            className={`spotlight-result-item${i === searchIndex ? " active" : ""}`}
+                            onMouseEnter={() => setSearchIndex(i)}
+                            onMouseDown={() => {
+                              onChatCreated(c.id);
+                              setShowSearch(false);
+                              setHistorySearch("");
+                              setSearchIndex(0);
+                            }}
+                          >
+                            <svg
+                              className="spotlight-result-icon"
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                            <span className="spotlight-result-title">{c.title || "Untitled"}</span>
+                            <span className="spotlight-result-date">{formatDate(c.updated_at)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>,
                 document.body
@@ -1607,6 +1714,8 @@ function Chat({
           setTheme={setTheme}
           font={font}
           setFont={setFont}
+          textSize={textSize}
+          setTextSize={setTextSize}
           avatarColor={avatarColor}
           setAvatarColor={setAvatarColor}
           temperature={temperature}
