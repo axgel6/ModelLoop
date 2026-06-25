@@ -149,6 +149,7 @@ class SharedChat(Base):
 
     chat:      Mapped["Chat"] = relationship(foreign_keys=[chat_id])
     from_user: Mapped["User"] = relationship(foreign_keys=[from_user_id])
+    to_user:   Mapped["User"] = relationship(foreign_keys=[to_user_id])
 
 # ----- Audit Log Model -----
 

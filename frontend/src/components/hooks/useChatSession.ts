@@ -17,12 +17,15 @@ export function useChatSession(activeChatId: string | null) {
   useEffect(() => {
     if (!activeChatId) {
       setMessages([]);
+      setMessagesLoading(false);
       return;
     }
     if (justCreatedChatRef.current) {
       justCreatedChatRef.current = false;
       return;
     }
+
+    let cancelled = false;
 
     const load = async () => {
       const cached = messageCache.current.get(activeChatId);
@@ -31,16 +34,23 @@ export function useChatSession(activeChatId: string | null) {
 
       try {
         const msgs = await apiGetMessages(activeChatId);
-        messageCache.current.set(activeChatId, msgs);
-        setMessages(msgs);
+        if (!cancelled) {
+          messageCache.current.set(activeChatId, msgs);
+          setMessages(msgs);
+        }
       } catch {
-        console.error("Failed to load messages for chat", activeChatId);
+        if (!cancelled) console.error("Failed to load messages for chat", activeChatId);
       } finally {
-        setMessagesLoading(false);
+        if (!cancelled) setMessagesLoading(false);
       }
     };
 
     void load();
+
+    return () => {
+      cancelled = true;
+      setMessagesLoading(false);
+    };
   }, [activeChatId]);
 
   useEffect(() => {

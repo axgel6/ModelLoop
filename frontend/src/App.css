@@ -779,6 +779,36 @@ html[data-theme="ocean"] .image-preview-remove:hover {
   opacity: 0.7;
 }
 
+.shared-fork-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  background: none;
+  color: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.shared-fork-btn:hover:not(:disabled) { opacity: 1; }
+.shared-fork-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+
+.pref-list-item--muted {
+  opacity: 0.5;
+  cursor: default !important;
+}
+
+.pref-shared-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(142, 192, 124, 0.15);
+  color: #8ec07c;
+  flex-shrink: 0;
+}
+
 .toolbar-left,
 .toolbar-right {
   display: flex;
@@ -8170,6 +8200,10 @@ html[data-theme="gruvbox"] .landing-message {
   -webkit-backdrop-filter: none;
   border: none;
   box-shadow: none;
+}
+
+html[data-theme="gruvbox"] .shared-fork-btn {
+  color: #1d2021;
 }
 
 /* ---- Claude Theme ---- */

@@ -18,6 +18,7 @@ import {
   apiDeleteAccount,
   apiDeleteChat,
   apiRemoveSharedChat,
+  apiForkChat,
   apiGetMe,
   apiGetMyFeatures,
   apiGetGuestFeatures,
@@ -329,14 +330,15 @@ function Chat({
   }, [showPreferences, isGuest]);
 
   useEffect(() => {
-    if (!activeChatId || isGuest) {
+    const isShared = chats.find((c) => c.id === activeChatId)?.is_shared;
+    if (!activeChatId || isGuest || isShared) {
       setDocuments([]);
       return;
     }
     apiListDocuments(activeChatId)
       .then(setDocuments)
       .catch(() => setDocuments([]));
-  }, [activeChatId, isGuest]);
+  }, [activeChatId, isGuest, chats]);
 
   const handleDocUpload = async (file: File) => {
     if (!activeChatId) return;
@@ -908,6 +910,22 @@ function Chat({
     }
   };
 
+  const [forkingChat, setForkingChat] = useState(false);
+
+  const handleForkChat = async () => {
+    if (!activeChatId || forkingChat) return;
+    setForkingChat(true);
+    try {
+      const chat = await apiForkChat(activeChatId);
+      onChatCreated(chat.id, { ...chat, is_shared: false });
+      void onChatsChanged();
+    } catch {
+      /* silent */
+    } finally {
+      setForkingChat(false);
+    }
+  };
+
   const handleRenameCommit = async () => {
     if (!renameState) return;
     const { id, value } = renameState as RenameState;
@@ -1321,14 +1339,14 @@ function Chat({
               <span
                 className="topbar-title"
                 onClick={() => {
-                  if (!activeChatId || isGuest) return;
+                  if (!activeChatId || isGuest || activeChatIsShared) return;
                   dispatchInteraction({
                     type: "rename_start",
                     id: activeChatId,
                     value: activeChat?.title || "",
                   });
                 }}
-                title={activeChatId && !isGuest ? "Click to rename" : undefined}
+                title={activeChatId && !isGuest && !activeChatIsShared ? "Click to rename" : undefined}
               >
                 {chatTitle}
               </span>
@@ -1621,6 +1639,14 @@ function Chat({
                 <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
               </svg>
               <span>Shared by @{activeChat?.shared_from}. This chat is read-only.</span>
+              <button
+                className="shared-fork-btn"
+                onClick={handleForkChat}
+                disabled={forkingChat}
+                title="Copy to your chats"
+              >
+                {forkingChat ? <span className="btn-spinner" /> : "Copy to my chats"}
+              </button>
             </div>
           ) : (
           <ChatInput

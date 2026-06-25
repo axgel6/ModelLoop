@@ -615,6 +615,42 @@ export async function apiRemoveSharedChat(chatId: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to remove shared chat");
 }
 
+export interface ChatShare {
+  username: string;
+  full_name: string | null;
+  shared_at: string;
+}
+
+export async function apiListChatShares(chatId: string): Promise<ChatShare[]> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/shares`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to load shares");
+  const data = await res.json();
+  return data.shares;
+}
+
+export async function apiRevokeChatShare(chatId: string, toUsername: string): Promise<void> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/share/${encodeURIComponent(toUsername)}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to revoke share");
+}
+
+export async function apiForkChat(chatId: string): Promise<ChatMeta> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/fork`, {
+      method: "POST",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("Failed to fork chat");
+  return res.json();
+}
+
 export async function apiSendFriendRequest(username: string): Promise<void> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/friends/request`, {

@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Chat, Friendship, SharedChat, User
+from models import Chat, Friendship, Message, SharedChat, User
 from schemas import RenameChatRequest, ShareChatRequest
 from dependencies import get_active_user_id
 
@@ -138,6 +138,101 @@ async def share_chat(
     db.add(SharedChat(chat_id=chat_id, from_user_id=user_id, to_user_id=str(target.id)))
     await db.commit()
     return {"shared": True}
+
+
+@router.get("/{chat_id}/shares")
+async def list_chat_shares(
+    chat_id: str,
+    user_id: str = Depends(get_active_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all users this chat has been shared with (owner only)."""
+    chat_result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
+    if not chat_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    result = await db.execute(
+        select(SharedChat)
+        .options(selectinload(SharedChat.to_user))
+        .where(SharedChat.chat_id == chat_id)
+        .order_by(SharedChat.shared_at.desc())
+    )
+    shares = result.scalars().all()
+    return {
+        "shares": [
+            {
+                "username":  s.to_user.username,
+                "full_name": s.to_user.full_name,
+                "shared_at": s.shared_at,
+            }
+            for s in shares
+        ]
+    }
+
+
+@router.delete("/{chat_id}/share/{to_username}", status_code=204)
+async def revoke_chat_share(
+    chat_id: str,
+    to_username: str,
+    user_id: str = Depends(get_active_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke a specific recipient's access to a shared chat (owner only)."""
+    chat_result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
+    if not chat_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    target_result = await db.execute(select(User).where(User.username == to_username))
+    target = target_result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    result = await db.execute(
+        select(SharedChat).where(SharedChat.chat_id == chat_id, SharedChat.to_user_id == str(target.id))
+    )
+    shared = result.scalar_one_or_none()
+    if not shared:
+        raise HTTPException(status_code=404, detail="Share not found")
+    await db.delete(shared)
+    await db.commit()
+
+
+@router.post("/{chat_id}/fork", status_code=201)
+async def fork_chat(
+    chat_id: str,
+    user_id: str = Depends(get_active_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Copy a shared chat's messages into a new chat owned by the caller."""
+    shared_result = await db.execute(
+        select(SharedChat)
+        .options(selectinload(SharedChat.chat))
+        .where(SharedChat.chat_id == chat_id, SharedChat.to_user_id == user_id)
+    )
+    shared = shared_result.scalar_one_or_none()
+    if not shared:
+        raise HTTPException(status_code=404, detail="Shared chat not found")
+
+    msgs_result = await db.execute(
+        select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
+    )
+    messages = msgs_result.scalars().all()
+
+    new_chat = Chat(user_id=user_id, title=shared.chat.title or "Untitled")
+    db.add(new_chat)
+    await db.flush()
+
+    for msg in messages:
+        db.add(Message(chat_id=str(new_chat.id), role=msg.role, content=msg.content))
+
+    await db.commit()
+    await db.refresh(new_chat)
+    return {
+        "id":         str(new_chat.id),
+        "title":      new_chat.title,
+        "created_at": new_chat.created_at,
+        "updated_at": new_chat.updated_at,
+    }
 
 
 @router.delete("/{chat_id}/share", status_code=204)

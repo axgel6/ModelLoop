@@ -12,6 +12,8 @@ import {
   apiAcceptFriendRequest,
   apiRemoveFriend,
   apiShareChat,
+  apiListChatShares,
+  apiRevokeChatShare,
   apiAdminGetUsers,
   apiAdminSetRole,
   apiAdminToggleAccess,
@@ -23,7 +25,7 @@ import {
   apiAdminGetServerConfig,
   apiAdminUpdateServerConfig,
 } from "./api";
-import type { AdminUser, FeatureFlag, ServerConfig, FriendEntry } from "./api";
+import type { AdminUser, FeatureFlag, ServerConfig, FriendEntry, ChatShare } from "./api";
 
 export type Theme = "ocean" | "gruvbox" | "dune";
 export type Font = "mono" | "inter";
@@ -251,12 +253,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [friendRequests, setFriendRequests] = useState<FriendEntry[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [incomingRequestCount, setIncomingRequestCount] = useState(0);
-  const [shareTarget, setShareTarget] = useState<string | null>(null);
+  const [shareTargets, setShareTargets] = useState<Set<string>>(new Set());
   const [shareLoading, setShareLoading] = useState(false);
   const [shareResult, setShareResult] = useState<{
     ok: boolean;
     msg: string;
   } | null>(null);
+  const [chatShares, setChatShares] = useState<ChatShare[]>([]);
+  const [sharesLoading, setSharesLoading] = useState(false);
+  const [revokingUsername, setRevokingUsername] = useState<string | null>(null);
   const [friendAddInput, setFriendAddInput] = useState("");
   const [friendAddLoading, setFriendAddLoading] = useState(false);
   const [friendAddError, setFriendAddError] = useState<string | null>(null);
@@ -282,6 +287,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         ),
       )
       .catch(() => {});
+
+    const pollRequests = setInterval(() => {
+      apiGetFriendRequests()
+        .then((reqs) =>
+          setIncomingRequestCount(reqs.filter((r) => r.direction === "incoming").length),
+        )
+        .catch(() => {});
+    }, 30_000);
+    return () => clearInterval(pollRequests);
   }, []);
 
   const showAdminError = (msg: string) => {
@@ -345,6 +359,28 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       })
       .catch(() => {})
       .finally(() => setFriendsLoading(false));
+  };
+
+  const loadChatShares = () => {
+    if (!shareChatId) return;
+    setSharesLoading(true);
+    apiListChatShares(shareChatId)
+      .then(setChatShares)
+      .catch(() => {})
+      .finally(() => setSharesLoading(false));
+  };
+
+  const handleRevokeShare = async (username: string) => {
+    if (!shareChatId) return;
+    setRevokingUsername(username);
+    try {
+      await apiRevokeChatShare(shareChatId, username);
+      setChatShares((prev) => prev.filter((s) => s.username !== username));
+    } catch {
+      /* silent */
+    } finally {
+      setRevokingUsername(null);
+    }
   };
 
   const showFriendAddError = (msg: string) => {
@@ -469,6 +505,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     else if (activeSection === "friends") {
       loadFriends();
       setIncomingRequestCount(0);
+      loadChatShares();
     }
   }, [activeSection]);
 
@@ -2200,117 +2237,120 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <div className="pref-account-field">
                     <div className="pref-field-label">Share this chat</div>
                     <div className="pref-field-desc">
-                      Select a friend to share with
+                      Select one or more friends to share with
                     </div>
-                    {shareResult ? (
+                    {shareResult && (
                       <div
-                        className={
-                          shareResult.ok
-                            ? "pref-friends-success"
-                            : "pref-friends-error"
-                        }
-                        style={{ marginTop: 8 }}
+                        className={shareResult.ok ? "pref-friends-success" : "pref-friends-error"}
+                        style={{ marginTop: 8, cursor: "pointer" }}
+                        onClick={() => setShareResult(null)}
                       >
                         {shareResult.msg}
                       </div>
+                    )}
+                    {friendsLoading ? (
+                      <div style={{ color: "#a89984", marginTop: 8 }}>Loading…</div>
+                    ) : friends.length === 0 ? (
+                      <div style={{ color: "#a89984", marginTop: 8 }}>
+                        No friends yet — add friends below first.
+                      </div>
                     ) : (
-                      <>
-                        {friendsLoading ? (
-                          <div
-                            className="pref-friends-error"
-                            style={{ color: "#a89984", marginTop: 8 }}
-                          >
-                            Loading…
-                          </div>
-                        ) : friends.length === 0 ? (
-                          <div
-                            className="pref-friends-error"
-                            style={{ color: "#a89984", marginTop: 8 }}
-                          >
-                            No friends yet — add friends below first.
-                          </div>
-                        ) : (
-                          <div
-                            className="pref-list"
-                            style={{
-                              marginTop: 8,
-                              marginLeft: -16,
-                              marginRight: -16,
-                            }}
-                          >
-                            {friends.map((f) => {
-                              const isSelected =
-                                shareTarget === f.user.username;
-                              return (
-                                <div
-                                  key={f.friendship_id}
-                                  className={`pref-list-item${isSelected ? " active" : ""}`}
-                                  onClick={() =>
-                                    setShareTarget(
-                                      isSelected ? null : f.user.username,
-                                    )
-                                  }
-                                >
-                                  <div className="pref-item-icon">
-                                    {(f.user.full_name ||
-                                      f.user.username ||
-                                      "?")[0].toUpperCase()}
-                                  </div>
-                                  <div className="pref-item-info">
-                                    <div className="pref-item-name">
-                                      {f.user.full_name || f.user.username}
-                                    </div>
-                                    <div className="pref-item-desc">
-                                      @{f.user.username}
-                                    </div>
-                                  </div>
-                                  {isSelected && (
-                                    <div className="pref-item-check checked">
-                                      <span className="pref-check-mark">✓</span>
-                                    </div>
-                                  )}
+                      <div className="pref-list" style={{ marginTop: 8, marginLeft: -16, marginRight: -16 }}>
+                        {friends.map((f) => {
+                          const uname = f.user.username ?? "";
+                          const isSelected = shareTargets.has(uname);
+                          const alreadyShared = chatShares.some((s) => s.username === uname);
+                          return (
+                            <div
+                              key={f.friendship_id}
+                              className={`pref-list-item${isSelected ? " active" : ""}${alreadyShared ? " pref-list-item--muted" : ""}`}
+                              onClick={() => {
+                                if (alreadyShared) return;
+                                setShareTargets((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(uname)) next.delete(uname);
+                                  else next.add(uname);
+                                  return next;
+                                });
+                              }}
+                            >
+                              <div className="pref-item-icon">
+                                {(f.user.full_name || f.user.username || "?")[0].toUpperCase()}
+                              </div>
+                              <div className="pref-item-info">
+                                <div className="pref-item-name">
+                                  {f.user.full_name || f.user.username}
                                 </div>
-                              );
-                            })}
-                          </div>
+                                <div className="pref-item-desc">@{f.user.username}</div>
+                              </div>
+                              {alreadyShared ? (
+                                <span className="pref-shared-badge">Shared</span>
+                              ) : isSelected ? (
+                                <div className="pref-item-check checked">
+                                  <span className="pref-check-mark">✓</span>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                      <button
+                        className="pref-name-save-btn"
+                        disabled={shareTargets.size === 0 || shareLoading}
+                        onClick={async () => {
+                          if (!shareTargets.size) return;
+                          setShareLoading(true);
+                          const failed: string[] = [];
+                          for (const uname of shareTargets) {
+                            try {
+                              await apiShareChat(shareChatId, uname);
+                            } catch (e: any) {
+                              failed.push(e.message || `@${uname}`);
+                            }
+                          }
+                          setShareTargets(new Set());
+                          setShareResult(
+                            failed.length === 0
+                              ? { ok: true, msg: `Shared with ${shareTargets.size > 1 ? `${shareTargets.size} friends` : `@${[...shareTargets][0]}`}` }
+                              : { ok: false, msg: failed.join(", ") },
+                          );
+                          loadChatShares();
+                          setShareLoading(false);
+                        }}
+                      >
+                        {shareLoading ? <span className="btn-spinner" /> : "Share"}
+                      </button>
+                    </div>
+
+                    {/* Currently shared with */}
+                    {(sharesLoading || chatShares.length > 0) && (
+                      <>
+                        <div className="pref-field-label" style={{ marginTop: 14 }}>Currently shared with</div>
+                        {sharesLoading ? (
+                          <div style={{ color: "#a89984", marginTop: 4, fontSize: "0.8rem" }}>Loading…</div>
+                        ) : (
+                          chatShares.map((s) => (
+                            <div key={s.username} className="pref-friends-row" style={{ marginTop: 4 }}>
+                              <div className="pref-item-icon">
+                                {(s.full_name || s.username || "?")[0].toUpperCase()}
+                              </div>
+                              <div className="pref-item-info">
+                                <div className="pref-item-name">{s.full_name || s.username}</div>
+                                <div className="pref-item-desc">@{s.username}</div>
+                              </div>
+                              <button
+                                className="pref-friends-decline-btn"
+                                onClick={() => handleRevokeShare(s.username)}
+                                disabled={revokingUsername === s.username}
+                                title="Revoke access"
+                              >
+                                {revokingUsername === s.username ? "…" : "✕"}
+                              </button>
+                            </div>
+                          ))
                         )}
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            marginTop: 10,
-                          }}
-                        >
-                          <button
-                            className="pref-name-save-btn"
-                            disabled={!shareTarget || shareLoading}
-                            onClick={async () => {
-                              if (!shareTarget) return;
-                              setShareLoading(true);
-                              try {
-                                await apiShareChat(shareChatId, shareTarget);
-                                setShareResult({
-                                  ok: true,
-                                  msg: `Shared with @${shareTarget}`,
-                                });
-                                setShareTarget(null);
-                              } catch (e: any) {
-                                setShareResult({
-                                  ok: false,
-                                  msg: e.message || "Failed to share",
-                                });
-                              } finally {
-                                setShareLoading(false);
-                              }
-                            }}
-                          >
-                            {shareLoading ? (
-                              <span className="btn-spinner" />
-                            ) : (
-                              "Share"
-                            )}
-                          </button>
-                        </div>
                       </>
                     )}
                   </div>
