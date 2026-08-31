@@ -1512,6 +1512,7 @@ function Chat({
             messageCount={messages.length}
             photoUploadEnabled={features.photo_upload ?? true}
             ragEnabled={features.rag ?? false}
+            quickModelsEnabled={features.quick_models ?? false}
             voiceActive={voice.isActive}
             voiceStatus={voice.status}
             voiceStatusLabel={voice.statusLabel}

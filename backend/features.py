@@ -4,7 +4,7 @@ Replaces the former database-backed feature_flags table and its admin UI.
 Flags are read once at import time; change a value in .env and restart.
 """
 from config import (
-    ENABLE_ACTIONS, ENABLE_PHOTO_UPLOAD, ENABLE_RAG,
+    ENABLE_ACTIONS, ENABLE_PHOTO_UPLOAD, ENABLE_RAG, ENABLE_QUICK_MODELS,
     GUEST_ENABLE_ACTIONS, GUEST_ENABLE_PHOTO_UPLOAD,
 )
 
@@ -14,6 +14,7 @@ _AUTHENTICATED = {
     "actions":      ENABLE_ACTIONS,
     "photo_upload": ENABLE_PHOTO_UPLOAD,
     "rag":          ENABLE_RAG,
+    "quick_models": ENABLE_QUICK_MODELS,
 }
 
 # Guests have no chat records, so RAG (which is scoped to a stored chat) is never available.
@@ -21,6 +22,7 @@ _GUEST = {
     "actions":      GUEST_ENABLE_ACTIONS,
     "photo_upload": GUEST_ENABLE_PHOTO_UPLOAD,
     "rag":          False,
+    "quick_models": ENABLE_QUICK_MODELS,
 }
 
 

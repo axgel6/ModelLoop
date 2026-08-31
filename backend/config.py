@@ -37,6 +37,10 @@ ENABLE_ACTIONS            = _env_bool("ENABLE_ACTIONS", True)
 ENABLE_PHOTO_UPLOAD       = _env_bool("ENABLE_PHOTO_UPLOAD", True)
 ENABLE_RAG                = _env_bool("ENABLE_RAG", True)
 
+# Quick model switcher (the Fast / Pro / Thinking dropdown in the composer toolbar).
+# Applies to guests and signed-in users alike. Off by default.
+ENABLE_QUICK_MODELS       = _env_bool("ENABLE_QUICK_MODELS", False)
+
 # Guest access (the "try it without an account" flow on the login screen)
 ENABLE_GUEST_CHAT         = _env_bool("ENABLE_GUEST_CHAT", True)
 GUEST_ENABLE_ACTIONS      = _env_bool("GUEST_ENABLE_ACTIONS", False)

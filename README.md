@@ -167,6 +167,7 @@ Frontend runs on `http://localhost:5173` by default.
 | `ENABLE_ACTIONS`          | —        | `true`                  | Tool-calling actions (web search)                                           |
 | `ENABLE_PHOTO_UPLOAD`     | —        | `true`                  | Image attachments analyzed by `VISION_MODEL`                                |
 | `ENABLE_RAG`              | —        | `true`                  | Document upload and retrieval                                               |
+| `ENABLE_QUICK_MODELS`     | —        | `false`                 | Fast / Pro / Thinking model switcher in the composer toolbar                |
 | `ENABLE_GUEST_CHAT`       | —        | `true`                  | Anonymous chat without an account                                           |
 | `GUEST_ENABLE_ACTIONS`    | —        | `false`                 | Whether guests may use tools                                                |
 | `GUEST_ENABLE_PHOTO_UPLOAD` | —      | `true`                  | Whether guests may attach images                                            |

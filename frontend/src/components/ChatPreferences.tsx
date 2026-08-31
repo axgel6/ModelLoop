@@ -106,6 +106,30 @@ const PRESETS: { label: string; description: string; prompt: string }[] = [
   },
 ];
 
+// Plain-language explanations for the Generation sliders, shown by the (i) toggles.
+const GENERATION_INFO: Record<string, { title: string; body: string }> = {
+  temperature: {
+    title: "Temperature",
+    body:
+      "Controls how random the model's word choices are. Low values (0.0 to 0.3) keep replies focused and repeatable, so the same question returns nearly the same answer every time. High values (1.2 and above) make replies more varied and creative, but also more likely to wander off topic or invent details. 0.7 is a balanced default.",
+  },
+  topP: {
+    title: "Top P",
+    body:
+      "Also called nucleus sampling. Before choosing each word, the model ranks every candidate by probability and keeps only the smallest group whose combined probability reaches this value. At 0.9 it considers the most likely 90 percent and discards the long tail. Lowering it restricts the model to safe, predictable words; raising it toward 1.0 lets rare words back in, adding variety and risk. It works alongside Temperature: Temperature reshapes the odds, Top P trims the shortlist.",
+  },
+  numPredict: {
+    title: "Max Tokens",
+    body:
+      "A hard cap on the length of a single reply. One token is roughly three quarters of a word. Left unlimited, the model stops when it judges the answer complete. Set a number and the reply is cut off once it reaches that many tokens, even mid sentence, which is useful for keeping answers short or bounding how long a response can take.",
+  },
+  speechRate: {
+    title: "Voice Speed",
+    body:
+      "Playback rate for spoken replies in voice mode. 1.0 is the speech engine's natural pace, 0.5 plays at half speed, and 2.0 at double. This only affects how a reply is read aloud. It does not change the wording the model generates.",
+  },
+};
+
 export type Section =
   | "model"
   | "presets"
@@ -165,6 +189,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [activeSection, setActiveSection] = useState<Section>(
     initialSection ?? "model",
   );
+  const [openInfo, setOpenInfo] = useState<string | null>(null);
   const [modelSearch, setModelSearch] = useState("");
   const [presetSearch, setPresetSearch] = useState("");
   const [userInfo, setUserInfo] = useState<{
@@ -184,6 +209,25 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       })
       .catch(() => {});
   }, []);
+
+  // (i) toggle beside a Generation label, plus the panel it reveals
+  const infoButton = (id: string) => (
+    <button
+      type="button"
+      className={`pref-info-btn${openInfo === id ? " active" : ""}`}
+      aria-expanded={openInfo === id}
+      aria-label={`What does ${GENERATION_INFO[id].title} do?`}
+      title={`What does ${GENERATION_INFO[id].title} do?`}
+      onClick={() => setOpenInfo((prev) => (prev === id ? null : id))}
+    >
+      i
+    </button>
+  );
+
+  const infoPanel = (id: string) =>
+    openInfo === id ? (
+      <div className="pref-info-panel">{GENERATION_INFO[id].body}</div>
+    ) : null;
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
@@ -395,7 +439,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             <div className="pref-settings-area">
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
-                  <div className="pref-setting-label">Temperature</div>
+                  <div className="pref-setting-label">
+                    Temperature
+                    {infoButton("temperature")}
+                  </div>
                   <div className="pref-setting-hint">{tempLabel}</div>
                 </div>
                 <span className="pref-temp-value">
@@ -416,12 +463,16 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span>1.0</span>
                 <span>2.0</span>
               </div>
+              {infoPanel("temperature")}
 
               <div className="pref-setting-divider" />
 
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
-                  <div className="pref-setting-label">Top P</div>
+                  <div className="pref-setting-label">
+                    Top P
+                    {infoButton("topP")}
+                  </div>
                   <div className="pref-setting-hint">
                     {topP <= 0.5
                       ? "Narrow - only high-probability tokens"
@@ -448,12 +499,16 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span>0.5</span>
                 <span>1.0</span>
               </div>
+              {infoPanel("topP")}
 
               <div className="pref-setting-divider" />
 
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
-                  <div className="pref-setting-label">Max Tokens</div>
+                  <div className="pref-setting-label">
+                    Max Tokens
+                    {infoButton("numPredict")}
+                  </div>
                   <div className="pref-setting-hint">
                     {numPredict === -1
                       ? "Unlimited - model decides when to stop (Default)"
@@ -482,12 +537,16 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span>4096</span>
                 <span>8192</span>
               </div>
+              {infoPanel("numPredict")}
 
               <div className="pref-setting-divider" />
 
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
-                  <div className="pref-setting-label">Voice Speed</div>
+                  <div className="pref-setting-label">
+                    Voice Speed
+                    {infoButton("speechRate")}
+                  </div>
                   <div className="pref-setting-hint">
                     {speechRate <= 0.7
                       ? "Slow — easier to follow"
@@ -518,6 +577,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span>1.0×</span>
                 <span>2.0×</span>
               </div>
+              {infoPanel("speechRate")}
             </div>
           </>
         );

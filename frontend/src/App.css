@@ -4447,6 +4447,67 @@ html[data-theme="ocean"] .scroll-to-bottom-btn:hover {
   font-size: 0.9rem;
   font-weight: 600;
   color: #fbf1c7;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ---- Generation setting explanations ---- */
+
+.pref-info-btn {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid #665c54;
+  border-radius: 50%;
+  background: transparent;
+  color: #a89984;
+  font-family: var(--ui-font);
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.pref-info-btn:hover {
+  border-color: #fabd2f;
+  color: #fabd2f;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pref-info-btn.active {
+  border-color: #fabd2f;
+  color: #fabd2f;
+}
+
+/* Each theme paints every <button> with a solid fill via html[data-theme] button,
+   which outranks the class above. Re-assert outline-only at higher specificity. */
+html[data-theme] .pref-info-btn,
+html[data-theme] .pref-info-btn:hover,
+html[data-theme] .pref-info-btn.active {
+  background: transparent;
+  box-shadow: none;
+}
+
+.pref-info-panel {
+  margin-top: -8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(60, 56, 54, 0.45);
+  color: #bdae93;
+  font-size: 0.76rem;
+  line-height: 1.55;
 }
 
 .pref-setting-hint {
@@ -5075,6 +5136,22 @@ html[data-theme="dune"] .pref-setting-label {
 
 html[data-theme="dune"] .pref-setting-hint {
   color: #78716c;
+}
+
+html[data-theme="dune"] .pref-info-btn {
+  border-color: #c7bdb1;
+  color: #78716c;
+}
+
+html[data-theme="dune"] .pref-info-btn:hover,
+html[data-theme="dune"] .pref-info-btn.active {
+  border-color: #c96344;
+  color: #c96344;
+}
+
+html[data-theme="dune"] .pref-info-panel {
+  background: rgba(28, 25, 23, 0.05);
+  color: #57534e;
 }
 
 html[data-theme="dune"] .pref-setting-section-label {
@@ -5890,6 +5967,22 @@ html[data-theme="ocean"] .pref-setting-label {
 
 html[data-theme="ocean"] .pref-setting-hint {
   color: #5a7aa0;
+}
+
+html[data-theme="ocean"] .pref-info-btn {
+  border-color: rgba(70, 110, 170, 0.45);
+  color: #5a7aa0;
+}
+
+html[data-theme="ocean"] .pref-info-btn:hover,
+html[data-theme="ocean"] .pref-info-btn.active {
+  border-color: #7fb3d5;
+  color: #7fb3d5;
+}
+
+html[data-theme="ocean"] .pref-info-panel {
+  background: rgba(70, 110, 170, 0.1);
+  color: #9bb4cc;
 }
 
 html[data-theme="ocean"] .pref-setting-section-label {

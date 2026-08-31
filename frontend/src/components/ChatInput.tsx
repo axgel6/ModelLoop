@@ -31,6 +31,7 @@ interface ChatInputProps {
   onDocDelete?: (docId: string) => void;
   photoUploadEnabled?: boolean;
   ragEnabled?: boolean;
+  quickModelsEnabled?: boolean;
   estimatedTokens?: number;
   messageCount?: number;
   voiceActive?: boolean;
@@ -58,6 +59,7 @@ function ChatInput({
   onDocDelete,
   photoUploadEnabled = true,
   ragEnabled = false,
+  quickModelsEnabled = false,
   estimatedTokens = 0,
   messageCount = 0,
   voiceActive = false,
@@ -663,7 +665,7 @@ function ChatInput({
           </div>
 
           <div className="toolbar-right">
-            {setSelectedModel && (
+            {setSelectedModel && quickModelsEnabled && (
               <div className="tools-dropdown-wrapper" ref={modelDropdownRef}>
                 <button
                   className="toolbar-chip-btn"
