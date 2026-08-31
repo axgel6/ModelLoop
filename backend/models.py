@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Integer, UniqueConstraint, Index
+from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Integer
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -7,21 +7,6 @@ from database import Base
 from typing import Optional
 import uuid
 
-
-# ----- Feature Flag Model -----
-
-# Admin-controlled toggles that gate features per role (free / pro / admin)
-class FeatureFlag(Base):
-    __tablename__ = "feature_flags"
-
-    id:            Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    name:          Mapped[str]       = mapped_column(String(50), unique=True, nullable=False, index=True)
-    description:   Mapped[str]       = mapped_column(Text, nullable=True)
-    guest_enabled: Mapped[bool]      = mapped_column(Boolean, nullable=False, default=False)
-    free_enabled:  Mapped[bool]      = mapped_column(Boolean, nullable=False, default=False)
-    pro_enabled:   Mapped[bool]      = mapped_column(Boolean, nullable=False, default=True)
-    admin_enabled: Mapped[bool]      = mapped_column(Boolean, nullable=False, default=True)
-    updated_at:    Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 # ----- User Model -----
 
@@ -31,11 +16,8 @@ class User(Base):
 
     id:               Mapped[uuid.UUID]      = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
     email:            Mapped[str]            = mapped_column(String, unique=True, nullable=False)
-    username:         Mapped[Optional[str]]  = mapped_column(String(30), unique=True, nullable=True, index=True)
     full_name:        Mapped[Optional[str]]  = mapped_column(String(120), nullable=False)
     password_hash:    Mapped[str]            = mapped_column(Text, nullable=False)
-    role:             Mapped[str]            = mapped_column(String(10), nullable=False, server_default="free")
-    is_active:        Mapped[bool]           = mapped_column(Boolean, nullable=False, server_default="true")
     theme:            Mapped[str]            = mapped_column(String(20), nullable=False, server_default="ocean")
     font:             Mapped[str]            = mapped_column(String(20), nullable=False, server_default="mono")
     personal_context: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
@@ -114,52 +96,3 @@ class DocumentChunk(Base):
     content:     Mapped[str]       = mapped_column(Text, nullable=False)
     embedding:   Mapped[list]      = mapped_column(JSON, nullable=False)
     document:    Mapped["Document"] = relationship(back_populates="chunks")
-
-# ----- Friendship Model -----
-
-class Friendship(Base):
-    __tablename__ = "friendships"
-    __table_args__ = (
-        UniqueConstraint("requester_id", "addressee_id", name="uq_friendship_pair"),
-    )
-
-    id:           Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    requester_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    addressee_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    # pending = request sent, not yet accepted; accepted = both are friends
-    status:       Mapped[str]       = mapped_column(String(10), nullable=False, default="pending")
-    created_at:   Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    requester: Mapped["User"] = relationship(foreign_keys=[requester_id])
-    addressee: Mapped["User"] = relationship(foreign_keys=[addressee_id])
-
-# ----- Shared Chat Model -----
-
-class SharedChat(Base):
-    __tablename__ = "shared_chats"
-    __table_args__ = (
-        UniqueConstraint("chat_id", "to_user_id", name="uq_shared_chat_recipient"),
-    )
-
-    id:           Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    chat_id:      Mapped[uuid.UUID] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
-    from_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    to_user_id:   Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    shared_at:    Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    chat:      Mapped["Chat"] = relationship(foreign_keys=[chat_id])
-    from_user: Mapped["User"] = relationship(foreign_keys=[from_user_id])
-    to_user:   Mapped["User"] = relationship(foreign_keys=[to_user_id])
-
-# ----- Audit Log Model -----
-
-# Logs all admin actions and system events for compliance and debugging
-class AuditLog(Base):
-    __tablename__ = "audit_logs"
-
-    id:         Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    admin_id:   Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    action:     Mapped[str]       = mapped_column(String(50), nullable=False, index=True)  # e.g., "set_role", "delete_user", "login_failed", "rate_limit"
-    target_id:  Mapped[Optional[uuid.UUID]] = mapped_column(String(36), nullable=True, index=True)  # user/chat/doc/message being affected
-    details:    Mapped[dict]      = mapped_column(JSON, nullable=False)  # structured data: {old_value, new_value, ip, reason, etc.}
-    created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

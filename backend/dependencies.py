@@ -12,27 +12,16 @@ def _get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-async def get_active_user(
+async def get_user(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if not user or not user.is_active:
-        raise HTTPException(status_code=403, detail="Account access has been disabled")
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     return user
 
 
-async def get_active_user_id(user: User = Depends(get_active_user)) -> str:
+async def get_user_id(user: User = Depends(get_user)) -> str:
     return str(user.id)
-
-
-async def require_admin(
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-) -> str:
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user or user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return user_id

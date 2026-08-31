@@ -6,10 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Chat, Document, DocumentChunk, User
-from dependencies import get_active_user_id
+from models import Chat, Document, DocumentChunk
+from dependencies import get_user_id
 from rag import chunk_text, get_embedding
-from feature_flags import is_feature_enabled
+from features import is_feature_enabled
 from config import MAX_UPLOAD_BYTES
 
 logger = logging.getLogger(__name__)
@@ -20,15 +20,11 @@ router = APIRouter(tags=["documents"])
 async def upload_document(
     chat_id: str,
     file: UploadFile = File(...),
-    user_id: str = Depends(get_active_user_id),
+    user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    user = user_result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    if not await is_feature_enabled("rag", user.role, db):
-        raise HTTPException(status_code=403, detail="Document upload is not available on your plan")
+    if not is_feature_enabled("rag"):
+        raise HTTPException(status_code=403, detail="Document upload is disabled")
 
     result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
     if not result.scalar_one_or_none():
@@ -92,7 +88,7 @@ async def upload_document(
 @router.get("/api/v1/chats/{chat_id}/documents")
 async def list_documents(
     chat_id: str,
-    user_id: str = Depends(get_active_user_id),
+    user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import func as sqlfunc
@@ -130,7 +126,7 @@ async def list_documents(
 @router.delete("/api/v1/documents/{doc_id}", status_code=204)
 async def delete_document(
     doc_id: str,
-    user_id: str = Depends(get_active_user_id),
+    user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Document).where(Document.id == doc_id, Document.user_id == user_id))

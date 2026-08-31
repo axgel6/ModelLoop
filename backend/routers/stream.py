@@ -15,14 +15,15 @@ from typing import Optional
 from database import get_db, AsyncSessionLocal
 from models import User, Chat, Message
 from schemas import ChatRequest, GuestChatRequest
-from dependencies import get_active_user
+from dependencies import get_user
 from rag import retrieve_rag_context
-from feature_flags import get_features_for_role
+from features import get_features
 import config as _config
 from config import (
     IS_PRODUCTION, NGROK_HEADERS,
-    PRO_SYSTEM_PROMPT, FREE_SYSTEM_PROMPT, PROPRIETARY_INSTRUCTIONS,
+    SYSTEM_PROMPT_WITH_TOOLS, SYSTEM_PROMPT_NO_TOOLS, PROPRIETARY_INSTRUCTIONS,
     THINKING_MODELS, TOOL_CAPABLE_MODELS, NO_SYSTEM_PROMPT_MODELS, API_KEY,
+    ENABLE_GUEST_CHAT, CHAT_RATE_LIMIT, GUEST_CHAT_RATE_LIMIT, GUEST_CHAT_DAILY_LIMIT,
     fix_math_delimiters,
 )
 from actions import execute_tool, get_active_tools
@@ -31,7 +32,6 @@ from actions.web_search import (
     should_activate as _web_search_should_activate,
     accept_language_to_region as _accept_language_to_region,
 )
-from auth import decode_token_role
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["stream"])
@@ -47,12 +47,6 @@ def _chat_key(request: Request) -> str:
     return (request.headers.get("Authorization") or "").removeprefix("Bearer ").strip() or get_remote_address(request)
 
 limiter = Limiter(key_func=_chat_key)
-
-_RATE_LIMITS = {"pro": "30/minute", "admin": "30/minute"}
-
-def _chat_rate_limit(key: str) -> str:
-    role = decode_token_role(key) if key else "free"
-    return _RATE_LIMITS.get(role, "10/minute")
 
 _PRONOUN_RE = re.compile(r'\b(his|her|their|he|she|they|him|them|its|it)\b', re.IGNORECASE)
 _PROPER_NOUN_RE = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b')
@@ -86,17 +80,17 @@ def _resolve_search_query(prompt: str, history) -> str:
     recent_history = list(reversed(history[-10:]))
     # First pass: user messages without pronouns
     for msg in recent_history:
-        if msg.role != "user" or _PRONOUN_RE.search(msg.content):
+        if msg["role"] != "user" or _PRONOUN_RE.search(msg["content"]):
             continue
-        names = [n for n in _PROPER_NOUN_RE.findall(msg.content)
+        names = [n for n in _PROPER_NOUN_RE.findall(msg["content"])
                  if n.lower() not in _QUESTION_WORDS]
         if names:
             return _PRONOUN_RE.sub(names[-1], prompt)
     # Second pass: assistant messages, better capitalized, often name the subject clearly
     for msg in recent_history:
-        if msg.role != "assistant":
+        if msg["role"] != "assistant":
             continue
-        names = [n for n in _PROPER_NOUN_RE.findall(msg.content)
+        names = [n for n in _PROPER_NOUN_RE.findall(msg["content"])
                  if n.lower() not in _QUESTION_WORDS and len(n) > 3]
         if names:
             return _PRONOUN_RE.sub(names[0], prompt)
@@ -165,54 +159,51 @@ async def _ollama_stream(messages: list, model: str, temperature: float, top_p: 
                     continue
 
 
-@router.post("/api/v1/chat/stream")
-@limiter.limit(_chat_rate_limit)
-async def chat_stream(
-    request: Request,
-    body: ChatRequest,
-    user: User = Depends(get_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    prompt   = body.prompt.strip()
-    model    = (body.model or _config.DEFAULT_MODEL).strip()
-    user_id  = str(user.id)
-    role     = user.role
 
-    chat_result = await db.execute(select(Chat).where(Chat.id == body.chat_id, Chat.user_id == user_id))
-    chat = chat_result.scalar_one_or_none()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
 
-    msgs_result, feature_map = await asyncio.gather(
-        db.execute(
-            select(Message)
-            .where(Message.chat_id == body.chat_id)
-            .order_by(Message.created_at.desc(), Message.role.asc())
-            .limit(20)
-        ),
-        get_features_for_role(["actions", "photo_upload", "rag"], role, db),
-    )
-    db_history = list(reversed(msgs_result.scalars().all()))
+# ---------------------------------------------------------------------------
+# Shared streaming core.
+#
+# Both the authenticated and the guest endpoint funnel through this. The only
+# differences are carried by `user` and `chat`: when they are None the caller is
+# a guest, which means history comes from the request body instead of the
+# database, RAG is unavailable, operator instructions are not appended, and
+# nothing is persisted when the stream finishes.
+# ---------------------------------------------------------------------------
+async def _chat_stream_response(
+    *,
+    prompt: str,
+    model: str,
+    history: list[dict],
+    system_prompt: Optional[str],
+    temperature: float,
+    top_p: float,
+    num_predict: int,
+    images: list[str],
+    features: dict[str, bool],
+    force_search: bool,
+    search_region: str,
+    db: AsyncSession,
+    user: Optional[User] = None,
+    chat: Optional[Chat] = None,
+) -> StreamingResponse:
+    is_guest = user is None
 
-    # Determine capabilities based on feature flags
-    actions_enabled = feature_map["actions"]
-    photo_enabled   = feature_map["photo_upload"]
-    rag_enabled     = feature_map["rag"]
+    actions_enabled = features["actions"]
+    photo_enabled   = features["photo_upload"]
+    rag_enabled     = features["rag"] and not is_guest
 
-    system_prompt_default = PRO_SYSTEM_PROMPT if actions_enabled else FREE_SYSTEM_PROMPT
-    system_prompt = body.system_prompt or system_prompt_default
-
-    images = body.images or []
     if images and not photo_enabled:
-        raise HTTPException(status_code=403, detail="Image upload is not available on your plan")
+        raise HTTPException(status_code=403, detail="Image upload is disabled")
 
-    search_region = _accept_language_to_region(request.headers.get("accept-language", ""))
+    system_prompt = system_prompt or (SYSTEM_PROMPT_WITH_TOOLS if actions_enabled else SYSTEM_PROMPT_NO_TOOLS)
 
     if actions_enabled:
         active_tools = get_active_tools(prompt)
         _search_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
-        _run_search = body.force_search or (_web_search_should_activate(prompt, _search_words) and bool(active_tools))
-        proactive_search_enabled = bool(_run_search)
+        proactive_search_enabled = bool(
+            force_search or (_web_search_should_activate(prompt, _search_words) and bool(active_tools))
+        )
     else:
         active_tools = []
         proactive_search_enabled = False
@@ -225,7 +216,7 @@ async def chat_stream(
             return None
         try:
             return json.loads(await _run_web_search_async(
-                {"query": _resolve_search_query(prompt, db_history), "max_results": 5, "_region": search_region}
+                {"query": _resolve_search_query(prompt, history), "max_results": 5, "_region": search_region}
             ))
         except Exception as _e:
             logger.warning("proactive_web_search_failed error=%s", str(_e))
@@ -234,7 +225,7 @@ async def chat_stream(
     async def _rag_task():
         if not rag_enabled:
             return ""
-        return await retrieve_rag_context(body.chat_id, user_id, prompt, db)
+        return await retrieve_rag_context(str(chat.id), str(user.id), prompt, db)
 
     image_context, rag_context, _search_data = await asyncio.gather(
         _image_description(),
@@ -252,29 +243,31 @@ async def chat_stream(
             + "\n</rag_context>"
         )
 
-    if user.personal_context:
+    if user and user.personal_context:
         effective_system += f"\n\n<user_context>\n{user.personal_context}\n</user_context>"
 
-    if PROPRIETARY_INSTRUCTIONS and not _is_thinking_model(model):
+    if not is_guest and PROPRIETARY_INSTRUCTIONS and not _is_thinking_model(model):
         effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
+
+    full_name = user.full_name if user else None
 
     messages = []
     if not _skip_system_prompt(model):
         messages.append({"role": "system", "content": effective_system})
-        if user.full_name:
-            messages.append({"role": "user", "content": f"My name is {user.full_name}."})
-            messages.append({"role": "assistant", "content": f"Hello, {user.full_name.split()[0]}! How can I help you today?"})
+        if full_name:
+            messages.append({"role": "user", "content": f"My name is {full_name}."})
+            messages.append({"role": "assistant", "content": f"Hello, {full_name.split()[0]}! How can I help you today?"})
         else:
             messages.append({"role": "assistant", "content": "Hello! How can I help you today?"})
         messages.append({"role": "user", "content": "qwzxqwzxqwzxqwzx"})
         messages.append({"role": "assistant", "content": "I'm not sure what you meant, could you rephrase that?"})
-    for m in db_history:
-        content = m.content
-        if m.role == "user" and m.image_context:
-            content = f"<image_context>\n{m.image_context}\n</image_context>\n\n{content}"
-        if m.role == "user" and m.search_context:
-            content = f"<search_results>\n{m.search_context}\n</search_results>\n\n{content}"
-        messages.append({"role": m.role, "content": content})
+    for m in history:
+        content = m["content"]
+        if m["role"] == "user" and m.get("image_context"):
+            content = f"<image_context>\n{m['image_context']}\n</image_context>\n\n{content}"
+        if m["role"] == "user" and m.get("search_context"):
+            content = f"<search_results>\n{m['search_context']}\n</search_results>\n\n{content}"
+        messages.append({"role": m["role"], "content": content})
 
     user_content = prompt
     if image_context:
@@ -306,11 +299,8 @@ async def chat_stream(
             f"{last_msg['content']}"
         )
 
-    chat_id     = body.chat_id
-    chat_title  = chat.title
-    temperature = body.temperature or 0.7
-    top_p       = body.top_p if body.top_p is not None else 0.9
-    num_predict = body.num_predict if body.num_predict is not None else -1
+    chat_id    = str(chat.id) if chat else None
+    chat_title = chat.title if chat else None
 
     async def generate():
         full_response = ""
@@ -465,25 +455,27 @@ async def chat_stream(
 
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-                try:
-                    async with AsyncSessionLocal() as write_db:
-                        # Insert both messages in the same flush as the chat UPDATE;
-                        # avoids a redundant SELECT to re-fetch a row we already own.
-                        write_db.add(Message(
-                            chat_id=chat_id, role="user", content=prompt,
-                            images=images or None, image_context=image_context or None,
-                            search_context=_search_ctx,
-                        ))
-                        write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
-                        chat_update: dict = {"updated_at": datetime.now(timezone.utc)}
-                        if chat_title == "New Chat":
-                            chat_update["title"] = prompt[:60]
-                        await write_db.execute(
-                            update(Chat).where(Chat.id == chat_id).values(**chat_update)
-                        )
-                        await write_db.commit()
-                except Exception as db_err:
-                    logger.error('db_save_error chat_id=%s error=%s', chat_id, str(db_err))
+                # Guests have no chat record, so their turns are never persisted.
+                if chat_id:
+                    try:
+                        async with AsyncSessionLocal() as write_db:
+                            # Insert both messages in the same flush as the chat UPDATE;
+                            # avoids a redundant SELECT to re-fetch a row we already own.
+                            write_db.add(Message(
+                                chat_id=chat_id, role="user", content=prompt,
+                                images=images or None, image_context=image_context or None,
+                                search_context=_search_ctx,
+                            ))
+                            write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
+                            chat_update: dict = {"updated_at": datetime.now(timezone.utc)}
+                            if chat_title == "New Chat":
+                                chat_update["title"] = prompt[:60]
+                            await write_db.execute(
+                                update(Chat).where(Chat.id == chat_id).values(**chat_update)
+                            )
+                            await write_db.commit()
+                    except Exception as db_err:
+                        logger.error('db_save_error chat_id=%s error=%s', chat_id, str(db_err))
             else:
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
 
@@ -499,102 +491,78 @@ async def chat_stream(
     )
 
 
+@router.post("/api/v1/chat/stream")
+@limiter.limit(CHAT_RATE_LIMIT)
+async def chat_stream(
+    request: Request,
+    body: ChatRequest,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    chat_result = await db.execute(select(Chat).where(Chat.id == body.chat_id, Chat.user_id == str(user.id)))
+    chat = chat_result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    msgs_result = await db.execute(
+        select(Message)
+        .where(Message.chat_id == body.chat_id)
+        .order_by(Message.created_at.desc(), Message.role.asc())
+        .limit(20)
+    )
+    history = [
+        {
+            "role":           m.role,
+            "content":        m.content,
+            "image_context":  m.image_context,
+            "search_context": m.search_context,
+        }
+        for m in reversed(msgs_result.scalars().all())
+    ]
+
+    return await _chat_stream_response(
+        prompt=body.prompt.strip(),
+        model=(body.model or _config.DEFAULT_MODEL).strip(),
+        history=history,
+        system_prompt=body.system_prompt,
+        temperature=body.temperature or 0.7,
+        top_p=body.top_p if body.top_p is not None else 0.9,
+        num_predict=body.num_predict if body.num_predict is not None else -1,
+        images=body.images or [],
+        features=get_features(guest=False),
+        force_search=bool(body.force_search),
+        search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
+        db=db,
+        user=user,
+        chat=chat,
+    )
+
+
 @router.post("/api/v1/chat/guest/stream")
-@limiter.limit("5/minute")
-@limiter.limit("50/day", error_message="Daily guest limit reached")
+@limiter.limit(GUEST_CHAT_RATE_LIMIT)
+@limiter.limit(GUEST_CHAT_DAILY_LIMIT, error_message="Daily guest limit reached")
 async def guest_chat_stream(
     request: Request,
     body: GuestChatRequest,
     x_api_key: str = Header(None),
     db: AsyncSession = Depends(get_db),
 ):
+    if not ENABLE_GUEST_CHAT:
+        raise HTTPException(status_code=403, detail="Guest chat is disabled")
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized access")
 
-    prompt = body.prompt.strip()
-    model  = (body.model or _config.DEFAULT_MODEL).strip()
-    
-    feature_map     = await get_features_for_role(["actions", "photo_upload"], "guest", db)
-    actions_enabled = feature_map["actions"]
-    photo_enabled   = feature_map["photo_upload"]
-    system_prompt_default = PRO_SYSTEM_PROMPT if actions_enabled else FREE_SYSTEM_PROMPT
-    system_prompt = body.system_prompt or system_prompt_default
-    images = body.images or []
-    if images and not photo_enabled:
-        raise HTTPException(status_code=403, detail="Image upload is not available")
-
-    _guest_search_region = _accept_language_to_region(request.headers.get("accept-language", ""))
-    _guest_search_words  = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
-    _guest_run_search    = _web_search_should_activate(prompt, _guest_search_words) if actions_enabled else False
-
-    async def _guest_image_description():
-        return await _describe_images(images) if images else ""
-
-    async def _guest_web_search_task():
-        if not _guest_run_search:
-            return None
-        try:
-            return json.loads(await _run_web_search_async(
-                {"query": _resolve_search_query(prompt, body.messages), "max_results": 8, "_region": _guest_search_region}
-            ))
-        except Exception as _e:
-            logger.warning("guest_proactive_web_search_failed error=%s", str(_e))
-            return None
-
-    image_context, _guest_search_data = await asyncio.gather(
-        _guest_image_description(),
-        _guest_web_search_task(),
-    )
-
-    messages = []
-    if not _skip_system_prompt(model):
-        messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "assistant", "content": "Hello! How can I help you today?"})
-        messages.append({"role": "user", "content": "qwzxqwzxqwzxqwzx"})
-        messages.append({"role": "assistant", "content": "I'm not sure what you meant, could you rephrase that?"})
-    messages.extend({"role": m.role, "content": m.content} for m in body.messages)
-
-    guest_user_content = prompt
-    if image_context:
-        guest_user_content = f"<image_context>\n{image_context}\n</image_context>\n\n{prompt}"
-    guest_user_msg: dict = {"role": "user", "content": guest_user_content}
-    if images:
-        guest_user_msg["images"] = images
-    messages.append(guest_user_msg)
-
-    if _guest_search_data and _guest_search_data.get("results"):
-        _guest_search_block = "\n\n".join(
-            f"**{r['title']}** ({r['url']})\n{r['snippet']}"
-            for r in _guest_search_data["results"]
-        )
-        messages[-1]["content"] = (
-            f"<search_results date=\"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}\">\n"
-            f"{_guest_search_block}\n"
-            f"</search_results>\n\n"
-            f"{messages[-1]['content']}"
-        )
-    elif _guest_run_search:
-        messages[-1]["content"] = (
-            f"[Web search returned no results. Do not invent URLs or claim to have retrieved live data.]\n\n"
-            f"{messages[-1]['content']}"
-        )
-
-    async def generate():
-        try:
-            async for chunk in _ollama_stream(messages, model, body.temperature or 0.7, top_p=body.top_p if body.top_p is not None else 0.9, num_predict=body.num_predict if body.num_predict is not None else -1):
-                token = chunk.get("message", {}).get("content", "")
-                if token:
-                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
-                if chunk.get("done"):
-                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                    break
-        except Exception as e:
-            logger.error('guest_stream_error model=%s error=%s', model, str(e))
-            msg = str(e) if not IS_PRODUCTION else "An error occurred"
-            yield f"data: {json.dumps({'type': 'error', 'error': msg})}\n\n"
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    return await _chat_stream_response(
+        prompt=body.prompt.strip(),
+        model=(body.model or _config.DEFAULT_MODEL).strip(),
+        history=[{"role": m.role, "content": m.content} for m in body.messages],
+        system_prompt=body.system_prompt,
+        temperature=body.temperature or 0.7,
+        top_p=body.top_p if body.top_p is not None else 0.9,
+        num_predict=body.num_predict if body.num_predict is not None else -1,
+        images=body.images or [],
+        features=get_features(guest=True),
+        force_search=False,
+        search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
+        db=db,
     )

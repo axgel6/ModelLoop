@@ -24,7 +24,6 @@ A self-hosted AI chat interface powered by Ollama. Full-featured conversational 
 ### External Tools
 
 - **Web search** — Real-time DuckDuckGo results (current events, news, prices, weather)
-- **Current time** — UTC date/time + ISO8601 for time-dependent queries
 - **Extensible** — Architecture supports adding custom tools
 
 ### Advanced Features
@@ -32,7 +31,7 @@ A self-hosted AI chat interface powered by Ollama. Full-featured conversational 
 - **Document upload & RAG** — Upload files (10 MB limit), chunked embeddings, semantic search
 - **Image support** — Upload images, vision model analysis with context preservation
 - **Rate limiting** — IP-based protection against API abuse
-- **Audit logging** — Compliance tracking for admin actions & events
+- **Feature gates** — Env vars toggle actions, image upload, RAG, and guest chat
 - **Thinking models** — Auto-detect reasoning models (deepseek-r1, etc.)
 - **Theme system** — Gruvbox Dark & Ocean Glass themes with persistent preferences
 - **Keyboard shortcuts** — Esc to close modals, quick navigation
@@ -55,15 +54,12 @@ ModelLoop/
 │   ├── server.py                    # FastAPI app, routes, SSE streaming
 │   ├── auth.py                      # JWT tokens, password hashing, auth deps
 │   ├── database.py                  # Async SQLAlchemy engine & session
-│   ├── models.py                    # ORM: User, Chat, Message, Document, AuditLog
+│   ├── models.py                    # ORM: User, Chat, Message, Document
+│   ├── features.py                  # Env-var feature gates
 │   ├── requirements.txt
-│   ├── tests/
-│   │   ├── conftest.py
-│   │   └── test_server.py
 │   ├── actions/
 │   │   ├── __init__.py              # Tool registry & executor
-│   │   ├── web_search.py            # DuckDuckGo integration
-│   │   └── get_time.py              # UTC time endpoint
+│   │   └── web_search.py            # DuckDuckGo integration
 │   └── .env                         # Config (JWT_SECRET, DATABASE_URL, OLLAMA_URL, etc.)
 ├── frontend/
 │   ├── src/
@@ -166,8 +162,17 @@ Frontend runs on `http://localhost:5173` by default.
 | `JWT_EXPIRE_MINUTES`      | —        | `15`                    | Access token lifetime                                                       |
 | `JWT_REFRESH_EXPIRE_DAYS` | —        | `30`                    | Refresh token lifetime                                                      |
 | `JWT_ALGORITHM`           | —        | `HS256`                 | Token signing algorithm                                                     |
-| `API_KEY`                 | —        | —                       | Optional key for guest endpoint (`POST /api/v1/guest/chat`)                 |
+| `API_KEY`                 | —        | —                       | Optional key for the guest endpoint (`POST /api/v1/chat/guest/stream`)      |
 | `APP_ENV`                 | —        | `development`           | Set to `production` for strict mode                                         |
+| `ENABLE_ACTIONS`          | —        | `true`                  | Tool-calling actions (web search)                                           |
+| `ENABLE_PHOTO_UPLOAD`     | —        | `true`                  | Image attachments analyzed by `VISION_MODEL`                                |
+| `ENABLE_RAG`              | —        | `true`                  | Document upload and retrieval                                               |
+| `ENABLE_GUEST_CHAT`       | —        | `true`                  | Anonymous chat without an account                                           |
+| `GUEST_ENABLE_ACTIONS`    | —        | `false`                 | Whether guests may use tools                                                |
+| `GUEST_ENABLE_PHOTO_UPLOAD` | —      | `true`                  | Whether guests may attach images                                            |
+| `CHAT_RATE_LIMIT`         | —        | `30/minute`             | Per-token limit for signed-in chat                                          |
+| `GUEST_CHAT_RATE_LIMIT`   | —        | `5/minute`              | Per-IP limit for guest chat                                                 |
+| `GUEST_CHAT_DAILY_LIMIT`  | —        | `50/day`                | Per-IP daily cap for guest chat                                             |
 
 ### Frontend (`frontend/.env`)
 
@@ -276,7 +281,7 @@ ollama serve
 
 ### Guest Access
 
-- `POST /api/v1/guest/chat` — Anonymous chat (requires `X-API-Key` header)
+- `POST /api/v1/chat/guest/stream` — Anonymous chat (requires `X-API-Key` header when `API_KEY` is set)
 
 ---
 
@@ -307,7 +312,6 @@ ollama serve
 - Refresh token rotation on every renewal
 - IP-based rate limiting
 - CORS + CSRF protection
-- Audit logging for compliance
 - Optional production hardening
 
 ---
@@ -340,7 +344,6 @@ ollama serve
 - [ ] Use HTTPS (reverse proxy with nginx/Caddy)
 - [ ] Configure `VITE_API_URL` to production backend URL
 - [ ] Enable rate limiting in slowapi config
-- [ ] Review audit logs periodically
 - [ ] Keep models & dependencies updated
 
 ### Docker (Optional)
@@ -358,13 +361,6 @@ CMD ["python", "server.py"]
 ---
 
 ## Development
-
-### Running Tests
-
-```bash
-cd backend
-pytest tests/
-```
 
 ### Code Style
 

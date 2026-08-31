@@ -15,8 +15,7 @@ from sqlalchemy import text
 
 from database import engine, Base
 from config import ALLOWED_ORIGINS, IS_PRODUCTION
-from routers import auth_router, chats, messages, documents, admin, models_router, stream, health
-from routers import friends
+from routers import auth_router, chats, messages, documents, models_router, stream, health
 from routers.stream import close_ollama_client
 from rag import close_embed_client
 
@@ -62,33 +61,9 @@ async def lifespan(_: FastAPI):
             "CREATE INDEX IF NOT EXISTS ix_document_chunks_document_id ON document_chunks (document_id)",
             "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS chat_id UUID REFERENCES chats(id) ON DELETE CASCADE",
             "CREATE INDEX IF NOT EXISTS ix_document_chunks_chat_id ON document_chunks (chat_id)",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(10) NOT NULL DEFAULT 'free'",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true",
-            "ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS guest_enabled BOOLEAN NOT NULL DEFAULT false",
-            # Seed default feature flags; ON CONFLICT (name) DO NOTHING is idempotent
-            """INSERT INTO feature_flags (id, name, description, guest_enabled, free_enabled, pro_enabled, admin_enabled, updated_at)
-               VALUES (gen_random_uuid(), 'actions', 'Tool-calling actions (web search, get_time, etc.)', false, false, true, true, now())
-               ON CONFLICT (name) DO NOTHING""",
-            """INSERT INTO feature_flags (id, name, description, guest_enabled, free_enabled, pro_enabled, admin_enabled, updated_at)
-               VALUES (gen_random_uuid(), 'photo_upload', 'Attach images to messages (analyzed by vision model)', true, true, true, true, now())
-               ON CONFLICT (name) DO NOTHING""",
-            """INSERT INTO feature_flags (id, name, description, guest_enabled, free_enabled, pro_enabled, admin_enabled, updated_at)
-               VALUES (gen_random_uuid(), 'rag', 'Upload documents and use retrieval-augmented generation', false, false, true, true, now())
-               ON CONFLICT (name) DO NOTHING""",
-            "DELETE FROM feature_flags WHERE name IN ('guest_tools', 'guest_preferences')",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'ocean'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'mono'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_context TEXT",
-            """CREATE TABLE IF NOT EXISTS shared_chats (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-                from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                shared_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                UNIQUE(chat_id, to_user_id)
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_shared_chats_to_user_id ON shared_chats (to_user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_shared_chats_chat_id ON shared_chats (chat_id)",
         ]
         for stmt in migrations:
             await conn.execute(text(stmt))
@@ -126,11 +101,9 @@ app.include_router(auth_router.router)
 app.include_router(chats.router)
 app.include_router(messages.router)
 app.include_router(documents.router)
-app.include_router(admin.router)
 app.include_router(models_router.router)
 app.include_router(stream.router)
 app.include_router(health.router)
-app.include_router(friends.router)
 
 
 if __name__ == "__main__":

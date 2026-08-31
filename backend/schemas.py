@@ -66,36 +66,3 @@ class RefreshRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str = Field(..., min_length=1, max_length=256)
-
-
-class SetRoleRequest(BaseModel):
-    role: str
-
-
-class UpdateFeatureFlagRequest(BaseModel):
-    guest_enabled: Optional[bool] = None
-    free_enabled:  Optional[bool] = None
-    pro_enabled:   Optional[bool] = None
-    admin_enabled: Optional[bool] = None
-
-
-class UpdateServerConfigRequest(BaseModel):
-    ollama_url:              Optional[str] = Field(default=None, max_length=500)
-    default_model:           Optional[str] = Field(default=None, max_length=100)
-    vision_model:            Optional[str] = Field(default=None, max_length=100)
-    embed_model:             Optional[str] = Field(default=None, max_length=100)
-    thinking_models:         Optional[str] = Field(default=None, max_length=500)
-    tool_capable_models:     Optional[str] = Field(default=None, max_length=500)
-    no_system_prompt_models: Optional[str] = Field(default=None, max_length=500)
-
-
-class SetUsernameRequest(BaseModel):
-    username: str = Field(..., min_length=3, max_length=30, pattern=r"^[a-z0-9_]+$")
-
-
-class FriendRequestBody(BaseModel):
-    username: str = Field(..., min_length=3, max_length=30)
-
-
-class ShareChatRequest(BaseModel):
-    username: str = Field(..., min_length=3, max_length=30)

@@ -17,8 +17,6 @@ import {
   apiCreateChat,
   apiDeleteAccount,
   apiDeleteChat,
-  apiRemoveSharedChat,
-  apiForkChat,
   apiGetMe,
   apiGetMyFeatures,
   apiGetGuestFeatures,
@@ -69,39 +67,15 @@ function SidebarChatItem({
 }: SidebarChatItemProps) {
   return (
     <div
-      className={`sidebar-chat-item${c.id === activeChatId ? " active" : ""}${pinned ? " pinned" : ""}${c.is_shared ? " shared" : ""}`}
+      className={`sidebar-chat-item${c.id === activeChatId ? " active" : ""}${pinned ? " pinned" : ""}`}
       onClick={onSelect}
     >
       <div className="sidebar-chat-info">
         <span className="sidebar-chat-title">
-          {c.is_shared && (
-            <svg
-              className="sidebar-shared-icon"
-              viewBox="0 0 24 24"
-              width="11"
-              height="11"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="18" cy="5" r="3" />
-              <circle cx="6" cy="12" r="3" />
-              <circle cx="18" cy="19" r="3" />
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-            </svg>
-          )}
           {c.title || "Untitled"}
         </span>
-        {c.is_shared ? (
-          <span className="sidebar-chat-date">from @{c.shared_from}</span>
-        ) : (
-          <span className="sidebar-chat-date">{formatDate(c.updated_at)}</span>
-        )}
+        <span className="sidebar-chat-date">{formatDate(c.updated_at)}</span>
       </div>
-      {!c.is_shared && (
       <button
         className="sidebar-pin-btn"
         onClick={onPin}
@@ -121,12 +95,11 @@ function SidebarChatItem({
           <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
         </svg>
       </button>
-      )}
       <button
         className="sidebar-delete-btn"
         onClick={onDelete}
         disabled={deleting}
-        title={c.is_shared ? "Remove from your list" : "Delete chat"}
+        title="Delete chat"
       >
         {deleting ? "…" : "✕"}
       </button>
@@ -258,7 +231,7 @@ function Chat({
   useEffect(() => {
     scrollToBottom();
   }, [activeTool, scrollToBottom]);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
 
@@ -271,7 +244,7 @@ function Chat({
     }
     apiGetMe()
       .then((me) => {
-        setUserRole(me.role);
+        setUserEmail(me.email);
         setUserName(me.full_name);
       })
       .catch(() => {});
@@ -283,11 +256,6 @@ function Chat({
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [docsUploading, setDocsUploading] = useState(false);
   const [docUploadError, setDocUploadError] = useState<string | null>(null);
-
-  const openSharePanel = () => {
-    setPrefSection("friends");
-    setShowPreferences(true);
-  };
 
   const [interactionState, dispatchInteraction] = useReducer(
     chatInteractionReducer,
@@ -330,15 +298,14 @@ function Chat({
   }, [showPreferences, isGuest]);
 
   useEffect(() => {
-    const isShared = chats.find((c) => c.id === activeChatId)?.is_shared;
-    if (!activeChatId || isGuest || isShared) {
+    if (!activeChatId || isGuest) {
       setDocuments([]);
       return;
     }
     apiListDocuments(activeChatId)
       .then(setDocuments)
       .catch(() => setDocuments([]));
-  }, [activeChatId, isGuest, chats]);
+  }, [activeChatId, isGuest]);
 
   const handleDocUpload = async (file: File) => {
     if (!activeChatId) return;
@@ -897,35 +864,6 @@ function Chat({
     }
   };
 
-  const handleRemoveSharedChat = async (id: string) => {
-    dispatchInteraction({ type: "delete_start", id });
-    if (id === activeChatId) handleNewChat();
-    try {
-      await apiRemoveSharedChat(id);
-      await onChatsChanged();
-    } catch {
-      /* silently ignore */
-    } finally {
-      dispatchInteraction({ type: "delete_finish", id });
-    }
-  };
-
-  const [forkingChat, setForkingChat] = useState(false);
-
-  const handleForkChat = async () => {
-    if (!activeChatId || forkingChat) return;
-    setForkingChat(true);
-    try {
-      const chat = await apiForkChat(activeChatId);
-      onChatCreated(chat.id, { ...chat, is_shared: false });
-      void onChatsChanged();
-    } catch {
-      /* silent */
-    } finally {
-      setForkingChat(false);
-    }
-  };
-
   const handleRenameCommit = async () => {
     if (!renameState) return;
     const { id, value } = renameState as RenameState;
@@ -954,25 +892,11 @@ function Chat({
     });
   };
 
-  const [sharedSectionOpen, setSharedSectionOpen] = useState(
-    () => localStorage.getItem("shared_section_open") !== "false",
-  );
-
-  const toggleSharedSection = () => {
-    setSharedSectionOpen((prev) => {
-      const next = !prev;
-      localStorage.setItem("shared_section_open", String(next));
-      return next;
-    });
-  };
-
   const visibleChats = useMemo(() => {
     const filtered = chats.filter((c) => !deletingIds.has(c.id));
-    const shared = filtered.filter((c) => c.is_shared);
-    const owned = filtered.filter((c) => !c.is_shared);
-    const pinned = owned.filter((c) => pinnedIds.has(c.id));
-    const rest = owned.filter((c) => !pinnedIds.has(c.id));
-    return { shared, pinned, rest };
+    const pinned = filtered.filter((c) => pinnedIds.has(c.id));
+    const rest = filtered.filter((c) => !pinnedIds.has(c.id));
+    return { pinned, rest };
   }, [chats, deletingIds, pinnedIds]);
 
   const searchResults = useMemo(() => {
@@ -986,7 +910,6 @@ function Chat({
   }, [chats, historySearch, deletingIds]);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
-  const activeChatIsShared = !!activeChat?.is_shared;
   const chatTitle = activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
 
   const estimatedTokens = useMemo(
@@ -1082,54 +1005,11 @@ function Chat({
                   )}
                 {!chatsLoading &&
                   visibleChats.pinned.length === 0 &&
-                  visibleChats.rest.length === 0 &&
-                  visibleChats.shared.length === 0 && (
+                  visibleChats.rest.length === 0 && (
                     <span className="sidebar-empty">
                       Start a conversation to see it here
                     </span>
                   )}
-                {visibleChats.shared.length > 0 && (
-                  <>
-                    <button
-                      className="sidebar-shared-section-btn"
-                      onClick={toggleSharedSection}
-                    >
-                      <svg className="sidebar-shared-section-icon" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-1a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v1h-3zM4.75 14.094A5.973 5.973 0 004 17v1H1v-1a3 3 0 013.75-2.906z" />
-                      </svg>
-                      <span>Shared with me</span>
-                      <span className="sidebar-shared-section-count">{visibleChats.shared.length}</span>
-                      <svg
-                        className={`sidebar-shared-section-chevron${sharedSectionOpen ? " open" : ""}`}
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                    {sharedSectionOpen && visibleChats.shared.map((c) => (
-                      <SidebarChatItem
-                        key={c.id}
-                        c={c}
-                        activeChatId={activeChatId}
-                        pinned={false}
-                        deleting={deletingIds.has(c.id)}
-                        onSelect={() => {
-                          onChatCreated(c.id);
-                          if (window.innerWidth < 768) closeSidebar();
-                        }}
-                        onPin={(e) => e.stopPropagation()}
-                        onDelete={(e) => {
-                          e.stopPropagation();
-                          handleRemoveSharedChat(c.id);
-                        }}
-                      />
-                    ))}
-                    {(visibleChats.pinned.length > 0 || visibleChats.rest.length > 0) && (
-                      <div className="sidebar-section-divider" />
-                    )}
-                  </>
-                )}
                 {visibleChats.pinned.length > 0 && (
                   <>
                     <span className="sidebar-section-label">Pinned</span>
@@ -1183,7 +1063,7 @@ function Chat({
               </div>
             </div>
 
-            {(userRole || userName) && (
+            {(userEmail || userName) && (
               <div className="sidebar-footer-wrapper" ref={footerWrapperRef}>
                 {showUserMenu &&
                   (() => {
@@ -1269,18 +1149,14 @@ function Chat({
                       avatarColor ? { background: avatarColor } : undefined
                     }
                   >
-                    {(userName ?? userRole ?? "?")[0].toUpperCase()}
+                    {(userName ?? userEmail ?? "?")[0].toUpperCase()}
                   </div>
-                  <span className="sidebar-user-email" title={userName ?? ""}>
-                    {userName ?? ""}
+                  <span
+                    className="sidebar-user-email"
+                    title={userName ?? userEmail ?? ""}
+                  >
+                    {userName ?? userEmail ?? ""}
                   </span>
-                  {userRole && (
-                    <span
-                      className={`sidebar-role-badge sidebar-role-${userRole}`}
-                    >
-                      {userRole}
-                    </span>
-                  )}
                 </div>
               </div>
             )}
@@ -1339,14 +1215,14 @@ function Chat({
               <span
                 className="topbar-title"
                 onClick={() => {
-                  if (!activeChatId || isGuest || activeChatIsShared) return;
+                  if (!activeChatId || isGuest) return;
                   dispatchInteraction({
                     type: "rename_start",
                     id: activeChatId,
                     value: activeChat?.title || "",
                   });
                 }}
-                title={activeChatId && !isGuest && !activeChatIsShared ? "Click to rename" : undefined}
+                title={activeChatId && !isGuest ? "Click to rename" : undefined}
               >
                 {chatTitle}
               </span>
@@ -1620,35 +1496,6 @@ function Chat({
             </button>
           )}
 
-          {activeChatIsShared ? (
-            <div className="shared-readonly-notice">
-              <svg
-                viewBox="0 0 24 24"
-                width="14"
-                height="14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="18" cy="5" r="3" />
-                <circle cx="6" cy="12" r="3" />
-                <circle cx="18" cy="19" r="3" />
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-              </svg>
-              <span>Shared by @{activeChat?.shared_from}. This chat is read-only.</span>
-              <button
-                className="shared-fork-btn"
-                onClick={handleForkChat}
-                disabled={forkingChat}
-                title="Copy to your chats"
-              >
-                {forkingChat ? <span className="btn-spinner" /> : "Copy to my chats"}
-              </button>
-            </div>
-          ) : (
           <ChatInput
             loading={loading}
             onAsk={(prompt, images) => handleAsk(prompt, undefined, images)}
@@ -1682,11 +1529,7 @@ function Chat({
                   onDocDelete: handleDocDelete,
                 }
               : {})}
-            {...(!isGuest && activeChatId && !chats.find((c) => c.id === activeChatId)?.is_shared
-              ? { onShare: openSharePanel }
-              : {})}
           />
-          )}
         </div>
       </div>
 
@@ -1896,7 +1739,6 @@ function Chat({
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
           initialSection={prefSection}
-          shareChatId={prefSection === "friends" && activeChatId && !chats.find((c) => c.id === activeChatId)?.is_shared ? activeChatId : undefined}
           onNameChange={(name) => setUserName(name)}
           onLogout={() => {
             setShowPreferences(false);

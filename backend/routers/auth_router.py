@@ -8,22 +8,20 @@ from slowapi.util import get_remote_address
 
 from database import get_db
 from models import User, RefreshToken
-from feature_flags import get_all_flags
+from features import get_features
 from auth import (
     hash_password, verify_password, create_token,
     get_current_user_id, generate_refresh_token,
     hash_refresh_token, REFRESH_EXPIRE_DAYS,
 )
-from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest, UpdatePreferencesRequest, UpdatePersonalContextRequest, SetUsernameRequest
-from audit import log_audit
-from dependencies import _get_client_ip
+from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest, UpdatePreferencesRequest, UpdatePersonalContextRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 
 
-async def _issue_tokens(user_id: str, db: AsyncSession, role: str = "free") -> dict:
+async def _issue_tokens(user_id: str, db: AsyncSession) -> dict:
     raw_refresh = generate_refresh_token()
     db.add(RefreshToken(
         user_id=user_id,
@@ -31,7 +29,7 @@ async def _issue_tokens(user_id: str, db: AsyncSession, role: str = "free") -> d
         expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_EXPIRE_DAYS),
     ))
     await db.commit()
-    return {"token": create_token(user_id, role), "refresh_token": raw_refresh, "role": role}
+    return {"token": create_token(user_id), "refresh_token": raw_refresh}
 
 
 @router.post("/register", status_code=201)
@@ -45,9 +43,7 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
     db.add(user)
     await db.flush()
     logger.info('user_registered user_id=%s', user.id)
-    tokens = await _issue_tokens(str(user.id), db, user.role)
-    await log_audit(db, "register", target_id=str(user.id), details={"email": body.email}, ip_address=_get_client_ip(request))
-    return tokens
+    return await _issue_tokens(str(user.id), db)
 
 
 @router.post("/login")
@@ -57,12 +53,9 @@ async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password_hash):
         logger.warning('login_failed email=%s', body.email)
-        await log_audit(db, "login_failed", details={"email": body.email}, ip_address=_get_client_ip(request))
         raise HTTPException(status_code=401, detail="Invalid credentials")
     logger.info('login_success user_id=%s', user.id)
-    tokens = await _issue_tokens(str(user.id), db, user.role)
-    await log_audit(db, "login", target_id=str(user.id), details={"email": user.email}, ip_address=_get_client_ip(request))
-    return tokens
+    return await _issue_tokens(str(user.id), db)
 
 
 @router.post("/refresh")
@@ -75,10 +68,7 @@ async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     rt.revoked = True
     logger.info('refresh_token_rotated user_id=%s', rt.user_id)
-    user_result = await db.execute(select(User).where(User.id == rt.user_id))
-    refreshed_user = user_result.scalar_one_or_none()
-    role = refreshed_user.role if refreshed_user else "free"
-    return await _issue_tokens(str(rt.user_id), db, role)
+    return await _issue_tokens(str(rt.user_id), db)
 
 
 @router.get("/me")
@@ -90,7 +80,7 @@ async def get_me(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"id": str(user.id), "email": user.email, "username": user.username, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
 
 
 @router.patch("/me")
@@ -105,7 +95,7 @@ async def update_profile(
         raise HTTPException(status_code=404, detail="User not found")
     user.full_name = body.full_name.strip()
     await db.commit()
-    return {"id": str(user.id), "email": user.email, "username": user.username, "full_name": user.full_name, "role": user.role, "is_active": user.is_active, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "theme": user.theme, "font": user.font, "personal_context": user.personal_context}
 
 
 @router.patch("/me/context")
@@ -142,56 +132,26 @@ async def update_preferences(
 
 
 @router.get("/features")
-async def get_features(
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    flags = await get_all_flags(db)
-    role_field = f"{user.role}_enabled"
-    return {f.name: bool(getattr(f, role_field, False)) for f in flags}
+async def my_features(_: str = Depends(get_current_user_id)):
+    """Feature availability for signed-in users, driven by ENABLE_* env vars."""
+    return get_features(guest=False)
 
 
 @router.get("/features/guest")
-async def get_guest_features(db: AsyncSession = Depends(get_db)):
-    """Public endpoint — returns guest-tier flags for unauthenticated users."""
-    flags = await get_all_flags(db)
-    return {f.name: bool(f.guest_enabled) for f in flags}
+async def guest_features():
+    """Public endpoint - feature availability for the guest chat flow."""
+    return get_features(guest=True)
 
 
 @router.post("/logout")
-async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depends(get_db)):
+async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)):
     token_hash = hash_refresh_token(body.refresh_token)
     result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     rt = result.scalar_one_or_none()
     if rt:
         rt.revoked = True
         await db.commit()
-        await log_audit(db, "logout", target_id=str(rt.user_id), ip_address=_get_client_ip(request))
     return {"ok": True}
-
-
-@router.patch("/me/username")
-@limiter.limit("5/minute")
-async def set_username(
-    request: Request,
-    body: SetUsernameRequest,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    taken = await db.execute(select(User).where(User.username == body.username))
-    if taken.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Username already taken")
-    user.username = body.username
-    await db.commit()
-    return {"username": user.username}
 
 
 @router.delete("/account", status_code=204)
