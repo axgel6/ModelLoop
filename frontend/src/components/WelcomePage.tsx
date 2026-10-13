@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { type Theme } from "./ChatPreferences";
+import { sounds } from "../sounds";
 
 interface WelcomePageProps {
   onStart: () => void;
@@ -73,6 +74,7 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
   const [currentText, setCurrentText] = useState("");
   const [done, setDone] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(() => sounds.isEnabled());
   const [howOpen, setHowOpen] = useState(false);
 
   useEffect(() => {
@@ -172,6 +174,20 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
             •{" "}
             <span className="landing-footer-link" onClick={() => setThemeOpen(true)}>
               Theme
+            </span>{" "}
+            •{" "}
+            <span
+              className="landing-footer-link"
+              role="switch"
+              aria-checked={soundOn}
+              onClick={() => {
+                const next = !soundOn;
+                sounds.setEnabled(next);
+                setSoundOn(next);
+                if (next) sounds.play("done");
+              }}
+            >
+              Sound: {soundOn ? "On" : "Off"}
             </span>
           </p>
           <p>

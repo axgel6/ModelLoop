@@ -23,6 +23,8 @@ interface ChatInputProps {
   onStop: () => void;
   onRegisterFocus?: (focusFn: () => void) => void;
   onRegisterSetInput?: (setFn: (value: string) => void) => void;
+  // Who the placeholder invites you to ask: "Olly" while that preset is active
+  assistantName?: string;
   selectedModel?: string;
   setSelectedModel?: (model: string) => void;
   documents?: DocumentMeta[];
@@ -51,6 +53,7 @@ function ChatInput({
   onStop,
   onRegisterFocus,
   onRegisterSetInput,
+  assistantName = "ModelLoop",
   selectedModel,
   setSelectedModel,
   documents = [],
@@ -402,7 +405,7 @@ function ChatInput({
           placeholder={
             voiceActive
               ? voiceStatusLabel || "Voice conversation active…"
-              : "Ask ModelLoop"
+              : `Ask ${assistantName}`
           }
           value={
             voiceActive && voiceStatus === "listening" ? voiceTranscript : input

@@ -91,6 +91,10 @@ export const GREETINGS = [
   "Anything you're curious about today?",
 ];
 
+// Joins the rotation for signed-in users only: guests can't open Preferences.
+export const PERSONALITY_TIP =
+  "Want a different voice? You can change my personality in Preferences.";
+
 export type DayPart = "morning" | "day" | "evening" | "night";
 
 export function dayPart(date = new Date()): DayPart {

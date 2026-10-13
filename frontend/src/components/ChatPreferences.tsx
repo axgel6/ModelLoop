@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useEscapeKey } from "./useEscapeKey";
 import { haptics } from "../haptics";
 import { sounds } from "../sounds";
@@ -197,6 +197,57 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     initialSection ?? "model",
   );
   const [openInfo, setOpenInfo] = useState<string | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; pulling: boolean | null } | null>(
+    null,
+  );
+
+  // On phones the tabs are a sideways-scrolling row: keep the chosen one in view.
+  useEffect(() => {
+    navRef.current
+      ?.querySelector(".pref-nav-item.active")
+      ?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [activeSection]);
+
+  // Pull the sheet down by its handle or tab row to close it (phones only; the
+  // handle is hidden and the tab row is a sidebar on wider screens).
+  const isSheet = () => window.matchMedia("(max-width: 640px)").matches;
+  const sheetDrag = {
+    onTouchStart: (e: React.TouchEvent) => {
+      if (!isSheet()) return;
+      const t = e.touches[0];
+      drag.current = { x: t.clientX, y: t.clientY, pulling: null };
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      const d = drag.current;
+      const sheet = sheetRef.current;
+      if (!d || !sheet) return;
+      const dx = e.touches[0].clientX - d.x;
+      const dy = e.touches[0].clientY - d.y;
+      // Decide once whether this is a pull down or a sideways scroll of the tabs.
+      if (d.pulling === null && Math.hypot(dx, dy) > 8)
+        d.pulling = dy > Math.abs(dx);
+      if (d.pulling) {
+        sheet.style.transition = "none";
+        sheet.style.transform = `translateY(${Math.max(0, dy)}px)`;
+      }
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      const d = drag.current;
+      const sheet = sheetRef.current;
+      drag.current = null;
+      if (!d?.pulling || !sheet) return;
+      const dy = e.changedTouches[0].clientY - d.y;
+      sheet.style.transition = "transform 0.22s cubic-bezier(0.3, 0.7, 0.3, 1)";
+      if (dy > 90) {
+        sheet.style.transform = "translateY(100%)";
+        setTimeout(onClose, 180);
+      } else {
+        sheet.style.transform = "";
+      }
+    },
+  };
   const [ollamaUrl, setOllamaUrl] = useState("");
   const [ollamaSaving, setOllamaSaving] = useState(false);
   const [ollamaTesting, setOllamaTesting] = useState(false);
@@ -1322,6 +1373,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       <div className="chat-preferences-modal-overlay" onClick={onClose}>
         <div
           className="pref-modal"
+          ref={sheetRef}
           onClick={(e) => {
             const t = e.target as HTMLElement;
             if (t.closest(".pref-theme-card")) haptics.trigger("medium");
@@ -1335,7 +1387,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             e.stopPropagation();
           }}
         >
-          <div className="pref-sidebar">
+          <div className="pref-sheet-handle" {...sheetDrag} />
+          <div className="pref-sidebar" ref={navRef} {...sheetDrag}>
             <div className="pref-sidebar-title">Preferences</div>
             {NAV_ITEMS.map(({ id, label }) => (
               <div

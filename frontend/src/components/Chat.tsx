@@ -43,12 +43,14 @@ import {
   formatDate,
   pickSuggestions,
   GREETINGS,
+  PERSONALITY_TIP,
   timeGreeting,
   friendlyError,
   readableTextOn,
   withMandatoryPromptRules,
 } from "./utils/chatUtils";
 import ConnectionBanner from "./ConnectionBanner";
+import { StretchyLogo } from "./StretchyLogo";
 
 // ── Sidebar chat item ─────────────────────────────────────────────────────────
 
@@ -274,10 +276,10 @@ function Chat({
   );
   const { deletingIds, renameState, editState } = interactionState;
 
-  const chatSubline = useMemo(
-    () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
-    [],
-  );
+  const chatSubline = useMemo(() => {
+    const lines = isGuest ? GREETINGS : [...GREETINGS, PERSONALITY_TIP];
+    return lines[Math.floor(Math.random() * lines.length)];
+  }, [isGuest]);
 
   const chatSuggestions = useMemo(() => pickSuggestions(4), []);
 
@@ -960,7 +962,7 @@ function Chat({
             className={`chat-sidebar${sidebarOpen ? " open" : ""}${sidebarClosing ? " closing" : ""}`}
           >
             <div className="sidebar-brand">
-              <span className="sidebar-logo">ModelLoop</span>
+              <span className="sidebar-logo"><StretchyLogo /></span>
               <div className="sidebar-brand-actions">
                 <button
                   className="sidebar-brand-btn"
@@ -1519,6 +1521,7 @@ function Chat({
 
           <ChatInput
             loading={loading}
+            assistantName={activePreset === "Olly" ? "Olly" : "ModelLoop"}
             onAsk={(prompt, images) => handleAsk(prompt, undefined, images)}
             onStop={handleStop}
             onRegisterFocus={(focusFn) => {

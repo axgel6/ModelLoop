@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiHealth, apiLogin, apiRegister, scheduleProactiveRefresh } from "./api";
 import ConnectionBanner from "./ConnectionBanner";
+import { StretchyLogo } from "./StretchyLogo";
 
 interface LoginProps {
   onLogin: () => void;
@@ -101,7 +102,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
           </button>
 
           <div className="login-header">
-            <h1 className="login-logo">ModelLoop</h1>
+            <h1 className="login-logo"><StretchyLogo /></h1>
             <p className="login-subtitle">
               {isLogin ? "Sign in to continue" : "Create an account"}
             </p>
