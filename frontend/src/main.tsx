@@ -17,7 +17,7 @@ document.addEventListener("click", (e) => {
     } else if (btn.classList.contains("stopping")) {
       haptics.trigger("rigid");          // stop generation
     } else if (btn.classList.contains("ask-button")) {
-      haptics.trigger("medium");         // send message
+      haptics.trigger("medium", { silent: true }); // send message (ChatInput plays the send tone)
     } else if (btn.classList.contains("edit-save-btn")) {
       haptics.trigger("medium");         // save edit
     } else {

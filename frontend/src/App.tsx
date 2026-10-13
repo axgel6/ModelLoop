@@ -17,6 +17,7 @@ import {
 } from "./components/api";
 import { type Theme, type Font, type TextSize } from "./components/ChatPreferences";
 import { useRoute } from "./router";
+import { dayPart } from "./components/utils/chatUtils";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 
@@ -24,6 +25,7 @@ const THEME_TO_DATA: Record<Theme, string> = {
   ocean: "ocean",
   gruvbox: "gruvbox",
   dune: "dune",
+  meadow: "meadow",
 };
 
 function App() {
@@ -54,7 +56,7 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    const valid: Theme[] = ["ocean", "gruvbox", "dune"];
+    const valid: Theme[] = ["ocean", "gruvbox", "dune", "meadow"];
     // Migrate old theme keys to the two remaining themes
     if (
       stored === "ocean" ||
@@ -71,13 +73,23 @@ function App() {
       stored === "gruvbox"
     )
       return "gruvbox";
-    return valid.includes(stored as Theme) ? (stored as Theme) : "ocean";
+    return valid.includes(stored as Theme) ? (stored as Theme) : "meadow";
   });
 
   useEffect(() => {
     document.documentElement.dataset.theme = THEME_TO_DATA[theme];
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  // Lets the Meadow background follow the day (see "Meadow through the day" in App.css).
+  useEffect(() => {
+    const apply = () => {
+      document.documentElement.dataset.daypart = dayPart();
+    };
+    apply();
+    const timer = setInterval(apply, 5 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.view = view;
@@ -90,7 +102,7 @@ function App() {
 
   const [font, setFont] = useState<Font>(() => {
     const stored = localStorage.getItem("font");
-    return stored === "mono" ? "mono" : "inter";
+    return stored === "mono" || stored === "inter" ? stored : "rounded";
   });
 
   const [textSize, setTextSizeState] = useState<TextSize>(() => {
@@ -129,8 +141,8 @@ function App() {
   };
 
   useEffect(() => {
-    if (font === "inter") {
-      document.documentElement.dataset.font = "inter";
+    if (font !== "mono") {
+      document.documentElement.dataset.font = font;
     } else {
       delete document.documentElement.dataset.font;
     }
@@ -140,8 +152,16 @@ function App() {
   const handleSetTheme = (t: Theme) => {
     setTheme(t);
     localStorage.setItem("theme_user_set", "true");
+    // Meadow is designed around the rounded typeface, so the two travel together
+    // unless the user has picked a font themselves.
+    let pairedFont: Font | undefined;
+    if (localStorage.getItem("font_user_set") !== "true") {
+      if (t === "meadow" && font !== "rounded") pairedFont = "rounded";
+      else if (t !== "meadow" && font === "rounded") pairedFont = "inter";
+    }
+    if (pairedFont) setFont(pairedFont);
     if (localStorage.getItem("token")) {
-      apiUpdatePreferences({ theme: t }).catch(() => {});
+      apiUpdatePreferences({ theme: t, ...(pairedFont ? { font: pairedFont } : {}) }).catch(() => {});
     }
   };
 
@@ -194,8 +214,8 @@ function App() {
         await apiUpdatePreferences(patch).catch(() => {});
       } else {
         // No local changes — apply DB preferences
-        const validThemes: Theme[] = ["ocean", "gruvbox", "dune"];
-        const validFonts: Font[] = ["mono", "inter"];
+        const validThemes: Theme[] = ["ocean", "gruvbox", "dune", "meadow"];
+        const validFonts: Font[] = ["mono", "inter", "rounded"];
         if (validThemes.includes(me.theme as Theme)) setTheme(me.theme as Theme);
         if (validFonts.includes(me.font as Font)) setFont(me.font as Font);
       }

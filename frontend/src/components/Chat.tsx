@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptics } from "../haptics";
+import { sounds } from "../sounds";
 import ChatPreferences, {
   type Theme,
   type Font,
@@ -42,6 +43,8 @@ import {
   formatDate,
   pickSuggestions,
   GREETINGS,
+  timeGreeting,
+  friendlyError,
   withMandatoryPromptRules,
 } from "./utils/chatUtils";
 import ConnectionBanner from "./ConnectionBanner";
@@ -270,7 +273,7 @@ function Chat({
   );
   const { deletingIds, renameState, editState } = interactionState;
 
-  const chatGreeting = useMemo(
+  const chatSubline = useMemo(
     () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
     [],
   );
@@ -322,7 +325,7 @@ function Chat({
       const doc = await apiUploadDocument(activeChatId, file);
       setDocuments((prev) => [doc, ...prev]);
     } catch (err) {
-      setDocUploadError(err instanceof Error ? err.message : "Upload failed");
+      setDocUploadError(err instanceof Error ? err.message : "That upload didn't go through.");
       setTimeout(() => setDocUploadError(null), 5000);
     } finally {
       setDocsUploading(false);
@@ -586,7 +589,8 @@ function Chat({
             if (data.type === "thinking_token") {
               bufferedThinking += data.token;
               scheduleFlush();
-              if (++tokenHapticCounter % 2 === 0) haptics.trigger("light");
+              if (++tokenHapticCounter % 2 === 0)
+                haptics.trigger("light", { silent: true });
             } else if (data.type === "token") {
               if (localIsThinking || localActiveTool !== null) {
                 localIsThinking = false;
@@ -596,9 +600,11 @@ function Chat({
               }
               bufferedTokens += data.token;
               scheduleFlush();
+              sounds.babble();
               if (++tokenHapticCounter % 2 === 0)
                 haptics.trigger(
                   tokenHapticCounter % 10 === 0 ? "selection" : "light",
+                  { silent: true },
                 );
             } else if (data.type === "tool_use") {
               localActiveTool = data.tool ?? null;
@@ -627,7 +633,8 @@ function Chat({
               setIsThinking(false);
               flushAndCancelPendingFrame();
               setLoading(false);
-              haptics.trigger("medium");
+              // No tone here: a chime after every reply wears thin quickly.
+              haptics.trigger("medium", { silent: true });
               if (!isGuest) onChatsChanged();
             } else if (data.type === "error") {
               flushAndCancelPendingFrame();
@@ -660,16 +667,16 @@ function Chat({
       const message =
         error instanceof Error
           ? error.message
-          : "Failed to get response from server";
+          : "Failed to get response";
       setMessages((prev) => {
         const next = [...prev];
         if (next.length > 0 && next[next.length - 1].role === "assistant") {
           next[next.length - 1] = {
             ...next[next.length - 1],
-            content: `Error: ${message}`,
+            content: friendlyError(message),
           };
         } else {
-          next.push({ role: "assistant", content: `Error: ${message}` });
+          next.push({ role: "assistant", content: friendlyError(message) });
         }
         return next;
       });
@@ -1414,7 +1421,8 @@ function Chat({
 
             {!messagesLoading && messages.length === 0 && (
               <div className="empty-state">
-                <h2 className="empty-title">{chatGreeting}</h2>
+                <h2 className="empty-title">{timeGreeting(userName)}</h2>
+                <p className="empty-subline">{chatSubline}</p>
                 <div className="suggestion-chips">
                   {chatSuggestions.map((s) => (
                     <button
@@ -1553,7 +1561,7 @@ function Chat({
             className="logout-confirm-dialog"
             onClick={(e) => e.stopPropagation()}
           >
-            <p>Sign out of ModelLoop?</p>
+            <p>Heading out? You can sign back in any time.</p>
             <div className="logout-confirm-actions">
               <button
                 className="logout-confirm-cancel"

@@ -5,7 +5,7 @@ interface ConnectionBannerProps {
 }
 
 export default function ConnectionBanner({
-  message = "Initializing backend services. Estimated wait time: ~1 minute.",
+  message = "Olly is waking up. This usually takes about a minute.",
 }: ConnectionBannerProps) {
   const [visible, setVisible] = useState(false);
 

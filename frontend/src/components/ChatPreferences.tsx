@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useEscapeKey } from "./useEscapeKey";
 import { haptics } from "../haptics";
+import { sounds } from "../sounds";
 import {
   apiGetMe,
   apiUpdateProfile,
@@ -11,8 +12,8 @@ import {
 } from "./api";
 import type { OllamaStatus } from "./api";
 
-export type Theme = "ocean" | "gruvbox" | "dune";
-export type Font = "mono" | "inter";
+export type Theme = "ocean" | "gruvbox" | "dune" | "meadow";
+export type Font = "mono" | "inter" | "rounded";
 export type TextSize = "xs" | "small" | "medium" | "large";
 
 interface ChatPreferencesProps {
@@ -50,10 +51,11 @@ interface ChatPreferencesProps {
 
 const PRESETS: { label: string; description: string; prompt: string }[] = [
   {
-    label: "Default",
-    description: "Concise and helpful",
-    prompt:
-      "You are a helpful assistant.\n- Be concise and direct — don't over-explain simple questions.\n- Answer only what was asked; don't volunteer unsolicited follow-ups.\n- Match format to the question: prose for conversation, lists or code only when the content calls for it.",
+    label: "Olly",
+    description: "Warm, calm and helpful",
+    // No prompt of its own: an empty prompt falls through to the server default,
+    // which is Olly with the tool-use rules attached.
+    prompt: "",
   },
   {
     label: "Clueless",
@@ -184,6 +186,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   initialSection,
 }) => {
   useEscapeKey(onClose);
+  const [soundOn, setSoundOn] = useState(() => sounds.isEnabled());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
@@ -242,7 +245,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     try {
       setOllamaStatus(await apiTestOllamaUrl(candidate));
     } catch (e: any) {
-      setOllamaError(e.message || "Test failed");
+      setOllamaError(e.message || "That test didn't work.");
       setOllamaStatus(null);
     } finally {
       setOllamaTesting(false);
@@ -263,7 +266,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       );
       loadOllamaStatus();
     } catch (e: any) {
-      setOllamaError(e.message || "Failed to save");
+      setOllamaError(e.message || "I couldn't save that.");
     } finally {
       setOllamaSaving(false);
     }
@@ -682,6 +685,17 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                   <span className="pref-theme-label">Dune</span>
                 </div>
+                <div
+                  className={`pref-theme-card${theme === "meadow" ? " active" : ""}`}
+                  onClick={() => setTheme("meadow")}
+                >
+                  <div className="pref-theme-preview pref-theme-preview-meadow">
+                    <span className="ptc-bar ptc-bar-1" />
+                    <span className="ptc-bar ptc-bar-2" />
+                    <span className="ptc-bar ptc-bar-3" />
+                  </div>
+                  <span className="pref-theme-label">Meadow</span>
+                </div>
               </div>
               <div
                 className="pref-setting-section-label"
@@ -708,6 +722,41 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </span>
                   <span className="pref-font-label">JetBrains Mono</span>
                 </div>
+                <div
+                  className={`pref-font-card${font === "rounded" ? " active" : ""}`}
+                  onClick={() => setFont("rounded")}
+                >
+                  <span className="pref-font-preview pref-font-preview-rounded">
+                    Aa
+                  </span>
+                  <span className="pref-font-label">Nunito</span>
+                </div>
+              </div>
+              <div
+                className="pref-setting-section-label"
+                style={{ marginTop: "20px" }}
+              >
+                Sound
+              </div>
+              <div className="pref-sound-row">
+                <span className="pref-sound-desc">
+                  Soft tones when you send, get a reply, or use a menu.
+                </span>
+                <button
+                  type="button"
+                  className="pref-sound-btn"
+                  role="switch"
+                  aria-checked={soundOn}
+                  aria-label="Sound effects"
+                  onClick={() => {
+                    const next = !soundOn;
+                    sounds.setEnabled(next);
+                    setSoundOn(next);
+                    if (next) sounds.play("done");
+                  }}
+                >
+                  {soundOn ? "On" : "Off"}
+                </button>
               </div>
               <div
                 className="pref-setting-section-label"
@@ -1306,8 +1355,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           >
             <div className="pref-delete-dialog-title">Delete Account</div>
             <div className="pref-delete-dialog-text">
-              This will permanently delete your account and all associated data.
-              This action cannot be undone.
+              This removes your account and everything in it for good. There
+              is no way to bring it back.
             </div>
             <div className="pref-delete-dialog-divider" />
             <div className="pref-delete-dialog-actions">
@@ -1348,8 +1397,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           >
             <div className="pref-delete-dialog-title">Clear All Chats</div>
             <div className="pref-delete-dialog-text">
-              This will permanently delete all your chat history. This action
-              cannot be undone.
+              This removes every chat you have for good. There is no way to
+              bring them back.
             </div>
             <div className="pref-delete-dialog-divider" />
             <div className="pref-delete-dialog-actions">

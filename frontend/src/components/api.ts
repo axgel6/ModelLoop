@@ -150,7 +150,7 @@ export async function apiRegister(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const detail =
-      typeof err.detail === "string" ? err.detail : "Registration failed";
+      typeof err.detail === "string" ? err.detail : "I couldn't create that account. Try again in a moment.";
     throw new Error(detail);
   }
   return res.json();
@@ -169,7 +169,7 @@ export async function apiLogin(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const detail =
-      typeof err.detail === "string" ? err.detail : "Invalid email or password";
+      typeof err.detail === "string" ? err.detail : "That email or password doesn't match. Try again?";
     throw new Error(detail);
   }
   return res.json();
@@ -207,7 +207,7 @@ export async function apiListChats(): Promise<ChatMeta[]> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/chats`, { headers: authHeaders() }),
   );
-  if (!res.ok) throw new Error("Failed to load chats");
+  if (!res.ok) throw new Error("I couldn't load your chats. Try again in a moment.");
   const data = await res.json();
   return data.chats;
 }
@@ -220,7 +220,7 @@ export async function apiCreateChat(): Promise<ChatMeta> {
       headers: authHeaders(),
     }),
   );
-  if (!res.ok) throw new Error("Failed to create chat");
+  if (!res.ok) throw new Error("I couldn't start a new chat. Try again in a moment.");
   return res.json();
 }
 
@@ -236,7 +236,7 @@ export async function apiRenameChat(
       body: JSON.stringify({ title }),
     }),
   );
-  if (!res.ok) throw new Error("Failed to rename chat");
+  if (!res.ok) throw new Error("I couldn't rename that chat.");
 }
 
 // Fetch the current user's id, email, full_name, theme, font, and personal_context
@@ -252,7 +252,7 @@ export async function apiGetMe(): Promise<{
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/auth/me`, { headers: authHeaders() }),
   );
-  if (!res.ok) throw new Error("Failed to fetch user info");
+  if (!res.ok) throw new Error("I couldn't load your account details.");
   return res.json();
 }
 
@@ -264,7 +264,7 @@ export async function apiUpdatePreferences(prefs: { theme?: string; font?: strin
       body: JSON.stringify(prefs),
     }),
   );
-  if (!res.ok) throw new Error("Failed to update preferences");
+  if (!res.ok) throw new Error("I couldn't save your preferences.");
 }
 
 export async function apiUpdateProfile(fullName: string): Promise<void> {
@@ -275,7 +275,7 @@ export async function apiUpdateProfile(fullName: string): Promise<void> {
       body: JSON.stringify({ full_name: fullName }),
     }),
   );
-  if (!res.ok) throw new Error("Failed to update profile");
+  if (!res.ok) throw new Error("I couldn't save your profile.");
 }
 
 export async function apiSavePersonalContext(personalContext: string | null): Promise<void> {
@@ -286,7 +286,7 @@ export async function apiSavePersonalContext(personalContext: string | null): Pr
       body: JSON.stringify({ personal_context: personalContext || null }),
     }),
   );
-  if (!res.ok) throw new Error("Failed to save personal context");
+  if (!res.ok) throw new Error("I couldn't save that.");
 }
 
 // ----- Ollama connection -----
@@ -313,7 +313,7 @@ export async function apiSetOllamaUrl(url: string | null): Promise<{ ollama_url:
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(typeof err.detail === "string" ? err.detail : "Failed to save server address");
+    throw new Error(typeof err.detail === "string" ? err.detail : "I couldn't save that server address.");
   }
   return res.json();
 }
@@ -323,7 +323,7 @@ export async function apiOllamaStatus(): Promise<OllamaStatus> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/ollama/status`, { headers: authHeaders() }),
   );
-  if (!res.ok) throw new Error("Failed to check server status");
+  if (!res.ok) throw new Error("I couldn't check the server right now.");
   return res.json();
 }
 
@@ -338,7 +338,7 @@ export async function apiTestOllamaUrl(url: string): Promise<OllamaStatus> {
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(typeof err.detail === "string" ? err.detail : "Test failed");
+    throw new Error(typeof err.detail === "string" ? err.detail : "That test didn't work.");
   }
   return res.json();
 }
@@ -365,7 +365,7 @@ export async function apiDeleteAccount(): Promise<void> {
       headers: authHeaders(),
     }),
   );
-  if (!res.ok) throw new Error("Failed to delete account");
+  if (!res.ok) throw new Error("I couldn't delete the account. Try again in a moment.");
 }
 
 // Delete a chat and all its messages
@@ -376,7 +376,7 @@ export async function apiDeleteChat(chatId: string): Promise<void> {
       headers: authHeaders(),
     }),
   );
-  if (!res.ok) throw new Error("Failed to delete chat");
+  if (!res.ok) throw new Error("I couldn't delete that chat.");
 }
 
 // ----- Messages -----
@@ -399,7 +399,7 @@ export async function apiGetMessages(chatId: string): Promise<Message[]> {
       headers: authHeaders(),
     }),
   );
-  if (!res.ok) throw new Error("Failed to load messages");
+  if (!res.ok) throw new Error("I couldn't load this conversation.");
   const data = await res.json();
   return data.messages;
 }
@@ -414,7 +414,7 @@ export async function apiGetModels(): Promise<{
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/models`, { headers: authHeaders() }),
   );
-  if (!res.ok) throw new Error("Failed to fetch models");
+  if (!res.ok) throw new Error("I couldn't load the models.");
   const data = await res.json();
   const all: string[] = (data.models ?? []).filter(
     (m: string) => !m.startsWith("nomic-embed-text"),
@@ -470,7 +470,7 @@ export async function apiListDocuments(
       headers: authHeaders(),
     }),
   );
-  if (!res.ok) throw new Error("Failed to load documents");
+  if (!res.ok) throw new Error("I couldn't load your documents.");
   const data = await res.json();
   return data.documents;
 }
@@ -490,7 +490,7 @@ export async function apiUploadDocument(
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Upload failed");
+    throw new Error(err.detail || "That upload didn't go through.");
   }
   return res.json();
 }
@@ -502,7 +502,7 @@ export async function apiDeleteDocument(docId: string): Promise<void> {
       headers: authHeaders(),
     }),
   );
-  if (!res.ok) throw new Error("Failed to delete document");
+  if (!res.ok) throw new Error("I couldn't remove that document.");
 }
 
 // ----- Streaming -----
@@ -540,7 +540,7 @@ export async function apiGuestChatStream(
           : "Guest limit: 5 messages per minute - wait a moment, or log in for more.",
       );
     }
-    throw new Error(err.detail || "Failed to get response");
+    throw new Error(err.detail || "I couldn't get a reply. Want to try again?");
   }
   return res;
 }
@@ -571,7 +571,7 @@ export async function apiChatStream(
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to get response");
+    throw new Error(err.detail || "I couldn't get a reply. Want to try again?");
   }
   return res;
 }

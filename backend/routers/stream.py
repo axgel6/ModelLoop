@@ -479,7 +479,7 @@ async def _chat_stream_response(
                                 images=images or None, image_context=image_context or None,
                                 search_context=_search_ctx,
                             ))
-                            write_db.add(Message(chat_id=chat_id, role="assistant", content=processed))
+                            write_db.add(Message(chat_id=chat_id, role="assistant", content=processed, model=model))
                             chat_update: dict = {"updated_at": datetime.now(timezone.utc)}
                             if chat_title == "New Chat":
                                 chat_update["title"] = prompt[:60]

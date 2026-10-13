@@ -18,8 +18,8 @@ class User(Base):
     email:            Mapped[str]            = mapped_column(String, unique=True, nullable=False)
     full_name:        Mapped[Optional[str]]  = mapped_column(String(120), nullable=False)
     password_hash:    Mapped[str]            = mapped_column(Text, nullable=False)
-    theme:            Mapped[str]            = mapped_column(String(20), nullable=False, server_default="ocean")
-    font:             Mapped[str]            = mapped_column(String(20), nullable=False, server_default="mono")
+    theme:            Mapped[str]            = mapped_column(String(20), nullable=False, default="meadow", server_default="meadow")
+    font:             Mapped[str]            = mapped_column(String(20), nullable=False, default="rounded", server_default="rounded")
     personal_context: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
     # Optional per-user Ollama endpoint; NULL means use the shared server default
     ollama_url:       Mapped[Optional[str]]  = mapped_column(String(300), nullable=True)
@@ -75,6 +75,8 @@ class Message(Base):
     images:         Mapped[Optional[list]]   = mapped_column(JSON, nullable=True)
     image_context:  Mapped[Optional[str]]    = mapped_column(Text, nullable=True)
     search_context: Mapped[Optional[str]]    = mapped_column(Text, nullable=True)
+    # Which model wrote an assistant message; NULL for user turns and older rows
+    model:          Mapped[Optional[str]]    = mapped_column(String(100), nullable=True)
     created_at:     Mapped[datetime]         = mapped_column(DateTime(timezone=True), server_default=func.now())
     chat:           Mapped["Chat"]           = relationship(back_populates="messages")
 

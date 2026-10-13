@@ -22,6 +22,7 @@ const THEMES: { id: Theme; label: string; previewClass: string }[] = [
   { id: "ocean",   label: "Ocean",   previewClass: "pref-theme-preview-ocean" },
   { id: "gruvbox", label: "Gruvbox", previewClass: "pref-theme-preview-gruvbox" },
   { id: "dune",    label: "Dune",    previewClass: "pref-theme-preview-dune" },
+  { id: "meadow",  label: "Meadow",  previewClass: "pref-theme-preview-meadow" },
 ];
 
 const STEPS: { n: string; title: string; body: React.ReactNode }[] = [

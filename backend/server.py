@@ -61,11 +61,12 @@ async def lifespan(_: FastAPI):
             "CREATE INDEX IF NOT EXISTS ix_document_chunks_document_id ON document_chunks (document_id)",
             "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS chat_id UUID REFERENCES chats(id) ON DELETE CASCADE",
             "CREATE INDEX IF NOT EXISTS ix_document_chunks_chat_id ON document_chunks (chat_id)",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'ocean'",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'mono'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'meadow'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'rounded'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_context TEXT",
             "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_url VARCHAR(300)",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100)",
         ]
         for stmt in migrations:
             await conn.execute(text(stmt))

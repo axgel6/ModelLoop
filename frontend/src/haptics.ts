@@ -1,4 +1,14 @@
 import { WebHaptics } from "web-haptics";
+import { sounds, type SoundName } from "./sounds";
+
+// Each kind of touch feedback has a matching calm tone (see sounds.ts).
+const HAPTIC_SOUND: Record<string, SoundName> = {
+  selection: "tick",
+  light: "tick",
+  medium: "pop",
+  warning: "warn",
+  rigid: "stop",
+};
 
 // iPad (iOS 13+) reports as MacIntel with touch points
 const isIOS =
@@ -30,7 +40,12 @@ class HapticsManager {
     this.iosLabel = label;
   }
 
-  trigger(_type: Parameters<WebHaptics["trigger"]>[0]) {
+  // `silent` skips the tone, for feedback that repeats too fast to voice (streaming
+  // tokens) or that plays its own named sound instead.
+  trigger(_type: Parameters<WebHaptics["trigger"]>[0], opts?: { silent?: boolean }) {
+    if (!opts?.silent && typeof _type === "string" && HAPTIC_SOUND[_type]) {
+      sounds.play(HAPTIC_SOUND[_type]);
+    }
     if (this.iosLabel) {
       // Clicking the label toggles the native iOS switch, which fires a UIKit haptic.
       // The element must be in-viewport (not off-screen or display:none) for the

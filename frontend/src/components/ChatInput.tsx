@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DocumentMeta } from "./api";
 import { MODEL_PRESETS } from "./models";
+import { sounds } from "../sounds";
 import type { VoiceStatus } from "./hooks/useVoiceConversation";
 
 export { MODEL_PRESETS, DEFAULT_MODEL } from "./models";
@@ -275,6 +276,7 @@ function ChatInput({
     setSlashIdx(-1);
     setAttachedImage(null);
     resetTextareaHeight();
+    sounds.play("send");
     void onAsk(prompt, attachedImage ? [attachedImage] : undefined);
   };
 

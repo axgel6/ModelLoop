@@ -85,15 +85,14 @@ function Pre({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MD_COMPONENTS = { pre: Pre as any };
 
+// No trailing dots: the swaying leaves next to the phrase do that job.
 const THINKING_PHRASES = [
-  "On it...",
-  "Right on it...",
-  "Sure thing...",
-  "Got it...",
-  "Working on that...",
-  "Looking into it...",
-  "On that now...",
-  "Already on it...",
+  "Thinking it over",
+  "Let me think",
+  "One moment",
+  "Gathering my thoughts",
+  "Working on it",
+  "Mulling that over",
 ];
 
 export const AssistantMessage = memo(function AssistantMessage({
@@ -234,14 +233,21 @@ export const AssistantMessage = memo(function AssistantMessage({
               )}
             </div>
           )}
-          {showToolUse ? (
-            <span className="thinking-phrase">
-              {activeTool === "web_search"
-                ? "Searching the web..."
-                : "Using a tool..."}
+          {showToolUse || showThinking ? (
+            <span className="waiting" role="status">
+              <span className="waiting-leaves" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              <span className="thinking-phrase">
+                {!showToolUse
+                  ? thinkingPhrase.current
+                  : activeTool === "web_search"
+                    ? "Looking that up"
+                    : "Fetching what I need"}
+              </span>
             </span>
-          ) : showThinking ? (
-            <span className="thinking-phrase">{thinkingPhrase.current}</span>
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}

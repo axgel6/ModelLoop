@@ -11,7 +11,7 @@ export function useChatSettings() {
   const [isConnected, setIsConnected] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [showPreferences, setShowPreferences] = useState(false);
-  const [activePreset, setActivePreset] = useState<string>("Default");
+  const [activePreset, setActivePreset] = useState<string>("Olly");
   const [temperature, setTemperature] = useState(0.7);
   const [topP, setTopP] = useState(0.9);
   const [numPredict, setNumPredict] = useState(-1);
