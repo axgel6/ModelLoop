@@ -43,6 +43,10 @@ class ProductEdit(BaseModel):
     price: Optional[float] = Field(default=None, gt=0, le=1_000_000)
 
 
+class OfferAnswer(BaseModel):
+    accept: bool
+
+
 class TurnAction(BaseModel):
     """A decision made with a dashboard form instead of typed out."""
     type:       str             = Field(..., pattern="^(launch|discontinue)$")
@@ -69,7 +73,9 @@ def _serialize(game: GameSession, with_state: bool = True) -> dict:
         out["state"] = ceo.upgrade(game.state) if game.game_type == ceo.GAME_TYPE else game.state
     else:
         # Enough for a save list without shipping every turn of every game
-        out["summary"] = {k: game.state.get(k) for k in ("turn", "cash", "status")}
+        out["summary"] = {k: game.state.get(k) for k in (
+            "turn", "cash", "status", "valuation", "result", "official_result", "free_play",
+        )}
     return out
 
 
@@ -169,6 +175,45 @@ async def edit_product(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     game.state = state
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/continue")
+async def continue_game(
+    game_id: uuid.UUID,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Keep playing a run that has ended. Its recorded score stays as it is."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != ceo.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = ceo.continue_game(ceo.upgrade(game.state))
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/offer")
+async def answer_offer(
+    game_id: uuid.UUID,
+    body: OfferAnswer,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Accept or turn down the offer on the table. Instant: no turn, no model call."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != ceo.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = ceo.answer_offer(ceo.upgrade(game.state), body.accept)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     await db.commit()
     await db.refresh(game)
     return _serialize(game)

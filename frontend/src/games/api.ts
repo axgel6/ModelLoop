@@ -13,7 +13,16 @@ export interface GameSaveSummary {
   id: string;
   title: string;
   updated_at: string;
-  summary: { turn: number; cash: number; status: string };
+  summary: {
+    turn: number;
+    cash: number;
+    status: string;
+    valuation?: number;
+    result?: { score: number; rating: string } | null;
+    /** The score a run ended on, kept when it is played on afterwards */
+    official_result?: { score: number; rating: string } | null;
+    free_play?: boolean;
+  };
 }
 
 async function failure(res: Response, fallback: string): Promise<Error> {

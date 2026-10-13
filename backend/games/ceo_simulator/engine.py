@@ -37,7 +37,34 @@ WORD_OF_MOUTH = 4000           # higher is slower: weekly demand drift per reput
 MAX_PRODUCTS = 8
 MAX_START_PRODUCTS = 4
 HISTORY_LIMIT = 60
-LOG_LIMIT = 40
+LOG_LIMIT = 60
+
+# ---- The run: one year, scored on what your stake is worth ----
+GAME_LENGTH = 52               # weeks
+GOAL = 1_000_000               # stake value that counts as a win
+RATINGS = [                    # (stake worth at least, verdict)
+    (2_500_000, "Runaway success"),
+    (1_000_000, "Goal reached"),
+    (500_000, "Solid business"),
+    (250_000, "Getting by"),
+    (1, "Barely standing"),
+    (0, "Wiped out"),
+]
+
+RESCUE_GRANT = 50_000          # cash handed to a bankrupt company that plays on
+
+# ---- Offers ----
+OFFER_COOLDOWN = 5             # quiet weeks after any offer
+INVESTOR_FROM_WEEK = 3
+INVESTOR_CHANCE = 0.11         # per week, doubled when cash is short
+BUYOUT_FROM_WEEK = 8
+BUYOUT_CHANCE = 0.035
+MIN_EQUITY_TO_SELL = 0.5       # investors stop calling once you own less than this
+INVESTORS = [
+    ("Priya Raman", "Northgate Capital"), ("Marcus Hale", "Hale & Finch"), ("Elena Sokolova", "Red Kite Ventures"),
+    ("Tom Okafor", "Lantern Partners"), ("Grace Lindqvist", "Fjord Growth"), ("Daniel Reyes", "Copper Mill Fund"),
+]
+BUYERS = ["Harland Group", "Meridian Holdings", "Blue Anchor Brands", "Castellan & Co", "Vireo Industries"]
 
 DEFAULT_OPTIONS = [
     "Launch a marketing campaign",
@@ -290,9 +317,136 @@ def _product(name: str, price: float, unit_cost: float, revenue_target: float, q
     }
 
 
+def _expected_revenue(state: dict) -> float:
+    """A week's sales at the current demand, reputation and quality."""
+    reputation_factor = 0.5 + state["reputation"] / 100
+    return sum(
+        p["demand"] * p["price"] * reputation_factor * (0.7 + 0.5 * p["quality"] / 100)
+        for p in state["products"] if p["active"]
+    )
+
+
+def valuation(state: dict) -> int:
+    """What the whole company is worth: cash, plus a year of sales and profit at a multiple.
+
+    Uses the last four weeks so one good or bad week does not swing it, and profit
+    before one-off spending so an ad campaign is not read as a failing business.
+    """
+    recent = state["history"][-4:]
+    if recent:
+        revenue = sum(h["revenue"] for h in recent) / len(recent)
+        profit = sum(h.get("operating", h["profit"]) for h in recent) / len(recent)
+    else:
+        revenue, profit = _expected_revenue(state), 0
+    sales_multiple = 0.2 + 0.6 * state["reputation"] / 100
+    profit_multiple = 5 if profit > 0 else 2
+    return max(0, round(max(0, state["cash"]) + 52 * revenue * sales_multiple + 52 * profit * profit_multiple))
+
+
+def stake_value(state: dict) -> int:
+    return round(state["valuation"] * state["equity"])
+
+
+def _finish(s: dict, outcome: str, company_value: float) -> None:
+    """End the run and record the result. The score is what the player's stake is worth."""
+    score = 0 if outcome == "bankrupt" else round(company_value * s["equity"])
+    s["status"] = outcome
+    s["offer"] = None
+    s["options"] = []
+    s["result"] = {
+        "outcome": outcome,
+        "score": score,
+        "company_value": round(company_value),
+        "weeks": s["turn"],
+        "rating": next(label for floor, label in RATINGS if score >= floor),
+        "goal_met": score >= GOAL,
+    }
+
+
+def continue_game(state: dict) -> dict:
+    """Play on after a run has ended, as free play.
+
+    The result already recorded stays as the official score; nothing after this
+    changes it. A bankrupt company is put back on its feet with a grant. A sold
+    company cannot be continued: selling is the one ending that is final.
+    """
+    s = copy.deepcopy(state)
+    if s["status"] == "active":
+        raise ValueError("This game is still going.")
+    if s["status"] == "sold":
+        raise ValueError("You sold this company. It is no longer yours to run.")
+    s["official_result"] = s.get("official_result") or s.get("result")
+    if s["status"] == "bankrupt":
+        s["cash"] = max(0, s["cash"]) + RESCUE_GRANT
+        s["pending"] = (s.get("pending") or []) + [f"Took a {_money(RESCUE_GRANT)} rescue grant"]
+    s["status"] = "active"
+    s["result"] = None
+    s["free_play"] = True
+    s["options"] = list(DEFAULT_OPTIONS)
+    s["valuation"] = valuation(s)
+    return s
+
+
+def _maybe_offer(s: dict, rng: random.Random) -> Optional[dict]:
+    """Now and then someone makes an offer. The numbers are worked out here, never by the model."""
+    if s["turn"] - s.get("last_offer_turn", -OFFER_COOLDOWN) < OFFER_COOLDOWN:
+        return None
+    company = s["company"]["name"]
+    worth = s["valuation"]
+    weekly_costs = max(1, s["last"]["costs"])
+    short_of_cash = s["cash"] < 5 * weekly_costs
+
+    if s["turn"] >= BUYOUT_FROM_WEEK and worth >= 150_000 and rng.random() < BUYOUT_CHANCE:
+        buyer = rng.choice(BUYERS)
+        price = int(round(worth * rng.uniform(0.8, 1.4), -3))
+        yours = round(price * s["equity"])
+        return {
+            "type": "buyout", "from": buyer, "amount": price, "yours": yours,
+            "text": f"{buyer} wants to buy {company} outright for {_money(price)}. "
+                    + (f"Your share would be {_money(yours)}. " if s["equity"] < 1 else "")
+                    + "Accepting ends the game.",
+        }
+
+    chance = INVESTOR_CHANCE * (2 if short_of_cash else 1)
+    if s["turn"] >= INVESTOR_FROM_WEEK and s["equity"] >= MIN_EQUITY_TO_SELL and worth > 0 and rng.random() < chance:
+        person, firm = rng.choice(INVESTORS)
+        stake = rng.choice([5, 8, 10, 12, 15, 20, 25])
+        # Investors can tell when you need the money, and pay less for the same slice.
+        generosity = rng.uniform(0.5, 0.75) if short_of_cash else rng.uniform(0.75, 1.15)
+        amount = int(max(5_000, round(worth * stake / 100 * generosity, -3)))
+        return {
+            "type": "investment", "from": f"{person} of {firm}", "amount": amount, "stake": stake,
+            "text": f"{person} of {firm} offers {_money(amount)} for a {stake}% stake in {company}. "
+                    f"From then on they take {stake}% of every profitable week.",
+        }
+    return None
+
+
+def answer_offer(state: dict, accept: bool) -> dict:
+    """Accept or turn down the offer on the table. Does not use a turn."""
+    s = copy.deepcopy(state)
+    offer = s.get("offer")
+    if not offer or s["status"] != "active":
+        raise ValueError("There is no offer to answer.")
+    s["offer"] = None
+    if not accept:
+        s["pending"] = (s.get("pending") or []) + [f"Turned down an offer from {offer['from']}"]
+        return s
+    if offer["type"] == "buyout":
+        _finish(s, "sold", offer["amount"])
+        return s
+    s["cash"] += offer["amount"]
+    s["equity"] = round(s["equity"] * (1 - offer["stake"] / 100), 4)
+    s["valuation"] = valuation(s)
+    s["pending"] = (s.get("pending") or []) + [
+        f"Took {_money(offer['amount'])} from {offer['from']} for {offer['stake']}%",
+    ]
+    return s
+
+
 def new_game(company: str, pitch: str, products: list[dict]) -> dict:
     share = START_REVENUE_TARGET / len(products)
-    return {
+    state = {
         "company": {"name": company, "pitch": pitch},
         "period": "week",
         "start_cash": START_CASH,
@@ -308,7 +462,14 @@ def new_game(company: str, pitch: str, products: list[dict]) -> dict:
         "reactions": [],
         "options": list(DEFAULT_OPTIONS),
         "log": [],
+        "equity": 1.0,
+        "offer": None,
+        "result": None,
+        "goal": GOAL,
+        "length": GAME_LENGTH,
     }
+    state["valuation"] = valuation(state)
+    return state
 
 
 def upgrade(state: dict) -> dict:
@@ -317,13 +478,22 @@ def upgrade(state: dict) -> dict:
     Turns used to be months. A monthly save keeps its cash, staff and history,
     and its products' demand is scaled down to a week's worth.
     """
-    if state.get("period") == "week":
+    if state.get("period") == "week" and "valuation" in state:
         return state
     s = copy.deepcopy(state)
-    for p in s["products"]:
-        p["demand"] = max(1, round(p["demand"] * 12 / 52))
-    s["period"] = "week"
-    s["start_cash"] = 250_000
+    if s.get("period") != "week":
+        for p in s["products"]:
+            p["demand"] = max(1, round(p["demand"] * 12 / 52))
+        s["period"] = "week"
+        s["start_cash"] = 250_000
+    if "valuation" not in s:
+        # Saves from before valuation, offers and the one-year run. A company already
+        # past the old finish line gets a year from where it stands.
+        s.update(equity=1.0, offer=None, result=None, goal=GOAL)
+        s["length"] = GAME_LENGTH if s["turn"] < GAME_LENGTH - 8 else s["turn"] + GAME_LENGTH
+        s["valuation"] = valuation(s)
+        if s["status"] == "bankrupt":
+            _finish(s, "bankrupt", 0)
     return s
 
 
@@ -404,6 +574,9 @@ def describe_for_model(state: dict, decision: str) -> str:
         f"What it does: {state['company']['pitch'] or 'not stated'}",
         f"Week: {state['turn'] + 1}",
         f"Cash: ${state['cash']:,.0f}",
+        f"Company valuation: ${state['valuation']:,.0f}" + (
+            f" (the CEO owns {state['equity'] * 100:.0f}%, investors own the rest)" if state["equity"] < 1 else ""
+        ),
         f"Employees: {state['employees']}",
         f"Reputation: {state['reputation']}/100",
         f"Team morale: {state['morale']}/100",
@@ -447,6 +620,9 @@ def apply_turn(
     effects = reply.get("effects") if isinstance(reply.get("effects"), dict) else {}
     # Changes made from the dashboard since last week lead this week's list.
     changes: list[str] = list(s.pop("pending", None) or [])
+    if s.get("offer"):
+        changes.append(f"Let the offer from {s['offer']['from']} lapse")
+        s["offer"] = None
     active = {p["name"].lower(): p for p in s["products"] if p["active"]}
 
     stated_prices = _stated_prices(decision, list(active.values()))
@@ -591,14 +767,21 @@ def apply_turn(
     overhead = FIXED_OVERHEAD + OVERHEAD_RATE * revenue
     costs = cost_of_goods + payroll + overhead + one_time_cost + staffing_cost + launch_cost
     profit = revenue + one_time_income - costs
+    operating = revenue - cost_of_goods - payroll - overhead
+
+    # Investors take their share of a profitable week.
+    payout = round(profit * (1 - s["equity"])) if profit > 0 and s["equity"] < 1 else 0
+    if payout:
+        changes.append(f"Investor payout {_money(payout)}")
 
     s["turn"] += 1
-    s["cash"] = round(s["cash"] + profit)
+    s["cash"] = round(s["cash"] + profit - payout)
     s["last"] = {"revenue": round(revenue), "costs": round(costs), "profit": round(profit)}
     s["history"] = (s["history"] + [{
-        "turn": s["turn"], "revenue": round(revenue), "profit": round(profit),
+        "turn": s["turn"], "revenue": round(revenue), "profit": round(profit), "operating": round(operating),
         "cash": s["cash"], "employees": s["employees"],
     }])[-HISTORY_LIMIT:]
+    s["valuation"] = valuation(s)
 
     reactions = []
     for item in (reply.get("reactions") or [])[:4]:
@@ -616,9 +799,14 @@ def apply_turn(
 
     narrative = _text(reply.get("narrative"), 900) or "The week passes without much to report."
     if s["cash"] < 0:
-        s["status"] = "bankrupt"
-        s["options"] = []
+        _finish(s, "bankrupt", 0)
         narrative += " The company has run out of money."
+    elif s["turn"] >= s["length"] and not s.get("free_play"):
+        _finish(s, "finished", s["valuation"])
+    else:
+        s["offer"] = _maybe_offer(s, rng)
+        if s["offer"]:
+            s["last_offer_turn"] = s["turn"]
 
     s["log"] = (s["log"] + [{
         "turn": s["turn"],

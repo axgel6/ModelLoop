@@ -452,7 +452,72 @@ html .ceo .ceo-option:disabled {
   gap: 8px;
 }
 
+/* ---- Offers and the end of a run ---- */
+
+.ceo-offer {
+  border-color: var(--game-accent);
+  border-width: 1.5px;
+}
+
+.ceo-offer .ceo-entry-week {
+  color: var(--game-heading);
+}
+
+.ceo-offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ceo-result {
+  padding: 14px;
+  border: 1.5px solid var(--game-accent);
+  border-radius: 16px;
+  background: var(--game-card);
+  align-items: flex-start;
+}
+
+.ceo-result-score {
+  margin: 0;
+  color: var(--game-muted);
+}
+
+.ceo-result-rating {
+  display: block;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--game-heading);
+}
+
 /* ---- Dashboard ---- */
+
+.ceo-value {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px 11px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 12px;
+}
+
+.ceo-value-amount {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  color: var(--game-heading);
+}
+
+.ceo-value .ceo-meter-track {
+  margin: 4px 0 2px;
+}
+
 
 .ceo-side {
   min-height: 0;

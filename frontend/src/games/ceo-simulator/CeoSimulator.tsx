@@ -17,6 +17,13 @@ const GAME_TYPE = "ceo-simulator";
 const MAX_START_PRODUCTS = 4;
 const MAX_PRODUCTS = 8;
 const LAUNCH_COST = 3000;
+const RESCUE_GRANT = 50000;
+
+const OUTCOME_LABEL: Record<string, string> = {
+  bankrupt: "Bankrupt",
+  sold: "Sold",
+  finished: "Year complete",
+};
 
 // A decision made with a form in the dashboard instead of typed out
 type TurnAction =
@@ -114,7 +121,8 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
         </button>
         <h2 className="ceo-title">CEO Simulator</h2>
         <p className="ceo-sub">
-          Each turn is one week. Make a decision, then see what it did to your sales, your team and your reputation.
+          Each turn is one week, and you have one year. Your score is what your share of the company is worth at
+          the end. Reach $1,000,000 to win.
         </p>
 
         {saves && saves.length > 0 && (
@@ -126,9 +134,12 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
                   <button type="button" className="ceo-save-open" onClick={() => open(s.id)} disabled={busy}>
                     <span className="ceo-save-name">{s.title}</span>
                     <span className="ceo-save-meta">
-                      {s.summary.status === "bankrupt" ? "Bankrupt" : `Week ${s.summary.turn + 1}`}
-                      {" · "}
-                      {money(s.summary.cash)} cash
+                      {s.summary.status === "active" || !s.summary.result
+                        ? `Week ${s.summary.turn + 1} · ${money(s.summary.cash)} cash` +
+                          (s.summary.official_result
+                            ? ` · free play, scored ${money(s.summary.official_result.score)}`
+                            : "")
+                        : `${OUTCOME_LABEL[s.summary.status] ?? "Ended"} · ${s.summary.result.rating} · ${money(s.summary.result.score)}`}
                     </span>
                   </button>
                   <button
@@ -248,7 +259,7 @@ function Play({
 
   useEffect(() => {
     feedEnd.current?.scrollIntoView({ block: "end" });
-  }, [state.log.length, pending, error]);
+  }, [state.log.length, pending, error, state.offer]);
 
   const decide = useCallback(
     async (decision: string, action?: TurnAction) => {
@@ -281,6 +292,25 @@ function Play({
 
   // The product whose Discontinue button has been clicked once and awaits a second click
   const [dropId, setDropId] = useState<string | null>(null);
+  const answerOffer = async (accept: boolean) => {
+    setError("");
+    try {
+      onSave(await apiEditGame<CeoState>(save.id, "offer", { accept }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  };
+
+  const keepGoing = async () => {
+    setError("");
+    try {
+      onSave(await apiEditGame<CeoState>(save.id, "continue", {}));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  };
+
+  const stake = Math.round(state.valuation * state.equity);
   const over = state.status !== "active";
   const previous = state.history[state.history.length - 2];
   const revenueDelta = previous ? state.last.revenue - previous.revenue : null;
@@ -293,7 +323,13 @@ function Play({
           All companies
         </button>
         <span className="ceo-bar-name">{state.company.name}</span>
-        <span className="ceo-bar-week">{over ? "Closed" : `Week ${state.turn + 1}`}</span>
+        <span className="ceo-bar-week">
+          {over
+            ? (OUTCOME_LABEL[state.status] ?? "Closed")
+            : state.free_play
+              ? `Week ${state.turn + 1} · Free play`
+              : `Week ${state.turn + 1} of ${state.length}`}
+        </span>
       </div>
 
       <div className="ceo-body">
@@ -332,18 +368,70 @@ function Play({
                 <p className="ceo-entry-text">The week is playing out</p>
               </div>
             )}
+            {state.offer && !over && !pending && (
+              <div className="ceo-entry ceo-offer">
+                <div className="ceo-entry-head">
+                  <span className="ceo-entry-week">
+                    {state.offer.type === "buyout" ? "Buyout offer" : "Investment offer"}
+                  </span>
+                </div>
+                <p className="ceo-entry-text">{state.offer.text}</p>
+                <div className="ceo-offer-actions">
+                  <button type="button" className="ceo-btn" onClick={() => answerOffer(true)}>
+                    Accept
+                  </button>
+                  <button type="button" className="ceo-option" onClick={() => answerOffer(false)}>
+                    Reject
+                  </button>
+                  <span className="ceo-hint">Answering does not use your week. It lapses if you play on.</span>
+                </div>
+              </div>
+            )}
             {error && <p className="ceo-error">{error}</p>}
             <div ref={feedEnd} />
           </div>
 
           {over ? (
-            <div className="ceo-composer">
+            <div className="ceo-composer ceo-result">
               <p className="ceo-over">
-                {state.company.name} ran out of money after {state.turn} {state.turn === 1 ? "week" : "weeks"}.
+                {state.status === "sold"
+                  ? `You sold ${state.company.name} for ${money(state.result?.company_value ?? 0)}.`
+                  : state.status === "finished"
+                    ? `One year in, ${state.company.name} is worth ${money(state.result?.company_value ?? 0)}.`
+                    : `${state.company.name} ran out of money after ${state.turn} ${state.turn === 1 ? "week" : "weeks"}.`}
               </p>
-              <button type="button" className="ceo-btn" onClick={onLeave}>
-                Start another company
-              </button>
+              {state.result && (
+                <p className="ceo-result-score">
+                  <span className="ceo-result-rating">{state.result.rating}</span>
+                  Your share: {money(state.result.score)}
+                  {state.result.goal_met
+                    ? `. You beat the ${money(state.goal)} goal.`
+                    : ` of a ${money(state.goal)} goal.`}
+                </p>
+              )}
+              <div className="ceo-offer-actions">
+                {state.status !== "sold" && (
+                  <button type="button" className="ceo-btn" onClick={keepGoing}>
+                    {state.status === "bankrupt"
+                      ? `Take a ${money(RESCUE_GRANT)} grant and keep going`
+                      : "Keep playing"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={state.status === "sold" ? "ceo-btn" : "ceo-option"}
+                  onClick={onLeave}
+                >
+                  Start another company
+                </button>
+              </div>
+              {state.status !== "sold" && (
+                <p className="ceo-hint">
+                  {state.free_play
+                    ? "This is free play. Your recorded score does not change."
+                    : "Your score is locked in. Anything after this is free play and does not change it."}
+                </p>
+              )}
             </div>
           ) : (
             <form
@@ -385,6 +473,29 @@ function Play({
         </div>
 
         <aside className="ceo-side">
+          <div className="ceo-value">
+            <span className="ceo-stat-label">Company value</span>
+            <span className="ceo-value-amount">{money(state.valuation)}</span>
+            {state.equity < 1 && (
+              <span className="ceo-stat-note">
+                You own {Math.round(state.equity * 100)}%, worth {money(stake)}
+              </span>
+            )}
+            <div className="ceo-meter-track" title={`Goal: ${money(state.goal)}`}>
+              <div
+                className="ceo-meter-fill"
+                style={{ width: `${Math.max(0, Math.min(100, (stake / state.goal) * 100))}%` }}
+              />
+            </div>
+            <span className="ceo-stat-note">
+              {state.free_play && state.official_result
+                ? `Free play. Final score: ${money(state.official_result.score)}`
+                : stake >= state.goal
+                  ? "Goal reached"
+                  : `${money(state.goal - stake)} to the ${money(state.goal)} goal`}
+            </span>
+          </div>
+
           <div className="ceo-stats">
             <Stat label="Cash" value={money(state.cash)} tone={state.cash < 50000 ? "down" : undefined} />
             <Stat
