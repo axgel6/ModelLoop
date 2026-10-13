@@ -114,23 +114,19 @@ const PRESETS: { label: string; description: string; prompt: string }[] = [
 const GENERATION_INFO: Record<string, { title: string; body: string }> = {
   temperature: {
     title: "Temperature",
-    body:
-      "Controls how random the model's word choices are. Low values (0.0 to 0.3) keep replies focused and repeatable, so the same question returns nearly the same answer every time. High values (1.2 and above) make replies more varied and creative, but also more likely to wander off topic or invent details. 0.7 is a balanced default.",
+    body: "Controls how random the model's word choices are. Low values (0.0 to 0.3) keep replies focused and repeatable, so the same question returns nearly the same answer every time. High values (1.2 and above) make replies more varied and creative, but also more likely to wander off topic or invent details. 0.7 is a balanced default.",
   },
   topP: {
     title: "Top P",
-    body:
-      "Also called nucleus sampling. Before choosing each word, the model ranks every candidate by probability and keeps only the smallest group whose combined probability reaches this value. At 0.9 it considers the most likely 90 percent and discards the long tail. Lowering it restricts the model to safe, predictable words; raising it toward 1.0 lets rare words back in, adding variety and risk. It works alongside Temperature: Temperature reshapes the odds, Top P trims the shortlist.",
+    body: "Also called nucleus sampling. Before choosing each word, the model ranks every candidate by probability and keeps only the smallest group whose combined probability reaches this value. At 0.9 it considers the most likely 90 percent and discards the long tail. Lowering it restricts the model to safe, predictable words; raising it toward 1.0 lets rare words back in, adding variety and risk. It works alongside Temperature: Temperature reshapes the odds, Top P trims the shortlist.",
   },
   numPredict: {
     title: "Max Tokens",
-    body:
-      "A hard cap on the length of a single reply. One token is roughly three quarters of a word. Left unlimited, the model stops when it judges the answer complete. Set a number and the reply is cut off once it reaches that many tokens, even mid sentence, which is useful for keeping answers short or bounding how long a response can take.",
+    body: "A hard cap on the length of a single reply. One token is roughly three quarters of a word. Left unlimited, the model stops when it judges the answer complete. Set a number and the reply is cut off once it reaches that many tokens, even mid sentence, which is useful for keeping answers short or bounding how long a response can take.",
   },
   speechRate: {
     title: "Voice Speed",
-    body:
-      "Playback rate for spoken replies in voice mode. 1.0 is the speech engine's natural pace, 0.5 plays at half speed, and 2.0 at double. This only affects how a reply is read aloud. It does not change the wording the model generates.",
+    body: "Playback rate for spoken replies in voice mode. 1.0 is the speech engine's natural pace, 0.5 plays at half speed, and 2.0 at double. This only affects how a reply is read aloud. It does not change the wording the model generates.",
   },
 };
 
@@ -533,8 +529,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
                   <div className="pref-setting-label">
-                    Top P
-                    {infoButton("topP")}
+                    Top P{infoButton("topP")}
                   </div>
                   <div className="pref-setting-hint">
                     {topP <= 0.5
@@ -1059,9 +1054,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                   <span className="pref-row-arrow">→</span>
                 </div>
-                <p id="acc-upgrade-message">
-                  Contact administrator for account tier upgrade
-                </p>
               </div>
             </div>
           </>
@@ -1078,10 +1070,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <div className="pref-account-field">
                   <div className="pref-field-label">Ollama Server</div>
                   <div className="pref-field-desc">
-                    Leave empty to use the shared test server. To use your own, enter
-                    an address reachable from the internet, such as an ngrok or
-                    Tailscale Funnel URL. ModelLoop connects from its own server, so
-                    localhost and private network addresses are refused.
+                    Leave empty to use the shared test server. To use your own,
+                    enter an address reachable from the internet, such as an
+                    ngrok or Tailscale Funnel URL. ModelLoop connects from its
+                    own server, so localhost and private network addresses are
+                    refused.
                   </div>
                   <input
                     className="pref-name-input pref-ollama-input"
@@ -1105,9 +1098,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     <button
                       className="pref-name-cancel-btn"
                       onClick={handleTestOllama}
-                      disabled={ollamaTesting || ollamaSaving || !ollamaUrl.trim()}
+                      disabled={
+                        ollamaTesting || ollamaSaving || !ollamaUrl.trim()
+                      }
                     >
-                      {ollamaTesting ? <span className="btn-spinner" /> : "Test"}
+                      {ollamaTesting ? (
+                        <span className="btn-spinner" />
+                      ) : (
+                        "Test"
+                      )}
                     </button>
                     <button
                       className="pref-name-save-btn"
@@ -1135,8 +1134,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <div className="pref-account-field">
                   <div className="pref-field-label">Connection</div>
                   {ollamaStatusLoading ? (
-                    <div className="pref-field-desc">Checking, this can take up to
-                      25 seconds if the server is asleep.</div>
+                    <div className="pref-field-desc">
+                      Checking, this can take up to 25 seconds if the server is
+                      asleep.
+                    </div>
                   ) : ollamaStatus ? (
                     <>
                       <div className="pref-ollama-status">
@@ -1156,23 +1157,28 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                             : (ollamaStatus.url ?? "your server")}
                         </span>
                       </div>
-                      {ollamaStatus.reachable && ollamaStatus.models != null && (
-                        <div className="pref-field-desc">
-                          {ollamaStatus.models} model
-                          {ollamaStatus.models === 1 ? "" : "s"} available
-                          {ollamaStatus.sample && ollamaStatus.sample.length > 0
-                            ? `: ${ollamaStatus.sample.join(", ")}`
-                            : ""}
-                        </div>
-                      )}
+                      {ollamaStatus.reachable &&
+                        ollamaStatus.models != null && (
+                          <div className="pref-field-desc">
+                            {ollamaStatus.models} model
+                            {ollamaStatus.models === 1 ? "" : "s"} available
+                            {ollamaStatus.sample &&
+                            ollamaStatus.sample.length > 0
+                              ? `: ${ollamaStatus.sample.join(", ")}`
+                              : ""}
+                          </div>
+                        )}
                       {!ollamaStatus.reachable && ollamaStatus.detail && (
-                        <div className="pref-field-desc">{ollamaStatus.detail}</div>
+                        <div className="pref-field-desc">
+                          {ollamaStatus.detail}
+                        </div>
                       )}
                       {ollamaStatus.using_shared_server && (
                         <div className="pref-ollama-note">
-                          The shared server sleeps when idle, so the first reply after
-                          a quiet spell can take a minute to arrive. It is shared with
-                          everyone, so it can also be slow under load.
+                          The shared server sleeps when idle, so the first reply
+                          after a quiet spell can take a minute to arrive. It is
+                          shared with everyone, so it can also be slow under
+                          load.
                         </div>
                       )}
                     </>
@@ -1204,16 +1210,16 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-about-hero">
                 <div className="pref-about-wordmark">ModelLoop</div>
                 <div className="pref-about-build">
-                  Latest Build Date: Jun 19, 2026
+                  Latest Build Date: Oct 13, 2026
                 </div>
                 <div className="pref-about-tagline">
-                  Self-hosted AI chat powered by Ollama
+                  Self-hosted AI chat powered by your local LLM
                 </div>
               </div>
               <div className="pref-account-card">
                 <div className="pref-account-field">
                   <div className="pref-field-label">Version</div>
-                  <div className="pref-about-meta-value">v1.4.3</div>
+                  <div className="pref-about-meta-value">v1.5.0</div>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
                   <div className="pref-field-label">Built by</div>
@@ -1364,7 +1370,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           </div>
         </div>
       )}
-
     </>
   );
 };

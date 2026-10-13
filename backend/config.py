@@ -32,7 +32,7 @@ ALLOWED_ORIGINS  = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").sp
 API_KEY          = os.environ.get("API_KEY")
 
 # ----- Feature gates -----
-# Toggled via .env; see .env.example. Replaces the old per-role feature flag table.
+# Toggled via .env; see .env.example.
 ENABLE_ACTIONS            = _env_bool("ENABLE_ACTIONS", True)
 ENABLE_PHOTO_UPLOAD       = _env_bool("ENABLE_PHOTO_UPLOAD", True)
 ENABLE_RAG                = _env_bool("ENABLE_RAG", True)

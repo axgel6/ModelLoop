@@ -1,6 +1,5 @@
 """Feature gating driven entirely by environment variables.
 
-Replaces the former database-backed feature_flags table and its admin UI.
 Flags are read once at import time; change a value in .env and restart.
 """
 from config import (
@@ -8,8 +7,7 @@ from config import (
     GUEST_ENABLE_ACTIONS, GUEST_ENABLE_PHOTO_UPLOAD,
 )
 
-# Feature names are unchanged from the old flag table so the frontend
-# (which reads features.actions / features.photo_upload / features.rag) still works.
+# The frontend reads these names (features.actions / features.photo_upload / features.rag).
 _AUTHENTICATED = {
     "actions":      ENABLE_ACTIONS,
     "photo_upload": ENABLE_PHOTO_UPLOAD,
