@@ -11,8 +11,9 @@ import {
   apiTestOllamaUrl,
 } from "./api";
 import type { OllamaStatus } from "./api";
+import { readableTextOn } from "./utils/chatUtils";
 
-export type Theme = "ocean" | "gruvbox" | "dune" | "meadow";
+export type Theme = "ember" | "dune" | "meadow";
 export type Font = "mono" | "inter" | "rounded";
 export type TextSize = "xs" | "small" | "medium" | "large";
 
@@ -187,6 +188,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 }) => {
   useEscapeKey(onClose);
   const [soundOn, setSoundOn] = useState(() => sounds.isEnabled());
+  const [soundVolume, setSoundVolume] = useState(() => sounds.getVolume());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
@@ -653,26 +655,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-section-label">Theme</div>
               <div className="pref-theme-cards">
                 <div
-                  className={`pref-theme-card${theme === "ocean" ? " active" : ""}`}
-                  onClick={() => setTheme("ocean")}
+                  className={`pref-theme-card${theme === "meadow" ? " active" : ""}`}
+                  onClick={() => setTheme("meadow")}
                 >
-                  <div className="pref-theme-preview pref-theme-preview-ocean">
+                  <div className="pref-theme-preview pref-theme-preview-meadow">
                     <span className="ptc-bar ptc-bar-1" />
                     <span className="ptc-bar ptc-bar-2" />
                     <span className="ptc-bar ptc-bar-3" />
                   </div>
-                  <span className="pref-theme-label">Ocean</span>
-                </div>
-                <div
-                  className={`pref-theme-card${theme === "gruvbox" ? " active" : ""}`}
-                  onClick={() => setTheme("gruvbox")}
-                >
-                  <div className="pref-theme-preview pref-theme-preview-gruvbox">
-                    <span className="ptc-bar ptc-bar-1" />
-                    <span className="ptc-bar ptc-bar-2" />
-                    <span className="ptc-bar ptc-bar-3" />
-                  </div>
-                  <span className="pref-theme-label">Gruvbox</span>
+                  <span className="pref-theme-label">Meadow</span>
                 </div>
                 <div
                   className={`pref-theme-card${theme === "dune" ? " active" : ""}`}
@@ -686,15 +677,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <span className="pref-theme-label">Dune</span>
                 </div>
                 <div
-                  className={`pref-theme-card${theme === "meadow" ? " active" : ""}`}
-                  onClick={() => setTheme("meadow")}
+                  className={`pref-theme-card${theme === "ember" ? " active" : ""}`}
+                  onClick={() => setTheme("ember")}
                 >
-                  <div className="pref-theme-preview pref-theme-preview-meadow">
+                  <div className="pref-theme-preview pref-theme-preview-ember">
                     <span className="ptc-bar ptc-bar-1" />
                     <span className="ptc-bar ptc-bar-2" />
                     <span className="ptc-bar ptc-bar-3" />
                   </div>
-                  <span className="pref-theme-label">Meadow</span>
+                  <span className="pref-theme-label">Ember</span>
                 </div>
               </div>
               <div
@@ -704,6 +695,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 Font
               </div>
               <div className="pref-font-cards">
+                <div
+                  className={`pref-font-card${font === "rounded" ? " active" : ""}`}
+                  onClick={() => setFont("rounded")}
+                >
+                  <span className="pref-font-preview pref-font-preview-rounded">
+                    Aa
+                  </span>
+                  <span className="pref-font-label">Nunito</span>
+                </div>
                 <div
                   className={`pref-font-card${font === "inter" ? " active" : ""}`}
                   onClick={() => setFont("inter")}
@@ -721,15 +721,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     Aa
                   </span>
                   <span className="pref-font-label">JetBrains Mono</span>
-                </div>
-                <div
-                  className={`pref-font-card${font === "rounded" ? " active" : ""}`}
-                  onClick={() => setFont("rounded")}
-                >
-                  <span className="pref-font-preview pref-font-preview-rounded">
-                    Aa
-                  </span>
-                  <span className="pref-font-label">Nunito</span>
                 </div>
               </div>
               <div
@@ -758,6 +749,31 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   {soundOn ? "On" : "Off"}
                 </button>
               </div>
+              {soundOn && (
+                <div className="pref-volume">
+                  {/* Each step plays the menu tick (see the range handler in main.tsx),
+                      so the new level is heard as it is set. */}
+                  <input
+                    type="range"
+                    className="temperature-slider pref-slider"
+                    aria-label="Sound volume"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={Math.round(soundVolume * 100)}
+                    onChange={(e) => {
+                      const next = Number(e.target.value) / 100;
+                      sounds.setVolume(next);
+                      setSoundVolume(next);
+                    }}
+                  />
+                  <div className="temperature-labels">
+                    <span>Quiet</span>
+                    <span>{Math.round(soundVolume * 100)}%</span>
+                    <span>Loud</span>
+                  </div>
+                </div>
+              )}
               <div
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
@@ -977,7 +993,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     <div
                       className="pref-avatar-preview"
                       style={
-                        avatarColor ? { background: avatarColor } : undefined
+                        avatarColor
+                          ? { background: avatarColor, color: readableTextOn(avatarColor) }
+                          : undefined
                       }
                     >
                       {(userInfo?.full_name ??

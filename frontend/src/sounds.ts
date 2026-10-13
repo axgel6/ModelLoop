@@ -2,9 +2,13 @@
 // no audio files to load. Every note comes from one pentatonic scale, which is why
 // any two sounds overlapping still sound pleasant together.
 
-export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop";
+export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle";
 
 const STORAGE_KEY = "sound_fx";
+const VOLUME_KEY = "sound_volume";
+// The slider's starting point. The note volumes below were tuned at this setting,
+// so the master gain is the chosen volume relative to it.
+const DEFAULT_VOLUME = 0.6;
 
 const C4 = 261.63, D4 = 293.66, E4 = 329.63, G4 = 392.0, A4 = 440.0;
 const C5 = 523.25, E5 = 659.25, G5 = 783.99, A5 = 880.0;
@@ -20,6 +24,8 @@ const SOUNDS: Record<SoundName, Note[]> = {
   done: [[G5, 0, 0.45, 0.06], [C6, 0.11, 0.5, 0.06], [E6, 0.22, 0.7, 0.05]],
   warn: [[E4, 0, 0.26, 0.07], [C4, 0.12, 0.36, 0.07]],
   stop: [[G4, 0, 0.18, 0.06]],
+  // Two low, soft notes stepping up: a small "bloop" for clicks on empty space
+  sparkle: [[E4, 0, 0.1, 0.045], [A4, 0.07, 0.2, 0.04]],
 };
 
 // The "voice" a reply is spoken in while it streams: low notes, picked at random.
@@ -29,6 +35,7 @@ const BABBLE_GAP_MS = 85;
 class SoundManager {
   private ctx: AudioContext | null = null;
   private out: AudioNode | null = null;
+  private master: GainNode | null = null;
   private lastName: SoundName | null = null;
   private lastAt = 0;
   private lastBabble = 0;
@@ -40,6 +47,18 @@ class SoundManager {
 
   setEnabled(on: boolean) {
     localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
+  }
+
+  // 0 to 1, remembered in this browser.
+  getVolume(): number {
+    const stored = parseFloat(localStorage.getItem(VOLUME_KEY) ?? "");
+    return Number.isFinite(stored) ? Math.min(1, Math.max(0, stored)) : DEFAULT_VOLUME;
+  }
+
+  setVolume(volume: number) {
+    const clamped = Math.min(1, Math.max(0, volume));
+    localStorage.setItem(VOLUME_KEY, String(clamped));
+    if (this.master) this.master.gain.value = clamped / DEFAULT_VOLUME;
   }
 
   play(name: SoundName) {
@@ -81,7 +100,9 @@ class SoundManager {
       const filter = this.ctx.createBiquadFilter();
       filter.type = "lowpass";
       filter.frequency.value = 3200;
-      filter.connect(this.ctx.destination);
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.getVolume() / DEFAULT_VOLUME;
+      filter.connect(this.master).connect(this.ctx.destination);
       this.out = filter;
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();

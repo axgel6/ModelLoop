@@ -33,7 +33,7 @@ A self-hosted AI chat interface powered by Ollama. Full-featured conversational 
 - **Rate limiting** — IP-based protection against API abuse
 - **Feature gates** — Env vars toggle actions, image upload, RAG, and guest chat
 - **Thinking models** — Auto-detect reasoning models (deepseek-r1, etc.)
-- **Theme system** — Gruvbox Dark & Ocean Glass themes with persistent preferences
+- **Theme system** — Meadow, Dune & Ember themes with persistent preferences
 - **Keyboard shortcuts** — Esc to close modals, quick navigation
 
 ### Development
@@ -80,7 +80,7 @@ ModelLoop/
 │   │   │       ├── useChatSettings.ts  # Preferences (theme, model, prompt)
 │   │   │       └── useChatUI.ts        # Modal/dropdown visibility
 │   │   ├── App.tsx                  # Router & auth state
-│   │   ├── App.css                  # Gruvbox dark theme
+│   │   ├── App.css                  # All styles and themes
 │   │   ├── index.css                # Fonts & resets
 │   │   └── main.tsx                 # Entry point
 │   ├── index.html

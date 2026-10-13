@@ -45,6 +45,7 @@ import {
   GREETINGS,
   timeGreeting,
   friendlyError,
+  readableTextOn,
   withMandatoryPromptRules,
 } from "./utils/chatUtils";
 import ConnectionBanner from "./ConnectionBanner";
@@ -1163,7 +1164,9 @@ function Chat({
                   <div
                     className="sidebar-user-avatar"
                     style={
-                      avatarColor ? { background: avatarColor } : undefined
+                      avatarColor
+                        ? { background: avatarColor, color: readableTextOn(avatarColor) }
+                        : undefined
                     }
                   >
                     {(userName ?? userEmail ?? "?")[0].toUpperCase()}

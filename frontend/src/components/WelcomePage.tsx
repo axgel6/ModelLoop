@@ -19,10 +19,9 @@ const CHAR_SPEED = 18;
 const MESSAGE_GAP = 180;
 
 const THEMES: { id: Theme; label: string; previewClass: string }[] = [
-  { id: "ocean",   label: "Ocean",   previewClass: "pref-theme-preview-ocean" },
-  { id: "gruvbox", label: "Gruvbox", previewClass: "pref-theme-preview-gruvbox" },
-  { id: "dune",    label: "Dune",    previewClass: "pref-theme-preview-dune" },
   { id: "meadow",  label: "Meadow",  previewClass: "pref-theme-preview-meadow" },
+  { id: "dune",    label: "Dune",    previewClass: "pref-theme-preview-dune" },
+  { id: "ember",   label: "Ember",   previewClass: "pref-theme-preview-ember" },
 ];
 
 const STEPS: { n: string; title: string; body: React.ReactNode }[] = [

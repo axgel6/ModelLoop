@@ -15,7 +15,7 @@ class UpdateProfileRequest(BaseModel):
 
 
 class UpdatePreferencesRequest(BaseModel):
-    theme: Optional[str] = Field(default=None, pattern=r"^(ocean|gruvbox|dune|meadow)$")
+    theme: Optional[str] = Field(default=None, pattern=r"^(ember|dune|meadow)$")
     font:  Optional[str] = Field(default=None, pattern=r"^(mono|inter|rounded)$")
 
 

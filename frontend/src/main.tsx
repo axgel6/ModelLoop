@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import "highlight.js/styles/github-dark.css";
 import App from "./App.tsx";
 import { haptics } from "./haptics";
+import { isEmptySpaceClick, sparkleAt } from "./sparkle";
 
 document.addEventListener("click", (e) => {
   const target = e.target as HTMLElement;
@@ -62,6 +63,9 @@ document.addEventListener("click", (e) => {
     haptics.trigger("light");
     return;
   }
+
+  // ---- Empty space ----
+  if (isEmptySpaceClick(e)) sparkleAt(e.clientX, e.clientY);
 });
 
 // ---- Sliders: haptic tick on each step change ----

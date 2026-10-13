@@ -22,8 +22,7 @@ import { dayPart } from "./components/utils/chatUtils";
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 
 const THEME_TO_DATA: Record<Theme, string> = {
-  ocean: "ocean",
-  gruvbox: "gruvbox",
+  ember: "ember",
   dune: "dune",
   meadow: "meadow",
 };
@@ -56,15 +55,9 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    const valid: Theme[] = ["ocean", "gruvbox", "dune", "meadow"];
-    // Migrate old theme keys to the two remaining themes
-    if (
-      stored === "ocean" ||
-      stored === "ocean-glass" ||
-      stored === "ocean-flat" ||
-      stored === "glassy"
-    )
-      return "ocean";
+    const valid: Theme[] = ["ember", "dune", "meadow"];
+    // Ember was called Gruvbox, and had variants before that. Anything else that is
+    // no longer a theme (the retired Ocean theme) falls through to the default.
     if (
       stored === "glass" ||
       stored === "gruvbox-glass" ||
@@ -72,7 +65,7 @@ function App() {
       stored === "gruvbox-flat" ||
       stored === "gruvbox"
     )
-      return "gruvbox";
+      return "ember";
     return valid.includes(stored as Theme) ? (stored as Theme) : "meadow";
   });
 
@@ -152,16 +145,8 @@ function App() {
   const handleSetTheme = (t: Theme) => {
     setTheme(t);
     localStorage.setItem("theme_user_set", "true");
-    // Meadow is designed around the rounded typeface, so the two travel together
-    // unless the user has picked a font themselves.
-    let pairedFont: Font | undefined;
-    if (localStorage.getItem("font_user_set") !== "true") {
-      if (t === "meadow" && font !== "rounded") pairedFont = "rounded";
-      else if (t !== "meadow" && font === "rounded") pairedFont = "inter";
-    }
-    if (pairedFont) setFont(pairedFont);
     if (localStorage.getItem("token")) {
-      apiUpdatePreferences({ theme: t, ...(pairedFont ? { font: pairedFont } : {}) }).catch(() => {});
+      apiUpdatePreferences({ theme: t }).catch(() => {});
     }
   };
 
@@ -214,9 +199,11 @@ function App() {
         await apiUpdatePreferences(patch).catch(() => {});
       } else {
         // No local changes — apply DB preferences
-        const validThemes: Theme[] = ["ocean", "gruvbox", "dune", "meadow"];
+        const validThemes: Theme[] = ["ember", "dune", "meadow"];
         const validFonts: Font[] = ["mono", "inter", "rounded"];
-        if (validThemes.includes(me.theme as Theme)) setTheme(me.theme as Theme);
+        // Accounts saved before the rename still say "gruvbox".
+        const savedTheme = me.theme === "gruvbox" ? "ember" : me.theme;
+        if (validThemes.includes(savedTheme as Theme)) setTheme(savedTheme as Theme);
         if (validFonts.includes(me.font as Font)) setFont(me.font as Font);
       }
     } catch {
