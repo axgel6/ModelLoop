@@ -27,6 +27,7 @@ from config import (
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
 from actions import execute_tool, get_active_tools, is_known_tool
+from actions import weather as _weather
 from actions.web_search import (
     async_execute as _run_web_search_async,
     should_activate as _web_search_should_activate,
@@ -70,6 +71,34 @@ def _supports_tools(model: str) -> bool:
 
 def _skip_system_prompt(model: str) -> bool:
     return any(p in model.lower() for p in NO_SYSTEM_PROMPT_MODELS)
+
+
+# Openings where the model gives up on a question it could have searched for:
+# "I don't have real-time access", "as of my knowledge cutoff", "I'm not
+# familiar with". Checked against the start of a reply only.
+_NO_ANSWER_RE = re.compile(
+    r"("
+    r"\b(do not|don'?t|cannot|can'?t|can not|unable to|not able to|no) "
+    r"(have |provide |give |offer )?(direct |any )?(access|browse|browsing|search|retrieve|check|look up)?"
+    r"[^.!?\n]{0,40}\b(real[- ]?time|live|current|up[- ]to[- ]date|latest|the internet|the web|online)\b"
+    r"|\b(knowledge|training)( data)? (cut[- ]?off|only goes|is limited|ends|stops)"
+    r"|\bas of my (last|latest|most recent) (update|knowledge|training)"
+    r"|\bi (do not|don'?t) (know|have (any |enough |specific )?(information|info|data|details|knowledge) (on|about|regarding))"
+    r"|\bi(['’]m| am) (not (familiar with|aware of|sure (who|what|which|when|where|if|about))|unable to (find|provide|verify))"
+    r"|\bi (could not|couldn'?t|cannot|can'?t) (find|provide|verify) (any |current |specific )?(information|info|data|details)"
+    r")",
+    re.IGNORECASE,
+)
+# How much of a reply is held back to run that check before it starts streaming.
+_NO_ANSWER_PEEK_CHARS = 140
+
+
+def _is_giving_up(text: str) -> bool:
+    return bool(_NO_ANSWER_RE.search(text.replace("’", "'")[: _NO_ANSWER_PEEK_CHARS + 80]))
+
+
+def _format_search_block(results: list) -> str:
+    return "\n\n".join(f"**{r['title']}** ({r['url']})\n{r['snippet']}" for r in results)
 
 
 def _resolve_search_query(prompt: str, history) -> str:
@@ -200,19 +229,48 @@ async def _chat_stream_response(
     if actions_enabled:
         active_tools = get_active_tools(prompt)
         _search_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
+        weather_asked = _weather.should_activate(prompt, _search_words)
         proactive_search_enabled = bool(
-            force_search or (_web_search_should_activate(prompt, _search_words) and bool(active_tools))
+            force_search
+            or ((weather_asked or _web_search_should_activate(prompt, _search_words)) and bool(active_tools))
         )
     else:
         active_tools = []
+        weather_asked = False
         proactive_search_enabled = False
+
+    # Set when the user asks about the weather without saying where.
+    weather_needs_place = False
 
     async def _image_description():
         return await _describe_images(images, base_url) if images else ""
 
     async def _web_search_task():
+        nonlocal weather_needs_place
         if not proactive_search_enabled:
             return None
+        # A weather question gets real conditions, not a page of weather-site
+        # links, which hold no numbers for the model to answer from.
+        if weather_asked:
+            place = _weather.extract_location(prompt) or next(
+                (found for m in reversed(history[-6:]) if m["role"] == "user"
+                 for found in [_weather.extract_location(m["content"])] if found),
+                None,
+            )
+            if not place and not force_search:
+                weather_needs_place = True
+                return None
+            if place:
+                try:
+                    report = await _weather.lookup(place, search_region)
+                    if report:
+                        return {"results": [{
+                            "title": f"Weather in {report['place']}",
+                            "url": _weather.SOURCE_URL,
+                            "snippet": report["report"],
+                        }]}
+                except Exception as _e:
+                    logger.warning("proactive_weather_failed error=%s", str(_e))
         try:
             return json.loads(await _run_web_search_async(
                 {"query": _resolve_search_query(prompt, history), "max_results": 5, "_region": search_region}
@@ -273,15 +331,20 @@ async def _chat_stream_response(
 
     _search_block: Optional[str] = None
     if _search_data and _search_data.get("results"):
-        _search_block = "\n\n".join(
-            f"**{r['title']}** ({r['url']})\n{r['snippet']}"
-            for r in _search_data["results"]
-        )
+        _search_block = _format_search_block(_search_data["results"])
         last_msg = messages[-1]
         last_msg["content"] = (
             f"<search_results date=\"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}\">\n"
             f"{_search_block}\n"
             f"</search_results>\n\n"
+            f"{last_msg['content']}"
+        )
+    elif weather_needs_place:
+        last_msg = messages[-1]
+        last_msg["content"] = (
+            "[No location was given for the weather. If the user's location is known from this conversation "
+            "or their profile, call get_weather with it. Otherwise ask which city they mean, in one short "
+            "sentence. Do not guess a location and do not invent weather data.]\n\n"
             f"{last_msg['content']}"
         )
     elif proactive_search_enabled:
@@ -306,6 +369,10 @@ async def _chat_stream_response(
         success       = False
         current_messages: list[dict] = list(messages)
         reactive_search_blocks: list[str] = []
+        # One rescue per turn: if the reply opens by giving up ("I don't have
+        # real-time access..."), drop it, search the web, and answer again.
+        watch_giving_up = actions_enabled and not images
+        searched = bool(_search_block)
 
         try:
             round_content = ""
@@ -315,10 +382,13 @@ async def _chat_stream_response(
                 peek_buf:     list[str] = []
                 # With no tools offered there is nothing to hold back for: JSON in the
                 # reply is just the answer, and must never be run as a tool call.
-                streaming_live = not active_tools
+                hold_for_tools = bool(active_tools)
+                streaming_live = not hold_for_tools and not watch_giving_up
+                gave_up        = False
 
                 tool_use_announced = False
-                async for chunk in _ollama_stream(current_messages, model, temperature, base_url, top_p=top_p, num_predict=num_predict, tools=active_tools or None):
+                stream = _ollama_stream(current_messages, model, temperature, base_url, top_p=top_p, num_predict=num_predict, tools=active_tools or None)
+                async for chunk in stream:
                     if "_thinking" in chunk:
                         yield f"data: {json.dumps({'type': 'thinking_token', 'token': chunk['_thinking']})}\n\n"
                         continue
@@ -331,21 +401,27 @@ async def _chat_stream_response(
                         else:
                             peek_buf.append(token)
                             stripped = round_content.lstrip()
-                            if len(stripped) >= 2:
+                            if len(stripped) >= 2 or not hold_for_tools:
                                 # Hold back content that looks like a tool call:
                                 # { ... }  standard JSON tool call
                                 # [{ ...   JSON array of tool calls
                                 # [TOOL_CALLS] ...  Mistral-style prefix
-                                is_tool_like = (
+                                is_tool_like = hold_for_tools and (
                                     stripped.startswith("{")
                                     or stripped.startswith("[{")
                                     or stripped.upper().startswith("[TOOL_CALLS]")
                                 )
                                 if not is_tool_like:
-                                    streaming_live = True
-                                    for t in peek_buf:
-                                        yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
-                                    peek_buf = []
+                                    if watch_giving_up and len(stripped) < _NO_ANSWER_PEEK_CHARS:
+                                        pass  # not enough of the opening to judge yet
+                                    elif watch_giving_up and _is_giving_up(stripped):
+                                        gave_up = True
+                                        break
+                                    else:
+                                        streaming_live = True
+                                        for t in peek_buf:
+                                            yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
+                                        peek_buf = []
                                 elif not tool_use_announced:
                                     name_match = re.search(r'"name"\s*:\s*"([^"]+)"', round_content)
                                     if name_match:
@@ -362,7 +438,57 @@ async def _chat_stream_response(
                         success = True
                         break
 
-                if not tool_calls and peek_buf:
+                # A reply shorter than the peek window never reached the check above.
+                if not gave_up and watch_giving_up and not streaming_live and not tool_calls:
+                    gave_up = _is_giving_up(round_content.lstrip())
+
+                if gave_up:
+                    await stream.aclose()
+                    watch_giving_up = False
+                    success = False
+                    yield f"data: {json.dumps({'type': 'tool_use', 'tool': 'web_search'})}\n\n"
+                    note = (
+                        "[Live web search results are provided in this message. Answer the question directly from them. "
+                        "Do not say you lack real-time access and do not tell the user to look it up elsewhere. "
+                        "If the results are not relevant, ignore them and answer normally.]"
+                    )
+                    block = ""
+                    if not searched:
+                        searched = True
+                        results: list = []
+                        try:
+                            found = json.loads(await _run_web_search_async(
+                                {"query": _resolve_search_query(prompt, history), "max_results": 5, "_region": search_region}
+                            ))
+                            results = found.get("results") or []
+                        except Exception as _e:
+                            logger.warning("rescue_web_search_failed error=%s", str(_e))
+                        if results:
+                            reactive_search_blocks.append(_format_search_block(results))
+                            block = (
+                                f"<search_results date=\"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}\">\n"
+                                f"{reactive_search_blocks[-1]}\n</search_results>\n\n"
+                            )
+                        else:
+                            note = (
+                                "[A web search was run and returned no results. Do not describe yourself as a language "
+                                "model or mention real-time access. Answer from what you know, or say in one sentence "
+                                "that you could not find current information and ask for any detail that would help, "
+                                "such as a location.]"
+                            )
+                    for i in range(len(current_messages) - 1, -1, -1):
+                        if current_messages[i]["role"] == "user":
+                            current_messages[i] = {
+                                **current_messages[i],
+                                "content": f"{block}{note}\n\n{current_messages[i]['content']}",
+                            }
+                            break
+                    continue
+
+                if not tool_calls and peek_buf and not hold_for_tools:
+                    for t in peek_buf:
+                        yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
+                elif not tool_calls and peek_buf:
                     try:
                         raw = round_content.strip()
                         # Strip Mistral-style [TOOL_CALLS] prefix
@@ -425,7 +551,7 @@ async def _chat_stream_response(
                             tool_args = json.loads(tool_args)
                         except (json.JSONDecodeError, ValueError):
                             tool_args = {}
-                    if tool_name == "web_search":
+                    if tool_name in ("web_search", "get_weather"):
                         tool_args["_region"] = search_region
                     try:
                         tool_result = await execute_tool(tool_name, tool_args)
@@ -434,6 +560,7 @@ async def _chat_stream_response(
                     current_messages.append({"role": "tool", "content": tool_result})
                     # Collect web_search results so they can be persisted with the message
                     if tool_name == "web_search":
+                        searched = True
                         try:
                             parsed_result = json.loads(tool_result)
                             if parsed_result.get("results"):

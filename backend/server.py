@@ -15,6 +15,7 @@ from database import engine, Base
 from config import ALLOWED_ORIGINS, IS_PRODUCTION
 from routers import auth_router, chats, messages, documents, models_router, ollama_status, stream, health
 from routers.stream import close_ollama_client
+from games import router as games_router
 from rag import close_embed_client
 from ollama_http import close_client as close_ollama_http
 from rate_limit import limiter, caller_key
@@ -108,6 +109,7 @@ app.include_router(models_router.router)
 app.include_router(ollama_status.router)
 app.include_router(stream.router)
 app.include_router(health.router)
+app.include_router(games_router.router)
 
 
 if __name__ == "__main__":

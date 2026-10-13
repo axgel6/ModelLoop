@@ -1,8 +1,9 @@
 import re
+from . import weather as _weather
 from . import web_search as _web_search
 
 # Register action modules here when adding new tools
-_ACTIONS = [_web_search]
+_ACTIONS = [_web_search, _weather]
 
 _REGISTRY = {mod.DEFINITION["function"]["name"]: mod for mod in _ACTIONS}
 

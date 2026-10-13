@@ -51,6 +51,7 @@ import {
 } from "./utils/chatUtils";
 import ConnectionBanner from "./ConnectionBanner";
 import { StretchyLogo } from "./StretchyLogo";
+import { GamesHub, GamesIcon } from "../games/GamesHub";
 
 // ── Sidebar chat item ─────────────────────────────────────────────────────────
 
@@ -234,6 +235,7 @@ function Chat({
 
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showGames, setShowGames] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
 
   const closeSidebar = () => {
@@ -877,6 +879,7 @@ function Chat({
   };
 
   const handleNewChat = () => {
+    setShowGames(false);
     setMessages([]);
     activeChatIdRef.current = null;
     onChatCreated("");
@@ -1022,6 +1025,19 @@ function Chat({
               </div>
             </div>
 
+            <div className="sidebar-nav">
+              <button
+                className={`sidebar-nav-btn${showGames ? " active" : ""}`}
+                onClick={() => {
+                  setShowGames(true);
+                  if (window.innerWidth < 768) closeSidebar();
+                }}
+              >
+                <GamesIcon />
+                Games
+              </button>
+            </div>
+
             <div className="sidebar-history">
               <div className="sidebar-chat-list">
                 {chatsLoading &&
@@ -1053,10 +1069,11 @@ function Chat({
                       <SidebarChatItem
                         key={c.id}
                         c={c}
-                        activeChatId={activeChatId}
+                        activeChatId={showGames ? null : activeChatId}
                         pinned
                         deleting={deletingIds.has(c.id)}
                         onSelect={() => {
+                          setShowGames(false);
                           onChatCreated(c.id);
                           if (window.innerWidth < 768) closeSidebar();
                         }}
@@ -1079,10 +1096,11 @@ function Chat({
                   <SidebarChatItem
                     key={c.id}
                     c={c}
-                    activeChatId={activeChatId}
+                    activeChatId={showGames ? null : activeChatId}
                     pinned={false}
                     deleting={deletingIds.has(c.id)}
                     onSelect={() => {
+                      setShowGames(false);
                       onChatCreated(c.id);
                       if (window.innerWidth < 768) closeSidebar();
                     }}
@@ -1203,7 +1221,7 @@ function Chat({
         )}
 
         {/* ---- Main area ---- */}
-        <div className="chat-main">
+        <div className={`chat-main${showGames ? " games-open" : ""}`}>
           {/* Topbar */}
           <div className="chat-topbar">
             <div className="topbar-left">
@@ -1254,16 +1272,16 @@ function Chat({
               <span
                 className="topbar-title"
                 onClick={() => {
-                  if (!activeChatId || isGuest) return;
+                  if (!activeChatId || isGuest || showGames) return;
                   dispatchInteraction({
                     type: "rename_start",
                     id: activeChatId,
                     value: activeChat?.title || "",
                   });
                 }}
-                title={activeChatId && !isGuest ? "Click to rename" : undefined}
+                title={activeChatId && !isGuest && !showGames ? "Click to rename" : undefined}
               >
-                {chatTitle}
+                {showGames ? "" : chatTitle}
               </span>
             )}
 
@@ -1306,6 +1324,7 @@ function Chat({
                             e.preventDefault();
                             setSearchIndex((i) => Math.max(i - 1, 0));
                           } else if (e.key === "Enter" && searchResults.length > 0) {
+                            setShowGames(false);
                             onChatCreated(searchResults[searchIndex].id);
                             setShowSearch(false);
                             setHistorySearch("");
@@ -1325,6 +1344,7 @@ function Chat({
                             className={`spotlight-result-item${i === searchIndex ? " active" : ""}`}
                             onMouseEnter={() => setSearchIndex(i)}
                             onMouseDown={() => {
+                              setShowGames(false);
                               onChatCreated(c.id);
                               setShowSearch(false);
                               setHistorySearch("");
@@ -1428,6 +1448,8 @@ function Chat({
               )}
             </div>
           </div>
+
+          {showGames && <GamesHub model={selectedModel || undefined} />}
 
           {/* Messages */}
           <div

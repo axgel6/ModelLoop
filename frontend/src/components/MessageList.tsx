@@ -245,7 +245,9 @@ export const AssistantMessage = memo(function AssistantMessage({
                   ? thinkingPhrase.current
                   : activeTool === "web_search"
                     ? "Looking that up"
-                    : "Fetching what I need"}
+                    : activeTool === "get_weather"
+                      ? "Checking the weather"
+                      : "Fetching what I need"}
               </span>
             </span>
           ) : (

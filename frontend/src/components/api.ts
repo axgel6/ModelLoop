@@ -134,6 +134,15 @@ async function withRefresh(
   return requestFn();
 }
 
+// Authenticated request for feature folders that keep their own API file (games/).
+// A body is sent as JSON.
+export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = init.body !== undefined ? { "Content-Type": "application/json" } : {};
+  return withRefresh(() =>
+    fetch(`${API_URL}${path}`, { ...init, headers: authHeaders(headers) }),
+  );
+}
+
 // ----- Auth -----
 
 // Register a new account: returns access + refresh tokens on success

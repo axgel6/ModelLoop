@@ -80,6 +80,21 @@ class Message(Base):
     created_at:     Mapped[datetime]         = mapped_column(DateTime(timezone=True), server_default=func.now())
     chat:           Mapped["Chat"]           = relationship(back_populates="messages")
 
+# ----- Game Model -----
+
+# One saved playthrough of a chat game. The whole game state lives in `state`;
+# its shape belongs to the game's engine (see games/), not to the database.
+class GameSession(Base):
+    __tablename__ = "game_sessions"
+
+    id:         Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    user_id:    Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    game_type:  Mapped[str]       = mapped_column(String(40), nullable=False)
+    title:      Mapped[str]       = mapped_column(String(80), nullable=False)
+    state:      Mapped[dict]      = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 # ----- Document Models -----
 
 class Document(Base):

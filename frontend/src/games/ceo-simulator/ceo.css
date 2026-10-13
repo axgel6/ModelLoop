@@ -1,0 +1,718 @@
+/* ============================================================
+   CEO Simulator
+   Colours come from the --game-* variables in ../games.css.
+   Buttons and inputs are prefixed with `html` so they outrank the
+   themes' blanket button styling.
+   ============================================================ */
+
+html {
+  --ceo-up: #b8bb26;
+  --ceo-down: #fb4934;
+}
+
+html[data-theme="dune"] {
+  --ceo-up: #4d7c0f;
+  --ceo-down: #b91c1c;
+}
+
+html[data-theme="ember"] {
+  --ceo-up: #b8bb26;
+  --ceo-down: #fb6a4f;
+}
+
+html[data-theme="meadow"] {
+  --ceo-up: #2f7d57;
+  --ceo-down: #b4423a;
+}
+
+.ceo {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 14px;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  animation: fade-in 0.2s ease-out both;
+}
+
+/* Themed layouts float the top bar over the content */
+html[data-theme] .ceo {
+  padding-top: 66px;
+}
+
+.ceo--menu {
+  overflow-y: auto;
+}
+
+.ceo .is-up {
+  color: var(--ceo-up);
+}
+
+.ceo .is-down {
+  color: var(--ceo-down);
+}
+
+/* ---- Shared pieces ---- */
+
+.ceo-title {
+  margin: 10px 0 0;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: clamp(1.25rem, 3vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--game-heading);
+}
+
+.ceo-sub {
+  margin: 6px 0 18px;
+  color: var(--game-muted);
+}
+
+.ceo-label {
+  margin: 0 0 8px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--game-muted);
+}
+
+.ceo-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--game-muted);
+}
+
+.ceo-error {
+  margin: 0;
+  color: var(--ceo-down);
+}
+
+.ceo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 18px;
+  background: var(--game-card);
+}
+
+.ceo-card .ceo-label {
+  margin: 0;
+}
+
+html .ceo .ceo-btn,
+html .ceo .ceo-btn:hover,
+html .ceo .ceo-btn:disabled {
+  flex-shrink: 0;
+  padding: 9px 18px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--game-accent);
+  box-shadow: none;
+  color: var(--game-accent-ink);
+  font-family: var(--ui-font);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+html .ceo .ceo-btn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+html .ceo .ceo-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+html .ceo .ceo-link,
+html .ceo .ceo-link:hover,
+html .ceo .ceo-link:disabled {
+  align-self: flex-start;
+  padding: 2px 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--game-heading);
+  font-family: var(--ui-font);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+html .ceo .ceo-link:hover {
+  text-decoration: underline;
+}
+
+html .ceo .ceo-link--quiet,
+html .ceo .ceo-link--quiet:hover {
+  color: var(--game-muted);
+  font-weight: 500;
+}
+
+html .ceo .ceo-input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--game-card) 60%, transparent);
+  box-shadow: none;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+html .ceo .ceo-input::placeholder {
+  color: color-mix(in srgb, var(--game-muted) 70%, transparent);
+}
+
+html .ceo .ceo-input:focus {
+  border-color: var(--game-accent);
+}
+
+/* ---- Menu ---- */
+
+.ceo-menu {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+
+.ceo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ceo-field > span {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+.ceo-product-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ceo-product-row > .ceo-input {
+  flex: 1;
+}
+
+.ceo-price {
+  flex: 0 0 110px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--game-muted);
+}
+
+html .ceo .ceo-product-row .ceo-link {
+  align-self: center;
+}
+
+.ceo-saves {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ceo-save {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+html .ceo .ceo-save .ceo-link {
+  align-self: center;
+}
+
+html .ceo .ceo-save-open,
+html .ceo .ceo-save-open:hover,
+html .ceo .ceo-save-open:disabled {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 9px 12px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+html .ceo .ceo-save-open:hover:not(:disabled) {
+  border-color: var(--game-accent);
+}
+
+.ceo-save-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.ceo-save-meta {
+  font-size: 0.72rem;
+  color: var(--game-muted);
+}
+
+/* ---- Play ---- */
+
+.ceo-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+html .ceo .ceo-bar .ceo-link {
+  align-self: baseline;
+}
+
+.ceo-bar-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--game-heading);
+}
+
+.ceo-bar-week {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+.ceo-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+}
+
+.ceo-main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ceo-feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.ceo-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 16px;
+  background: var(--game-card);
+}
+
+.ceo-entry p {
+  margin: 0;
+}
+
+.ceo-entry-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ceo-entry-week {
+  color: var(--game-muted);
+}
+
+.ceo-entry-decision {
+  font-weight: 700;
+}
+
+.ceo-entry-text {
+  color: var(--game-ink);
+}
+
+.ceo-entry--pending .ceo-entry-text {
+  color: var(--game-muted);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.ceo-changes {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ceo-changes li {
+  padding: 2px 9px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  color: var(--game-muted);
+}
+
+.ceo-composer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ceo-over {
+  margin: 0;
+  font-weight: 700;
+}
+
+.ceo-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+html .ceo .ceo-option,
+html .ceo .ceo-option:hover,
+html .ceo .ceo-option:disabled {
+  padding: 7px 12px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 12px;
+  background: var(--game-card);
+  box-shadow: none;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.76rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    opacity 0.15s;
+}
+
+html .ceo .ceo-option:hover:not(:disabled) {
+  border-color: var(--game-accent);
+}
+
+html .ceo .ceo-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ceo-decide {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---- Dashboard ---- */
+
+.ceo-side {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 18px;
+  background: var(--game-card);
+}
+
+.ceo-side .ceo-label {
+  margin: 6px 0 0;
+}
+
+.ceo-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ceo-stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 12px;
+}
+
+.ceo-stat-label {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--game-muted);
+}
+
+.ceo-stat-value {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ceo-stat-note {
+  font-size: 0.66rem;
+  color: var(--game-muted);
+}
+
+.ceo-meter-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--game-muted);
+}
+
+.ceo-meter-track {
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--game-card-border);
+  overflow: hidden;
+}
+
+.ceo-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--game-accent);
+  transition: width 0.4s ease;
+}
+
+.ceo-products,
+.ceo-reactions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ceo-product {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+}
+
+.ceo-product-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ceo-product-price {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Discontinue sits under the product and only shows when the row is in use */
+html .ceo .ceo-product-drop {
+  grid-column: 1 / -1;
+  justify-self: start;
+  font-size: 0.68rem;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+html .ceo .ceo-product:hover .ceo-product-drop,
+html .ceo .ceo-product:focus-within .ceo-product-drop,
+html .ceo .ceo-product-drop.is-armed {
+  opacity: 1;
+}
+
+html .ceo .ceo-product-drop.is-armed {
+  color: var(--ceo-down);
+  font-weight: 700;
+}
+
+/* No hover on touch screens: keep it visible there */
+@media (hover: none) {
+  html .ceo .ceo-product-drop {
+    opacity: 1;
+  }
+}
+
+.ceo-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--game-card-border);
+  border-radius: 12px;
+}
+
+.ceo-add .ceo-price {
+  flex: 0 0 84px;
+}
+
+.ceo-add-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+html .ceo .ceo-add-actions .ceo-link {
+  align-self: center;
+}
+
+/* Name and price are click-to-edit: plain text until hovered */
+html .ceo .ceo-edit,
+html .ceo .ceo-edit:hover,
+html .ceo .ceo-edit:disabled {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  box-shadow: none;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: text;
+  opacity: 1;
+}
+
+html .ceo .ceo-edit.ceo-product-name {
+  font-weight: 700;
+}
+
+html .ceo .ceo-edit.ceo-product-price {
+  font-weight: 400;
+  text-align: right;
+}
+
+html .ceo .ceo-edit:hover:not(:disabled) {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+html .ceo .ceo-edit:disabled {
+  cursor: default;
+}
+
+html .ceo .ceo-edit-input {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: inherit;
+}
+
+html .ceo .ceo-edit-input.ceo-product-name {
+  font-weight: 700;
+  white-space: normal;
+}
+
+html .ceo .ceo-edit-input.ceo-product-price {
+  width: 84px;
+  text-align: right;
+}
+
+.ceo-product-meta {
+  grid-column: 1 / -1;
+  font-size: 0.7rem;
+  color: var(--game-muted);
+}
+
+.ceo-reaction {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 0 2px 10px;
+  border-left: 3px solid var(--game-card-border);
+  font-size: 0.76rem;
+}
+
+.ceo-reaction.is-positive {
+  border-left-color: var(--ceo-up);
+}
+
+.ceo-reaction.is-negative {
+  border-left-color: var(--ceo-down);
+}
+
+.ceo-reaction-source {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--game-muted);
+}
+
+/* Narrow: the numbers go on top in a short scrolling strip, the story below */
+@media (max-width: 900px) {
+  .ceo {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .ceo-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .ceo-side {
+    order: -1;
+    max-height: 34vh;
+  }
+
+  .ceo-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .ceo-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
