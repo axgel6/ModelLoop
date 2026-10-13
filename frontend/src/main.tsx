@@ -6,6 +6,9 @@ import "highlight.js/styles/github-dark.css";
 import App from "./App.tsx";
 import { haptics } from "./haptics";
 import { isEmptySpaceClick, sparkleAt } from "./sparkle";
+import { initStretchy } from "./stretchy";
+
+initStretchy();
 
 document.addEventListener("click", (e) => {
   const target = e.target as HTMLElement;

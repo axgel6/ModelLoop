@@ -10741,17 +10741,28 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
   }
 }
 
-/* The wordmark can be grabbed and stretched (StretchyLogo.tsx sets the transform) */
+/* The wordmark and the round glass buttons can be grabbed and stretched
+   (stretchy.ts sets the transform while they are held and as they spring back) */
 .stretchy-logo {
   display: inline-block;
   position: relative;
   cursor: grab;
-  touch-action: none;
   -webkit-user-select: none;
   user-select: none;
 }
 
+.stretchy-logo,
+.chat-topbar .topbar-icon-btn,
+.sidebar-brand-btn {
+  touch-action: none;
+}
+
 .stretchy-logo.is-held {
   cursor: grabbing;
+}
+
+.stretchy-logo.is-held,
+html[data-theme] .chat-topbar .topbar-icon-btn.is-held,
+html[data-theme] .sidebar-brand-btn.is-held {
   z-index: 5;
 }
