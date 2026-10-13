@@ -70,7 +70,7 @@ ModelLoop/
 │   │   │   ├── ChatPreferences.tsx  # Settings (model, system prompt, theme)
 │   │   │   ├── DownPage.tsx         # Maintenance mode page
 │   │   │   ├── History.tsx          # Chat history modal
-│   │   │   ├── LandingPage.tsx      # Home/signup
+│   │   │   ├── WelcomePage.tsx      # Home: intro, how-it-works, test-server notice
 │   │   │   ├── Login.tsx            # Login + register form
 │   │   │   ├── TermsOfService.tsx   # Legal page
 │   │   │   ├── haptics.ts           # Vibration feedback
@@ -162,12 +162,14 @@ Frontend runs on `http://localhost:5173` by default.
 | `JWT_EXPIRE_MINUTES`      | —        | `15`                    | Access token lifetime                                                       |
 | `JWT_REFRESH_EXPIRE_DAYS` | —        | `30`                    | Refresh token lifetime                                                      |
 | `JWT_ALGORITHM`           | —        | `HS256`                 | Token signing algorithm                                                     |
+| `REFRESH_REUSE_GRACE_SECONDS` | —    | `60`                    | Grace period where a just-rotated refresh token still works, so concurrent refreshes don't log the user out |
 | `API_KEY`                 | —        | —                       | Optional key for the guest endpoint (`POST /api/v1/chat/guest/stream`)      |
 | `APP_ENV`                 | —        | `development`           | Set to `production` for strict mode                                         |
 | `ENABLE_ACTIONS`          | —        | `true`                  | Tool-calling actions (web search)                                           |
 | `ENABLE_PHOTO_UPLOAD`     | —        | `true`                  | Image attachments analyzed by `VISION_MODEL`                                |
 | `ENABLE_RAG`              | —        | `true`                  | Document upload and retrieval                                               |
 | `ENABLE_QUICK_MODELS`     | —        | `false`                 | Fast / Pro / Thinking model switcher in the composer toolbar                |
+| `ALLOW_PRIVATE_OLLAMA_URLS` | —      | `false`                 | Let users save private/LAN Ollama addresses. Disables the SSRF guard, so only enable when every account is trusted |
 | `ENABLE_GUEST_CHAT`       | —        | `true`                  | Anonymous chat without an account                                           |
 | `GUEST_ENABLE_ACTIONS`    | —        | `false`                 | Whether guests may use tools                                                |
 | `GUEST_ENABLE_PHOTO_UPLOAD` | —      | `true`                  | Whether guests may attach images                                            |
@@ -280,6 +282,18 @@ ollama serve
 - `GET /api/v1/chats/{id}/documents` — List documents in chat
 - `DELETE /api/v1/chats/{id}/documents/{id}` — Delete document
 
+### Ollama Connection
+
+- `PATCH /api/v1/auth/me/ollama` — Save or clear this account's own Ollama address
+- `GET /api/v1/ollama/status` — Reachability of the server the account uses
+- `POST /api/v1/ollama/test` — Probe a candidate address without saving it
+
+User-supplied addresses are validated before every use: only `http`/`https`, no
+credentials in the URL, and every address the hostname resolves to must be public.
+Loopback, private, link-local (including the `169.254.169.254` metadata address),
+reserved, and multicast ranges are refused, which also blocks public hostnames that
+resolve to internal addresses.
+
 ### Guest Access
 
 - `POST /api/v1/chat/guest/stream` — Anonymous chat (requires `X-API-Key` header when `API_KEY` is set)
@@ -302,7 +316,7 @@ ollama serve
 - **React 18** — UI library
 - **TypeScript** — Type-safe code
 - **Vite** — Fast bundler & dev server
-- **React Router** — Client-side routing
+- **History API routing** — `/welcome`, `/login`, `/chat`, `/terms`, no router dependency
 - **Markdown-It** — Markdown rendering
 - **Local Storage** — Persistent preferences (theme, model, system prompt)
 
@@ -318,6 +332,14 @@ ollama serve
 ---
 
 ## Deployment
+
+### Hosting note
+
+The frontend is a single-page app with real URLs, so the web server must serve
+`index.html` for unknown paths. Without that rewrite, loading `/welcome` or `/chat`
+directly returns 404. Vite's dev server does this already; for production add the
+usual SPA fallback (`try_files $uri /index.html` on nginx, or the equivalent rewrite
+on Netlify, Vercel, or Cloudflare Pages).
 
 ### Local Development
 

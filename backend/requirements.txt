@@ -12,4 +12,3 @@ bcrypt
 python-multipart
 numpy
 pypdf
-duckduckgo-search

@@ -8,16 +8,16 @@ load_dotenv(Path(__file__).parent / ".env")
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
 from database import engine, Base
 from config import ALLOWED_ORIGINS, IS_PRODUCTION
-from routers import auth_router, chats, messages, documents, models_router, stream, health
+from routers import auth_router, chats, messages, documents, models_router, ollama_status, stream, health
 from routers.stream import close_ollama_client
 from rag import close_embed_client
+from ollama_http import close_client as close_ollama_http
+from rate_limit import limiter, caller_key
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,6 +64,8 @@ async def lifespan(_: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'ocean'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'mono'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_context TEXT",
+            "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_url VARCHAR(300)",
         ]
         for stmt in migrations:
             await conn.execute(text(stmt))
@@ -73,6 +75,7 @@ async def lifespan(_: FastAPI):
     await engine.dispose()
     await close_ollama_client()
     await close_embed_client()
+    await close_ollama_http()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -85,12 +88,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
 
 def _rate_limit_handler(request: Request, _exc: Exception):
-    logger.warning('rate_limit_exceeded path=%s ip=%s', request.url.path, get_remote_address(request))
+    logger.warning('rate_limit_exceeded path=%s caller=%s', request.url.path, caller_key(request))
     return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
 
 
@@ -102,6 +104,7 @@ app.include_router(chats.router)
 app.include_router(messages.router)
 app.include_router(documents.router)
 app.include_router(models_router.router)
+app.include_router(ollama_status.router)
 app.include_router(stream.router)
 app.include_router(health.router)
 

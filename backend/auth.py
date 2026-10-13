@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 import os
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 SECRET               = os.environ["JWT_SECRET"]
 ALGORITHM            = os.environ.get("JWT_ALGORITHM", "HS256")
@@ -15,8 +15,15 @@ EXPIRE_MIN           = int(os.environ.get("JWT_EXPIRE_MINUTES", 15))
 REFRESH_EXPIRE_DAYS  = int(os.environ.get("JWT_REFRESH_EXPIRE_DAYS", 30))
 
 
+def _password_bytes(password: str) -> bytes:
+    # bcrypt only reads the first 72 bytes. Older releases dropped the rest silently;
+    # 5.0 raises instead, so truncate here to keep long passwords (and hashes made
+    # under the old behaviour) working.
+    return password.encode("utf-8")[:72]
+
+
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(_password_bytes(password), bcrypt.gensalt()).decode("utf-8")
 
 
 def generate_refresh_token() -> str:
@@ -28,7 +35,7 @@ def hash_refresh_token(token: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    return bcrypt.checkpw(_password_bytes(plain), hashed.encode("utf-8"))
 
 
 def create_token(user_id: str) -> str:

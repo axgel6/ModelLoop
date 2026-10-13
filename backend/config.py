@@ -46,6 +46,15 @@ ENABLE_GUEST_CHAT         = _env_bool("ENABLE_GUEST_CHAT", True)
 GUEST_ENABLE_ACTIONS      = _env_bool("GUEST_ENABLE_ACTIONS", False)
 GUEST_ENABLE_PHOTO_UPLOAD = _env_bool("GUEST_ENABLE_PHOTO_UPLOAD", True)
 
+# Let users point the server at private/LAN addresses. Only enable when every account
+# on the instance is trusted: it removes the SSRF guard on user-supplied Ollama URLs.
+ALLOW_PRIVATE_OLLAMA_URLS = _env_bool("ALLOW_PRIVATE_OLLAMA_URLS", False)
+
+# Seconds a just-rotated refresh token keeps working. Absorbs the race where two
+# tabs (or two parallel requests) refresh at the same moment; without it the loser
+# of that race is logged out. Set to 0 to require strict single-use tokens.
+REFRESH_REUSE_GRACE_SECONDS = int(os.environ.get("REFRESH_REUSE_GRACE_SECONDS", 60))
+
 # ----- Rate limits (slowapi syntax) -----
 CHAT_RATE_LIMIT        = os.environ.get("CHAT_RATE_LIMIT", "30/minute")
 GUEST_CHAT_RATE_LIMIT  = os.environ.get("GUEST_CHAT_RATE_LIMIT", "5/minute")

@@ -4,18 +4,18 @@ from . import web_search as _web_search
 # Register action modules here when adding new tools
 _ACTIONS = [_web_search]
 
-TOOL_DEFINITIONS = [mod.DEFINITION for mod in _ACTIONS]
-
 _REGISTRY = {mod.DEFINITION["function"]["name"]: mod for mod in _ACTIONS}
+
+
+def is_known_tool(name: str) -> bool:
+    return name in _REGISTRY
 
 
 async def execute_tool(name: str, arguments: dict) -> str:
     mod = _REGISTRY.get(name)
     if mod is None:
         raise ValueError(f"Unknown tool: {name}")
-    if hasattr(mod, "async_execute"):
-        return await mod.async_execute(arguments)
-    return mod.execute(arguments)
+    return await mod.async_execute(arguments)
 
 
 def get_active_tools(text: str) -> "list | None":

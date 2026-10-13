@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,7 +46,7 @@ async def list_chats(
 
 @router.patch("/{chat_id}")
 async def rename_chat(
-    chat_id: str,
+    chat_id: uuid.UUID,
     body: RenameChatRequest,
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
@@ -61,7 +62,7 @@ async def rename_chat(
 
 @router.delete("/{chat_id}", status_code=204)
 async def delete_chat(
-    chat_id: str,
+    chat_id: uuid.UUID,
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):

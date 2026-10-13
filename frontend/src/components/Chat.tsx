@@ -20,6 +20,7 @@ import {
   apiGetMe,
   apiGetMyFeatures,
   apiGetGuestFeatures,
+  apiGetLimits,
   apiGuestChatStream,
   apiListDocuments,
   apiUploadDocument,
@@ -28,6 +29,7 @@ import {
   type ChatMeta,
   type DocumentMeta,
   type Message,
+  type RateLimits,
 } from "./api";
 import { AssistantMessage, UserMessage } from "./MessageList";
 import {
@@ -234,6 +236,11 @@ function Chat({
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
+  const [limits, setLimits] = useState<RateLimits | null>(null);
+
+  useEffect(() => {
+    apiGetLimits().then(setLimits);
+  }, []);
 
   useEffect(() => {
     if (isGuest) {
@@ -429,9 +436,12 @@ function Chat({
       return;
     }
     if (rawInput === "/ratelimit") {
-      const info = isGuest
-        ? "**Rate limits (guest)**\nMessages: 5 per minute, 50 per day\n\nLog in or create an account to increase your limit to 10 messages per minute."
-        : "**Rate limits (account)**\nMessages: 10 per minute";
+      const fmt = (v: string) => v.replace("/", " per ");
+      const info = !limits
+        ? "Rate limits are unavailable right now."
+        : isGuest
+          ? `**Rate limits (guest)**\nMessages: ${fmt(limits.guest_chat)}, ${fmt(limits.guest_daily)}\n\nLog in or create an account to raise your limit to ${fmt(limits.chat)}.`
+          : `**Rate limits (account)**\nMessages: ${fmt(limits.chat)}`;
       setMessages((prev) => [...prev, { role: "assistant", content: info }]);
       return;
     }

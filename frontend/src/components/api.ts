@@ -25,50 +25,111 @@ function authHeaders(
 
 // Shared promise so concurrent 401s don't each trigger an independent refresh,
 // which would rotate the token under the second caller and cause a spurious logout.
-let _refreshPromise: Promise<boolean> | null = null;
+let _refreshPromise: Promise<RefreshOutcome> | null = null;
 
-async function _doRefresh(): Promise<boolean> {
-  const refreshToken = localStorage.getItem("refresh_token");
-  if (!refreshToken) return false;
+// "rejected" means the server actively refused the token, and only that should log the
+// user out. "unreachable" covers offline/DNS/500s, where the session is probably still
+// valid and throwing the user out would lose their place for no reason.
+type RefreshOutcome = "ok" | "rejected" | "unreachable";
+
+function readAccessTokenExpiry(token: string): number | null {
   try {
-    const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+async function _doRefresh(): Promise<RefreshOutcome> {
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) return "rejected";
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
-    if (!res.ok) return false;
+  } catch {
+    return "unreachable"; // offline or server down; keep the session
+  }
+
+  if (!res.ok) {
+    // Another tab may have rotated the token while this request was in flight. If the
+    // stored value changed, that tab succeeded and we can ride along on its new token.
+    const current = localStorage.getItem("refresh_token");
+    if (current && current !== refreshToken) return "ok";
+    return res.status === 401 ? "rejected" : "unreachable";
+  }
+
+  try {
     const data = await res.json();
     localStorage.setItem("token", data.token);
     localStorage.setItem("refresh_token", data.refresh_token);
-    return true;
   } catch {
-    return false;
+    return "unreachable";
   }
+  scheduleProactiveRefresh();
+  return "ok";
 }
 
 // Silently exchange the stored refresh token for a new access + refresh token pair.
-// Returns true on success, false if the refresh token is missing or rejected.
-function tryRefresh(): Promise<boolean> {
+function tryRefresh(): Promise<RefreshOutcome> {
   if (_refreshPromise) return _refreshPromise;
-  _refreshPromise = _doRefresh().finally(() => { _refreshPromise = null; });
+  _refreshPromise = _doRefresh().finally(() => {
+    _refreshPromise = null;
+  });
   return _refreshPromise;
 }
 
+// ----- Proactive refresh -----
+//
+// Refreshing only in reaction to a 401 means every request in flight when the access
+// token expires fails at once, and each retry piles onto the same rotation. Renewing
+// shortly before expiry keeps tokens valid so that stampede never forms.
+let _refreshTimer: ReturnType<typeof setTimeout> | null = null;
+const REFRESH_LEAD_MS = 60_000; // renew a minute before the token actually expires
+
+export function scheduleProactiveRefresh() {
+  if (_refreshTimer) {
+    clearTimeout(_refreshTimer);
+    _refreshTimer = null;
+  }
+  const token = localStorage.getItem("token");
+  if (!token) return;
+  const expiresAt = readAccessTokenExpiry(token);
+  if (expiresAt === null) return;
+  const delay = Math.max(5_000, expiresAt - Date.now() - REFRESH_LEAD_MS);
+  _refreshTimer = setTimeout(() => {
+    if (localStorage.getItem("refresh_token")) void tryRefresh();
+  }, delay);
+}
+
+export function cancelProactiveRefresh() {
+  if (_refreshTimer) {
+    clearTimeout(_refreshTimer);
+    _refreshTimer = null;
+  }
+}
+
 // Wraps a fetch lambda with one automatic retry after a silent token refresh.
-// On an unrecoverable 401 it clears tokens and fires the logout callback.
+// Only a refresh the server actively rejected clears the session.
 async function withRefresh(
   requestFn: () => Promise<Response>,
 ): Promise<Response> {
   const res = await requestFn();
   if (res.status !== 401) return res;
 
-  const refreshed = await tryRefresh();
-  if (!refreshed) {
+  const outcome = await tryRefresh();
+  if (outcome === "rejected") {
     localStorage.removeItem("token");
     localStorage.removeItem("refresh_token");
+    cancelProactiveRefresh();
     unauthorizedHandler?.();
     return res;
   }
+  if (outcome === "unreachable") return res; // surface the failure, keep the session
 
   return requestFn();
 }
@@ -186,6 +247,7 @@ export async function apiGetMe(): Promise<{
   theme: string;
   font: string;
   personal_context: string | null;
+  ollama_url: string | null;
 }> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/auth/me`, { headers: authHeaders() }),
@@ -225,6 +287,60 @@ export async function apiSavePersonalContext(personalContext: string | null): Pr
     }),
   );
   if (!res.ok) throw new Error("Failed to save personal context");
+}
+
+// ----- Ollama connection -----
+
+export interface OllamaStatus {
+  reachable: boolean;
+  reason?: "timeout" | "unreachable";
+  detail?: string;
+  models?: number;
+  sample?: string[];
+  latency_ms?: number;
+  using_shared_server?: boolean;
+  url: string | null;
+}
+
+// Save (or clear, with null) this account's own Ollama server address
+export async function apiSetOllamaUrl(url: string | null): Promise<{ ollama_url: string | null }> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/auth/me/ollama`, {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ ollama_url: url }),
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err.detail === "string" ? err.detail : "Failed to save server address");
+  }
+  return res.json();
+}
+
+// Reachability of the server this account currently uses
+export async function apiOllamaStatus(): Promise<OllamaStatus> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/ollama/status`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("Failed to check server status");
+  return res.json();
+}
+
+// Probe a candidate address without saving it
+export async function apiTestOllamaUrl(url: string): Promise<OllamaStatus> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/ollama/test`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ ollama_url: url }),
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err.detail === "string" ? err.detail : "Test failed");
+  }
+  return res.json();
 }
 
 export async function apiGetMyFeatures(): Promise<Record<string, boolean>> {
@@ -295,9 +411,9 @@ export async function apiGetModels(): Promise<{
   models: string[];
   capabilities: Record<string, string[]>;
 }> {
-  const res = await fetch(`${API_URL}/api/v1/models`, {
-    headers: authHeaders(),
-  });
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/models`, { headers: authHeaders() }),
+  );
   if (!res.ok) throw new Error("Failed to fetch models");
   const data = await res.json();
   const all: string[] = (data.models ?? []).filter(
@@ -305,6 +421,23 @@ export async function apiGetModels(): Promise<{
   );
   const capabilities: Record<string, string[]> = data.capabilities ?? {};
   return { models: all, capabilities };
+}
+
+export interface RateLimits {
+  chat: string;
+  guest_chat: string;
+  guest_daily: string;
+}
+
+// Public endpoint - guests need these too.
+export async function apiGetLimits(): Promise<RateLimits | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/limits`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }
 
 // Ping the health endpoint, returns false instead of throwing on network errors

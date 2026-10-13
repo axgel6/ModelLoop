@@ -5,7 +5,11 @@ import {
   apiGetMe,
   apiUpdateProfile,
   apiSavePersonalContext,
+  apiSetOllamaUrl,
+  apiOllamaStatus,
+  apiTestOllamaUrl,
 } from "./api";
+import type { OllamaStatus } from "./api";
 
 export type Theme = "ocean" | "gruvbox" | "dune";
 export type Font = "mono" | "inter";
@@ -137,6 +141,7 @@ export type Section =
   | "appearance"
   | "shortcuts"
   | "account"
+  | "advanced"
   | "about";
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
@@ -146,6 +151,7 @@ const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "appearance", label: "Appearance" },
   { id: "shortcuts", label: "Shortcuts" },
   { id: "account", label: "Account" },
+  { id: "advanced", label: "Advanced" },
   { id: "about", label: "About" },
 ];
 
@@ -190,6 +196,13 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     initialSection ?? "model",
   );
   const [openInfo, setOpenInfo] = useState<string | null>(null);
+  const [ollamaUrl, setOllamaUrl] = useState("");
+  const [ollamaSaving, setOllamaSaving] = useState(false);
+  const [ollamaTesting, setOllamaTesting] = useState(false);
+  const [ollamaError, setOllamaError] = useState<string | null>(null);
+  const [ollamaSaved, setOllamaSaved] = useState<string | null>(null);
+  const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
+  const [ollamaStatusLoading, setOllamaStatusLoading] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
   const [presetSearch, setPresetSearch] = useState("");
   const [userInfo, setUserInfo] = useState<{
@@ -206,9 +219,59 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       .then((info) => {
         setUserInfo(info);
         setPersonalContext(info.personal_context ?? "");
+        setOllamaUrl(info.ollama_url ?? "");
       })
       .catch(() => {});
   }, []);
+
+  const loadOllamaStatus = () => {
+    setOllamaStatusLoading(true);
+    setOllamaStatus(null);
+    apiOllamaStatus()
+      .then(setOllamaStatus)
+      .catch(() => setOllamaStatus(null))
+      .finally(() => setOllamaStatusLoading(false));
+  };
+
+  useEffect(() => {
+    if (activeSection === "advanced") loadOllamaStatus();
+  }, [activeSection]);
+
+  const handleTestOllama = async () => {
+    const candidate = ollamaUrl.trim();
+    if (!candidate) return;
+    setOllamaTesting(true);
+    setOllamaError(null);
+    setOllamaSaved(null);
+    try {
+      setOllamaStatus(await apiTestOllamaUrl(candidate));
+    } catch (e: any) {
+      setOllamaError(e.message || "Test failed");
+      setOllamaStatus(null);
+    } finally {
+      setOllamaTesting(false);
+    }
+  };
+
+  const handleSaveOllama = async () => {
+    setOllamaSaving(true);
+    setOllamaError(null);
+    setOllamaSaved(null);
+    try {
+      const saved = await apiSetOllamaUrl(ollamaUrl.trim() || null);
+      setOllamaUrl(saved.ollama_url ?? "");
+      setOllamaSaved(
+        saved.ollama_url
+          ? "Saved. New chats will use your server."
+          : "Cleared. You are back on the shared test server.",
+      );
+      loadOllamaStatus();
+    } catch (e: any) {
+      setOllamaError(e.message || "Failed to save");
+    } finally {
+      setOllamaSaving(false);
+    }
+  };
 
   // (i) toggle beside a Generation label, plus the panel it reveals
   const infoButton = (id: string) => (
@@ -999,6 +1062,133 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <p id="acc-upgrade-message">
                   Contact administrator for account tier upgrade
                 </p>
+              </div>
+            </div>
+          </>
+        );
+
+      case "advanced":
+        return (
+          <>
+            <div className="pref-content-header">
+              <span className="pref-content-title">Advanced</span>
+            </div>
+            <div className="pref-account-scroll">
+              <div className="pref-account-card">
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Ollama Server</div>
+                  <div className="pref-field-desc">
+                    Leave empty to use the shared test server. To use your own, enter
+                    an address reachable from the internet, such as an ngrok or
+                    Tailscale Funnel URL. ModelLoop connects from its own server, so
+                    localhost and private network addresses are refused.
+                  </div>
+                  <input
+                    className="pref-name-input pref-ollama-input"
+                    value={ollamaUrl}
+                    maxLength={300}
+                    spellCheck={false}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    placeholder="https://your-tunnel.ngrok-free.dev"
+                    onChange={(e) => {
+                      setOllamaUrl(e.target.value);
+                      setOllamaSaved(null);
+                      setOllamaError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveOllama();
+                    }}
+                    disabled={ollamaSaving}
+                  />
+                  <div className="pref-ollama-actions">
+                    <button
+                      className="pref-name-cancel-btn"
+                      onClick={handleTestOllama}
+                      disabled={ollamaTesting || ollamaSaving || !ollamaUrl.trim()}
+                    >
+                      {ollamaTesting ? <span className="btn-spinner" /> : "Test"}
+                    </button>
+                    <button
+                      className="pref-name-save-btn"
+                      onClick={handleSaveOllama}
+                      disabled={ollamaSaving}
+                    >
+                      {ollamaSaving ? <span className="btn-spinner" /> : "Save"}
+                    </button>
+                  </div>
+
+                  {ollamaError && (
+                    <div className="pref-ollama-msg pref-ollama-msg--error">
+                      {ollamaError}
+                    </div>
+                  )}
+                  {ollamaSaved && (
+                    <div className="pref-ollama-msg pref-ollama-msg--ok">
+                      {ollamaSaved}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pref-account-card">
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Connection</div>
+                  {ollamaStatusLoading ? (
+                    <div className="pref-field-desc">Checking, this can take up to
+                      25 seconds if the server is asleep.</div>
+                  ) : ollamaStatus ? (
+                    <>
+                      <div className="pref-ollama-status">
+                        <span
+                          className={`pref-ollama-dot${ollamaStatus.reachable ? " online" : " offline"}`}
+                        />
+                        <span>
+                          {ollamaStatus.reachable
+                            ? `Reachable${ollamaStatus.latency_ms != null ? ` in ${ollamaStatus.latency_ms} ms` : ""}`
+                            : ollamaStatus.reason === "timeout"
+                              ? "No answer yet"
+                              : "Not reachable"}
+                        </span>
+                        <span className="pref-ollama-target">
+                          {ollamaStatus.using_shared_server
+                            ? "shared test server"
+                            : (ollamaStatus.url ?? "your server")}
+                        </span>
+                      </div>
+                      {ollamaStatus.reachable && ollamaStatus.models != null && (
+                        <div className="pref-field-desc">
+                          {ollamaStatus.models} model
+                          {ollamaStatus.models === 1 ? "" : "s"} available
+                          {ollamaStatus.sample && ollamaStatus.sample.length > 0
+                            ? `: ${ollamaStatus.sample.join(", ")}`
+                            : ""}
+                        </div>
+                      )}
+                      {!ollamaStatus.reachable && ollamaStatus.detail && (
+                        <div className="pref-field-desc">{ollamaStatus.detail}</div>
+                      )}
+                      {ollamaStatus.using_shared_server && (
+                        <div className="pref-ollama-note">
+                          The shared server sleeps when idle, so the first reply after
+                          a quiet spell can take a minute to arrive. It is shared with
+                          everyone, so it can also be slow under load.
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="pref-field-desc">Status unavailable.</div>
+                  )}
+                  <div className="pref-ollama-actions">
+                    <button
+                      className="pref-name-cancel-btn"
+                      onClick={loadOllamaStatus}
+                      disabled={ollamaStatusLoading}
+                    >
+                      Re-check
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </>

@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/api/v1/chats", tags=["messages"])
 
 @router.get("/{chat_id}/messages")
 async def get_messages(
-    chat_id: str,
+    chat_id: uuid.UUID,
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):

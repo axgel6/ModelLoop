@@ -54,16 +54,10 @@ export function useChatSettings() {
       if (await tryLoadModels()) clearInterval(modelRetry);
     }, 5000);
 
-    let healthFailures = 0;
+    // apiHealth resolves false on network errors rather than rejecting.
     const healthInterval = setInterval(async () => {
       if (!modelsLoadedRef.current) return;
-      try {
-        const ok = await apiHealth();
-        setIsConnected(ok);
-        healthFailures = 0;
-      } catch {
-        if (++healthFailures >= 3) setIsConnected(false);
-      }
+      setIsConnected(await apiHealth());
     }, 30000);
 
     return () => {

@@ -1,13 +1,15 @@
 import asyncio
 import io
 import logging
+import uuid
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import func as sqlfunc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Chat, Document, DocumentChunk
-from dependencies import get_user_id
+from models import Chat, Document, DocumentChunk, User
+from dependencies import get_user, get_user_id
+from ollama_target import effective_ollama_url
 from rag import chunk_text, get_embedding
 from features import is_feature_enabled
 from config import MAX_UPLOAD_BYTES
@@ -18,11 +20,12 @@ router = APIRouter(tags=["documents"])
 
 @router.post("/api/v1/chats/{chat_id}/documents", status_code=201)
 async def upload_document(
-    chat_id: str,
+    chat_id: uuid.UUID,
     file: UploadFile = File(...),
-    user_id: str = Depends(get_user_id),
+    user: User = Depends(get_user),
     db: AsyncSession = Depends(get_db),
 ):
+    user_id = str(user.id)
     if not is_feature_enabled("rag"):
         raise HTTPException(status_code=403, detail="Document upload is disabled")
 
@@ -59,8 +62,11 @@ async def upload_document(
     await db.flush()
 
     chunks = chunk_text(raw_text)
+    # Must match the server retrieve_rag_context queries against; vectors from two
+    # different embedding models are not comparable.
+    base_url = await effective_ollama_url(user)
     try:
-        embeddings = await asyncio.gather(*[get_embedding(c) for c in chunks])
+        embeddings = await asyncio.gather(*[get_embedding(c, base_url) for c in chunks])
     except Exception as e:
         logger.error("embed_chunk_failed doc_id=%s error=%s", doc.id, str(e))
         raise HTTPException(status_code=502, detail="Embedding model unavailable — is nomic-embed-text pulled?")
@@ -87,11 +93,10 @@ async def upload_document(
 
 @router.get("/api/v1/chats/{chat_id}/documents")
 async def list_documents(
-    chat_id: str,
+    chat_id: uuid.UUID,
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import func as sqlfunc
     result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -125,7 +130,7 @@ async def list_documents(
 
 @router.delete("/api/v1/documents/{doc_id}", status_code=204)
 async def delete_document(
-    doc_id: str,
+    doc_id: uuid.UUID,
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):

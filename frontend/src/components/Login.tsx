@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiHealth, apiLogin, apiRegister } from "./api";
+import { apiHealth, apiLogin, apiRegister, scheduleProactiveRefresh } from "./api";
 import ConnectionBanner from "./ConnectionBanner";
 
 interface LoginProps {
@@ -70,6 +70,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
 
       localStorage.setItem("token", token);
       localStorage.setItem("refresh_token", refresh_token);
+      scheduleProactiveRefresh();
       onLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

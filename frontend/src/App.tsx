@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import LandingPage from "./components/LandingPage";
+import WelcomePage from "./components/WelcomePage";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
 import DownPage from "./components/DownPage";
@@ -11,13 +11,14 @@ import {
   apiGetMe,
   apiUpdatePreferences,
   setUnauthorizedHandler,
+  scheduleProactiveRefresh,
+  cancelProactiveRefresh,
   type ChatMeta,
 } from "./components/api";
 import { type Theme, type Font, type TextSize } from "./components/ChatPreferences";
+import { useRoute } from "./router";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
-
-type View = "landing" | "login" | "chat" | "terms";
 
 const THEME_TO_DATA: Record<Theme, string> = {
   ocean: "ocean",
@@ -26,9 +27,9 @@ const THEME_TO_DATA: Record<Theme, string> = {
 };
 
 function App() {
-  // Sets view to login page or chat based on presence of JWT token in localStorage
-  const [view, setView] = useState<View>(
-    localStorage.getItem("token") ? "chat" : "landing",
+  // The URL decides the view; a bare "/" falls back to the session (chat when signed in).
+  const [view, setView] = useRoute(
+    localStorage.getItem("token") ? "chat" : "welcome",
   );
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isGuest, setIsGuest] = useState(false);
@@ -155,13 +156,14 @@ function App() {
   // ----- Auth Handlers -----
 
   const handleLogout = () => {
+    cancelProactiveRefresh();
     apiLogout();
     localStorage.removeItem("theme_user_set");
     localStorage.removeItem("font_user_set");
     setActiveChatId(null);
     const wasGuest = isGuest;
     setIsGuest(false);
-    setView(wasGuest ? "login" : "landing");
+    setView(wasGuest ? "login" : "welcome");
   };
 
   // Register the unauthorized handler so the refresh interceptor can trigger logout
@@ -169,8 +171,16 @@ function App() {
     setUnauthorizedHandler(handleLogout);
   });
 
+  // Keep an existing session alive across reloads: renew before the access token expires
+  // rather than waiting for a wave of 401s.
+  useEffect(() => {
+    if (localStorage.getItem("token")) scheduleProactiveRefresh();
+    return cancelProactiveRefresh;
+  }, []);
+
   const handleLogin = async () => {
     setIsGuest(false);
+    scheduleProactiveRefresh();
     try {
       const me = await apiGetMe();
       const themeUserSet = localStorage.getItem("theme_user_set") === "true";
@@ -222,15 +232,15 @@ function App() {
   return (
     <>
       {view === "terms" ? (
-        <TermsOfService onBack={() => setView("landing")} />
+        <TermsOfService onBack={() => setView("welcome")} />
       ) : view === "login" ? (
         <Login
           onLogin={handleLogin}
           onGuest={handleGuest}
-          onBack={() => setView("landing")}
+          onBack={() => setView("welcome")}
         />
-      ) : view === "landing" ? (
-        <LandingPage
+      ) : view === "welcome" ? (
+        <WelcomePage
           onStart={() => {
             // If already logged in go straight to chat, otherwise require login
             if (localStorage.getItem("token")) {
@@ -245,7 +255,7 @@ function App() {
         />
       ) : (
         <Chat
-          onBack={() => setView("landing")}
+          onBack={() => setView("welcome")}
           onLogout={handleLogout}
           activeChatId={activeChatId}
           onChatCreated={handleChatCreated}

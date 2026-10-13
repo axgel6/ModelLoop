@@ -1,5 +1,7 @@
 import httpx
 import logging
+from typing import Optional
+
 import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,9 +35,9 @@ def chunk_text(text: str) -> list[str]:
     return chunks
 
 
-async def get_embedding(text: str) -> list[float]:
+async def get_embedding(text: str, base_url: Optional[str] = None) -> list[float]:
     resp = await _embed_http.post(
-        f"{OLLAMA_BASE_URL}/api/embeddings",
+        f"{base_url or OLLAMA_BASE_URL}/api/embeddings",
         json={"model": EMBED_MODEL, "prompt": text},
         headers=NGROK_HEADERS,
     )
@@ -43,13 +45,33 @@ async def get_embedding(text: str) -> list[float]:
     return resp.json()["embedding"]
 
 
-def cosine_similarity(a: list[float], b: list[float]) -> float:
-    va, vb = np.array(a, dtype=np.float32), np.array(b, dtype=np.float32)
-    denom = float(np.linalg.norm(va) * np.linalg.norm(vb))
-    return float(np.dot(va, vb) / denom) if denom > 0 else 0.0
+def rank_by_similarity(query: list[float], chunks: list, k: int) -> list:
+    """Return the k chunks whose embeddings are closest to the query.
+
+    Chunks whose embedding width differs from the query are dropped: a chat can hold
+    vectors from a different embedding model, and those are not comparable. Stacking
+    them would raise on the ragged array instead of degrading.
+    """
+    q = np.asarray(query, dtype=np.float32)
+    usable = [c for c in chunks if len(c.embedding) == q.shape[0]]
+    if len(usable) != len(chunks):
+        logger.warning(
+            "rag_dimension_mismatch skipped=%d expected_dim=%d",
+            len(chunks) - len(usable), q.shape[0],
+        )
+    if not usable:
+        return []
+
+    matrix = np.asarray([c.embedding for c in usable], dtype=np.float32)  # (n, d)
+    norms = np.linalg.norm(matrix, axis=1) * float(np.linalg.norm(q))
+    # Zero-norm rows score 0; a nan here would sort unpredictably.
+    scores = np.divide(matrix @ q, norms, out=np.zeros(len(usable), dtype=np.float32), where=norms > 0)
+
+    top = np.argsort(scores)[::-1][:k]
+    return [usable[i] for i in top]
 
 
-async def retrieve_rag_context(chat_id: str, user_id: str, query: str, db: AsyncSession) -> str:
+async def retrieve_rag_context(chat_id: str, user_id: str, query: str, db: AsyncSession, base_url: Optional[str] = None) -> str:
     result = await db.execute(
         select(DocumentChunk)
         .join(Document, DocumentChunk.document_id == Document.id)
@@ -60,11 +82,11 @@ async def retrieve_rag_context(chat_id: str, user_id: str, query: str, db: Async
         return ""
 
     try:
-        query_embedding = await get_embedding(query)
+        query_embedding = await get_embedding(query, base_url)
     except Exception as e:
         logger.warning("rag_embed_failed error=%s", str(e))
         return ""
 
-    scored = sorted(chunks, key=lambda c: cosine_similarity(query_embedding, c.embedding), reverse=True)[:RAG_TOP_K]
+    scored = rank_by_similarity(query_embedding, list(chunks), RAG_TOP_K)
     parts = [f"[Chunk {c.chunk_index + 1}]\n{c.content}" for c in scored]
     return "\n\n---\n\n".join(parts)

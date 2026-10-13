@@ -127,7 +127,6 @@ _DDG_HTML_URL = "https://html.duckduckgo.com/html/"
 
 # Module-level persistent client — reuses TCP connections across requests.
 _async_client: Optional[httpx.AsyncClient] = None
-_sync_client: Optional[httpx.Client] = None
 
 # Simple TTL cache: query_key -> (json_str, timestamp)
 _cache: dict[str, tuple[str, float]] = {}
@@ -147,9 +146,12 @@ def _cache_get(key: str) -> Optional[str]:
 def _cache_set(key: str, value: str) -> None:
     if len(_cache) >= _CACHE_MAX:
         cutoff = time.monotonic() - _CACHE_TTL
-        expired = [k for k, (_, ts) in _cache.items() if ts < cutoff]
-        for k in expired:
+        for k in [k for k, (_, ts) in _cache.items() if ts < cutoff]:
             del _cache[k]
+        # A burst of distinct queries inside one TTL window expires nothing, so fall
+        # back to oldest-first (dict preserves insertion order) to hold the ceiling.
+        while len(_cache) >= _CACHE_MAX:
+            del _cache[next(iter(_cache))]
     _cache[key] = (value, time.monotonic())
 
 
@@ -163,17 +165,6 @@ def _get_async_client() -> httpx.AsyncClient:
             limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
         )
     return _async_client
-
-
-def _get_sync_client() -> httpx.Client:
-    global _sync_client
-    if _sync_client is None or _sync_client.is_closed:
-        _sync_client = httpx.Client(
-            headers=_HEADERS,
-            follow_redirects=True,
-            timeout=8,
-        )
-    return _sync_client
 
 
 class _DDGLiteParser(HTMLParser):
@@ -330,32 +321,6 @@ async def async_execute(arguments: dict) -> str:
     except Exception:
         try:
             resp = await client.post(_DDG_HTML_URL, data={"q": query, "kl": region})
-            resp.raise_for_status()
-            results = _parse_html_results(resp.text, max_results)
-        except Exception as e:
-            return json.dumps({"error": str(e)})
-    out = _build_output(query, results)
-    if results:
-        _cache_set(cache_key, out)
-    return out
-
-
-def execute(arguments: dict) -> str:
-    query, max_results, region, cache_key = _parse_search_args(arguments)
-    if not query:
-        return json.dumps({"error": "No query provided"})
-    cached = _cache_get(cache_key)
-    if cached:
-        return cached
-    client = _get_sync_client()
-    results = None
-    try:
-        resp = client.post(_DDG_LITE_URL, data={"q": query, "kl": region})
-        resp.raise_for_status()
-        results = _parse_results(resp.text, max_results)
-    except Exception:
-        try:
-            resp = client.post(_DDG_HTML_URL, data={"q": query, "kl": region})
             resp.raise_for_status()
             results = _parse_html_results(resp.text, max_results)
         except Exception as e:

@@ -236,7 +236,9 @@ export const AssistantMessage = memo(function AssistantMessage({
           )}
           {showToolUse ? (
             <span className="thinking-phrase">
-              {activeTool === "web_search" ? "Searching the web..." : activeTool === "get_time" ? "Checking the time..." : activeTool === "wikipedia_summary" ? "Looking up Wikipedia..." : "Using a tool..."}
+              {activeTool === "web_search"
+                ? "Searching the web..."
+                : "Using a tool..."}
             </span>
           ) : showThinking ? (
             <span className="thinking-phrase">{thinkingPhrase.current}</span>

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+import uuid
 from config import MAX_PROMPT_LENGTH, MAX_SYSTEM_PROMPT_LENGTH, MAX_TITLE_LENGTH, MAX_GUEST_HISTORY, MODEL_NAME_PATTERN
 
 
@@ -35,7 +36,7 @@ class GuestMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     prompt:        str                 = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH)
-    chat_id:       str                 = Field(..., min_length=1, max_length=36)
+    chat_id:       uuid.UUID           = Field(...)
     model:         Optional[str]       = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
     system_prompt: Optional[str]       = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
     temperature:   Optional[float]     = Field(default=0.7, ge=0.0, le=2.0)
@@ -58,6 +59,11 @@ class GuestChatRequest(BaseModel):
 
 class RenameChatRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=MAX_TITLE_LENGTH)
+
+
+class UpdateOllamaUrlRequest(BaseModel):
+    # null or empty clears the override and falls back to the shared server
+    ollama_url: Optional[str] = Field(default=None, max_length=300)
 
 
 class RefreshRequest(BaseModel):

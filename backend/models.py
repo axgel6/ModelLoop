@@ -21,6 +21,8 @@ class User(Base):
     theme:            Mapped[str]            = mapped_column(String(20), nullable=False, server_default="ocean")
     font:             Mapped[str]            = mapped_column(String(20), nullable=False, server_default="mono")
     personal_context: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    # Optional per-user Ollama endpoint; NULL means use the shared server default
+    ollama_url:       Mapped[Optional[str]]  = mapped_column(String(300), nullable=True)
     created_at:       Mapped[datetime]       = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Cascade delete removes all chats when the user is deleted
     chats:            Mapped[list["Chat"]]   = relationship(back_populates="user", cascade="all, delete")
@@ -55,6 +57,9 @@ class RefreshToken(Base):
     token_hash: Mapped[str]       = mapped_column(String(64), unique=True, nullable=False, index=True)
     expires_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), nullable=False)
     revoked:    Mapped[bool]      = mapped_column(Boolean, default=False)
+    # Set when the token is rotated. A token presented shortly after its own rotation is
+    # treated as a lost race (two tabs refreshing at once), not a replay, and still works.
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 # ----- Message Model -----

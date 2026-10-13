@@ -6,8 +6,6 @@ import re
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -26,7 +24,9 @@ from config import (
     ENABLE_GUEST_CHAT, CHAT_RATE_LIMIT, GUEST_CHAT_RATE_LIMIT, GUEST_CHAT_DAILY_LIMIT,
     fix_math_delimiters,
 )
-from actions import execute_tool, get_active_tools
+from ollama_target import effective_ollama_url
+from rate_limit import limiter
+from actions import execute_tool, get_active_tools, is_known_tool
 from actions.web_search import (
     async_execute as _run_web_search_async,
     should_activate as _web_search_should_activate,
@@ -41,12 +41,10 @@ _ollama_http = httpx.AsyncClient(
     limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
 )
 
+
 async def close_ollama_client():
     await _ollama_http.aclose()
-def _chat_key(request: Request) -> str:
-    return (request.headers.get("Authorization") or "").removeprefix("Bearer ").strip() or get_remote_address(request)
 
-limiter = Limiter(key_func=_chat_key)
 
 _PRONOUN_RE = re.compile(r'\b(his|her|their|he|she|they|him|them|its|it)\b', re.IGNORECASE)
 _PROPER_NOUN_RE = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b')
@@ -97,7 +95,7 @@ def _resolve_search_query(prompt: str, history) -> str:
     return prompt
 
 
-async def _describe_images(images: list[str]) -> str:
+async def _describe_images(images: list[str], base_url: str) -> str:
     n = len(images)
     prompt = (
         f"Describe {'this image' if n == 1 else f'these {n} images'} in full detail. "
@@ -114,7 +112,7 @@ async def _describe_images(images: list[str]) -> str:
     }
     try:
         resp = await _ollama_http.post(
-            f"{_config.OLLAMA_BASE_URL}/api/chat",
+            f"{base_url}/api/chat",
             json=payload,
             headers=NGROK_HEADERS,
         )
@@ -125,7 +123,7 @@ async def _describe_images(images: list[str]) -> str:
         return ""
 
 
-async def _ollama_stream(messages: list, model: str, temperature: float, top_p: float = 0.9, num_predict: int = -1, tools: Optional[list] = None):
+async def _ollama_stream(messages: list, model: str, temperature: float, base_url: str, top_p: float = 0.9, num_predict: int = -1, tools: Optional[list] = None):
     options: dict = {"temperature": temperature, "top_p": top_p}
     if num_predict != -1:
         options["num_predict"] = num_predict
@@ -142,7 +140,7 @@ async def _ollama_stream(messages: list, model: str, temperature: float, top_p: 
         payload["think"] = True
     async with _ollama_http.stream(
         "POST",
-        f"{_config.OLLAMA_BASE_URL}/api/chat",
+        f"{base_url}/api/chat",
         json=payload,
         headers=NGROK_HEADERS,
     ) as resp:
@@ -183,6 +181,7 @@ async def _chat_stream_response(
     features: dict[str, bool],
     force_search: bool,
     search_region: str,
+    base_url: str,
     db: AsyncSession,
     user: Optional[User] = None,
     chat: Optional[Chat] = None,
@@ -209,7 +208,7 @@ async def _chat_stream_response(
         proactive_search_enabled = False
 
     async def _image_description():
-        return await _describe_images(images) if images else ""
+        return await _describe_images(images, base_url) if images else ""
 
     async def _web_search_task():
         if not proactive_search_enabled:
@@ -225,7 +224,7 @@ async def _chat_stream_response(
     async def _rag_task():
         if not rag_enabled:
             return ""
-        return await retrieve_rag_context(str(chat.id), str(user.id), prompt, db)
+        return await retrieve_rag_context(str(chat.id), str(user.id), prompt, db, base_url)
 
     image_context, rag_context, _search_data = await asyncio.gather(
         _image_description(),
@@ -302,6 +301,11 @@ async def _chat_stream_response(
     chat_id    = str(chat.id) if chat else None
     chat_title = chat.title if chat else None
 
+    # Everything read from the request session is in plain values by now. Release its
+    # connection here: the session otherwise stays open until the stream ends, and a
+    # handful of long generations would drain the pool.
+    await db.close()
+
     async def generate():
         full_response = ""
         success       = False
@@ -314,10 +318,12 @@ async def _chat_stream_response(
                 round_content  = ""
                 tool_calls:   list = []
                 peek_buf:     list[str] = []
-                streaming_live = False
+                # With no tools offered there is nothing to hold back for: JSON in the
+                # reply is just the answer, and must never be run as a tool call.
+                streaming_live = not active_tools
 
                 tool_use_announced = False
-                async for chunk in _ollama_stream(current_messages, model, temperature, top_p=top_p, num_predict=num_predict, tools=active_tools or None):
+                async for chunk in _ollama_stream(current_messages, model, temperature, base_url, top_p=top_p, num_predict=num_predict, tools=active_tools or None):
                     if "_thinking" in chunk:
                         yield f"data: {json.dumps({'type': 'thinking_token', 'token': chunk['_thinking']})}\n\n"
                         continue
@@ -398,6 +404,13 @@ async def _chat_stream_response(
                             for t in peek_buf:
                                 yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
 
+                    # JSON that merely has a "name" key (an answer the user asked for in
+                    # JSON, say) is not a tool call. Release it as the reply instead.
+                    if tool_calls and not all(is_known_tool(tc["function"]["name"]) for tc in tool_calls):
+                        tool_calls = []
+                        for t in peek_buf:
+                            yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
+
                 if not tool_calls:
                     full_response = round_content
                     break
@@ -453,8 +466,8 @@ async def _chat_stream_response(
                 if _search_ctx:
                     yield f"data: {json.dumps({'type': 'search_context', 'context': _search_ctx})}\n\n"
 
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
+                # Persist before announcing 'done': the client reloads the chat list on
+                # 'done', and a tab closed right after it must not lose the turn.
                 # Guests have no chat record, so their turns are never persisted.
                 if chat_id:
                     try:
@@ -476,6 +489,8 @@ async def _chat_stream_response(
                             await write_db.commit()
                     except Exception as db_err:
                         logger.error('db_save_error chat_id=%s error=%s', chat_id, str(db_err))
+
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
             else:
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
 
@@ -525,13 +540,14 @@ async def chat_stream(
         model=(body.model or _config.DEFAULT_MODEL).strip(),
         history=history,
         system_prompt=body.system_prompt,
-        temperature=body.temperature or 0.7,
+        temperature=body.temperature if body.temperature is not None else 0.7,
         top_p=body.top_p if body.top_p is not None else 0.9,
         num_predict=body.num_predict if body.num_predict is not None else -1,
         images=body.images or [],
         features=get_features(guest=False),
         force_search=bool(body.force_search),
         search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
+        base_url=await effective_ollama_url(user),
         db=db,
         user=user,
         chat=chat,
@@ -557,12 +573,13 @@ async def guest_chat_stream(
         model=(body.model or _config.DEFAULT_MODEL).strip(),
         history=[{"role": m.role, "content": m.content} for m in body.messages],
         system_prompt=body.system_prompt,
-        temperature=body.temperature or 0.7,
+        temperature=body.temperature if body.temperature is not None else 0.7,
         top_p=body.top_p if body.top_p is not None else 0.9,
         num_predict=body.num_predict if body.num_predict is not None else -1,
         images=body.images or [],
         features=get_features(guest=True),
         force_search=False,
         search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
+        base_url=await effective_ollama_url(None),
         db=db,
     )
