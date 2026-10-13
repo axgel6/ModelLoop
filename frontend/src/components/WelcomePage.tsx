@@ -144,7 +144,19 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
               aria-label="How it works"
               aria-haspopup="dialog"
             >
-              i
+              <svg
+                width="1em"
+                height="1em"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <line x1="12" y1="11" x2="12" y2="18.5" />
+                <line x1="12" y1="5.5" x2="12" y2="5.5" />
+              </svg>
             </button>
           </div>
         )}

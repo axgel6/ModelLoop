@@ -2076,7 +2076,7 @@ html[data-theme="meadow"] .tool-indicator {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 0 8px 8px;
+  padding: 0 8px;
   gap: 4px;
 }
 
@@ -2107,12 +2107,12 @@ html[data-theme="meadow"] .tool-indicator {
   border: 1px solid rgba(80, 73, 69, 0.4);
   border-radius: 12px;
   overflow: hidden;
-  padding: 4px;
+  padding: 5px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  width: fit-content;
-  min-width: 130px;
+  gap: 2px;
+  min-width: 180px;
+  box-sizing: border-box;
   z-index: 9999;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.5),
@@ -2123,13 +2123,13 @@ html[data-theme="meadow"] .tool-indicator {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 10px !important;
+  gap: 10px;
+  padding: 9px 12px !important;
   background: transparent !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: 8px !important;
   color: #a89984 !important;
-  font-size: 0.74rem !important;
+  font-size: 0.8rem !important;
   font-family: var(--ui-font);
   font-weight: 500;
   cursor: pointer;
@@ -2207,8 +2207,18 @@ html[data-theme="meadow"] .tool-indicator {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-bottom: 8px;
+  gap: 2px;
+  padding-bottom: 20px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 20px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 20px),
+    transparent 100%
+  );
 }
 
 .sidebar-chat-list::-webkit-scrollbar {
@@ -2537,7 +2547,7 @@ html[data-theme="meadow"] .sidebar-skeleton-date {
 }
 
 .chat-sidebar .sidebar-chat-item.pinned .sidebar-pin-btn {
-  color: #fabd2f;
+  color: #bdae93;
 }
 
 .chat-sidebar .sidebar-pin-btn:hover {
@@ -2557,9 +2567,23 @@ html[data-theme="meadow"] .sidebar-skeleton-date {
 }
 
 .sidebar-section-divider {
+  flex-shrink: 0;
   height: 1px;
-  background: rgba(80, 73, 69, 0.22);
-  margin: 4px 6px;
+  background: rgba(80, 73, 69, 0.4);
+  /* Extra room on top so the line clears the active row's drop shadow */
+  margin: 7px 10px 4px;
+}
+
+html[data-theme="dune"] .sidebar-section-divider {
+  background: rgba(168, 162, 158, 0.4);
+}
+
+html[data-theme="ember"] .sidebar-section-divider {
+  background: rgba(168, 153, 132, 0.28);
+}
+
+html[data-theme="meadow"] .sidebar-section-divider {
+  background: rgba(104, 118, 109, 0.28);
 }
 /* ---- Main area ---- */
 
@@ -2598,8 +2622,11 @@ html[data-theme="meadow"] .sidebar-skeleton-date {
 }
 
 .topbar-title {
-  font-size: 0.76rem;
-  font-weight: 400;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: #504945;
   white-space: nowrap;
   overflow: hidden;
@@ -2609,9 +2636,11 @@ html[data-theme="meadow"] .sidebar-skeleton-date {
 }
 
 .topbar-rename-input {
-  font-size: 0.76rem;
-  font-family: var(--ui-font);
-  font-weight: 400;
+  font-size: 0.8rem;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: #ebdbb2;
   background: transparent;
   border: none;
@@ -3571,7 +3600,37 @@ html[data-theme="meadow"] .sidebar-skeleton-date {
 }
 
 .pref-avatar-swatch--default {
-  background: linear-gradient(135deg, #504945, #3c3836);
+  background: linear-gradient(135deg, #5a524c, #3c3836) border-box;
+}
+
+/* Each theme paints its accent on every button, which made this swatch look
+   like the theme colour while the icon it sets is the neutral grey. */
+/* The same goes for the themed button border and shadow, which ringed every
+   swatch in the accent colour. */
+html[data-theme] .pref-avatar-swatch,
+html[data-theme] .pref-avatar-swatch:hover,
+html[data-theme] .pref-avatar-swatch:active {
+  border: 2px solid transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="ember"] .pref-avatar-swatch.active {
+  border-color: #ebdbb2;
+}
+
+html[data-theme="dune"] .pref-avatar-swatch.active {
+  border-color: #1c1917;
+}
+
+html[data-theme="meadow"] .pref-avatar-swatch.active {
+  border-color: #294231;
+}
+
+html[data-theme] .pref-avatar-swatch--default,
+html[data-theme] .pref-avatar-swatch--default:hover {
+  /* border-box, or the gradient restarts under the transparent border and
+     shows as a square inside the circle */
+  background: linear-gradient(135deg, #5a524c, #3c3836) border-box;
 }
 
 .pref-avatar-swatch--default.active {
@@ -3946,6 +4005,13 @@ html[data-theme="meadow"] .sidebar-skeleton-date {
     border-color 0.15s,
     color 0.15s,
     background 0.15s;
+}
+
+.pref-info-btn svg {
+  display: block;
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
 }
 
 .pref-info-btn:hover {
@@ -6565,6 +6631,37 @@ html[data-theme="meadow"] .pref-close-btn:hover {
 }
 
 
+/* ============================================================
+   Background grain (all themes)
+   A static film-grain tile over the page background and under the
+   glows and the UI. It also hides banding in the soft glows. Light
+   specks on dark themes, dark specks on light ones; --grain-opacity
+   sets the strength.
+   ============================================================ */
+
+html {
+  --grain-opacity: 0.09;
+  --grain-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.6 0 0 0 -0.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+html[data-theme="dune"],
+html[data-theme="meadow"] {
+  --grain-opacity: 0.06;
+  --grain-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.6 0 0 0 -0.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+html::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: var(--grain-tile);
+  background-size: 220px 220px;
+  background-repeat: repeat;
+  opacity: var(--grain-opacity);
+}
+
 /* ---- Claude Theme ---- */
 
 /* The two page glows are still on purpose: glass surfaces blur what is behind
@@ -6654,8 +6751,9 @@ html[data-theme="ember"] body::after {
   background: radial-gradient(
     ellipse 55% 45% at 85% 12%,
     rgba(170, 123, 13, 0.09) 0%,
-    rgba(250, 188, 45, 0.04) 40%,
-    transparent 60%
+    rgba(250, 188, 45, 0.04) 22%,
+    rgba(250, 188, 45, 0.015) 42%,
+    transparent 62%
   );
   opacity: 0.9;
 }
@@ -8010,7 +8108,7 @@ html[data-theme="dune"] .sidebar-chat-date {
 }
 
 html[data-theme="ember"] .sidebar-chat-date {
-  color: #928374;
+  color: #a89984;
 }
 
 html[data-theme="meadow"] .sidebar-chat-date {
@@ -8027,6 +8125,72 @@ html[data-theme="ember"] .sidebar-chat-item.active .sidebar-chat-date {
 
 html[data-theme="meadow"] .sidebar-chat-item.active .sidebar-chat-date {
   color: #52635a;
+}
+
+/* Row icons take each theme's ink instead of an accent colour: a quiet
+   grey at rest, the full text colour when pinned or hovered. */
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item:hover .sidebar-pin-btn,
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item:hover .sidebar-delete-btn {
+  color: #a8a29e;
+}
+
+html[data-theme="meadow"] .chat-sidebar .sidebar-chat-item:hover .sidebar-pin-btn,
+html[data-theme="meadow"] .chat-sidebar .sidebar-chat-item:hover .sidebar-delete-btn {
+  color: #8a9a90;
+}
+
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.pinned .sidebar-pin-btn {
+  color: #78716c;
+}
+
+html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.pinned .sidebar-pin-btn {
+  color: #bdae93;
+}
+
+html[data-theme="meadow"] .chat-sidebar .sidebar-chat-item.pinned .sidebar-pin-btn {
+  color: #52635a;
+}
+
+html[data-theme="dune"] .chat-sidebar .sidebar-pin-btn:hover,
+html[data-theme="dune"] .chat-sidebar .sidebar-delete-btn:hover:not(:disabled) {
+  color: #1c1917 !important;
+}
+
+html[data-theme="ember"] .chat-sidebar .sidebar-pin-btn:hover,
+html[data-theme="ember"] .chat-sidebar .sidebar-delete-btn:hover:not(:disabled) {
+  color: #ebdbb2 !important;
+}
+
+html[data-theme="meadow"] .chat-sidebar .sidebar-pin-btn:hover,
+html[data-theme="meadow"] .chat-sidebar .sidebar-delete-btn:hover:not(:disabled) {
+  color: #294231 !important;
+}
+
+/* Dune's active item is solid orange with white text */
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn,
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active.pinned .sidebar-pin-btn,
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn:hover,
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-btn:hover:not(:disabled) {
+  color: #ffffff !important;
+}
+
+/* Ember's active item is solid yellow, so the default muted icons vanish on it */
+html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn,
+html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-btn {
+  color: rgba(40, 40, 40, 0.6);
+}
+
+html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active.pinned .sidebar-pin-btn {
+  color: #282828;
+}
+
+html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn:hover,
+html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-btn:hover:not(:disabled) {
+  color: #282828 !important;
 }
 
 html[data-theme="dune"] .sidebar-search {
@@ -8183,24 +8347,6 @@ html[data-theme="ember"] .sidebar-user-menu-item:hover {
 html[data-theme="meadow"] .sidebar-user-menu-item:hover {
   background: rgba(214, 231, 219, 0.6) !important;
   color: #294231 !important;
-}
-
-html[data-theme="dune"] .sidebar-user-avatar {
-  background: linear-gradient(135deg, #c07a50, #a85e38);
-  border-color: rgba(160, 100, 60, 0.5);
-  color: #fff8f0;
-}
-
-html[data-theme="ember"] .sidebar-user-avatar {
-  background: linear-gradient(135deg, #f9b30f, #d49605);
-  border-color: rgba(208, 147, 5, 0.5);
-  color: #282828;
-}
-
-html[data-theme="meadow"] .sidebar-user-avatar {
-  background: linear-gradient(135deg, #c07a50, #3b7057);
-  border-color: rgba(160, 100, 60, 0.5);
-  color: #edfaf1;
 }
 
 html[data-theme="dune"] .sidebar-user-email {
@@ -9058,7 +9204,7 @@ html[data-theme="dune"] .topbar-title {
 }
 
 html[data-theme="ember"] .topbar-title {
-  color: #a89984;
+  color: #bdae93;
 }
 
 html[data-theme="meadow"] .topbar-title {
@@ -9072,7 +9218,7 @@ html[data-theme="dune"] .chat-topbar .topbar-icon-btn {
 }
 
 html[data-theme="ember"] .chat-topbar .topbar-icon-btn {
-  color: #928374;
+  color: rgba(255, 255, 255, 0.75);
   background: transparent;
   box-shadow: none;
 }
@@ -9090,7 +9236,7 @@ html[data-theme="dune"] .chat-topbar .topbar-icon-btn:hover:not(:disabled) {
 }
 
 html[data-theme="ember"] .chat-topbar .topbar-icon-btn:hover:not(:disabled) {
-  color: #ebdbb2;
+  color: #ffffff;
   background: transparent;
   box-shadow: none;
 }
@@ -9182,7 +9328,7 @@ html[data-theme="dune"] .chat-sidebar .sidebar-brand-btn {
 }
 
 html[data-theme="ember"] .chat-sidebar .sidebar-brand-btn {
-  color: #928374;
+  color: rgba(255, 255, 255, 0.75);
   background: transparent;
   box-shadow: none;
 }
@@ -9200,7 +9346,7 @@ html[data-theme="dune"] .chat-sidebar .sidebar-brand-btn:hover {
 }
 
 html[data-theme="ember"] .chat-sidebar .sidebar-brand-btn:hover {
-  color: #ebdbb2;
+  color: #ffffff;
   background: transparent;
   box-shadow: none;
 }
@@ -9634,10 +9780,16 @@ html[data-theme="meadow"] .landing-theme-modal-close:hover {
 
 /* Larger than the settings variant, since this one sits next to a call to action.
    It inherits outline-only styling and theming from .pref-info-btn. */
+/* Even sizes, so the icon lands on whole pixels instead of half a pixel off */
 .welcome-info-btn {
-  width: 21px;
-  height: 21px;
+  width: 22px;
+  height: 22px;
   font-size: 0.75rem;
+}
+
+.welcome-info-btn svg {
+  width: 12px;
+  height: 12px;
 }
 
 .welcome-how-modal {
@@ -10339,6 +10491,49 @@ html[data-theme] .messages {
   padding-top: 68px;
 }
 
+/* The message list runs a little way under the input bar and fades out as
+   it goes, so messages dissolve behind the glass instead of being cut off
+   in a straight line above it. */
+.chat-main .messages {
+  margin-bottom: -28px;
+  padding-bottom: 46px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 56px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 56px),
+    transparent 100%
+  );
+}
+
+.chat-main .input-area {
+  position: relative;
+  z-index: 2;
+}
+
+/* Themed layouts float the top bar over the list, so fade the top edge too:
+   a bright bubble scrolling under the bar thins out instead of smearing
+   behind the title and buttons. */
+html[data-theme] .chat-main .messages {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 10px,
+    #000 78px,
+    #000 calc(100% - 56px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 10px,
+    #000 78px,
+    #000 calc(100% - 56px),
+    transparent 100%
+  );
+}
+
 html[data-theme] .chat-topbar .topbar-icon-btn,
 html[data-theme] .chat-topbar .topbar-icon-btn:hover:not(:disabled) {
   width: 40px;
@@ -10359,6 +10554,34 @@ html[data-theme="meadow"] .msg-timestamp {
   color: #68766d;
 }
 
+/* The default dim greys nearly disappear on Ember's dark canvas */
+html[data-theme="ember"] .msg-timestamp {
+  opacity: 0.9;
+}
+
+html[data-theme="ember"] .copy-btn,
+html[data-theme="ember"] .retry-btn,
+html[data-theme="ember"] .listen-btn,
+html[data-theme="ember"] .edit-msg-btn {
+  color: #928374 !important;
+}
+
+html[data-theme="ember"] .copy-btn:hover,
+html[data-theme="ember"] .retry-btn:hover,
+html[data-theme="ember"] .listen-btn:hover,
+html[data-theme="ember"] .edit-msg-btn:hover {
+  color: #ebdbb2 !important;
+}
+
+html[data-theme="ember"] .copy-btn.copied {
+  color: #b8bb26 !important;
+}
+
+html[data-theme="ember"] .listen-btn.speaking,
+html[data-theme="ember"] .listen-btn.speaking:hover {
+  color: #fabd2f !important;
+}
+
 
 
 /* Cream "Aa" on the amber selected card is hard to read; use the dark ink there. */
@@ -10375,7 +10598,7 @@ html[data-theme="ember"] .pref-font-card.active .pref-font-preview {
 
 html[data-theme] .sidebar-chat-item {
   position: relative;
-  padding: 9px 12px;
+  padding: 7px 12px;
 }
 
 /* A flex container cannot show an ellipsis; a block can. */
@@ -10424,8 +10647,16 @@ html[data-theme="ember"] .sidebar-section-label {
   margin-bottom: 6px;
 }
 
+html[data-theme="dune"] .empty-hint {
+  color: #a8a29e;
+}
+
 html[data-theme="ember"] .empty-hint {
   color: #928374;
+}
+
+html[data-theme="meadow"] .empty-hint {
+  color: #7f8e85;
 }
 
 /* ============================================================
@@ -10746,6 +10977,9 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
 .stretchy-logo {
   display: inline-block;
   position: relative;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 700;
   cursor: grab;
   -webkit-user-select: none;
   user-select: none;
@@ -10759,6 +10993,12 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
 
 .stretchy-logo.is-held {
   cursor: grabbing;
+}
+
+html.stretchy-dragging,
+html.stretchy-dragging * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
 }
 
 .stretchy-logo.is-held,

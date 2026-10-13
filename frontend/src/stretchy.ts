@@ -91,6 +91,8 @@ function onPointerDown(e: PointerEvent) {
   // The element's own eased transitions would make it trail behind the pointer.
   el.style.transition = "none";
   el.classList.add("is-held");
+  // Dragging past the element would otherwise select whatever text is nearby.
+  document.documentElement.classList.add("stretchy-dragging");
   el.setPointerCapture(e.pointerId);
 }
 
@@ -107,6 +109,7 @@ function onPointerUp() {
   const { el } = held;
   held = null;
   el.classList.remove("is-held");
+  document.documentElement.classList.remove("stretchy-dragging");
   const body = bodyOf(el);
   if (Math.abs(body.sx - 1) + Math.abs(body.sy - 1) > PLAYED_WITH) {
     sounds.play("pop");

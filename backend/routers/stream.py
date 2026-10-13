@@ -249,17 +249,12 @@ async def _chat_stream_response(
         effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 
     full_name = user.full_name if user else None
+    if full_name:
+        effective_system += f"\n\nThe user's name is {full_name}. Address them as {full_name.split()[0]}, and only when it feels natural."
 
     messages = []
     if not _skip_system_prompt(model):
         messages.append({"role": "system", "content": effective_system})
-        if full_name:
-            messages.append({"role": "user", "content": f"My name is {full_name}."})
-            messages.append({"role": "assistant", "content": f"Hello, {full_name.split()[0]}! How can I help you today?"})
-        else:
-            messages.append({"role": "assistant", "content": "Hello! How can I help you today?"})
-        messages.append({"role": "user", "content": "qwzxqwzxqwzxqwzx"})
-        messages.append({"role": "assistant", "content": "I'm not sure what you meant, could you rephrase that?"})
     for m in history:
         content = m["content"]
         if m["role"] == "user" and m.get("image_context"):

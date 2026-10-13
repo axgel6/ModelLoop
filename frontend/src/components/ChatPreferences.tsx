@@ -335,7 +335,19 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       title={`What does ${GENERATION_INFO[id].title} do?`}
       onClick={() => setOpenInfo((prev) => (prev === id ? null : id))}
     >
-      i
+      <svg
+        width="1em"
+        height="1em"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3.2"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <line x1="12" y1="11" x2="12" y2="18.5" />
+        <line x1="12" y1="5.5" x2="12" y2="5.5" />
+      </svg>
     </button>
   );
 
@@ -1063,6 +1075,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         "#cc241d",
                         "#d65d0e",
                         "#b57614",
+                        "#fabd2f",
                         "#98971a",
                         "#689d6a",
                         "#458588",
