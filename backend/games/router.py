@@ -261,11 +261,12 @@ def _settle_run(user: User, run_game: GameSession, db: AsyncSession) -> None:
 
 def _run_view(run_game: Optional[GameSession]) -> dict:
     if not run_game:
-        return {"run": None, "prices": {}}
+        return {"run": None, "prices": {}, "values": {}}
     run = run_game.state
     return {
         "run": {"id": str(run_game.id), **hustle.public(run)},
         "prices": hustle.prices(run, haggle.SCENARIOS) if run["status"] == "active" else {},
+        "values": hustle.values(run, haggle.SCENARIOS) if run["status"] == "active" else {},
     }
 
 
@@ -372,6 +373,7 @@ async def create_negotiation(
             item = haggle.inventory_item({"id": str(row.id), "title": row.title, **row.detail})
             listing = {
                 "id": item.get("listing"), "item": item["title"], "list_price": item["list_price"],
+                "value": item.get("value") or item["list_price"],
                 **{k: item.get(k) for k in ("condition", "description", "category", "setting")},
             }
             if body.description is not None:
@@ -411,6 +413,7 @@ async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession
             raise HTTPException(status_code=404, detail="That is not in this run's inventory")
         listing = {
             "id": item.get("listing"), "item": item["title"], "list_price": item["list_price"],
+                "value": item.get("value") or item["list_price"],
             **{k: item.get(k) for k in ("condition", "description", "category", "setting")},
         }
         state = selling.new_game(
@@ -419,7 +422,9 @@ async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession
         )
     else:
         scenario = haggle.scenario_for(body.scenario)
-        state = haggle.new_game(scenario["id"], body.difficulty, list_price=hustle.price_of(run, scenario))
+        state = haggle.new_game(
+            scenario["id"], body.difficulty, list_price=hustle.price_of(run, scenario), value=hustle.value_of(run, scenario),
+        )
     try:
         run_game.state = hustle.start_chat(run)
     except ValueError as e:
@@ -762,6 +767,7 @@ def _haggle_score(user: User, state: dict) -> Optional[GameScore]:
         detail={
             **{k: result.get(k) for k in ("outcome", "rating", "paid", "rounds", "saved", "floor")},
             "list_price": state["list_price"],
+            "value": state.get("value"),
             "merchant": state["scenario"]["merchant"],
             "difficulty": state.get("difficulty", "normal"),
             "listing": state["scenario"].get("id"),

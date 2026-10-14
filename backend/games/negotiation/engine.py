@@ -23,6 +23,9 @@ GAME_TYPE = "negotiation"
 
 # The merchant will not sell below the floor, a hidden share of the list price.
 FLOOR_SHARE = (0.45, 0.70)
+# What a listing resells for, as a multiple of its price. Sellers misprice things: some
+# listings are bargains worth flipping, a few are overpriced. Buyers pay by this, not by the price.
+VALUE_SHARE = (0.80, 1.70)
 # The reserve is the least the merchant would take right now. It starts part of
 # the way from the floor to the list price and good arguments wear it down.
 RESISTANCE_PER_POINT = 0.13    # share of that gap one point of persuasion moves the reserve
@@ -239,14 +242,20 @@ def custom_listing(item: str, price: int, condition: Optional[str], category: Op
     }
 
 
+def market_value(scenario: dict, salt: str = "") -> int:
+    """What the item really sells for, the same every time for the same listing (and run, given its salt)."""
+    share = random.Random(f"value:{salt}:{scenario['id']}").uniform(*VALUE_SHARE)
+    return max(1, _nice(scenario["list_price"] * share, scenario["list_price"]))
+
+
 def scenario_for(scenario_id: Optional[str], rng: Optional[random.Random] = None) -> dict:
     """The scenario asked for, or one dealt at random."""
     return _SCENARIOS_BY_ID.get(scenario_id or "") or (rng or random).choice(SCENARIOS)
 
 
 def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Optional[random.Random] = None,
-             list_price: Optional[int] = None) -> dict:
-    """`list_price` overrides the scenario's usual price, as a Hustle run does."""
+             list_price: Optional[int] = None, value: Optional[int] = None) -> dict:
+    """`list_price` and `value` override the scenario's usual price and resale value, as a Hustle run does."""
     rng = rng or random.Random()
     scenario = scenario_for(scenario_id, rng)
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
@@ -259,6 +268,8 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
         "scenario": {k: scenario.get(k) for k in ("id", "item", "merchant", "setting", "persona", "condition", "description", "category")},
         "opening": _fill(scenario["opening"], list_price),
         "list_price": list_price,
+        # What it resells for, kept with the purchase for when the player sells it on
+        "value": value or market_value(scenario),
         "ask": list_price,
         "floor": floor,
         "resistance": level["resistance"],
@@ -281,7 +292,7 @@ def public(state: dict) -> dict:
 def catalogue() -> list[dict]:
     """Every listing as the start screen shows it. The seller's personality and limits stay out of it."""
     keys = ("id", "item", "merchant", "setting", "condition", "description", "list_price", "category")
-    return [{k: s[k] for k in keys} for s in SCENARIOS]
+    return [{**{k: s[k] for k in keys}, "value": market_value(s)} for s in SCENARIOS]
 
 
 def category_of(scenario_id: Optional[str]) -> Optional[str]:
@@ -297,6 +308,8 @@ def inventory_item(row: dict) -> dict:
         for key in ("condition", "description", "setting", "category"):
             if row.get(key) is None:
                 row[key] = listing.get(key)
+    if row.get("value") is None and row.get("list_price"):
+        row["value"] = market_value(listing) if listing else row["list_price"]
     if row.get("saved") is None and row.get("paid") is not None and row.get("list_price"):
         row["saved"] = row["list_price"] - row["paid"]
     return row

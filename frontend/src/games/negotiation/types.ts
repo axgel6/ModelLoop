@@ -55,6 +55,8 @@ export interface HaggleListing {
   condition: string | null;
   description: string;
   list_price: number;
+  /** What it resells for. Sellers misprice things, so this can sit well above or below the price */
+  value: number;
   /** The shelf it sits on, such as "Consoles" or "Fragrance" */
   category: string;
 }
@@ -120,6 +122,8 @@ export interface InventoryItem {
   bought_at: string;
   paid: number | null;
   list_price: number;
+  /** What buyers will pay for it, about; purchases from before it was tracked go by the listed price */
+  value?: number | null;
   saved?: number | null;
   rounds?: number | null;
   merchant: string;

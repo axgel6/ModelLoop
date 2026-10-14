@@ -117,6 +117,7 @@ export function Inventory({
               <span className="neg-inventory-deal">
                 Listed at {money(i.list_price)}
                 {i.saved != null && i.saved > 0 ? `, you saved ${money(i.saved)}` : ", you paid the asking price"}
+                {i.value != null && !i.sold ? `, resells for about ${money(i.value)}` : ""}
                 {` · ${i.rating} · ${i.score} of 100`}
                 {i.rounds != null ? ` · ${i.rounds} ${i.rounds === 1 ? "round" : "rounds"}` : ""}
                 {i.difficulty && i.difficulty !== "normal" ? ` · ${i.difficulty}` : ""}

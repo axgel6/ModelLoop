@@ -8,6 +8,8 @@ export interface HustleView {
   run: HustleRun | null;
   /** What each listing costs in this run, by listing id */
   prices: Record<string, number>;
+  /** What each listing resells for in this run, by listing id */
+  values?: Record<string, number>;
 }
 
 export async function apiHustle(): Promise<HustleView> {

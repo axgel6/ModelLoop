@@ -149,7 +149,9 @@ function Menu({
   const live = hustleRun?.status === "active" ? hustleRun : null;
   const items = live ? live.holdings : (inventory ?? []);
   const priceOf = (l: HaggleListing) => (live ? (hustle?.prices[l.id] ?? l.list_price) : l.list_price);
-  const browsable = live ? listings.map((l) => ({ ...l, list_price: priceOf(l) })) : listings;
+  const browsable = live
+    ? listings.map((l) => ({ ...l, list_price: priceOf(l), value: hustle?.values?.[l.id] ?? l.value }))
+    : listings;
   const unsold = items.filter((i) => !i.sold);
   const picked = unsold.find((i) => i.id === sellPick) ?? null;
   const askingValue = Math.round(Number(asking));
@@ -177,7 +179,7 @@ function Menu({
   const pickToSell = (item: InventoryItem) => {
     setMode("sell");
     setSellPick(item.id);
-    setAsking(String(item.list_price));
+    setAsking(String(item.value ?? item.list_price));
     setListingText(live ? lockedText(item) : (item.description ?? ""));
   };
 
@@ -414,7 +416,7 @@ function Menu({
                   icon={i.title.charAt(0).toUpperCase()}
                   name={i.title}
                   desc={[i.paid != null ? `You paid ${money(i.paid)}` : "", i.condition, i.category].filter(Boolean).join(" · ")}
-                  badge={money(i.list_price)}
+                  badge={money(i.value ?? i.list_price)}
                   on={sellPick === i.id}
                   onPick={() => pickToSell(i)}
                 />
@@ -452,7 +454,8 @@ function Menu({
                   />
                 </label>
                 <span className="pref-setting-hint">
-                  {picked.paid != null && `You paid ${money(picked.paid)}. `}It lists for about {money(picked.list_price)}.
+                  {picked.paid != null && `You paid ${money(picked.paid)}. `}It resells for about{" "}
+                  {money(picked.value ?? picked.list_price)}.
                   Asking higher leaves room to come down; the buyer's limit depends on what it is worth, not on your price.
                 </span>
                 {live ? (

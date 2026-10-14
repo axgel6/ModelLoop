@@ -23,6 +23,7 @@ from .engine import (
 )
 
 MODE = "sell"
+OPENING_CAP = 0.90             # the most of their limit a buyer opens with, leaving room to talk them up
 INSULT_SHARE = 1.6             # asking more than this times the buyer's ceiling costs extra patience
 BLUFF_CONCESSION = 0.5         # share of the gap to the buyer's limit they jump when someone else is interested
 BLUFF_PATIENCE = 2
@@ -37,10 +38,11 @@ RATINGS = [
 ]
 
 # Who turns up shapes the sale: how high they will go (a share of what the item is worth),
-# where they open (a share of that ceiling), and how long they will put up with you.
+# where they open (a share of that ceiling, or of the asking price if that is more), and how
+# long they will put up with you.
 BUYERS = [
     {
-        "kind": "Lowballer", "ceiling": (0.80, 1.00), "opening": 0.55, "patience": 0,
+        "kind": "Lowballer", "ceiling": (0.80, 1.00), "opening": 0.55, "anchor": 0.50, "patience": 0,
         "persona": "opens absurdly low and acts like they are doing you a favour, types fast, loves the word firm",
         "openings": [
             "is this available? i can do {price} cash today",
@@ -48,7 +50,7 @@ BUYERS = [
         ],
     },
     {
-        "kind": "Reseller", "ceiling": (0.75, 0.95), "opening": 0.65, "patience": 0,
+        "kind": "Reseller", "ceiling": (0.75, 0.95), "opening": 0.65, "anchor": 0.60, "patience": 0,
         "persona": "flips things for a living, knows exactly what it sells for, needs margin and says so plainly",
         "openings": [
             "Hi, still available? I could do {price}, I know what these go for.",
@@ -56,7 +58,7 @@ BUYERS = [
         ],
     },
     {
-        "kind": "Collector", "ceiling": (1.05, 1.30), "opening": 0.75, "patience": 1,
+        "kind": "Collector", "ceiling": (1.05, 1.30), "opening": 0.75, "anchor": 0.85, "patience": 1,
         "persona": "has wanted this exact item for ages and is trying hard not to show it, asks detailed questions",
         "openings": [
             "Hi! Is this still available? I've been looking for one of these. Would you take {price}?",
@@ -64,7 +66,7 @@ BUYERS = [
         ],
     },
     {
-        "kind": "Regular buyer", "ceiling": (0.90, 1.10), "opening": 0.75, "patience": 0,
+        "kind": "Regular buyer", "ceiling": (0.90, 1.10), "opening": 0.75, "anchor": 0.75, "patience": 0,
         "persona": "a normal person on a budget, polite, wants a fair price and a smooth pickup",
         "openings": [
             "Hi, is this still available? Would you consider {price}?",
@@ -72,7 +74,7 @@ BUYERS = [
         ],
     },
     {
-        "kind": "Flaky buyer", "ceiling": (0.85, 1.05), "opening": 0.70, "patience": -2,
+        "kind": "Flaky buyer", "ceiling": (0.85, 1.05), "opening": 0.70, "anchor": 0.70, "patience": -2,
         "persona": "easily distracted, replies in fragments, loses interest quickly if the chat drags",
         "openings": [
             "is this still available",
@@ -136,15 +138,18 @@ def new_game(
     listing: dict, asking: int, cost: Optional[int] = None, inventory_id: Optional[str] = None,
     difficulty: str = "normal", rng: Optional[random.Random] = None, notes: Optional[str] = None,
 ) -> dict:
-    """`listing` has item, condition, description, category and list_price (what it is
-    worth); `asking` is the player's price; `cost` is what they paid for it, if anything.
+    """`listing` has item, condition, description, category, list_price and value (what it
+    resells for; list_price stands in without one); `asking` is the player's price; `cost` is
+    what they paid for it, if anything.
     `notes` are the player's own claims, shown with the listing but not part of its facts."""
     rng = rng or random.Random()
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
     buyer = rng.choice(BUYERS)
-    worth = max(1, int(listing["list_price"]))
+    worth = max(1, int(listing.get("value") or listing["list_price"]))
     ceiling = max(1, _nice_down(worth * rng.uniform(*buyer["ceiling"]), worth))
-    opening_bid = max(1, min(_nice_down(ceiling * buyer["opening"], worth), asking))
+    # A fair asking price draws a fair first offer; an inflated one does not drag them past their limit
+    opening_bid = max(ceiling * buyer["opening"], min(asking * buyer["anchor"], ceiling * OPENING_CAP))
+    opening_bid = max(1, min(_nice_down(opening_bid, worth), asking))
     opening = rng.choice(buyer["openings"])
     if "{price}" not in opening:
         opening = f"{opening}. would u do {{price}}"

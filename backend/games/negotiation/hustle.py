@@ -18,6 +18,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from .engine import market_value
+
 GAME_TYPE = "marketplace-hustle"
 START_CASH = 1000
 DAYS = 30
@@ -70,6 +72,15 @@ def prices(run: dict, scenarios: list[dict]) -> dict:
     return {s["id"]: price_of(run, s) for s in scenarios}
 
 
+def value_of(run: dict, scenario: dict) -> int:
+    """What a listing resells for in this run. It moves with the run, apart from its price."""
+    return market_value(scenario, str(run["price_seed"]))
+
+
+def values(run: dict, scenarios: list[dict]) -> dict:
+    return {s["id"]: value_of(run, s) for s in scenarios}
+
+
 def unsold(run: dict) -> list[dict]:
     return [h for h in run["holdings"] if not h.get("sold")]
 
@@ -112,6 +123,7 @@ def record_purchase(run: dict, chat: dict) -> dict:
         "title": scenario["item"],
         "paid": paid,
         "list_price": chat["list_price"],
+        "value": chat.get("value") or chat["list_price"],
         "saved": result.get("saved"),
         "score": result.get("score", 0),
         "rating": result.get("rating"),

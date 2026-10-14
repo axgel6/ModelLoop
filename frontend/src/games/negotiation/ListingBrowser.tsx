@@ -142,7 +142,9 @@ export function ListingBrowser({
               <div className="pref-item-info">
                 <div className="pref-item-name">{l.item}</div>
                 <div className="pref-item-desc">
-                  {[l.condition, l.category, l.merchant, l.setting.split("·").pop()?.trim()].filter(Boolean).join(" · ")}
+                  {[`Resells for about ${money(l.value)}`, l.condition, l.category, l.merchant, l.setting.split("·").pop()?.trim()]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </div>
               </div>
               <span className="pref-content-badge">{money(l.list_price)}</span>
