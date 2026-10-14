@@ -1,0 +1,308 @@
+/* ============================================================
+   Model Arena
+   Built from the chat's own pieces: message bubbles, the Presets
+   list rows, the Preferences inputs and cards, and the standard
+   buttons. Only the layout that is particular to a debate lives here.
+   ============================================================ */
+
+.arena {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 14px;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  animation: fade-in 0.2s ease-out both;
+}
+
+/* Themed layouts float the top bar over the content */
+html[data-theme] .arena {
+  padding-top: 66px;
+}
+
+.arena--menu {
+  overflow-y: auto;
+}
+
+.arena--stage {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.arena-title {
+  margin: 0;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: clamp(1.25rem, 3vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--game-heading);
+}
+
+.arena-error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #c0392b;
+}
+
+/* A text link that happens to be a button: it must not pick up the themes' button look */
+html .arena .arena-link,
+html .arena .arena-link:hover {
+  align-self: flex-start;
+  padding: 2px 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--game-heading);
+  font-family: var(--ui-font);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+html .arena .arena-link:hover {
+  text-decoration: underline;
+}
+
+html .arena .arena-link--quiet,
+html .arena .arena-link--quiet:hover {
+  align-self: center;
+  color: var(--game-muted);
+  font-weight: 500;
+}
+
+/* The two outlined buttons sit beside pill buttons here, so they take the same shape */
+html .arena .pref-confirm-no {
+  padding: 8px 20px;
+  border-radius: 25px;
+  font-size: 0.8rem;
+}
+
+.arena button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- Menu ---- */
+
+.arena-menu {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+
+.arena-menu .arena-title {
+  margin-top: 10px;
+}
+
+.arena-sub {
+  margin: 6px 0 18px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--game-muted);
+}
+
+.arena .arena-card {
+  flex-shrink: 0;
+  margin: 0 0 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 16px;
+}
+
+.arena .arena-card--list {
+  padding: 0;
+  gap: 0;
+}
+
+.arena .arena-card .start-button {
+  align-self: flex-start;
+}
+
+.arena-section {
+  margin: 0 0 8px 4px;
+}
+
+.arena-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.arena .pref-name-input {
+  flex: none;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+}
+
+.arena-field .pref-setting-hint {
+  margin-top: 6px;
+}
+
+.arena-corners {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.arena-corner {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- Debaters ---- */
+
+.arena-debater {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.arena-debater.is-mirrored {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.arena-debater.is-mirrored .pref-item-name {
+  justify-content: flex-end;
+}
+
+.arena-debater .pref-item-info {
+  flex: 0 1 auto;
+}
+
+.arena-debater .pref-item-icon {
+  transition: box-shadow 0.2s;
+}
+
+/* The side arguing against wears the colour of its bubbles */
+html .arena .arena-debater--against .pref-item-icon {
+  border-color: transparent;
+  background: var(--game-accent);
+  color: var(--game-accent-ink);
+}
+
+.arena-debater.is-speaking .pref-item-icon {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--game-accent) 35%, transparent);
+}
+
+/* ---- Stage ---- */
+
+.arena-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+html .arena .arena-head .arena-link {
+  align-self: baseline;
+  flex-shrink: 0;
+}
+
+.arena-head .arena-title {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(1.05rem, 2.4vw, 1.3rem);
+}
+
+.arena-head .pref-content-badge {
+  flex-shrink: 0;
+}
+
+.arena-versus {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 0 4px 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--game-card-border);
+}
+
+.arena-vs {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+.arena-feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px;
+  scrollbar-width: thin;
+}
+
+/* A speech is a few paragraphs, not a one-line chat message */
+.arena-feed .message {
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.arena-feed .msg-bubble-group {
+  max-width: 78%;
+}
+
+.arena-waiting {
+  padding: 4px 6px 10px;
+}
+
+/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colours */
+.arena-waiting .thinking-phrase {
+  background-image: linear-gradient(90deg, var(--game-muted) 20%, var(--game-ink) 50%, var(--game-muted) 80%);
+}
+
+.arena-verdict {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px 8px;
+  text-align: center;
+}
+
+.arena-controls {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .arena {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .arena-corners {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .arena-feed .msg-bubble-group {
+    max-width: 92%;
+  }
+
+  .arena-head {
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,330 @@
+/* ============================================================
+   Negotiation
+   Built from the chat's own pieces: message bubbles, the message
+   box, the Presets list rows, the Preferences cards and the
+   standard buttons. Only the layout particular to a haggle lives here.
+   ============================================================ */
+
+.neg {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 14px;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  animation: fade-in 0.2s ease-out both;
+}
+
+/* Themed layouts float the top bar over the content */
+html[data-theme] .neg {
+  padding-top: 66px;
+}
+
+.neg--menu {
+  overflow-y: auto;
+}
+
+.neg--play {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.neg-title {
+  margin: 0;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: clamp(1.25rem, 3vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--game-heading);
+}
+
+.neg-error {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: #c0392b;
+}
+
+/* A text link that happens to be a button: it must not pick up the themes' button look */
+html .neg .neg-link,
+html .neg .neg-link:hover {
+  align-self: flex-start;
+  padding: 2px 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--game-heading);
+  font-family: var(--ui-font);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+html .neg .neg-link:hover {
+  text-decoration: underline;
+}
+
+/* The outlined button sits beside a pill button here, so it takes the same shape */
+html .neg .pref-confirm-no {
+  padding: 8px 20px;
+  border-radius: 25px;
+  font-size: 0.8rem;
+}
+
+.neg button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- Menu ---- */
+
+.neg-menu {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+
+.neg-menu .neg-title {
+  margin-top: 10px;
+}
+
+.neg-sub {
+  margin: 6px 0 18px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--game-muted);
+}
+
+.neg-section {
+  margin: 0 0 8px 4px;
+}
+
+.neg .neg-card {
+  flex-shrink: 0;
+  margin: 0 0 18px;
+  border-radius: 16px;
+}
+
+.neg-card .pref-list-item {
+  padding: 11px 16px;
+}
+
+/* A row that shows something without being a choice */
+.neg-card .neg-row--static,
+.neg-card .neg-row--static:hover {
+  background: none;
+  cursor: default;
+}
+
+.neg-card .pref-content-badge,
+.neg-card .start-button {
+  flex-shrink: 0;
+}
+
+/* On the selected row the badge has to read against the accent fill */
+.neg-card .pref-list-item.active .pref-content-badge {
+  background: color-mix(in srgb, var(--game-accent-ink) 18%, transparent);
+  color: var(--game-accent-ink);
+}
+
+.neg-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+/* ---- Play ---- */
+
+.neg-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+html .neg .neg-head .neg-link {
+  align-self: baseline;
+  flex-shrink: 0;
+}
+
+.neg-head .neg-title {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(1.05rem, 2.4vw, 1.3rem);
+}
+
+.neg-head .pref-content-badge {
+  flex-shrink: 0;
+}
+
+/* Who you are dealing with, how patient they still are, and the price on the table */
+.neg-table {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 0 4px 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--game-card-border);
+}
+
+.neg-merchant {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.neg-patience,
+.neg-price {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neg-patience {
+  align-items: center;
+}
+
+.neg-price {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.neg-pips {
+  display: flex;
+  gap: 5px;
+}
+
+.neg-pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--game-muted) 25%, transparent);
+  transition: background 0.2s;
+}
+
+.neg-pip.is-left {
+  background: var(--game-accent);
+}
+
+.neg-feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px;
+  scrollbar-width: thin;
+}
+
+.neg-persona {
+  margin: 0 0 12px;
+  padding: 0;
+  text-align: center;
+}
+
+.neg-feed .message {
+  text-align: left;
+}
+
+.neg-feed .msg-bubble-group {
+  max-width: 78%;
+}
+
+.neg-waiting {
+  padding: 4px 6px 10px;
+}
+
+/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colours */
+.neg-waiting .thinking-phrase {
+  background-image: linear-gradient(90deg, var(--game-muted) 20%, var(--game-ink) 50%, var(--game-muted) 80%);
+}
+
+.neg-verdict {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px 8px;
+  text-align: center;
+}
+
+.neg-controls {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+/* The chat's message box, with the offer where the attachments would be */
+.neg-composer {
+  flex-shrink: 0;
+  margin-top: 10px;
+}
+
+.neg-offer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--game-muted);
+}
+
+.neg-offer input {
+  width: 9ch;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.neg-offer input::placeholder {
+  font-weight: 400;
+  color: color-mix(in srgb, var(--game-muted) 70%, transparent);
+}
+
+@media (max-width: 640px) {
+  .neg {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .neg-feed .msg-bubble-group {
+    max-width: 92%;
+  }
+
+  .neg-head {
+    flex-wrap: wrap;
+  }
+
+  .neg-table {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .neg-patience {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-items: flex-start;
+  }
+}

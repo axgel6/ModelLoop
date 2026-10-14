@@ -7,7 +7,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import config as _config
@@ -16,6 +16,8 @@ from config import CHAT_RATE_LIMIT, MODEL_NAME_PATTERN, NGROK_HEADERS, THINKING_
 from database import get_db, AsyncSessionLocal
 from dependencies import get_user
 from games.ceo_simulator import engine as ceo
+from games.model_arena import engine as arena
+from games.negotiation import engine as haggle
 from models import GameScore, GameSession, User
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
@@ -69,10 +71,42 @@ class TurnAction(BaseModel):
     product_id: Optional[str]   = Field(default=None, max_length=20)
 
 
+class NewNegotiation(BaseModel):
+    """Leave the scenario out to be dealt one at random."""
+    scenario:   Optional[str] = Field(default=None, max_length=20)
+    difficulty: str           = Field(default="normal", pattern="^(easy|normal|hard)$")
+
+
+class ArenaSide(BaseModel):
+    model:     str = Field(..., max_length=100, pattern=MODEL_NAME_PATTERN)
+    # The character's name, and the system prompt that makes the model play it
+    character: str = Field(default="", max_length=40)
+    prompt:    str = Field(default="", max_length=4000)
+
+
+class NewArena(BaseModel):
+    """The first side argues for the topic, the second against."""
+    topic: str             = Field(..., min_length=3, max_length=200)
+    sides: list[ArenaSide] = Field(..., min_length=2, max_length=2)
+
+
+class Verdict(BaseModel):
+    winner: int = Field(..., ge=0, le=1)
+
+
 class TurnRequest(BaseModel):
     decision: str                  = Field(default="", max_length=400)
     action:   Optional[TurnAction] = None
+    # Negotiation only: the price the player puts on the table with their message
+    offer:    Optional[int]        = Field(default=None, gt=0, le=10_000_000)
     model:    Optional[str]        = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+
+
+# How a game shows its state to the player, in full and in a save list. Games not listed use the CEO shapes.
+_VIEWS = {
+    haggle.GAME_TYPE: (haggle.public, haggle.summary),
+    arena.GAME_TYPE:  (arena.public, arena.summary),
+}
 
 
 def _serialize(game: GameSession, with_state: bool = True) -> dict:
@@ -83,7 +117,10 @@ def _serialize(game: GameSession, with_state: bool = True) -> dict:
         "created_at": game.created_at,
         "updated_at": game.updated_at,
     }
-    if with_state:
+    views = _VIEWS.get(game.game_type)
+    if views:
+        out["state" if with_state else "summary"] = views[0 if with_state else 1](game.state)
+    elif with_state:
         state = ceo.upgrade(game.state) if game.game_type == ceo.GAME_TYPE else game.state
         # The undo snapshot is a second copy of the whole game: say it exists, do not send it.
         out["state"] = {**{k: v for k, v in state.items() if k != "undo"}, "can_undo": bool(state.get("undo"))}
@@ -182,6 +219,75 @@ async def create_ceo_game(
     )
     game = GameSession(user_id=user.id, game_type=ceo.GAME_TYPE, title=company, state=state)
     db.add(game)
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.post("/negotiation", status_code=201)
+async def create_negotiation(
+    body: NewNegotiation,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Start a haggle. Only one is kept at a time: a new one replaces the last."""
+    await db.execute(
+        delete(GameSession).where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)
+    )
+    state = haggle.new_game(body.scenario, body.difficulty)
+    game = GameSession(user_id=user.id, game_type=haggle.GAME_TYPE, title=state["scenario"]["item"][:80], state=state)
+    db.add(game)
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.post("/model-arena", status_code=201)
+async def create_arena(
+    body: NewArena,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set up a debate. Nothing is said until the first turn is played."""
+    topic = " ".join(body.topic.split())
+    if len(topic) < 3:
+        raise HTTPException(status_code=422, detail="Give the debate a topic")
+    # Old debates make room for new ones instead of blocking them.
+    kept = await db.execute(
+        select(GameSession.id)
+        .where(GameSession.user_id == user.id, GameSession.game_type == arena.GAME_TYPE)
+        .order_by(GameSession.updated_at.desc())
+        .offset(MAX_SAVES_PER_GAME - 1)
+    )
+    stale = [row[0] for row in kept.all()]
+    if stale:
+        await db.execute(delete(GameSession).where(GameSession.id.in_(stale)))
+    state = arena.new_game(topic, [
+        {"model": s.model.strip(), "character": " ".join(s.character.split()), "prompt": s.prompt.strip()}
+        for s in body.sides
+    ])
+    game = GameSession(user_id=user.id, game_type=arena.GAME_TYPE, title=topic[:80], state=state)
+    db.add(game)
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/verdict")
+async def give_verdict(
+    game_id: uuid.UUID,
+    body: Verdict,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The moderator names the winner of a finished debate."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != arena.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = arena.set_winner(game.state, body.winner)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     await db.commit()
     await db.refresh(game)
     return _serialize(game)
@@ -380,6 +486,58 @@ async def answer_offer(
     return _serialize(game)
 
 
+def _haggle_score(user: User, state: dict) -> Optional[GameScore]:
+    """A score row for a haggle that ended in a deal. Walking away records nothing."""
+    result = state.get("result") or {}
+    if result.get("outcome") != "deal":
+        return None
+    return GameScore(
+        user_id=user.id, game_type=haggle.GAME_TYPE, title=state["scenario"]["item"][:80], score=int(result["score"]),
+        detail={
+            **{k: result.get(k) for k in ("outcome", "rating", "paid", "rounds")},
+            "list_price": state["list_price"],
+            "merchant": state["scenario"]["merchant"],
+            "difficulty": state.get("difficulty", "normal"),
+        },
+    )
+
+
+async def _end_haggle(game_id: uuid.UUID, user: User, db: AsyncSession, move) -> dict:
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != haggle.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = move(game.state)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    score = _haggle_score(user, game.state)
+    if score:
+        db.add(score)
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/accept")
+async def accept_price(
+    game_id: uuid.UUID,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Buy at the merchant's current price. Instant: no turn, no model call."""
+    return await _end_haggle(game_id, user, db, haggle.accept)
+
+
+@router.patch("/{game_id}/walk")
+async def walk_away(
+    game_id: uuid.UUID,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Leave without buying. Instant: no turn, no model call."""
+    return await _end_haggle(game_id, user, db, haggle.walk_away)
+
+
 async def _pick_model(base_url: str, wanted: str) -> str:
     """The model to narrate with: the one asked for if the server has it, else one it does have.
 
@@ -404,16 +562,17 @@ async def _pick_model(base_url: str, wanted: str) -> str:
     return (plain or available)[0]
 
 
-async def _ask_game_master(base_url: str, model: str, state: dict, decision: str) -> dict:
+async def _ask_json(base_url: str, model: str, system: str, prompt: str, schema: dict) -> dict:
+    """One model call that must come back as a JSON object matching `schema`."""
     payload: dict = {
         "model": model,
         "messages": [
-            {"role": "system", "content": ceo.SYSTEM_PROMPT},
-            {"role": "user", "content": ceo.describe_for_model(state, decision)},
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
         ],
         "stream": False,
         "keep_alive": -1,
-        "format": ceo.REPLY_SCHEMA,
+        "format": schema,
         "options": {"temperature": 0.8},
     }
     if any(p in model.lower() for p in THINKING_MODELS):
@@ -428,6 +587,128 @@ async def _ask_game_master(base_url: str, model: str, state: dict, decision: str
     return reply
 
 
+async def _ask_text(base_url: str, model: str, messages: list[dict], max_tokens: int) -> str:
+    """One model call answered in plain prose."""
+    payload: dict = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "keep_alive": -1,
+        "options": {"temperature": 0.9, "num_predict": max_tokens},
+    }
+    if any(p in model.lower() for p in THINKING_MODELS):
+        payload["think"] = False
+    resp = await ollama_http.client().post(
+        f"{base_url}/api/chat", json=payload, headers=NGROK_HEADERS, timeout=TURN_TIMEOUT_SECONDS,
+    )
+    resp.raise_for_status()
+    text = resp.json().get("message", {}).get("content", "")
+    if not text.strip():
+        raise ValueError("reply is empty")
+    return text
+
+
+async def _retrying(game_id: uuid.UUID, model: str, ask):
+    """Run one model call, once more if its reply cannot be read. Raises a 502 the player can act on."""
+    problem = "The model's reply could not be read. Try again."
+    for attempt in range(2):
+        try:
+            return await ask()
+        except httpx.TimeoutException:
+            problem = "The model took too long to answer. Try again, or pick a faster model."
+            break  # a second wait of the same length would not help
+        except httpx.HTTPError as e:
+            problem = "The model server could not be reached. Check that Ollama is running."
+            logger.warning("game_turn_failed game_id=%s model=%s attempt=%s error=%s", game_id, model, attempt, str(e))
+        except Exception as e:
+            logger.warning("game_turn_unreadable game_id=%s model=%s attempt=%s error=%s", game_id, model, attempt, str(e))
+    raise HTTPException(status_code=502, detail=problem)
+
+
+async def _ask_with_retry(
+    game_id: uuid.UUID, base_url: str, wanted: Optional[str], system: str, prompt: str, schema: dict,
+) -> dict:
+    """The model's JSON reply to a turn, from the model asked for or the nearest one the server has."""
+    model = await _pick_model(base_url, (wanted or _config.DEFAULT_MODEL).strip())
+    return await _retrying(game_id, model, lambda: _ask_json(base_url, model, system, prompt, schema))
+
+
+async def _play_arena_turn(game: GameSession, user: User, db: AsyncSession) -> dict:
+    """The next debater's speech. Each side speaks with its own model, whatever the request asked for."""
+    state = game.state
+    up = arena.next_up(state)
+    if up is None:
+        raise HTTPException(status_code=409, detail="This debate is over")
+    game_id, turn_before = game.id, state["turn"]
+    base_url = await effective_ollama_url(user)
+    # The model can take a while; do not hold a pooled connection for it.
+    await db.close()
+
+    model = await _pick_model(base_url, state["sides"][up["side"]]["model"])
+    text = await _retrying(
+        game_id, model, lambda: _ask_text(base_url, model, arena.messages_for_model(state), arena.MAX_TOKENS),
+    )
+    try:
+        new_state = arena.apply_speech(state, text, model)
+    except ValueError:
+        raise HTTPException(status_code=502, detail="The model's reply could not be read. Try again.")
+
+    async with AsyncSessionLocal() as write_db:
+        fresh = await write_db.execute(
+            select(GameSession).where(GameSession.id == game_id, GameSession.user_id == user.id)
+        )
+        current = fresh.scalar_one_or_none()
+        if not current:
+            raise HTTPException(status_code=404, detail="Game not found")
+        if current.state.get("turn") != turn_before:
+            raise HTTPException(status_code=409, detail="This turn was already played. Reload the game.")
+        await write_db.execute(update(GameSession).where(GameSession.id == game_id).values(state=new_state))
+        await write_db.commit()
+        await write_db.refresh(current)
+        return _serialize(current)
+
+
+async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db: AsyncSession) -> dict:
+    state = game.state
+    if state.get("status") != "active":
+        raise HTTPException(status_code=409, detail="This haggle is over")
+    if state.get("final"):
+        raise HTTPException(status_code=409, detail="That was their final price. Take it or walk away.")
+    message = " ".join(body.decision.split())
+    offer = body.offer if body.offer is not None else haggle.stated_offer(message)
+    if not message and offer is not None:
+        message = f"How about ${offer:,}?"
+    if not message:
+        raise HTTPException(status_code=422, detail="Say something or make an offer")
+    game_id, turn_before = game.id, state["turn"]
+    base_url = await effective_ollama_url(user)
+    # The model can take a while; do not hold a pooled connection for it.
+    await db.close()
+
+    reply = await _ask_with_retry(
+        game_id, base_url, body.model, haggle.SYSTEM_PROMPT,
+        haggle.describe_for_model(state, message, offer), haggle.REPLY_SCHEMA,
+    )
+    new_state = haggle.apply_turn(state, message, offer, reply)
+
+    async with AsyncSessionLocal() as write_db:
+        fresh = await write_db.execute(
+            select(GameSession).where(GameSession.id == game_id, GameSession.user_id == user.id)
+        )
+        current = fresh.scalar_one_or_none()
+        if not current:
+            raise HTTPException(status_code=404, detail="Game not found")
+        if current.state.get("turn") != turn_before or current.state.get("status") != "active":
+            raise HTTPException(status_code=409, detail="This turn was already played. Reload the game.")
+        await write_db.execute(update(GameSession).where(GameSession.id == game_id).values(state=new_state))
+        score = _haggle_score(user, new_state)
+        if score:
+            write_db.add(score)
+        await write_db.commit()
+        await write_db.refresh(current)
+        return _serialize(current)
+
+
 @router.post("/{game_id}/turn")
 @limiter.limit(CHAT_RATE_LIMIT)
 async def play_turn(
@@ -438,6 +719,10 @@ async def play_turn(
     db: AsyncSession = Depends(get_db),
 ):
     game = await _owned_game(game_id, user, db)
+    if game.game_type == haggle.GAME_TYPE:
+        return await _play_haggle_turn(game, body, user, db)
+    if game.game_type == arena.GAME_TYPE:
+        return await _play_arena_turn(game, user, db)
     if game.game_type != ceo.GAME_TYPE:
         raise HTTPException(status_code=400, detail="Unknown game")
     state = ceo.upgrade(game.state)
@@ -461,23 +746,9 @@ async def play_turn(
     # The model can take a while; do not hold a pooled connection for it.
     await db.close()
 
-    model = await _pick_model(base_url, (body.model or _config.DEFAULT_MODEL).strip())
-    reply = None
-    problem = "The model's reply could not be read. Try again."
-    for attempt in range(2):
-        try:
-            reply = await _ask_game_master(base_url, model, state, decision)
-            break
-        except httpx.TimeoutException:
-            problem = "The model took too long to answer. Try again, or pick a faster model."
-            break  # a second wait of the same length would not help
-        except httpx.HTTPError as e:
-            problem = "The model server could not be reached. Check that Ollama is running."
-            logger.warning("game_turn_failed game_id=%s model=%s attempt=%s error=%s", game_id, model, attempt, str(e))
-        except Exception as e:
-            logger.warning("game_turn_unreadable game_id=%s model=%s attempt=%s error=%s", game_id, model, attempt, str(e))
-    if reply is None:
-        raise HTTPException(status_code=502, detail=problem)
+    reply = await _ask_with_retry(
+        game_id, base_url, body.model, ceo.SYSTEM_PROMPT, ceo.describe_for_model(state, decision), ceo.REPLY_SCHEMA,
+    )
 
     new_state = ceo.apply_turn(state, decision, reply, action=action)
 

@@ -9,20 +9,23 @@ export interface GameSave<State> {
   state: State;
 }
 
-export interface GameSaveSummary {
+/** What a save list shows of a run. Games with other needs pass their own shape. */
+export interface RunSummary {
+  turn: number;
+  cash: number;
+  status: string;
+  valuation?: number;
+  result?: { score: number; rating: string } | null;
+  /** The score a run ended on, kept when it is played on afterwards */
+  official_result?: { score: number; rating: string } | null;
+  free_play?: boolean;
+}
+
+export interface GameSaveSummary<Summary = RunSummary> {
   id: string;
   title: string;
   updated_at: string;
-  summary: {
-    turn: number;
-    cash: number;
-    status: string;
-    valuation?: number;
-    result?: { score: number; rating: string } | null;
-    /** The score a run ended on, kept when it is played on afterwards */
-    official_result?: { score: number; rating: string } | null;
-    free_play?: boolean;
-  };
+  summary: Summary;
 }
 
 async function failure(res: Response, fallback: string): Promise<Error> {
@@ -35,7 +38,7 @@ async function failure(res: Response, fallback: string): Promise<Error> {
   return new Error(res.status === 429 ? "You're going a little fast. Give it a moment." : fallback);
 }
 
-export async function apiListGames(gameType: string): Promise<GameSaveSummary[]> {
+export async function apiListGames<Summary = RunSummary>(gameType: string): Promise<GameSaveSummary<Summary>[]> {
   const res = await apiFetch(`/api/v1/games?game_type=${encodeURIComponent(gameType)}`);
   if (!res.ok) throw await failure(res, "I couldn't load your saved games.");
   return (await res.json()).games;
@@ -52,6 +55,11 @@ export interface GameScoreRow {
   /** Cash the player typed into existence during the run */
   typed_cash?: number;
   difficulty?: string;
+  /** Negotiation: what was paid, against the price first asked */
+  paid?: number;
+  list_price?: number;
+  merchant?: string;
+  rounds?: number;
 }
 
 export async function apiGameScores(gameType: string): Promise<GameScoreRow[]> {
@@ -80,16 +88,20 @@ export async function apiDeleteGame(id: string): Promise<void> {
   if (!res.ok) throw await failure(res, "I couldn't delete that game.");
 }
 
-/** `action` is a decision made with a form; when given, the server ignores `decision`. */
+/**
+ * `action` is a decision made with a form; when given, the server ignores `decision`.
+ * `extra` carries anything else a game sends with its turn, such as an offer.
+ */
 export async function apiPlayTurn<State>(
   id: string,
   decision: string,
   model?: string,
   action?: unknown,
+  extra?: Record<string, unknown>,
 ): Promise<GameSave<State>> {
   const res = await apiFetch(`/api/v1/games/${id}/turn`, {
     method: "POST",
-    body: JSON.stringify({ decision, action, model: model || undefined }),
+    body: JSON.stringify({ ...extra, decision, action, model: model || undefined }),
   });
   if (!res.ok) throw await failure(res, "That turn didn't go through. Try again.");
   return res.json();
