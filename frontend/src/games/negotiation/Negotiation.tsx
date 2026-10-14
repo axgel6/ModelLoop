@@ -17,6 +17,8 @@ import { sounds } from "../../sounds";
 import { createPortal } from "react-dom";
 import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
+import { Avatar } from "./Avatar";
+import { avatarSeed } from "./avatarSeed";
 import { Bank } from "./Bank";
 import { CustomListingForm } from "./CustomListingForm";
 import {
@@ -75,6 +77,33 @@ const RESEARCH_FEE = 5;
 const SLOW_REPLY_MS = 1200;
 const HESITANT_PAUSE_MS = 900;
 const wait = (ms: number) => new Promise((done) => window.setTimeout(done, ms));
+// A gap this long between messages earns a time marker in the chat, as messaging apps do
+const TIME_GAP_MS = 10 * 60 * 1000;
+
+/** "3:42 PM", or "Oct 12, 3:42 PM" for another day */
+function clock(iso: string): string {
+  const at = new Date(iso);
+  const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  if (at.toDateString() === new Date().toDateString()) return time;
+  return `${at.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${time}`;
+}
+
+/** "Active now", or how long ago they were last around */
+function presence(iso: string | undefined, here: boolean): string {
+  if (here || !iso) return "Active now";
+  const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (minutes < 60) return `Active ${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `Active ${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+  return `Active ${Math.round(hours / 24)} ${Math.round(hours / 24) === 1 ? "day" : "days"} ago`;
+}
+
+/** A time marker when enough time has passed since the message before */
+function gap(at: string | undefined, before: string | undefined): string | null {
+  if (!at) return null;
+  if (!before || new Date(at).getTime() - new Date(before).getTime() >= TIME_GAP_MS) return clock(at);
+  return null;
+}
 const TELLS = {
   quick: "They replied straight away.",
   slow: "They took a while to reply.",
@@ -287,7 +316,9 @@ function Menu({
             <div className="pref-account-card neg-card">
               {(live.callbacks ?? []).map((c) => (
                 <div key={c.id} className="pref-list-item neg-row--static">
-                  <div className="pref-item-icon">{c.merchant.charAt(0)}</div>
+                  <div className="pref-item-icon neg-face">
+                    <Avatar seed={avatarSeed(c.merchant, c.scenario)} />
+                  </div>
                   <div className="pref-item-info">
                     <div className="pref-item-name">
                       {c.merchant}: Still interested? I can do {money(c.price)} now.
@@ -363,7 +394,19 @@ function Menu({
             <h3 className="pref-field-label neg-section">Still on the table</h3>
             <div className="pref-account-card neg-card">
               <div className="pref-list-item neg-row--static">
-                <div className="pref-item-icon">{unfinished.summary.merchant?.charAt(0) ?? unfinished.summary.prospects}</div>
+                {unfinished.summary.merchant ? (
+                  <div className="pref-item-icon neg-face">
+                    <Avatar
+                      seed={avatarSeed(
+                        unfinished.summary.merchant,
+                        unfinished.summary.listing,
+                        unfinished.summary.mode === "sell",
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <div className="pref-item-icon">{unfinished.summary.prospects}</div>
+                )}
                 <div className="pref-item-info">
                   <div className="pref-item-name">{unfinished.summary.item}</div>
                   <div className="pref-item-desc">
@@ -418,7 +461,7 @@ function Menu({
           {offered.map((s) => (
             <Option
               key={s.id}
-              icon={s.merchant.charAt(0)}
+              face={avatarSeed(s.merchant, s.id)}
               name={s.item}
               desc={[
                 live && priceOf(s) > live.cash ? "Over budget" : "",
@@ -753,6 +796,7 @@ function HustlePanel({
 /** One choice in a list, laid out like a row of the Presets list */
 function Option({
   icon,
+  face,
   name,
   desc,
   badge,
@@ -760,6 +804,8 @@ function Option({
   onPick,
 }: {
   icon?: string;
+  /** A person's face in place of the icon, by avatar seed */
+  face?: string;
   name: string;
   desc: string;
   badge?: string;
@@ -780,7 +826,13 @@ function Option({
         }
       }}
     >
-      {icon && <div className="pref-item-icon">{icon}</div>}
+      {face ? (
+        <div className="pref-item-icon neg-face">
+          <Avatar seed={face} />
+        </div>
+      ) : (
+        icon && <div className="pref-item-icon">{icon}</div>
+      )}
       <div className="pref-item-info">
         <div className="pref-item-name">{name}</div>
         <div className="pref-item-desc">{desc}</div>
@@ -859,6 +911,10 @@ function Play({
 
   const sweeteners = SWEETENERS[selling ? "sell" : "buy"];
   const ping = state.ping ?? null;
+  // Their face, the same one shown in the listing and the inbox
+  const face = avatarSeed(scenario.merchant, scenario.id, selling);
+  // When each message landed: the chat opened, then every round, then talk after the deal
+  const lastAt = state.after?.at(-1)?.at ?? state.log.at(-1)?.at ?? state.started_at;
 
   // `bluff`: saying you are leaving to see if the price moves. It works once, and carries no offer.
   // `leverage`: holding up another buyer's real offer. `sweetener`: a term other than money.
@@ -1003,10 +1059,16 @@ function Play({
 
       <div className="neg-table">
         <div className="neg-merchant">
-          <div className="pref-item-icon">{scenario.merchant.charAt(0)}</div>
+          <div className="pref-item-icon neg-face neg-face--head">
+            <Avatar seed={face} size={44} />
+          </div>
           <div className="pref-item-info">
             <div className="pref-item-name">{scenario.merchant}</div>
-            <div className="pref-item-desc">{selling ? `${scenario.kind ?? "Buyer"} · messaged your listing` : scenario.setting}</div>
+            <div className="pref-item-desc">
+              <span className={`neg-presence${!result ? " is-on" : ""}`}>{presence(lastAt, !result)}</span>
+              {" · "}
+              {selling ? scenario.kind ?? "Buyer" : scenario.setting.split("·").pop()?.trim()}
+            </div>
           </div>
         </div>
         <div className="neg-patience">
@@ -1066,10 +1128,11 @@ function Play({
         {state.switched_to && state.log.length === 0 && (
           <p className="msg-timestamp neg-notice">You switched to {state.switched_to}.</p>
         )}
-        {state.research && <p className="msg-timestamp neg-notice">Sold listings: {state.research}</p>}
         {/* Buying, you message first; selling, the buyer does */}
+        {state.started_at && <p className="neg-time">{clock(state.started_at)}</p>}
         {!selling && <Line who="you" text="Hi, is this still available?" />}
         <Line
+          face={face}
           who="them"
           text={state.opening}
           note={state.callback ? `They were asking ${money(state.callback.was)} before.` : undefined}
@@ -1086,6 +1149,9 @@ function Play({
 
         {state.log.map((entry, i) => (
           <Fragment key={entry.turn}>
+            {gap(entry.at, i > 0 ? state.log[i - 1].at : state.started_at) && (
+              <p className="neg-time">{gap(entry.at, i > 0 ? state.log[i - 1].at : state.started_at)}</p>
+            )}
             {/* An offer sent with nothing typed is just the card */}
             {(entry.offer == null || entry.you !== bare(entry.offer)) && (
               <Line
@@ -1096,7 +1162,7 @@ function Play({
                     entry.bluff ? "A bluff. It only works once." : "",
                     entry.leverage ? "A real offer from another buyer." : "",
                     entry.sweetener ? `Offered: ${sweeteners.find((x) => x.id === entry.sweetener)?.label ?? entry.sweetener}.` : "",
-                    i === state.log.length - 1 && !pending ? "Seen" : "",
+                    i === state.log.length - 1 && !pending ? (entry.at ? `Seen ${clock(entry.at)}` : "Seen") : "",
                   ]
                     .filter(Boolean)
                     .join(" ") || undefined
@@ -1112,6 +1178,7 @@ function Play({
               />
             )}
             <Line
+              face={face}
               who="them"
               text={entry.reply}
               note={
@@ -1296,10 +1363,13 @@ function Play({
         )}
 
         {/* Talk after the deal: no prices, no cards, just the chat */}
-        {(state.after ?? []).map((a, i) => (
+        {(state.after ?? []).map((a, i, all) => (
           <Fragment key={`after-${i}`}>
+            {gap(a.at, i > 0 ? all[i - 1].at : (state.log.at(-1)?.at ?? state.started_at)) && (
+              <p className="neg-time">{gap(a.at, i > 0 ? all[i - 1].at : (state.log.at(-1)?.at ?? state.started_at))}</p>
+            )}
             <Line who="you" text={a.you} />
-            <Line who="them" text={a.reply} />
+            <Line face={face} who="them" text={a.reply} />
           </Fragment>
         ))}
         {chatPending && (
@@ -1319,6 +1389,8 @@ function Play({
         )}
 
         {error && <p className="neg-error">{error}</p>}
+        {/* Messages blur and fade as they pass under the chips and the message box */}
+        <div className="neg-feed-fade" aria-hidden="true" />
         <div ref={feedEnd} />
       </div>
 
@@ -1390,28 +1462,42 @@ function Play({
         <div className="neg-extras" role="group" aria-label="More you can offer">
           {sweeteners
             .filter((x) => !(state.sweeteners ?? []).includes(x.id))
+            // Covering shipping only means something on a listing that ships
+            .filter((x) => x.id !== "shipping" || /shipping/i.test(scenario.setting))
             .map((x) => (
               <button
                 key={x.id}
                 type="button"
-                className="toolbar-chip-btn"
+                className="neg-extra"
                 onClick={() => play({ sweetener: x.id })}
                 disabled={busy}
                 title="Better terms count for something. Each works once."
               >
+                <ExtraIcon name={x.id} />
                 {x.label}
               </button>
             ))}
           {!selling && !state.research && (
             <button
               type="button"
-              className="toolbar-chip-btn"
+              className="neg-extra neg-extra--research"
               onClick={() => edit("research")}
               disabled={busy}
               title="See what tends to go wrong with these, so you know what to ask about"
             >
-              Check sold listings{inRun ? ` (${money(RESEARCH_FEE)})` : ""}
+              <ExtraIcon name="research" />
+              Check sold listings
+              {inRun && <span className="neg-extra-cost">{money(RESEARCH_FEE)}</span>}
             </button>
+          )}
+          {/* What sold listings turned up, kept in view while you type */}
+          {state.research && (
+            <p className="neg-research" role="note">
+              <ExtraIcon name="research" />
+              <span>
+                <strong>Sold listings:</strong> {state.research}
+              </span>
+            </p>
           )}
         </div>
         <form className="input-wrapper neg-composer" onSubmit={send}>
@@ -1553,7 +1639,9 @@ function Inbox({
                     }
                   }}
                 >
-                  <div className="pref-item-icon">{p.merchant.charAt(0)}</div>
+                  <div className="pref-item-icon neg-face">
+                    <Avatar seed={avatarSeed(p.merchant, null, true)} />
+                  </div>
                   <div className="pref-item-info">
                     <div className="pref-item-name">
                       {p.merchant} <span className="neg-inbox-kind">· {p.kind}</span>
@@ -1572,6 +1660,77 @@ function Inbox({
         document.body,
       )}
     </div>
+  );
+}
+
+// Line icons for the chips above the message box, drawn on a 24 by 24 grid
+const EXTRA_ICONS: Record<string, React.ReactNode> = {
+  cash: (
+    <>
+      <rect x="2.5" y="6" width="19" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M6 9.5v5M18 9.5v5" />
+    </>
+  ),
+  pickup: (
+    <>
+      <path d="M3 13l2-5.5A2 2 0 0 1 6.9 6h10.2a2 2 0 0 1 1.9 1.5L21 13v4h-2" />
+      <path d="M5 17H3v-4h18" />
+      <circle cx="7" cy="17" r="1.8" />
+      <circle cx="17" cy="17" r="1.8" />
+      <path d="M9 17h6" />
+    </>
+  ),
+  shipping: (
+    <>
+      <path d="M12 3l8.5 4.5v9L12 21l-8.5-4.5v-9z" />
+      <path d="M3.5 7.5L12 12l8.5-4.5M12 12v9" />
+    </>
+  ),
+  dropoff: (
+    <>
+      <path d="M2.5 6h11v10h-11z" />
+      <path d="M13.5 9.5h4l3 3.5V16h-7" />
+      <circle cx="6.5" cy="17.5" r="1.8" />
+      <circle cx="17" cy="17.5" r="1.8" />
+    </>
+  ),
+  hold: (
+    <>
+      <rect x="5" y="11" width="14" height="9.5" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  anytime: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
+  research: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5.5 5.5" />
+    </>
+  ),
+};
+
+function ExtraIcon({ name }: { name: string }) {
+  return (
+    <svg
+      className="neg-extra-icon"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {EXTRA_ICONS[name]}
+    </svg>
   );
 }
 
@@ -1715,18 +1874,28 @@ function lastTell(log: HaggleEntry[], index: number): HaggleEntry["tell"] {
 }
 
 /** One line of the haggle as a chat bubble, with an optional note where the timestamp would go */
-function Line({ who, text, note }: { who: "you" | "them"; text: string; note?: string }) {
+function Line({ who, text, note, face }: { who: "you" | "them"; text: string; note?: string; face?: string }) {
   const role = who === "you" ? "user" : "assistant";
+  const bubble = (
+    <div className={`msg-bubble-group${who === "you" ? " user-group" : ""}`}>
+      <div className={`message ${role}`}>{text}</div>
+      {note && (
+        <div className={`msg-meta${who === "you" ? " user-meta" : ""}`}>
+          <span className="msg-timestamp">{note}</span>
+        </div>
+      )}
+    </div>
+  );
   return (
     <div className={`message-row ${role}`}>
-      <div className={`msg-bubble-group${who === "you" ? " user-group" : ""}`}>
-        <div className={`message ${role}`}>{text}</div>
-        {note && (
-          <div className={`msg-meta${who === "you" ? " user-meta" : ""}`}>
-            <span className="msg-timestamp">{note}</span>
-          </div>
-        )}
-      </div>
+      {face ? (
+        <div className="neg-said">
+          <Avatar seed={face} size={30} className="neg-said-face" />
+          {bubble}
+        </div>
+      ) : (
+        bubble
+      )}
     </div>
   );
 }

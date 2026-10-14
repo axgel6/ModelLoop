@@ -1,3 +1,5 @@
+import { Avatar } from "./Avatar";
+import { avatarSeed } from "./avatarSeed";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeKey } from "../../components/useEscapeKey";
@@ -138,7 +140,9 @@ export function ListingBrowser({
                 }
               }}
             >
-              <div className="pref-item-icon">{l.merchant.charAt(0)}</div>
+              <div className="pref-item-icon neg-face">
+                <Avatar seed={avatarSeed(l.merchant, l.id)} />
+              </div>
               <div className="pref-item-info">
                 <div className="pref-item-name">{l.item}</div>
                 <div className="pref-item-desc">

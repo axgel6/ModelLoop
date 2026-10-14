@@ -28,6 +28,11 @@ def sweetener(mode: str, key: Optional[str]) -> Optional[tuple]:
     return SWEETENERS["sell" if mode == "sell" else "buy"].get(key or "")
 
 
+def ships(scenario: dict) -> bool:
+    """Whether the listing offers shipping at all, as against local pickup only."""
+    return "shipping" in str(scenario.get("setting") or "").lower()
+
+
 # ---- Hidden flaws: buying only. Found by asking, or found at pickup ----
 
 FLAW_CHANCE = 0.35
@@ -102,7 +107,7 @@ def asks_about(flaw: Optional[dict], message: str) -> bool:
 def flaw_hint(flaw: Optional[dict]) -> str:
     """What sold listings say: where to look, without saying what is wrong."""
     if not flaw:
-        return "Sold listings for these look clean: nothing commonly goes wrong with them."
+        return "These look clean: nothing commonly goes wrong with them."
     return f"People who bought these often bring up the {flaw['words'][0]}. Worth asking about."
 
 

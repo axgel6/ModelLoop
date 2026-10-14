@@ -227,6 +227,7 @@ html .neg .neg-refresh:hover {
 }
 
 .neg-feed {
+  --neg-fade: 40px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -234,6 +235,24 @@ html .neg .neg-refresh:hover {
   flex-direction: column;
   padding: 0 4px;
   scrollbar-width: thin;
+  /* The bottom edge fades out... */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--neg-fade)), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--neg-fade)), transparent);
+}
+
+/* ...and blurs on the way: pinned to the bottom while scrolled up, and a spacer below the last
+   message once at the end, so the newest message is never the one fading */
+.neg-feed-fade {
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
+  height: var(--neg-fade);
+  margin: 0 -4px;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000);
+  mask-image: linear-gradient(to bottom, transparent, #000);
 }
 
 /* The listing being haggled over, pinned to the top of the chat like the app's glass panels */
@@ -1256,8 +1275,75 @@ html .neg .neg-scores-toggle {
 .neg-extras {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 0 4px 8px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 6px 10px;
+}
+
+/* A chip that adds something to the next message: a frosted pill, like the composer below it */
+html .neg .neg-extra,
+html .neg .neg-extra:hover,
+html .neg .neg-extra:disabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px 0 11px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transform: none;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+
+html .neg .neg-extra:hover:not(:disabled) {
+  border-color: var(--game-accent);
+  transform: translateY(-1px);
+}
+
+html .neg .neg-extra:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.neg-extra-icon {
+  flex-shrink: 0;
+  color: var(--game-accent);
+}
+
+/* Research is a different kind of move: it finds something out instead of offering something */
+html .neg .neg-extra--research,
+html .neg .neg-extra--research:hover,
+html .neg .neg-extra--research:disabled {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted);
+}
+
+html .neg .neg-extra--research:hover:not(:disabled) {
+  color: var(--game-ink);
+}
+
+.neg-extra-cost {
+  margin-left: 1px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--game-accent) 18%, transparent);
+  color: var(--game-ink);
+  font-size: 0.68rem;
 }
 
 /* Something the game says, not either side: centred, like the persona line */
@@ -1319,4 +1405,87 @@ html .neg .neg-scores-toggle {
 
 .neg-inventory-deal.is-down {
   color: var(--neg-down);
+}
+
+/* What checking sold listings found: a note above the message box, full width under the chips */
+.neg-research {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px dashed var(--glass-border);
+  border-radius: 14px;
+  color: var(--game-ink);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.neg-research .neg-extra-icon {
+  margin-top: 2px;
+}
+
+.neg-research strong {
+  font-weight: 600;
+}
+
+/* ---- Faces, presence and time ---- */
+
+/* A person's face fills the round icon slot it replaces */
+.pref-item-icon.neg-face {
+  padding: 0;
+  overflow: hidden;
+  border-color: var(--glass-border);
+  background: transparent;
+}
+
+.neg-avatar {
+  display: block;
+  border-radius: 50%;
+  user-select: none;
+}
+
+.neg-face--head {
+  width: 44px;
+  height: 44px;
+}
+
+/* Their face beside each of their messages, level with the top of the bubble */
+.neg-said {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.neg-said .msg-bubble-group {
+  min-width: 0;
+}
+
+.neg-said-face {
+  flex-shrink: 0;
+  margin-top: 4px;
+  border: 1px solid var(--glass-border);
+}
+
+/* "Active now" gets a small green dot, like a messaging app */
+.neg-presence.is-on::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--neg-up);
+  vertical-align: 1px;
+}
+
+/* A time marker between messages */
+.neg-time {
+  margin: 4px 0 10px;
+  color: var(--game-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-align: center;
 }

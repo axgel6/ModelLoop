@@ -16,6 +16,7 @@ import random
 from typing import Optional
 
 from . import extras
+from .engine import now
 from .engine import (
     DIFFICULTIES, FREE_QUESTIONS, LOG_LIMIT, MAX_REPLY, MAX_STIFFENING, MODEL_CONTEXT_ROUNDS,
     REPEAT_PERSUASION, RESISTANCE_PER_POINT, MAX_RESISTANCE, SHORT_MESSAGE_WORDS,
@@ -171,7 +172,8 @@ Be a tough but fair judge. Most messages are 0 or 1. A real reason counts as at 
 - Never write a price or any number yourself. Write {price} wherever you state your offer, and the game fills it in.
 - Only mention your offer when the round's instruction tells you to.
 - Follow the instruction for this round exactly.
-- Stay in character and react to what the seller actually said. No stage directions, no quotation marks around the reply."""
+- Stay in character and react to what the seller actually said. No stage directions, no quotation marks around the reply.
+- Never repeat or lightly reword one of your earlier messages. Say something new each time, even when your answer is the same."""
 
 __all__ = ["REPLY_SCHEMA", "SYSTEM_PROMPT"]
 
@@ -209,6 +211,7 @@ def new_game(
     return {
         "mode": MODE,
         "status": "choosing",        # choosing | active | sold | kept
+        "started_at": now(),
         "prospects": prospects,
         "turn": 0,
         "difficulty": difficulty if difficulty in DIFFICULTIES else "normal",
@@ -384,6 +387,7 @@ def describe_for_model(
     kind = _round_kind(state, price, bluff)
     lines = [
         f"You are {scenario['merchant']}, the buyer. Personality: {scenario['persona']}.",
+        f"{scenario['merchant']} is your own name. The seller is someone else: never call them {scenario['merchant']}.",
         "",
         "The listing you messaged about:",
         f"Title: {scenario['item']}",
@@ -473,7 +477,7 @@ def apply_turn(
     if bluff:
         s["bluffed"] = True
     if sweet:
-        persuasion = min(2, persuasion + extras.SWEETENER_BONUS)
+        persuasion = min(2, max(persuasion, 0) + extras.SWEETENER_BONUS)
         s["sweeteners"] = (s.get("sweeteners") or []) + [sweet]
     quotable = (s["list_price"], price, s["ping"]["offer"] if leverage else None)
 
@@ -481,6 +485,7 @@ def apply_turn(
     entry = {
         "turn": s["turn"], "you": message, "offer": price, "persuasion": persuasion,
         "insulted": False, "repeated": repeated, "bluff": bluff, "sweetener": sweet, "leverage": leverage,
+        "at": now(),
     }
 
     if leverage:

@@ -49,6 +49,8 @@ export interface HaggleEntry {
   lost?: boolean;
   /** Selling: one of the other buyers messaged with a better offer after this round */
   ping?: { merchant: string; offer: number };
+  /** When the round was played */
+  at?: string;
 }
 
 /** What happened when the item changed hands */
@@ -141,7 +143,9 @@ export interface HaggleState {
   /** Selling, before a buyer is picked: everyone who messaged */
   prospects?: Prospect[];
   /** Talk after the haggle is over, oldest first */
-  after?: { you: string; reply: string }[];
+  after?: { you: string; reply: string; at?: string }[];
+  /** When the chat opened */
+  started_at?: string;
   /** Terms other than money already offered, by id */
   sweeteners?: string[];
   /** Buying: a flaw the seller has owned up to (one not yet found stays hidden) */
@@ -169,6 +173,8 @@ export interface HaggleSummary {
   ask: number | null;
   /** Buyers still waiting in the inbox */
   prospects?: number;
+  /** Buying: the listing, whose seller's face it shows */
+  listing?: string | null;
 }
 
 /** Something bought in Negotiation. Purchases from before the inventory may lack the listing's details. */
@@ -262,7 +268,7 @@ export interface HustleRun {
   ledger: LedgerEntry[];
   milestones: number[];
   /** Sellers who messaged again after you walked away */
-  callbacks?: { id: string; merchant: string; item: string; price: number; was: number }[];
+  callbacks?: { id: string; scenario: string; merchant: string; item: string; price: number; was: number }[];
   result: {
     net_worth: number;
     cash: number;

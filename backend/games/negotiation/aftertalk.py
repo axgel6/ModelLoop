@@ -5,7 +5,7 @@ in character, about pickup, the item or anything else. No I/O in this file.
 """
 import copy
 
-from .engine import _money
+from .engine import _money, now
 
 MAX_EXCHANGES = 30             # how much after-talk a chat keeps
 CONTEXT_EXCHANGES = 8          # how much of it the model is shown
@@ -53,6 +53,7 @@ def describe_for_model(state: dict, message: str) -> str:
     scenario = state["scenario"]
     lines = [
         f"You are {scenario['merchant']}, the {'buyer' if selling else 'seller'}. Personality: {scenario['persona']}.",
+        f"{scenario['merchant']} is your own name. The person you are talking to is someone else: never call them {scenario['merchant']}.",
         f"How it went: {_outcome(state, selling)}",
         "",
         "The last messages before the deal was settled:",
@@ -76,5 +77,5 @@ def describe_for_model(state: dict, message: str) -> str:
 def apply_reply(state: dict, message: str, reply: dict) -> dict:
     s = copy.deepcopy(state)
     text = " ".join(str(reply.get("reply") or "").split())[:MAX_REPLY] or "Haha, for sure."
-    s["after"] = ((s.get("after") or []) + [{"you": message, "reply": text}])[-MAX_EXCHANGES:]
+    s["after"] = ((s.get("after") or []) + [{"you": message, "reply": text, "at": now()}])[-MAX_EXCHANGES:]
     return s

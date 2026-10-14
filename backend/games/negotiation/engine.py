@@ -15,6 +15,7 @@ import copy
 import math
 import random
 import re
+from datetime import datetime, timezone
 from typing import Optional
 
 from . import extras
@@ -112,7 +113,13 @@ Be a tough but fair judge. Most messages are 0 or 1. A real reason counts as at 
 - Never write a price or any number yourself. Write {price} wherever you state your price, and the game fills it in.
 - Only mention your price when the round's instruction tells you to. Sellers do not repeat their price in every message.
 - Follow the instruction for this round exactly: it says whether you are making a counter-offer, giving a final price, or accepting.
-- Stay in character and react to what the buyer actually said. No stage directions, no quotation marks around the reply."""
+- Stay in character and react to what the buyer actually said. No stage directions, no quotation marks around the reply.
+- Never repeat or lightly reword one of your earlier messages. Say something new each time, even when your answer is the same."""
+
+
+def now() -> str:
+    """When something happened, for the chat's timestamps."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _money(amount: float) -> str:
@@ -166,12 +173,24 @@ _OBJECTS = re.compile(r"\b(?:much|expensive|pricey|steep|high|no|not|never|lower
 ACCEPTANCE_WORDS = 8           # anything longer is an argument, not a yes
 
 
+# A bare number in a reply this close to the real price is a price the model made up ("I can do 400 cash")
+BARE_PRICE_RANGE = (0.25, 4.0)
+
+
 def _fill(text: str, price: float, keep: tuple = ()) -> str:
-    """The reply with the real price wherever the model marked or wrote one.
-    Figures in `keep` (the list price, the buyer's own offer) may be quoted as they are."""
+    """The reply with the real price wherever the model marked or wrote one, with a dollar sign or
+    without. Figures in `keep` (the list price, the other side's own offer) may be quoted as they are."""
     allowed = {_money(price), *(_money(k) for k in keep if k)}
     filled = _PLACEHOLDER.sub(_money(price), text)
-    return _FIGURE.sub(lambda m: m.group(0) if m.group(0).replace(" ", "") in allowed else _money(price), filled)
+    filled = _FIGURE.sub(lambda m: m.group(0) if m.group(0).replace(" ", "") in allowed else _money(price), filled)
+
+    def bare(m: re.Match) -> str:
+        amount = float(m.group(1).replace(",", "")) * (1000 if m.group(2) else 1)
+        year = not m.group(2) and m.group(1).isdigit() and 1950 <= amount <= 2039
+        if year or _money(amount) in allowed or not (price * BARE_PRICE_RANGE[0] <= amount <= price * BARE_PRICE_RANGE[1]):
+            return m.group(0)
+        return _money(price)
+    return _BARE_NUMBER.sub(bare, filled)
 
 
 def _then(said: str, more: str) -> str:
@@ -193,8 +212,21 @@ def stated_offer(message: str, list_price: Optional[int] = None, item: str = "",
     return offer
 
 
+# Words that mark a figure as the offer when a message names several: "from $20 to $200",
+# "I paid $50, I'll give you $40", "would you do $300"
+_MOVED_TO = re.compile(r"\b(?:to|make it|give you|offer(?:ing)?|do|how about|pay you|for)\s*$", re.I)
+# ...and words that mark one as something else: what it sold for, what you paid, what it lists for
+_NOT_OFFER = re.compile(
+    r"\b(?:sell|sells|sold|selling|went|go|goes|listed|lists|paid|bought|got (?:it|one|mine)|worth|retail\w*|msrp|new)"
+    r"(?:\s+(?:one|it|them|mine|these))?\s+(?:for|at)?\s*$", re.I,
+)
+
+
 def _typed_figure(message: str, list_price: Optional[int], item: str) -> Optional[int]:
-    found = _TYPED_OFFER.search(message)
+    # Figures that are plainly something else (what one sold for, what you paid) are never the offer
+    figures = [f for f in _TYPED_OFFER.finditer(message) if not _NOT_OFFER.search(message[:f.start()])]
+    # With several figures, the one marked as the offer wins; otherwise the first
+    found = next((f for f in figures if _MOVED_TO.search(message[:f.start()])), figures[0] if figures else None)
     if found:
         amount = float(found.group(1).replace(",", ""))
         return int(round(amount * 1000 if found.group(2) else amount)) or None
@@ -272,7 +304,8 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
     list_price = list_price or scenario["list_price"]
     floor = min(_nice(list_price * rng.uniform(*(scenario.get("floor_share") or FLOOR_SHARE)), list_price), list_price - 1)
     return {
-        "status": "active",          # active | deal | walked
+        "status": "active",          # active | deal | walked | lost
+        "started_at": now(),
         "turn": 0,
         "difficulty": difficulty if difficulty in DIFFICULTIES else "normal",
         "scenario": {k: scenario.get(k) for k in ("id", "item", "merchant", "setting", "persona", "condition", "description", "category")},
@@ -345,6 +378,7 @@ def summary(state: dict) -> dict:
         "status": state.get("status"),
         "item": state.get("scenario", {}).get("item"),
         "merchant": state.get("scenario", {}).get("merchant"),
+        "listing": state.get("scenario", {}).get("id"),
         "ask": state.get("ask"),
         "result": state.get("result"),
     }
@@ -369,6 +403,7 @@ def describe_for_model(
     kind = _round_kind(state, offer, bluff)
     lines = [
         f"You are {scenario['merchant']}, the seller. Personality: {scenario['persona']}.",
+        f"{scenario['merchant']} is your own name. The buyer is someone else: never call them {scenario['merchant']}.",
         "",
         "Your marketplace listing:",
         f"Title: {scenario['item']}",
@@ -449,6 +484,8 @@ def _finish(s: dict, outcome: str, paid: Optional[int]) -> None:
 
 
 def can_sweeten(state: dict, key: Optional[str]) -> bool:
+    if key == "shipping" and not extras.ships(state["scenario"]):
+        return False
     return bool(extras.sweetener(state.get("mode", "buy"), key)) and key not in (state.get("sweeteners") or [])
 
 
@@ -479,14 +516,14 @@ def apply_turn(
         s["bluffed"] = True
     if sweet:
         # Better terms count however briefly they are put
-        persuasion = min(2, persuasion + extras.SWEETENER_BONUS)
+        persuasion = min(2, max(persuasion, 0) + extras.SWEETENER_BONUS)
         s["sweeteners"] = (s.get("sweeteners") or []) + [sweet]
     quotable = (s["list_price"], offer)
 
     s["turn"] += 1
     entry = {
         "turn": s["turn"], "you": message, "offer": offer, "persuasion": persuasion,
-        "insulted": False, "repeated": repeated, "bluff": bluff, "sweetener": sweet,
+        "insulted": False, "repeated": repeated, "bluff": bluff, "sweetener": sweet, "at": now(),
     }
     flaw = s.get("flaw")
     if extras.asks_about(flaw, message):
