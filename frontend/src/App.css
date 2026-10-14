@@ -1981,7 +1981,7 @@ html[data-theme="meadow"] .connection-banner {
 }
 
 :where(html[data-theme="frost"]) .thinking-phrase {
-  background: linear-gradient(90deg, #a3adbf 20%, #d8dee9 50%, #a3adbf 80%);
+  background-image: linear-gradient(90deg, #a3adbf 20%, #d8dee9 50%, #a3adbf 80%);
 }
 
 @keyframes text-skeleton-sweep {
