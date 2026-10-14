@@ -47,6 +47,10 @@ html[data-theme] .neg {
   color: #c0392b;
 }
 
+:where(html[data-theme="frost"]) .neg-error {
+  color: #b84f59;
+}
+
 /* A text link that happens to be a button: it must not pick up the themes' button look */
 html .neg .neg-link,
 html .neg .neg-link:hover {

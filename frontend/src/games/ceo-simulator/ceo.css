@@ -17,7 +17,12 @@ html[data-theme="dune"] {
 
 html[data-theme="ember"] {
   --ceo-up: #b8bb26;
-  --ceo-down: #fb6a4f;
+  --ceo-down: #fb4934;
+}
+
+html[data-theme="frost"] {
+  --ceo-up: #a3be8c;
+  --ceo-down: #c7747c;
 }
 
 html[data-theme="meadow"] {

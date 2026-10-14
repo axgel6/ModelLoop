@@ -23,6 +23,7 @@ const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 
 const THEME_TO_DATA: Record<Theme, string> = {
   ember: "ember",
+  frost: "frost",
   dune: "dune",
   meadow: "meadow",
 };
@@ -55,7 +56,7 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    const valid: Theme[] = ["ember", "dune", "meadow"];
+    const valid: Theme[] = ["ember", "frost", "dune", "meadow"];
     // Ember was called Gruvbox, and had variants before that. Anything else that is
     // no longer a theme (the retired Ocean theme) falls through to the default.
     if (
@@ -199,7 +200,7 @@ function App() {
         await apiUpdatePreferences(patch).catch(() => {});
       } else {
         // No local changes — apply DB preferences
-        const validThemes: Theme[] = ["ember", "dune", "meadow"];
+        const validThemes: Theme[] = ["ember", "frost", "dune", "meadow"];
         const validFonts: Font[] = ["mono", "inter", "rounded"];
         // Accounts saved before the rename still say "gruvbox".
         const savedTheme = me.theme === "gruvbox" ? "ember" : me.theme;

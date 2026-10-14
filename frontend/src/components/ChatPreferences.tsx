@@ -14,7 +14,7 @@ import type { OllamaStatus } from "./api";
 import { readableTextOn } from "./utils/chatUtils";
 import { PRESETS } from "./presets";
 
-export type Theme = "ember" | "dune" | "meadow";
+export type Theme = "ember" | "frost" | "dune" | "meadow";
 export type Font = "mono" | "inter" | "rounded";
 export type TextSize = "xs" | "small" | "medium" | "large";
 
@@ -687,6 +687,17 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     <span className="ptc-bar ptc-bar-3" />
                   </div>
                   <span className="pref-theme-label">Ember</span>
+                </div>
+                <div
+                  className={`pref-theme-card${theme === "frost" ? " active" : ""}`}
+                  onClick={() => setTheme("frost")}
+                >
+                  <div className="pref-theme-preview pref-theme-preview-frost">
+                    <span className="ptc-bar ptc-bar-1" />
+                    <span className="ptc-bar ptc-bar-2" />
+                    <span className="ptc-bar ptc-bar-3" />
+                  </div>
+                  <span className="pref-theme-label">Frost</span>
                 </div>
               </div>
               <div

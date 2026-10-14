@@ -47,6 +47,10 @@ html[data-theme] .arena {
   color: #c0392b;
 }
 
+:where(html[data-theme="frost"]) .arena-error {
+  color: #b84f59;
+}
+
 /* A text link that happens to be a button: it must not pick up the themes' button look */
 html .arena .arena-link,
 html .arena .arena-link:hover {
