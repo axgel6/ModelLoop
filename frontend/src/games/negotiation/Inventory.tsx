@@ -104,7 +104,7 @@ export function Inventory({
 
         <div className="neg-inventory-list">
           {shown.map((i) => (
-            <article key={i.id} className="neg-inventory-item">
+            <article key={i.id} className={`neg-inventory-item${i.sold ? " is-sold" : ""}`}>
               <div className="neg-listing-head">
                 <span className="pref-item-name">{i.title}</span>
                 <span className="pref-content-badge">{i.sold ? "Sold" : i.paid != null ? money(i.paid) : ""}</span>

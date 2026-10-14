@@ -747,6 +747,17 @@ html .neg-browser .neg-chip.is-on:hover {
   white-space: normal;
 }
 
+/* Sold on: crossed off, with the sale line left plain so it still reads */
+.neg-inventory-item.is-sold {
+  opacity: 0.72;
+}
+
+.neg-inventory-item.is-sold .pref-item-name,
+.neg-inventory-item.is-sold > p {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--game-muted) 80%, transparent);
+}
+
 @media (max-width: 520px) {
   .neg-inventory-totals {
     grid-template-columns: repeat(2, minmax(0, 1fr));
