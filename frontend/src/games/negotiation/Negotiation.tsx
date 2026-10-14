@@ -170,11 +170,15 @@ function Menu({
     }
   };
 
+  // A Hustle item's own description, which the player's notes follow on from and cannot change
+  const lockedText = (item: InventoryItem | null) => (item?.description ? `${item.description}\n\n` : "");
+  const locked = live ? lockedText(picked) : "";
+
   const pickToSell = (item: InventoryItem) => {
     setMode("sell");
     setSellPick(item.id);
     setAsking(String(item.list_price));
-    setListingText(live ? "" : (item.description ?? ""));
+    setListingText(live ? lockedText(item) : (item.description ?? ""));
   };
 
   const run = async (load: () => Promise<HaggleSave>) => {
@@ -453,18 +457,19 @@ function Menu({
                 </span>
                 {live ? (
                   <>
-                    <p className="pref-setting-hint neg-facts">
-                      {[picked.condition, picked.description].filter(Boolean).join(". ") || "No description."}
-                    </p>
                     <textarea
                       className="neg-custom-description"
                       value={listingText}
-                      onChange={(e) => setListingText(e.target.value)}
-                      maxLength={300}
-                      rows={3}
-                      aria-label="Your notes for the listing"
-                      placeholder="Add your own notes: what is included, why it is a good deal. The condition and description above stay as they are, and buyers will not believe claims that contradict them."
+                      onChange={(e) => e.target.value.startsWith(locked) && setListingText(e.target.value)}
+                      maxLength={locked.length + 300}
+                      rows={4}
+                      aria-label="The listing's description, with your notes added at the end"
+                      placeholder="Add your own notes: what is included, why it is a good deal."
                     />
+                    <span className="pref-setting-hint">
+                      Add to the end. The condition and the original description stay as they are, and buyers will
+                      not believe anything you add that contradicts them.
+                    </span>
                   </>
                 ) : (
                   <textarea
@@ -521,7 +526,7 @@ function Menu({
                     inventory_id: picked.id,
                     asking: askingValue > 0 ? askingValue : undefined,
                     ...(live
-                      ? { notes: listingText.trim() || undefined }
+                      ? { notes: listingText.slice(locked.length).trim() || undefined }
                       : listingText.trim() !== (picked.description ?? "").trim()
                         ? { description: listingText.trim() }
                         : {}),
