@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { apiGetModels } from "../../components/api";
 import { MODEL_PRESETS } from "../../components/models";
 import {
@@ -13,8 +13,8 @@ import {
 } from "../api";
 import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
-import { CHARACTERS, DEFAULT_CHARACTERS, NO_CHARACTER, TOPICS } from "./setup";
-import type { ArenaState, ArenaSummary, SideIndex } from "./types";
+import { CHARACTERS, DEFAULT_CHARACTERS, MODES, NO_CHARACTER, TOPICS } from "./setup";
+import type { ArenaMode, ArenaState, ArenaSummary, SideIndex } from "./types";
 import { useDebateVoice } from "./useDebateVoice";
 import "./arena.css";
 
@@ -52,6 +52,7 @@ function Menu({
     ...new Set([...(model ? [model] : []), ...MODEL_PRESETS.map((p) => p.model)]),
   ]);
   const [topic, setTopic] = useState("");
+  const [mode, setMode] = useState<ArenaMode>("argument");
   const [sides, setSides] = useState<[SideDraft, SideDraft]>(() => [
     { model: model || MODEL_PRESETS[0].model, character: DEFAULT_CHARACTERS[0] },
     { model: MODEL_PRESETS[1].model, character: DEFAULT_CHARACTERS[1] },
@@ -107,6 +108,7 @@ function Menu({
     run(() =>
       apiCreateGame<ArenaState>(GAME_TYPE, {
         topic: topic.trim(),
+        mode,
         sides: sides.map((s) => {
           const character = CHARACTERS.find((c) => c.label === s.character) ?? NO_CHARACTER;
           return {
@@ -136,9 +138,40 @@ function Menu({
           <h2 className="arena-title">Model Arena</h2>
         </div>
         <p className="arena-sub">
-          Two models, one topic. They trade five arguments each, make their closing remarks, and then you, the
-          moderator, decide who won.
+          Two models, one topic. They argue it out, make their closing remarks, and then you, the moderator, decide
+          who won.
         </p>
+
+        <h3 className="pref-field-label arena-section">Mode</h3>
+        <div className="pref-account-card arena-card arena-card--list" role="radiogroup" aria-label="Mode">
+          {MODES.map((m) => {
+            const on = m.id === mode;
+            return (
+              <div
+                key={m.id}
+                className={`pref-list-item${on ? " active" : ""}`}
+                role="radio"
+                aria-checked={on}
+                tabIndex={0}
+                onClick={() => setMode(m.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setMode(m.id);
+                  }
+                }}
+              >
+                <div className="pref-item-info">
+                  <div className="pref-item-name">{m.label}</div>
+                  <div className="pref-item-desc">{m.blurb}</div>
+                </div>
+                <div className={`pref-item-check${on ? " checked" : ""}`}>
+                  {on && <span className="pref-check-mark">✓</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
         <form className="pref-account-card arena-card" onSubmit={start}>
           <label className="arena-field">
@@ -206,7 +239,7 @@ function Menu({
           {error && <p className="arena-error">{error}</p>}
 
           <button type="submit" className="start-button" disabled={busy || topic.trim().length < 3}>
-            {busy ? "Setting the stage" : "Start the debate"}
+            {busy ? "Setting the stage" : mode === "debate" ? "Start the debate" : "Start the argument"}
           </button>
         </form>
 
@@ -236,7 +269,9 @@ function Menu({
                           ? `${nameOf(pair[winner])} won`
                           : status === "judging"
                             ? "Waiting for your verdict"
-                            : `In progress, ${turn} ${turn === 1 ? "speech" : "speeches"} in`}
+                            : status === "question"
+                              ? "Waiting for your question"
+                              : `In progress, ${turn} ${turn === 1 ? "speech" : "speeches"} in`}
                       </div>
                     </div>
                     <button
@@ -276,6 +311,8 @@ function Stage({
   const [error, setError] = useState("");
   const [rejudging, setRejudging] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
   // One speech is requested at a time, and a reply that lands after the player has left is dropped.
   const requesting = useRef(false);
   const onStage = useRef(true);
@@ -305,7 +342,7 @@ function Stage({
 
   useEffect(() => {
     feedEnd.current?.scrollIntoView({ block: "end" });
-  }, [state.speeches.length, state.status, error]);
+  }, [state.speeches.length, state.status, state.questions?.length, error]);
 
   // After a failed speech, pick up from wherever the server has got to.
   const retry = async () => {
@@ -331,9 +368,32 @@ function Stage({
     }
   };
 
-  const total = state.rounds * 2 + 2;
+  /** The moderator's question at the end of a debate round. Empty text passes. */
+  const ask = async (text: string) => {
+    if (asking) return;
+    setAsking(true);
+    setError("");
+    try {
+      onSave(await apiEditGame<ArenaState>(save.id, "question", { question: text.trim() }));
+      setQuestion("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  // Speeches in a round, both sides together, and how many come before the closing remarks
+  const perRound = (state.exchanges ?? 1) * 2;
+  const argued = state.rounds * perRound;
+  const total = argued + 2;
   const live = state.status === "active";
-  const voice = useDebateVoice(state.speeches, live);
+  const questionTime = state.status === "question";
+  const questions = state.questions ?? [];
+  /** What the moderator asked at the end of a round, if anything */
+  const asked = (round: number) => questions[round - 1] ?? "";
+  const roundsDone = Math.floor(state.turn / perRound);
+  const voice = useDebateVoice(state.speeches, live || questionTime);
   const readAloudButton = voice.supported && state.speeches.length > 0 && (
     <button
       type="button"
@@ -345,16 +405,18 @@ function Stage({
       {voice.readAloud ? "Stop reading" : live ? "Read aloud" : "Listen to the debate"}
     </button>
   );
-  const nextSide = (state.turn < state.rounds * 2 ? state.turn % 2 : state.turn - state.rounds * 2) as SideIndex;
-  const nextIsClosing = state.turn >= state.rounds * 2;
+  const nextSide = (state.turn < argued ? state.turn % 2 : state.turn - argued) as SideIndex;
+  const nextIsClosing = state.turn >= argued;
   const judging = state.status === "judging" || rejudging;
-  const stageLabel = !live
-    ? state.status === "done"
-      ? "Decided"
-      : "Your verdict"
-    : nextIsClosing
-      ? "Closing remarks"
-      : `Round ${Math.floor(state.turn / 2) + 1} of ${state.rounds}`;
+  const stageLabel = questionTime
+    ? "Your question"
+    : !live
+      ? state.status === "done"
+        ? "Decided"
+        : "Your verdict"
+      : nextIsClosing
+        ? "Closing remarks"
+        : `Round ${roundsDone + 1} of ${state.rounds}`;
 
   const speaking = (i: number) => live && !paused && !error && nextSide === i;
   const won = (i: number) => state.status === "done" && state.winner === i;
@@ -383,8 +445,12 @@ function Stage({
       <div className="arena-feed">
         {state.speeches.map((speech, i) => {
           const role = speech.side === 0 ? "assistant" : "user";
+          // A question sits where it was asked: after the round it closed
+          const opening = i > 0 && i % perRound === 0 && i <= argued ? asked(i / perRound) : "";
           return (
-            <div key={i} className={`message-row ${role}`}>
+            <Fragment key={i}>
+            {opening && <Question text={opening} />}
+            <div className={`message-row ${role}`}>
               <div className={`msg-bubble-group${speech.side === 1 ? " user-group" : ""}`}>
                 <div className={`message ${role}${voice.speaking === i ? " is-speaking" : ""}`}>{speech.text}</div>
                 <div className={`msg-meta${speech.side === 1 ? " user-meta" : ""}`}>
@@ -413,8 +479,14 @@ function Stage({
                 </div>
               </div>
             </div>
+            </Fragment>
           );
         })}
+
+        {/* Asked, and nobody has answered it yet */}
+        {state.turn > 0 && state.turn % perRound === 0 && state.turn <= argued && asked(roundsDone) && (
+          <Question text={asked(roundsDone)} />
+        )}
 
         {live && !paused && !error && (
           <div className={`message-row ${nextSide === 0 ? "assistant" : "user"} arena-waiting`}>
@@ -446,8 +518,52 @@ function Stage({
         <div ref={feedEnd} />
       </div>
 
+      {questionTime && (
+        <form
+          className="input-wrapper arena-ask"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (question.trim()) ask(question);
+          }}
+        >
+          <input
+            className="chat-textarea"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            maxLength={300}
+            placeholder={
+              roundsDone >= state.rounds
+                ? "A last question, for both sides to answer in their closing remarks"
+                : `Your question for both sides, to open round ${roundsDone + 1}`
+            }
+            disabled={asking}
+            aria-label="Your question for both debaters"
+            autoFocus
+          />
+          <div className="input-toolbar">
+            <div className="toolbar-left">
+              <span className="arena-ask-note">
+                Round {roundsDone} of {state.rounds} is over. The floor is yours, moderator.
+              </span>
+            </div>
+            <div className="toolbar-right">
+              <button type="button" className="toolbar-chip-btn" onClick={() => ask("")} disabled={asking}>
+                No question
+              </button>
+              <button type="submit" className="ask-button" disabled={asking || !question.trim()} title="Ask (Enter)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none">
+                  <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
       <div className="arena-controls">
-        {live ? (
+        {questionTime ? (
+          readAloudButton
+        ) : live ? (
           <>
             <span className="msg-timestamp">
               Speech {Math.min(state.turn + 1, total)} of {total}
@@ -491,6 +607,16 @@ function Stage({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** A question from the moderator, set in the middle of the stage between the two sides */
+function Question({ text }: { text: string }) {
+  return (
+    <div className="arena-question">
+      <span className="msg-timestamp">You asked</span>
+      <span className="pref-setting-label">{text}</span>
     </div>
   );
 }

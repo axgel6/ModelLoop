@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   apiCreateGame,
   apiDeleteGame,
@@ -185,46 +185,64 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
         </p>
 
         {saves && saves.length > 0 && (
-          <section className="ceo-card">
-            <h3 className="ceo-label">Your companies</h3>
-            <ul className="ceo-saves">
+          <>
+            <h3 className="pref-field-label ceo-section">Your companies</h3>
+            <div className="pref-account-card ceo-list">
               {saves.map((s) => (
-                <li key={s.id} className="ceo-save">
-                  <button type="button" className="ceo-save-open" onClick={() => open(s.id)} disabled={busy}>
-                    <span className="ceo-save-name">{s.title}</span>
-                    <span className="ceo-save-meta">
+                <div
+                  key={s.id}
+                  className="pref-list-item"
+                  role="button"
+                  tabIndex={0}
+                  aria-disabled={busy}
+                  onClick={() => open(s.id)}
+                  onKeyDown={(e) => {
+                    // Only the row itself: Enter on the Delete button inside must not open the company
+                    if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      open(s.id);
+                    }
+                  }}
+                >
+                  <div className="pref-item-icon">{s.title.charAt(0).toUpperCase()}</div>
+                  <div className="pref-item-info">
+                    <div className="pref-item-name">{s.title}</div>
+                    <div className="pref-item-desc">
                       {s.summary.status === "active" || !s.summary.result
                         ? `Week ${s.summary.turn + 1} · ${money(s.summary.cash)} cash` +
                           (s.summary.official_result
                             ? ` · free play, scored ${money(s.summary.official_result.score)}`
                             : "")
                         : `${OUTCOME_LABEL[s.summary.status] ?? "Ended"} · ${s.summary.result.rating} · ${money(s.summary.result.score)}`}
-                    </span>
-                  </button>
+                    </div>
+                  </div>
                   <button
                     type="button"
                     className="ceo-link ceo-link--quiet"
-                    onClick={() => remove(s.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      remove(s.id);
+                    }}
                     aria-label={`Delete ${s.title}`}
                   >
                     Delete
                   </button>
-                </li>
+                </div>
               ))}
-            </ul>
-          </section>
+            </div>
+          </>
         )}
 
         {scores.length > 0 && (
-          <section className="ceo-card">
-            <h3 className="ceo-label">Best runs</h3>
-            <ol className="ceo-scores">
+          <>
+            <h3 className="pref-field-label ceo-section">Best runs</h3>
+            <div className="pref-account-card ceo-list">
               {scores.map((row, i) => (
-                <li key={row.id} className="ceo-score">
-                  <span className="ceo-score-rank">{i + 1}</span>
-                  <span className="ceo-score-name">
-                    {row.title}
-                    <span className="ceo-save-meta">
+                <div key={row.id} className="pref-list-item ceo-row--static">
+                  <div className="pref-item-icon">{i + 1}</div>
+                  <div className="pref-item-info">
+                    <div className="pref-item-name">{row.title}</div>
+                    <div className="pref-item-desc">
                       {[
                         row.rating,
                         row.difficulty && row.difficulty !== "normal" ? row.difficulty : undefined,
@@ -234,83 +252,83 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
                       ]
                         .filter(Boolean)
                         .join(" · ")}
-                    </span>
-                  </span>
-                  <span className="ceo-score-value">{money(row.score)}</span>
-                </li>
+                    </div>
+                  </div>
+                  <span className="pref-content-badge">{money(row.score)}</span>
+                </div>
               ))}
-            </ol>
-          </section>
+            </div>
+          </>
         )}
 
-        <form className="ceo-card" onSubmit={start}>
-          <h3 className="ceo-label">Start a new company</h3>
+        <form className="ceo-form" onSubmit={start}>
+          <h3 className="pref-field-label ceo-section">Start a new company</h3>
+          <div className="pref-account-card ceo-list ceo-fields">
+            <div className="login-field">
+              <label htmlFor="ceo-company">Company name</label>
+              <input
+                id="ceo-company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                maxLength={60}
+                placeholder="Brew Co"
+              />
+            </div>
 
-          <label className="ceo-field">
-            <span>Company name</span>
-            <input
-              className="ceo-input"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              maxLength={60}
-              placeholder="Brew Co"
-            />
-          </label>
+            <div className="login-field">
+              <label htmlFor="ceo-pitch">What does it do? (optional)</label>
+              <input
+                id="ceo-pitch"
+                value={pitch}
+                onChange={(e) => setPitch(e.target.value)}
+                maxLength={200}
+                placeholder="Specialty coffee delivered every month"
+              />
+            </div>
 
-          <label className="ceo-field">
-            <span>What does it do? (optional)</span>
-            <input
-              className="ceo-input"
-              value={pitch}
-              onChange={(e) => setPitch(e.target.value)}
-              maxLength={200}
-              placeholder="Specialty coffee delivered every month"
-            />
-          </label>
-
-          <div className="ceo-field">
-            <span>Products you sell</span>
-            {products.map((p, i) => (
-              <div key={i} className="ceo-product-row">
-                <input
-                  className="ceo-input"
-                  value={p.name}
-                  onChange={(e) => setProduct(i, { name: e.target.value })}
-                  maxLength={40}
-                  placeholder="Product name"
-                  aria-label={`Product ${i + 1} name`}
-                />
-                <div className="ceo-price">
-                  <span>$</span>
+            <div className="login-field">
+              <label htmlFor="ceo-product-0">Products you sell</label>
+              {products.map((p, i) => (
+                <div key={i} className="ceo-product-row">
                   <input
-                    className="ceo-input"
-                    value={p.price}
-                    onChange={(e) => setProduct(i, { price: e.target.value.replace(/[^\d.]/g, "") })}
-                    inputMode="decimal"
-                    placeholder="Price"
-                    aria-label={`Product ${i + 1} price`}
+                    id={`ceo-product-${i}`}
+                    value={p.name}
+                    onChange={(e) => setProduct(i, { name: e.target.value })}
+                    maxLength={40}
+                    placeholder="Product name"
+                    aria-label={`Product ${i + 1} name`}
                   />
+                  <div className="ceo-price">
+                    <span>$</span>
+                    <input
+                      value={p.price}
+                      onChange={(e) => setProduct(i, { price: e.target.value.replace(/[^\d.]/g, "") })}
+                      inputMode="decimal"
+                      placeholder="Price"
+                      aria-label={`Product ${i + 1} price`}
+                    />
+                  </div>
+                  {products.length > 1 && (
+                    <button
+                      type="button"
+                      className="ceo-link ceo-link--quiet"
+                      onClick={() => setProducts((list) => list.filter((_, j) => j !== i))}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
-                {products.length > 1 && (
-                  <button
-                    type="button"
-                    className="ceo-link ceo-link--quiet"
-                    onClick={() => setProducts((list) => list.filter((_, j) => j !== i))}
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
-            {products.length < MAX_START_PRODUCTS && (
-              <button
-                type="button"
-                className="ceo-link"
-                onClick={() => setProducts((list) => [...list, { name: "", price: "" }])}
-              >
-                Add another product
-              </button>
-            )}
+              ))}
+              {products.length < MAX_START_PRODUCTS && (
+                <button
+                  type="button"
+                  className="ceo-link"
+                  onClick={() => setProducts((list) => [...list, { name: "", price: "" }])}
+                >
+                  Add another product
+                </button>
+              )}
+            </div>
           </div>
 
           <Picker label="Founder style" options={STYLES} value={style} onChange={setStyle} />
@@ -318,13 +336,15 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
 
           {error && <p className="ceo-error">{error}</p>}
 
-          <button type="submit" className="ceo-btn" disabled={!ready || busy}>
-            {busy ? "Starting" : "Start company"}
-          </button>
-          <p className="ceo-hint">
-            You begin with {money(DIFFICULTIES.find((d) => d.id === difficulty)!.cash)} and no staff. Your first job
-            is to hire a team with it.
-          </p>
+          <div className="ceo-start">
+            <button type="submit" className="start-button" disabled={!ready || busy}>
+              {busy ? "Starting" : "Start company"}
+            </button>
+            <span className="pref-setting-hint">
+              You begin with {money(DIFFICULTIES.find((d) => d.id === difficulty)!.cash)} and no staff. Your first job
+              is to hire a team with it.
+            </span>
+          </div>
         </form>
       </div>
     </div>
@@ -523,7 +543,7 @@ function Play({
       <div className="ceo-bar">
         <BackButton label="Back to all companies" onClick={onLeave} />
         <span className="ceo-bar-name">{state.company.name}</span>
-        <span className="ceo-bar-week">
+        <span className="pref-content-badge">
           {over
             ? (OUTCOME_LABEL[state.status] ?? "Closed")
             : state.free_play
@@ -535,15 +555,13 @@ function Play({
       <div className="ceo-body">
         <div className="ceo-main">
           <div className="ceo-feed">
-            <div className="ceo-entry">
-              <p className="ceo-entry-text">
-                {state.company.name} opens with {money(state.start_cash)} in the bank.
-                {state.turn === 0 &&
-                  (staff.length === 0
-                    ? " Before week one, hire your team from the people below."
-                    : " Hire anyone else you want, then make your first decision.")}
-              </p>
-            </div>
+            <p className="msg-timestamp ceo-opening">
+              {state.company.name} opens with {money(state.start_cash)} in the bank.
+              {state.turn === 0 &&
+                (staff.length === 0
+                  ? " Before week one, hire your team from the people below."
+                  : " Hire anyone else you want, then make your first decision.")}
+            </p>
 
             {state.turn === 0 && !over && (
               <div className="ceo-entry">
@@ -568,14 +586,15 @@ function Play({
             )}
 
             {state.log.map((entry) => (
-              <div key={entry.turn} className="ceo-entry">
+              <Fragment key={entry.turn}>
+              <Decision text={entry.decision} />
+              <div className="ceo-entry">
                 <div className="ceo-entry-head">
                   <span className="ceo-entry-week">Week {entry.turn}</span>
                   <span className={`ceo-entry-profit${entry.financials.profit < 0 ? " is-down" : " is-up"}`}>
                     {signedMoney(entry.financials.profit)}
                   </span>
                 </div>
-                <p className="ceo-entry-decision">{entry.decision}</p>
                 <p className="ceo-entry-text">{entry.narrative}</p>
                 {entry.summary && <p className="ceo-entry-summary">{entry.summary}</p>}
                 {entry.milestones && entry.milestones.length > 0 && (
@@ -593,13 +612,23 @@ function Play({
                   </ul>
                 )}
               </div>
+              </Fragment>
             ))}
 
             {pending && (
-              <div className="ceo-entry ceo-entry--pending">
-                <p className="ceo-entry-decision">{pending}</p>
-                <p className="ceo-entry-text">The week is playing out</p>
-              </div>
+              <>
+                <Decision text={pending} />
+                <div className="message-row assistant ceo-waiting">
+                  <span className="waiting" role="status">
+                    <span className="waiting-leaves" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                    <span className="thinking-phrase">The week is playing out</span>
+                  </span>
+                </div>
+              </>
             )}
             {state.offer && !over && !pending && (
               <div className={`ceo-entry ceo-offer${state.offer.kind === "crisis" ? " is-crisis" : ""}`}>
@@ -617,7 +646,7 @@ function Play({
                     <div key={choice.id} className="ceo-choice">
                       <button
                         type="button"
-                        className={i === 0 ? "ceo-btn" : "ceo-option"}
+                        className={i === 0 ? "start-button" : "pref-confirm-no"}
                         onClick={() => answerOffer(choice.id)}
                       >
                         {choice.label}
@@ -660,7 +689,7 @@ function Play({
               )}
               <div className="ceo-offer-actions">
                 {state.status !== "sold" && (
-                  <button type="button" className="ceo-btn" onClick={keepGoing}>
+                  <button type="button" className="start-button" onClick={keepGoing}>
                     {state.status === "bankrupt"
                       ? `Take a ${money(RESCUE_GRANT)} grant and keep going`
                       : "Keep playing"}
@@ -668,7 +697,7 @@ function Play({
                 )}
                 <button
                   type="button"
-                  className={state.status === "sold" ? "ceo-btn" : "ceo-option"}
+                  className={state.status === "sold" ? "start-button" : "pref-confirm-no"}
                   onClick={onLeave}
                 >
                   Start another company
@@ -683,21 +712,15 @@ function Play({
               )}
             </div>
           ) : (
-            <form
-              className="ceo-composer"
-              onSubmit={(e) => {
-                e.preventDefault();
-                decide(draft);
-              }}
-            >
+            <div className="ceo-composer">
               {staff.length === 0 && <p className="ceo-hint">Hire at least one person to begin.</p>}
               {syncing && staff.length > 0 && <p className="ceo-hint">Saving your team</p>}
-              <div className="ceo-options">
+              <div className="suggestion-chips ceo-options">
                 {state.options.map((option) => (
                   <button
                     key={option}
                     type="button"
-                    className="ceo-option"
+                    className="suggestion-chip"
                     onClick={() => decide(option)}
                     disabled={!!pending || staff.length === 0 || syncing}
                   >
@@ -705,9 +728,16 @@ function Play({
                   </button>
                 ))}
               </div>
-              <div className="ceo-decide">
+              {/* The chat's message box */}
+              <form
+                className="input-wrapper"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  decide(draft);
+                }}
+              >
                 <input
-                  className="ceo-input"
+                  className="chat-textarea"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   maxLength={400}
@@ -715,16 +745,29 @@ function Play({
                   disabled={!!pending}
                   aria-label="Your decision"
                 />
-                <button type="submit" className="ceo-btn" disabled={!draft.trim() || !!pending || staff.length === 0 || syncing}>
-                  Decide
-                </button>
-              </div>
-              {state.can_undo && !pending && (
-                <button type="button" className="ceo-link ceo-link--quiet" onClick={undo}>
-                  Undo last week
-                </button>
-              )}
-            </form>
+                <div className="input-toolbar">
+                  <div className="toolbar-left">
+                    {state.can_undo && !pending && (
+                      <button type="button" className="toolbar-chip-btn" onClick={undo}>
+                        Undo last week
+                      </button>
+                    )}
+                  </div>
+                  <div className="toolbar-right">
+                    <button
+                      type="submit"
+                      className="ask-button"
+                      disabled={!draft.trim() || !!pending || staff.length === 0 || syncing}
+                      title="Decide (Enter)"
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none">
+                        <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
           )}
         </div>
 
@@ -963,7 +1006,18 @@ function Play({
   );
 }
 
-/** A labelled row of choices with the picked one's description underneath. */
+/** What the player decided that week, as their side of the chat */
+function Decision({ text }: { text: string }) {
+  return (
+    <div className="message-row user">
+      <div className="msg-bubble-group user-group">
+        <div className="message user">{text}</div>
+      </div>
+    </div>
+  );
+}
+
+/** A labelled list of choices, each laid out like a row of the Presets list. */
 function Picker<T extends string>({
   label,
   options,
@@ -976,24 +1030,38 @@ function Picker<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="ceo-field">
-      <span>{label}</span>
-      <div className="ceo-picker" role="radiogroup" aria-label={label}>
-        {options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            role="radio"
-            aria-checked={option.id === value}
-            className={`ceo-toggle${option.id === value ? " is-on" : ""}`}
-            onClick={() => onChange(option.id)}
-          >
-            {option.label}
-          </button>
-        ))}
+    <>
+      <h3 className="pref-field-label ceo-section">{label}</h3>
+      <div className="pref-account-card ceo-list" role="radiogroup" aria-label={label}>
+        {options.map((option) => {
+          const on = option.id === value;
+          return (
+            <div
+              key={option.id}
+              className={`pref-list-item${on ? " active" : ""}`}
+              role="radio"
+              aria-checked={on}
+              tabIndex={0}
+              onClick={() => onChange(option.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onChange(option.id);
+                }
+              }}
+            >
+              <div className="pref-item-info">
+                <div className="pref-item-name">{option.label}</div>
+                <div className="pref-item-desc">{option.blurb}</div>
+              </div>
+              <div className={`pref-item-check${on ? " checked" : ""}`}>
+                {on && <span className="pref-check-mark">✓</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <p className="ceo-hint">{options.find((o) => o.id === value)?.blurb}</p>
-    </div>
+    </>
   );
 }
 
@@ -1149,7 +1217,7 @@ function Bank({
               : `The bank will lend between ${money(MIN_LOAN)} and ${money(credit)}.`}
           </p>
           <div className="ceo-add-actions">
-            <button type="submit" className="ceo-btn" disabled={!valid || disabled}>
+            <button type="submit" className="start-button" disabled={!valid || disabled}>
               Borrow
             </button>
             <button type="button" className="ceo-link ceo-link--quiet" onClick={() => setOpen(false)}>
@@ -1229,7 +1297,7 @@ function AddProduct({
         Costs {money(cost)} to launch and is your decision for this week.
       </p>
       <div className="ceo-add-actions">
-        <button type="submit" className="ceo-btn" disabled={!ready || disabled}>
+        <button type="submit" className="start-button" disabled={!ready || disabled}>
           Launch
         </button>
         <button type="button" className="ceo-link ceo-link--quiet" onClick={close}>

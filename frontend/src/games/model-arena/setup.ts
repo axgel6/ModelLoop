@@ -1,5 +1,6 @@
 // The choices on the start screen.
 import { PRESETS } from "../../components/presets";
+import type { ArenaMode } from "./types";
 
 export interface Character {
   label: string;
@@ -21,6 +22,19 @@ export const CHARACTERS: Character[] = [
   ...PRESETS.filter((p) => p.label !== "Custom").map((p) =>
     p.label === "Olly" ? { ...p, prompt: "You are Olly, a warm, calm and helpful assistant." } : p,
   ),
+];
+
+export const MODES: { id: ArenaMode; label: string; blurb: string }[] = [
+  {
+    id: "argument",
+    label: "Argument",
+    blurb: "They go back and forth on their own: five arguments each, then closing remarks.",
+  },
+  {
+    id: "debate",
+    label: "Debate",
+    blurb: "Three rounds. At the end of each one you put a question to both sides.",
+  },
 ];
 
 export const DEFAULT_CHARACTERS = ["Ego", "Teacher"];

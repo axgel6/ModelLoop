@@ -88,10 +88,17 @@ class NewArena(BaseModel):
     """The first side argues for the topic, the second against."""
     topic: str             = Field(..., min_length=3, max_length=200)
     sides: list[ArenaSide] = Field(..., min_length=2, max_length=2)
+    # argument: the models go back and forth on their own. debate: rounds, each ending on a question from the moderator
+    mode:  str             = Field(default="argument", pattern="^(argument|debate)$")
 
 
 class Verdict(BaseModel):
     winner: int = Field(..., ge=0, le=1)
+
+
+class ModeratorQuestion(BaseModel):
+    # Empty passes: the debate carries on without a question
+    question: str = Field(default="", max_length=300)
 
 
 class TurnRequest(BaseModel):
@@ -99,6 +106,8 @@ class TurnRequest(BaseModel):
     action:   Optional[TurnAction] = None
     # Negotiation only: the price the player puts on the table with their message
     offer:    Optional[int]        = Field(default=None, gt=0, le=10_000_000)
+    # Negotiation only: the player says they are leaving, to see if the price moves. Works once.
+    bluff:    bool                 = False
     model:    Optional[str]        = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
 
 
@@ -191,6 +200,12 @@ async def best_scores(
     ]}
 
 
+@router.get("/negotiation/listings")
+async def negotiation_listings(user: User = Depends(get_user)) -> dict:
+    """Everything that can be haggled over, for the start screen to deal from."""
+    return {"listings": haggle.catalogue()}
+
+
 @router.post("/ceo-simulator", status_code=201)
 async def create_ceo_game(
     body: NewCeoGame,
@@ -265,7 +280,7 @@ async def create_arena(
     state = arena.new_game(topic, [
         {"model": s.model.strip(), "character": " ".join(s.character.split()), "prompt": s.prompt.strip()}
         for s in body.sides
-    ])
+    ], body.mode)
     game = GameSession(user_id=user.id, game_type=arena.GAME_TYPE, title=topic[:80], state=state)
     db.add(game)
     await db.commit()
@@ -286,6 +301,26 @@ async def give_verdict(
         raise HTTPException(status_code=400, detail="Unknown game")
     try:
         game.state = arena.set_winner(game.state, body.winner)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/question")
+async def ask_question(
+    game_id: uuid.UUID,
+    body: ModeratorQuestion,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The moderator's question at the end of a debate round. Both sides answer it next."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != arena.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = arena.ask_question(game.state, body.question)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     await db.commit()
@@ -524,7 +559,7 @@ async def accept_price(
     user: User = Depends(get_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Buy at the merchant's current price. Instant: no turn, no model call."""
+    """Pay the seller's current price, which closes the haggle. Instant: no turn, no model call."""
     return await _end_haggle(game_id, user, db, haggle.accept)
 
 
@@ -636,6 +671,8 @@ async def _ask_with_retry(
 async def _play_arena_turn(game: GameSession, user: User, db: AsyncSession) -> dict:
     """The next debater's speech. Each side speaks with its own model, whatever the request asked for."""
     state = game.state
+    if arena.awaiting_question(state) is not None:
+        raise HTTPException(status_code=409, detail="The debaters are waiting for your question")
     up = arena.next_up(state)
     if up is None:
         raise HTTPException(status_code=409, detail="This debate is over")
@@ -672,10 +709,20 @@ async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db
     state = game.state
     if state.get("status") != "active":
         raise HTTPException(status_code=409, detail="This haggle is over")
-    if state.get("final"):
-        raise HTTPException(status_code=409, detail="That was their final price. Take it or walk away.")
     message = " ".join(body.decision.split())
-    offer = body.offer if body.offer is not None else haggle.stated_offer(message)
+    # "Deal!" typed into the message box agrees to the price on the table. Paying is still the player's to do.
+    agreeing = body.offer is None and not body.bluff and haggle.is_acceptance(message)
+    if state.get("final"):
+        raise HTTPException(status_code=409, detail="That was their final price. Pay it or walk away.")
+    bluff = body.bluff
+    if bluff and not haggle.can_bluff(state):
+        raise HTTPException(status_code=409, detail="They have seen that move already.")
+    if bluff:
+        message, offer = message or haggle.BLUFF_MESSAGE, None
+    elif agreeing:
+        offer = state["ask"]
+    else:
+        offer = body.offer if body.offer is not None else haggle.stated_offer(message, state["list_price"], state["scenario"]["item"], state["ask"])
     if not message and offer is not None:
         message = f"How about ${offer:,}?"
     if not message:
@@ -687,9 +734,9 @@ async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db
 
     reply = await _ask_with_retry(
         game_id, base_url, body.model, haggle.SYSTEM_PROMPT,
-        haggle.describe_for_model(state, message, offer), haggle.REPLY_SCHEMA,
+        haggle.describe_for_model(state, message, offer, bluff), haggle.REPLY_SCHEMA,
     )
-    new_state = haggle.apply_turn(state, message, offer, reply)
+    new_state = haggle.apply_turn(state, message, offer, reply, bluff)
 
     async with AsyncSessionLocal() as write_db:
         fresh = await write_db.execute(

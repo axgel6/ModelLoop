@@ -10,13 +10,25 @@ import {
   type GameSaveSummary,
   type GameScoreRow,
 } from "../api";
+import { apiFetch } from "../../components/api";
 import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
-import { DIFFICULTIES, SCENARIOS, type Difficulty } from "./setup";
-import type { HaggleState, HaggleSummary } from "./types";
+import { DIFFICULTIES, dealListings, type Difficulty } from "./setup";
+import type { HaggleEntry, HaggleListing, HaggleState, HaggleSummary } from "./types";
 import "./negotiation.css";
 
 const GAME_TYPE = "negotiation";
+// What is sent when the player bluffs without typing anything. The server uses the same line.
+const BLUFF_MESSAGE = "I think I'll leave it. Thanks anyway.";
+// The haggle happens in the marketplace chat, so what gives the seller away is how they reply, not how they look.
+// The faster the answer, the more room is left in the price.
+// How long the payment button stays armed after the first tap
+const DOUBLE_TAP_MS = 1200;
+const TELLS = {
+  quick: "They replied straight away.",
+  slow: "They took a while to reply.",
+  hesitant: "They started typing, stopped, then started again.",
+} as const;
 
 type HaggleSave = GameSave<HaggleState>;
 
@@ -38,6 +50,9 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
   const [scores, setScores] = useState<GameScoreRow[]>([]);
   // null is "Surprise me": the server deals a scenario
   const [scenario, setScenario] = useState<string | null>(null);
+  // Everything for sale, and the handful on screen; the refresh button deals another
+  const [listings, setListings] = useState<HaggleListing[]>([]);
+  const [offered, setOffered] = useState<HaggleListing[]>([]);
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -49,6 +64,14 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
     apiGameScores(GAME_TYPE)
       .then(setScores)
       .catch(() => setScores([]));
+    // Without the list there is still "Surprise me", which the server deals itself
+    apiFetch("/api/v1/games/negotiation/listings")
+      .then((res) => (res.ok ? res.json() : { listings: [] }))
+      .then(({ listings: all }: { listings: HaggleListing[] }) => {
+        setListings(all);
+        setOffered(dealListings(all));
+      })
+      .catch(() => {});
   }, []);
 
   const run = async (load: () => Promise<HaggleSave>) => {
@@ -71,7 +94,7 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
           <h2 className="neg-title">Negotiation</h2>
         </div>
         <p className="neg-sub">
-          Pick something to buy and talk the merchant down. Every message costs a little of their patience, and you
+          Pick a listing and message the seller to talk the price down. Questions about the item are free; haggling costs a little of their patience, and you
           only learn how low they would have gone once it is over.
         </p>
 
@@ -100,29 +123,46 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
           </>
         )}
 
-        <h3 className="pref-field-label neg-section">What are you buying?</h3>
+        <div className="neg-section-row">
+          <h3 className="pref-field-label neg-section">What are you buying?</h3>
+          <button
+            type="button"
+            className="neg-link neg-refresh"
+            disabled={listings.length === 0}
+            onClick={() => {
+              setOffered((current) => dealListings(listings, current.map((s) => s.id)));
+              setScenario(null); // the one that was picked may no longer be on the list
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <path d="M21 3v6h-6" />
+            </svg>
+            Show me others
+          </button>
+        </div>
         <div className="pref-account-card neg-card">
           <Option
             icon="?"
             name="Surprise me"
-            desc="A merchant picked at random"
+            desc="A listing picked at random"
             on={scenario === null}
             onPick={() => setScenario(null)}
           />
-          {SCENARIOS.map((s) => (
+          {offered.map((s) => (
             <Option
               key={s.id}
               icon={s.merchant.charAt(0)}
               name={s.item}
-              desc={`${s.merchant} · ${s.setting}`}
-              badge={money(s.listPrice)}
+              desc={[s.condition, s.merchant, s.setting.split("·").pop()?.trim()].filter(Boolean).join(" · ")}
+              badge={money(s.list_price)}
               on={scenario === s.id}
               onPick={() => setScenario(s.id)}
             />
           ))}
         </div>
 
-        <h3 className="pref-field-label neg-section">How tough is the merchant?</h3>
+        <h3 className="pref-field-label neg-section">How tough is the seller?</h3>
         <div className="pref-account-card neg-card">
           {DIFFICULTIES.map((d) => (
             <Option
@@ -144,7 +184,7 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
             onClick={() => run(() => apiCreateGame<HaggleState>(GAME_TYPE, { scenario, difficulty }))}
             disabled={busy}
           >
-            {busy ? "Walking in" : "Start haggling"}
+            {busy ? "Opening the chat" : "Message the seller"}
           </button>
           {unfinished && (
             <span className="pref-setting-hint">Starting a new haggle drops the one still on the table.</span>
@@ -241,27 +281,31 @@ function Play({
   const [offerDraft, setOfferDraft] = useState("");
   const [pending, setPending] = useState<{ text: string; offer?: number } | null>(null);
   const [closing, setClosing] = useState(false);
+  // The payment sheet is up: the price on the table, waiting for a double tap
+  const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
   const feedEnd = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     feedEnd.current?.scrollIntoView({ block: "end" });
-  }, [state.log.length, pending, error, state.status]);
+  }, [state.log.length, pending, error, state.status, paying]);
 
   const offerValue = Math.round(Number(offerDraft));
   const offer = offerValue > 0 ? offerValue : undefined;
   const busy = !!pending || closing;
 
-  const send = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // `bluff`: saying you are leaving to see if the price moves. It works once, and carries no offer.
+  const play = async (bluff: boolean) => {
     const text = draft.trim();
-    if ((!text && offer === undefined) || busy) return;
-    setPending({ text: text || `How about ${money(offer ?? 0)}?`, offer });
+    if ((!bluff && !text && offer === undefined) || busy) return;
+    setPending(
+      bluff ? { text: text || BLUFF_MESSAGE } : { text: text || `How about ${money(offer ?? 0)}?`, offer },
+    );
     setError("");
     setDraft("");
     setOfferDraft("");
     try {
-      onSave(await apiPlayTurn<HaggleState>(save.id, text, model, undefined, { offer }));
+      onSave(await apiPlayTurn<HaggleState>(save.id, text, model, undefined, bluff ? { bluff: true } : { offer }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setDraft(text);
@@ -269,6 +313,11 @@ function Play({
     } finally {
       setPending(null);
     }
+  };
+
+  const send = (e: React.FormEvent) => {
+    e.preventDefault();
+    play(false);
   };
 
   // Taking the price or walking away: settled by the server at once, no model involved
@@ -282,13 +331,14 @@ function Play({
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setClosing(false);
+      setPaying(false);
     }
   };
 
   return (
     <div className="neg neg--play">
       <div className="neg-head">
-        <BackButton label="Back to the merchants" onClick={onLeave} />
+        <BackButton label="Back to the listings" onClick={onLeave} />
         <h2 className="neg-title">{scenario.item}</h2>
         <span className="pref-content-badge">
           {result
@@ -334,39 +384,83 @@ function Play({
         </div>
       </div>
 
-      {/* The chat's own bubbles: the merchant on the left, you on the right */}
+      {/* The chat's own bubbles: the seller on the left, you on the right */}
       <div className="neg-feed">
+        {scenario.description && (
+          <div className="neg-listing">
+            <div className="neg-listing-head">
+              <span className="pref-item-name">{scenario.item}</span>
+              <span className="pref-content-badge">{money(state.list_price)}</span>
+            </div>
+            <span className="msg-timestamp">
+              {[scenario.condition, scenario.setting].filter(Boolean).join(" · ")}
+            </span>
+            <p className="pref-item-desc">{scenario.description}</p>
+          </div>
+        )}
         <p className="msg-timestamp neg-persona">
           {scenario.merchant}: {scenario.persona}.
         </p>
+        <Line who="you" text="Hi, is this still available?" />
         <Line who="them" text={state.opening} />
 
-        {state.log.map((entry) => (
+        {state.log.map((entry, i) => (
           <Fragment key={entry.turn}>
-            <Line who="you" text={entry.you} note={entry.offer != null ? `Offered ${money(entry.offer)}` : undefined} />
+            {/* An offer sent with nothing typed is just the card */}
+            {(entry.offer == null || entry.you !== `How about ${money(entry.offer)}?`) && (
+              <Line who="you" text={entry.you} note={entry.bluff ? "A bluff. It only works once." : undefined} />
+            )}
+            {entry.offer != null && (
+              <PayCard who="you" label="Your offer" amount={entry.offer} status={entry.agreed ? "Accepted" : "Declined"} />
+            )}
             <Line
               who="them"
               text={entry.reply}
               note={
-                entry.insulted
-                  ? "That number offended them. It cost extra patience."
-                  : entry.persuasion > 0
-                    ? "That landed."
-                    : entry.persuasion < 0
-                      ? "That did not help."
-                      : undefined
+                [
+                  entry.insulted
+                    ? "That number offended them. It cost extra patience."
+                    : entry.bluff
+                      ? "They did not like that. It cost extra patience."
+                      : entry.repeated
+                        ? "You already said that."
+                        : entry.persuasion > 0
+                          ? "That landed."
+                          : entry.persuasion < 0
+                            ? "That did not help."
+                            : "",
+                  // Only when the pace changes: the same remark under every reply says nothing
+                  entry.tell && entry.tell !== lastTell(state.log, i) ? TELLS[entry.tell] : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
               }
             />
+            {entry.agreed &&
+              (() => {
+                // Only the latest request can be paid, and only while its price still stands
+                const live = !result && !pending && i === state.log.length - 1 && entry.ask === state.ask;
+                return (
+                  <PayCard
+                    who="them"
+                    label={`${scenario.merchant} requests`}
+                    amount={entry.ask}
+                    status={result?.paid === entry.ask && i === state.log.length - 1 ? "Paid" : live ? undefined : "Expired"}
+                    action={live ? { label: "Pay", onClick: () => setPaying(true), disabled: busy } : undefined}
+                  />
+                );
+              })()}
           </Fragment>
         ))}
 
         {pending && (
           <>
-            <Line
-              who="you"
-              text={pending.text}
-              note={pending.offer !== undefined ? `Offered ${money(pending.offer)}` : undefined}
-            />
+            {(pending.offer === undefined || pending.text !== `How about ${money(pending.offer)}?`) && (
+              <Line who="you" text={pending.text} />
+            )}
+            {pending.offer !== undefined && (
+              <PayCard who="you" label="Your offer" amount={pending.offer} status="Sent" />
+            )}
             <div className="message-row assistant neg-waiting">
               <span className="waiting" role="status">
                 <span className="waiting-leaves" aria-hidden="true">
@@ -378,6 +472,11 @@ function Play({
               </span>
             </div>
           </>
+        )}
+
+        {/* Paying the seller's standing price, with no request of theirs to mark as paid */}
+        {result?.paid != null && !(state.log.at(-1)?.agreed && state.log.at(-1)?.ask === result.paid) && (
+          <PayCard who="you" label={`Paid to ${scenario.merchant}`} amount={result.paid} status="Paid" />
         )}
 
         {result && (
@@ -405,11 +504,20 @@ function Play({
             Haggle again
           </button>
         </div>
+      ) : paying ? (
+        <PaySheet
+          to={scenario.merchant}
+          item={scenario.item}
+          amount={state.ask}
+          busy={closing}
+          onConfirm={() => close("accept")}
+          onCancel={() => setPaying(false)}
+        />
       ) : state.final ? (
         <div className="neg-controls">
           <span className="pref-setting-label">That was their final price.</span>
-          <button type="button" className="start-button" onClick={() => close("accept")} disabled={busy}>
-            Take it at {money(state.ask)}
+          <button type="button" className="start-button" onClick={() => setPaying(true)} disabled={busy}>
+            Pay {money(state.ask)}
           </button>
           <button type="button" className="pref-confirm-no" onClick={() => close("walk")} disabled={busy}>
             Walk away
@@ -441,10 +549,21 @@ function Play({
               </label>
             </div>
             <div className="toolbar-right">
+              {!state.bluffed && (
+                <button
+                  type="button"
+                  className="toolbar-chip-btn"
+                  onClick={() => play(true)}
+                  disabled={busy}
+                  title="Say you are leaving and see if the price moves. Works once, and costs patience."
+                >
+                  Bluff leaving
+                </button>
+              )}
               <button type="button" className="toolbar-chip-btn" onClick={() => close("walk")} disabled={busy}>
                 Walk away
               </button>
-              <button type="button" className="toolbar-chip-btn" onClick={() => close("accept")} disabled={busy}>
+              <button type="button" className="toolbar-chip-btn" onClick={() => setPaying(true)} disabled={busy}>
                 Take it at {money(state.ask)}
               </button>
               <button
@@ -463,6 +582,120 @@ function Play({
       )}
     </div>
   );
+}
+
+/** A payment bubble in the chat, as a messaging app shows money: an offer you sent, or the seller asking to be paid */
+function PayCard({
+  who,
+  label,
+  amount,
+  status,
+  action,
+}: {
+  who: "you" | "them";
+  label: string;
+  amount: number;
+  status?: string;
+  action?: { label: string; onClick: () => void; disabled?: boolean };
+}) {
+  return (
+    <div className={`message-row ${who === "you" ? "user" : "assistant"}`}>
+      <div className={`neg-pay-card${status === "Declined" || status === "Expired" ? " is-void" : ""}`}>
+        <span className="neg-pay-brand">ModelLoop Pay</span>
+        <span className="neg-pay-label">{label}</span>
+        <span className="neg-pay-amount">{money(amount)}</span>
+        {action ? (
+          <button type="button" className="neg-pay-button" onClick={action.onClick} disabled={action.disabled}>
+            {action.label}
+          </button>
+        ) : (
+          status && <span className="neg-pay-status">{status}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The payment sheet. Nothing is bought until the button is tapped twice. */
+function PaySheet({
+  to,
+  item,
+  amount,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  to: string;
+  item: string;
+  amount: number;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  // The first tap arms the button; a second one soon after pays.
+  // The ref is what decides: two quick taps can land before the state has redrawn.
+  const [armed, setArmed] = useState(false);
+  const isArmed = useRef(false);
+  const disarm = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(disarm.current), []);
+
+  const arm = (on: boolean) => {
+    isArmed.current = on;
+    setArmed(on);
+  };
+
+  const tap = () => {
+    if (busy) return;
+    window.clearTimeout(disarm.current);
+    if (isArmed.current) {
+      arm(false);
+      onConfirm();
+      return;
+    }
+    arm(true);
+    disarm.current = window.setTimeout(() => arm(false), DOUBLE_TAP_MS);
+  };
+
+  return (
+    <div className="neg-pay-sheet" role="dialog" aria-label="Confirm payment">
+      <div className="neg-pay-sheet-head">
+        <span className="neg-pay-brand">ModelLoop Pay</span>
+        <button type="button" className="neg-link neg-link--quiet" onClick={onCancel} disabled={busy}>
+          Cancel
+        </button>
+      </div>
+      <dl className="neg-pay-rows">
+        <div>
+          <dt>Pay</dt>
+          <dd>{to}</dd>
+        </div>
+        <div>
+          <dt>For</dt>
+          <dd>{item}</dd>
+        </div>
+        <div className="neg-pay-total">
+          <dt>Total</dt>
+          <dd>{money(amount)}</dd>
+        </div>
+      </dl>
+      <button
+        type="button"
+        className={`neg-pay-confirm${armed ? " is-armed" : ""}`}
+        onClick={tap}
+        disabled={busy}
+        aria-live="polite"
+      >
+        <span className="neg-pay-confirm-mark" aria-hidden="true" />
+        {busy ? "Paying" : armed ? "Tap again to pay" : "Double tap to pay"}
+      </button>
+    </div>
+  );
+}
+
+/** How the seller's last haggling reply before this one was paced. Questions carry no tell. */
+function lastTell(log: HaggleEntry[], index: number): HaggleEntry["tell"] {
+  for (let i = index - 1; i >= 0; i--) if (!log[i].question) return log[i].tell ?? null;
+  return null;
 }
 
 /** One line of the haggle as a chat bubble, with an optional note where the timestamp would go */

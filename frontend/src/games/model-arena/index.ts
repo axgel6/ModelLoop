@@ -9,7 +9,7 @@ export const modelArena: GameInfo = {
   icon: ArenaIcon,
   tagline: "Two models debate. You moderate.",
   description:
-    "Give two models a topic and a character each. They trade five arguments, make their closing remarks, and you decide who won.",
+    "Give two models a topic and a character each. Let them argue it out on their own, or run a debate and question them between rounds. Then you decide who won.",
   tags: ["Debate", "Two models"],
   status: "available",
   component: ModelArena,

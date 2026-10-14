@@ -105,6 +105,23 @@ html .neg .pref-confirm-no {
   margin: 0 0 8px 4px;
 }
 
+/* A section heading with an action at the far end */
+.neg-section-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+html .neg .neg-refresh,
+html .neg .neg-refresh:hover {
+  align-self: baseline;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px 8px 0;
+}
+
 .neg .neg-card {
   flex-shrink: 0;
   margin: 0 0 18px;
@@ -223,6 +240,47 @@ html .neg .pref-confirm-no {
   scrollbar-width: thin;
 }
 
+/* The listing being haggled over, pinned to the top of the chat like the app's glass panels */
+.neg-listing {
+  align-self: center;
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+.neg-listing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.neg-listing .msg-timestamp {
+  padding: 0;
+}
+
+/* A list row's description is one clipped line; a listing's runs to a paragraph */
+.neg-listing p {
+  margin: 4px 0 0;
+  line-height: 1.5;
+  white-space: normal;
+  overflow: visible;
+}
+
+.neg-listing .pref-item-name {
+  white-space: normal;
+}
+
 .neg-persona {
   margin: 0 0 12px;
   padding: 0;
@@ -253,6 +311,181 @@ html .neg .pref-confirm-no {
   gap: 6px;
   padding: 18px 12px 8px;
   text-align: center;
+}
+
+/* ---- Paying: money in the chat, and the sheet that confirms it ---- */
+
+/* A payment bubble, dark on light themes and light on dark ones like a wallet card */
+.neg-pay-card {
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px 14px;
+  border-radius: 18px;
+  background: var(--game-ink);
+  color: var(--bar-tint);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.neg-pay-card.is-void {
+  opacity: 0.55;
+}
+
+.neg-pay-card.is-void .neg-pay-amount {
+  text-decoration: line-through;
+}
+
+.neg-pay-brand {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.neg-pay-label {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.neg-pay-amount {
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.neg-pay-status {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+/* html prefix: the themes style every <button>, and these have to outrank that */
+html .neg .neg-pay-button,
+html .neg .neg-pay-button:hover {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 6px 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bar-tint);
+  box-shadow: none;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.neg-pay-sheet {
+  flex-shrink: 0;
+  align-self: center;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  animation: msg-appear 0.2s ease-out both;
+}
+
+.neg-pay-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+html .neg .neg-pay-sheet-head .neg-link {
+  align-self: center;
+}
+
+.neg-pay-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.neg-pay-rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--game-card-border);
+  font-size: 0.8rem;
+}
+
+.neg-pay-rows dt {
+  flex-shrink: 0;
+  color: var(--game-muted);
+}
+
+.neg-pay-rows dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neg-pay-total dd {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+html .neg .neg-pay-confirm,
+html .neg .neg-pay-confirm:hover,
+html .neg .neg-pay-confirm:disabled {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--game-ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  color: var(--bar-tint);
+  font-family: var(--ui-font);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+html .neg .neg-pay-confirm:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Two bars, the second filling in once the first tap has landed */
+.neg-pay-confirm-mark {
+  width: 14px;
+  height: 14px;
+  border-left: 4px solid currentColor;
+  border-right: 4px solid color-mix(in srgb, currentColor 35%, transparent);
+  transition: border-color 0.15s;
+}
+
+.neg-pay-confirm.is-armed .neg-pay-confirm-mark {
+  border-right-color: currentColor;
+}
+
+html .neg .neg-pay-confirm.is-armed,
+html .neg .neg-pay-confirm.is-armed:hover {
+  background: var(--game-accent);
+  color: var(--game-accent-ink);
 }
 
 .neg-controls {
