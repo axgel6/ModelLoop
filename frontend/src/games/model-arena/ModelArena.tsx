@@ -11,9 +11,11 @@ import {
   type GameSave,
   type GameSaveSummary,
 } from "../api";
+import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
 import { CHARACTERS, DEFAULT_CHARACTERS, NO_CHARACTER, TOPICS } from "./setup";
 import type { ArenaState, ArenaSummary, SideIndex } from "./types";
+import { useDebateVoice } from "./useDebateVoice";
 import "./arena.css";
 
 const GAME_TYPE = "model-arena";
@@ -129,10 +131,10 @@ function Menu({
   return (
     <div className="arena arena--menu">
       <div className="arena-menu">
-        <button type="button" className="arena-link" onClick={onExit}>
-          All games
-        </button>
-        <h2 className="arena-title">Model Arena</h2>
+        <div className="game-menu-head">
+          <BackButton label="Back to all games" onClick={onExit} />
+          <h2 className="arena-title">Model Arena</h2>
+        </div>
         <p className="arena-sub">
           Two models, one topic. They trade five arguments each, make their closing remarks, and then you, the
           moderator, decide who won.
@@ -165,31 +167,35 @@ function Menu({
                   />
                   <label className="arena-field">
                     <span className="pref-field-label">Model</span>
-                    <select
-                      className="pref-name-input"
-                      value={side.model}
-                      onChange={(e) => setSide(i as SideIndex, { model: e.target.value })}
-                    >
-                      {models.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="arena-select">
+                      <select
+                        className="pref-name-input"
+                        value={side.model}
+                        onChange={(e) => setSide(i as SideIndex, { model: e.target.value })}
+                      >
+                        {models.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
                   </label>
                   <label className="arena-field">
                     <span className="pref-field-label">Character</span>
-                    <select
-                      className="pref-name-input"
-                      value={character.label}
-                      onChange={(e) => setSide(i as SideIndex, { character: e.target.value })}
-                    >
-                      {CHARACTERS.map((c) => (
-                        <option key={c.label} value={c.label}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="arena-select">
+                      <select
+                        className="pref-name-input"
+                        value={character.label}
+                        onChange={(e) => setSide(i as SideIndex, { character: e.target.value })}
+                      >
+                        {CHARACTERS.map((c) => (
+                          <option key={c.label} value={c.label}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
                     <span className="pref-setting-hint">{character.description}</span>
                   </label>
                 </div>
@@ -327,6 +333,18 @@ function Stage({
 
   const total = state.rounds * 2 + 2;
   const live = state.status === "active";
+  const voice = useDebateVoice(state.speeches, live);
+  const readAloudButton = voice.supported && state.speeches.length > 0 && (
+    <button
+      type="button"
+      className={`pref-confirm-no arena-voice${voice.readAloud ? " is-on" : ""}`}
+      onClick={voice.toggleReadAloud}
+      aria-pressed={voice.readAloud}
+    >
+      <SpeakerIcon />
+      {voice.readAloud ? "Stop reading" : live ? "Read aloud" : "Listen to the debate"}
+    </button>
+  );
   const nextSide = (state.turn < state.rounds * 2 ? state.turn % 2 : state.turn - state.rounds * 2) as SideIndex;
   const nextIsClosing = state.turn >= state.rounds * 2;
   const judging = state.status === "judging" || rejudging;
@@ -350,9 +368,7 @@ function Stage({
   return (
     <div className="arena arena--stage">
       <div className="arena-head">
-        <button type="button" className="arena-link" onClick={onLeave}>
-          All debates
-        </button>
+        <BackButton label="Back to all debates" onClick={onLeave} />
         <h2 className="arena-title">{state.topic}</h2>
         <span className="pref-content-badge">{stageLabel}</span>
       </div>
@@ -370,12 +386,30 @@ function Stage({
           return (
             <div key={i} className={`message-row ${role}`}>
               <div className={`msg-bubble-group${speech.side === 1 ? " user-group" : ""}`}>
-                <div className={`message ${role}`}>{speech.text}</div>
+                <div className={`message ${role}${voice.speaking === i ? " is-speaking" : ""}`}>{speech.text}</div>
                 <div className={`msg-meta${speech.side === 1 ? " user-meta" : ""}`}>
                   <span className="msg-timestamp">
                     {nameOf(state.sides[speech.side])} ·{" "}
                     {speech.kind === "closing" ? "Closing remarks" : `Round ${speech.round}`}
                   </span>
+                  {voice.supported && (
+                    <div className="msg-actions">
+                      <button
+                        type="button"
+                        className={`listen-btn${voice.speaking === i ? " speaking" : ""}`}
+                        onClick={() => voice.listen(i)}
+                        title={voice.speaking === i ? "Stop" : "Listen"}
+                      >
+                        {voice.speaking === i ? (
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none">
+                            <rect x="4" y="4" width="16" height="16" rx="2" />
+                          </svg>
+                        ) : (
+                          <SpeakerIcon />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -427,6 +461,7 @@ function Stage({
                 {paused ? "Resume" : "Pause after this speech"}
               </button>
             )}
+            {readAloudButton}
           </>
         ) : judging ? (
           <>
@@ -442,6 +477,7 @@ function Stage({
                 {nameOf(side)} ({STANCE_LABEL[side.stance]})
               </button>
             ))}
+            {readAloudButton}
           </>
         ) : (
           <>
@@ -451,10 +487,32 @@ function Stage({
             <button type="button" className="pref-confirm-no" onClick={() => setRejudging(true)}>
               Change the verdict
             </button>
+            {readAloudButton}
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/** The chat's Listen icon */
+function SpeakerIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
   );
 }
 

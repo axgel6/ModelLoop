@@ -14,8 +14,10 @@ export interface GameProps {
 export interface GameInfo {
   id: string;
   name: string;
-  /** Two letters shown on the card's badge */
+  /** Two letters shown on the card's badge when the game has no icon */
   monogram: string;
+  /** Drawn on the card's badge */
+  icon?: ComponentType;
   tagline: string;
   description: string;
   tags: string[];

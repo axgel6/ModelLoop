@@ -11,6 +11,7 @@ import {
   type GameScoreRow,
   type GameSaveSummary,
 } from "../api";
+import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
 import { DIFFICULTIES, LEVELS, ROLE_TITLE, STYLES, type Difficulty, type FounderStyle, type Role } from "./setup";
 import { TrendChart } from "./TrendChart";
@@ -174,10 +175,10 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
   return (
     <div className="ceo ceo--menu">
       <div className="ceo-menu">
-        <button type="button" className="ceo-link" onClick={onExit}>
-          Back to games
-        </button>
-        <h2 className="ceo-title">CEO Simulator</h2>
+        <div className="game-menu-head">
+          <BackButton label="Back to all games" onClick={onExit} />
+          <h2 className="ceo-title">CEO Simulator</h2>
+        </div>
         <p className="ceo-sub">
           Each turn is one week, and you have one year. Your score is what your share of the company is worth at
           the end. Reach $2,500,000 to win.
@@ -520,9 +521,7 @@ function Play({
   return (
     <div className="ceo ceo--play">
       <div className="ceo-bar">
-        <button type="button" className="ceo-link" onClick={onLeave}>
-          All companies
-        </button>
+        <BackButton label="Back to all companies" onClick={onLeave} />
         <span className="ceo-bar-name">{state.company.name}</span>
         <span className="ceo-bar-week">
           {over

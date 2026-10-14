@@ -25,6 +25,7 @@ export function GamesHub({ model }: GamesHubProps) {
         <div className="games-grid">
           {GAMES.map((game) => {
             const playable = game.status === "available" && !!game.component;
+            const Icon = game.icon;
             return (
               <button
                 key={game.id}
@@ -33,25 +34,27 @@ export function GamesHub({ model }: GamesHubProps) {
                 disabled={!playable}
                 onClick={() => setOpenId(game.id)}
               >
-                <span className="game-card-top">
+                <span className="game-card-head">
                   <span className="game-card-badge" aria-hidden="true">
-                    {game.monogram}
+                    {Icon ? <Icon /> : game.monogram}
                   </span>
-                  <span
-                    className={`game-card-status${playable ? " is-live" : ""}`}
-                  >
-                    {playable ? "Play" : "Coming soon"}
+                  <span className="game-card-titles">
+                    <span className="game-card-name">{game.name}</span>
+                    <span className="game-card-tagline">{game.tagline}</span>
                   </span>
                 </span>
-                <span className="game-card-name">{game.name}</span>
-                <span className="game-card-tagline">{game.tagline}</span>
                 <span className="game-card-desc">{game.description}</span>
-                <span className="game-card-tags">
-                  {game.tags.map((tag) => (
-                    <span key={tag} className="game-card-tag">
-                      {tag}
-                    </span>
-                  ))}
+                <span className="game-card-foot">
+                  <span className="game-card-tags">
+                    {game.tags.map((tag) => (
+                      <span key={tag} className="game-card-tag">
+                        {tag}
+                      </span>
+                    ))}
+                  </span>
+                  <span className={`game-card-play${playable ? " is-live" : ""}`}>
+                    {playable ? "Play" : "Coming soon"}
+                  </span>
                 </span>
               </button>
             );

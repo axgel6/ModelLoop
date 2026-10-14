@@ -84,7 +84,7 @@ function getSpeechRecognitionCtor(): (typeof SpeechRecognition) | undefined {
 }
 
 // Ordered by quality: macOS premium > Microsoft Neural > Google Neural > generic online
-const VOICE_PRIORITY = [
+export const VOICE_PRIORITY = [
   "Samantha", "Alex",                                                  // macOS premium
   "Microsoft Aria Online", "Microsoft Jenny Online",                   // Edge Neural
   "Microsoft Guy Online", "Microsoft Ava Online",                      // Edge Neural

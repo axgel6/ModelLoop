@@ -10,6 +10,7 @@ import {
   type GameSaveSummary,
   type GameScoreRow,
 } from "../api";
+import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
 import { DIFFICULTIES, SCENARIOS, type Difficulty } from "./setup";
 import type { HaggleState, HaggleSummary } from "./types";
@@ -65,10 +66,10 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
   return (
     <div className="neg neg--menu">
       <div className="neg-menu">
-        <button type="button" className="neg-link" onClick={onExit}>
-          All games
-        </button>
-        <h2 className="neg-title">Negotiation</h2>
+        <div className="game-menu-head">
+          <BackButton label="Back to all games" onClick={onExit} />
+          <h2 className="neg-title">Negotiation</h2>
+        </div>
         <p className="neg-sub">
           Pick something to buy and talk the merchant down. Every message costs a little of their patience, and you
           only learn how low they would have gone once it is over.
@@ -287,9 +288,7 @@ function Play({
   return (
     <div className="neg neg--play">
       <div className="neg-head">
-        <button type="button" className="neg-link" onClick={onLeave}>
-          Back
-        </button>
+        <BackButton label="Back to the merchants" onClick={onLeave} />
         <h2 className="neg-title">{scenario.item}</h2>
         <span className="pref-content-badge">
           {result

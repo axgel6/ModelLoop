@@ -90,10 +90,6 @@ html .neg .pref-confirm-no {
   padding-bottom: 24px;
 }
 
-.neg-menu .neg-title {
-  margin-top: 10px;
-}
-
 .neg-sub {
   margin: 6px 0 18px;
   font-size: 0.86rem;
@@ -146,14 +142,9 @@ html .neg .pref-confirm-no {
 .neg-head {
   flex-shrink: 0;
   display: flex;
-  align-items: baseline;
-  gap: 14px;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 14px;
-}
-
-html .neg .neg-head .neg-link {
-  align-self: baseline;
-  flex-shrink: 0;
 }
 
 .neg-head .neg-title {

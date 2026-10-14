@@ -58,7 +58,7 @@ html[data-theme] .ceo {
 /* ---- Shared pieces ---- */
 
 .ceo-title {
-  margin: 10px 0 0;
+  margin: 0;
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
   font-size: clamp(1.25rem, 3vw, 1.6rem);
@@ -286,7 +286,7 @@ html .ceo .ceo-save-open:hover:not(:disabled) {
 .ceo-bar {
   flex-shrink: 0;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   margin-bottom: 10px;
 }

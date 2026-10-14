@@ -236,6 +236,8 @@ function Chat({
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showGames, setShowGames] = useState(false);
+  // Bumped on every click of the sidebar's Games entry, which remounts the hub
+  const [gamesVisit, setGamesVisit] = useState(0);
   const [searchIndex, setSearchIndex] = useState(0);
 
   const closeSidebar = () => {
@@ -1030,6 +1032,8 @@ function Chat({
                 className={`sidebar-nav-btn${showGames ? " active" : ""}`}
                 onClick={() => {
                   setShowGames(true);
+                  // Always lands on the game selection, even from inside a game
+                  setGamesVisit((n) => n + 1);
                   if (window.innerWidth < 768) closeSidebar();
                 }}
               >
@@ -1449,7 +1453,7 @@ function Chat({
             </div>
           </div>
 
-          {showGames && <GamesHub model={selectedModel || undefined} />}
+          {showGames && <GamesHub key={gamesVisit} model={selectedModel || undefined} />}
 
           {/* Messages */}
           <div
