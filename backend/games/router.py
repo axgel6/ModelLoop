@@ -31,6 +31,9 @@ router = APIRouter(prefix="/api/v1/games", tags=["games"])
 MAX_SAVES_PER_GAME = 20
 SALE_GAME_TYPE = "negotiation-sale"   # sales are scored apart from purchases
 TURN_TIMEOUT_SECONDS = 180
+# How free the model is in a turn that must follow the game's rules (Marketplace, Founder Mode).
+# Lower keeps small models in role and on the instructions; the debates' prose runs warmer.
+JSON_TURN_TEMPERATURE = 0.6
 
 
 class ProductIn(BaseModel):
@@ -141,6 +144,7 @@ class AfterChat(BaseModel):
     """A message once the haggle is over: no prices, just talk."""
     message: str           = Field(..., min_length=1, max_length=400)
     model:   Optional[str] = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+    clean:   bool          = False
 
 
 class TurnRequest(BaseModel):
@@ -154,6 +158,8 @@ class TurnRequest(BaseModel):
     sweetener: Optional[str]       = Field(default=None, max_length=20)
     # Selling only: hold up another buyer's real offer against this one
     leverage: bool                 = False
+    # Marketplace setting: characters who swear keep it clean
+    clean:    bool                 = False
     model:    Optional[str]        = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
 
 
@@ -1110,7 +1116,7 @@ async def keep_chatting(
 
     reply = await _ask_with_retry(
         game_id, base_url, body.model, aftertalk.SYSTEM_PROMPT,
-        aftertalk.describe_for_model(state, message), aftertalk.REPLY_SCHEMA,
+        aftertalk.describe_for_model(state, message, clean=body.clean), aftertalk.REPLY_SCHEMA,
     )
     new_state = aftertalk.apply_reply(state, message, reply)
 
@@ -1184,7 +1190,7 @@ async def _ask_json(base_url: str, model: str, system: str, prompt: str, schema:
         "stream": False,
         "keep_alive": -1,
         "format": schema,
-        "options": {"temperature": 0.8},
+        "options": {"temperature": JSON_TURN_TEMPERATURE},
     }
     if await ollama_caps.can_think(base_url, model):
         payload["think"] = False
@@ -1219,6 +1225,19 @@ async def _ask_text(base_url: str, model: str, messages: list[dict], max_tokens:
     return text
 
 
+def _ollama_refusal(e: httpx.HTTPStatusError, model: str) -> str:
+    """What to tell the player when Ollama answered with an error, from its own explanation."""
+    try:
+        reason = str(e.response.json().get("error") or "")
+    except Exception:
+        reason = ""
+    if "requires" in reason and "available" in reason:
+        return f"{model} is too big for the model server's memory. Pick a smaller games model in Advanced settings."
+    if "not found" in reason:
+        return f"{model} is not installed on the model server."
+    return f"The model server could not run {model}: {reason}" if reason else "The model server ran into an error. Try again."
+
+
 async def _retrying(game_id: uuid.UUID, model: str, ask):
     """Run one model call, once more if its reply cannot be read. Raises a 502 the player can act on."""
     problem = "The model's reply could not be read. Try again."
@@ -1228,6 +1247,12 @@ async def _retrying(game_id: uuid.UUID, model: str, ask):
         except httpx.TimeoutException:
             problem = "The model took too long to answer. Try again, or pick a faster model."
             break  # a second wait of the same length would not help
+        except httpx.HTTPStatusError as e:
+            # Reached, but it said no: say why, rather than blaming the connection
+            problem = _ollama_refusal(e, model)
+            logger.warning("game_turn_failed game_id=%s model=%s attempt=%s error=%s", game_id, model, attempt, str(e))
+            if "memory" in problem:
+                break  # it will not have more memory a moment from now
         except httpx.HTTPError as e:
             problem = "The model server could not be reached. Check that Ollama is running."
             logger.warning("game_turn_failed game_id=%s model=%s attempt=%s error=%s", game_id, model, attempt, str(e))
@@ -1328,7 +1353,7 @@ async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db
     extra = {"sweetener": sweet, **({"leverage": leverage} if rules is selling else {})}
     reply = await _ask_with_retry(
         game_id, base_url, body.model, rules.SYSTEM_PROMPT,
-        rules.describe_for_model(state, message, offer, bluff, **extra), haggle.REPLY_SCHEMA,
+        rules.describe_for_model(state, message, offer, bluff, clean=body.clean, **extra), haggle.REPLY_SCHEMA,
     )
     new_state = rules.apply_turn(state, message, offer, reply, bluff, **extra)
 

@@ -31,6 +31,7 @@ import {
 import { Inventory } from "./Inventory";
 import { ListingBrowser } from "./ListingBrowser";
 import { apiListings, apiOverview, cachedListings, cachedOverview } from "./menuData";
+import { cleanText, isCleanLanguage } from "./settings";
 import { LISTINGS_SHOWN, dealListings } from "./setup";
 import type {
   CustomListing,
@@ -958,6 +959,9 @@ function Play({
   const busy = !!pending || closing;
 
   const sweeteners = SWEETENERS[selling ? "sell" : "buy"];
+  // Clean language (Marketplace settings): characters are told not to swear, and anything they still say is softened
+  const clean = isCleanLanguage();
+  const say = (text: string) => (clean ? cleanText(text) : text);
   const ping = state.ping ?? null;
   // Their face, the same one shown in the listing and the inbox
   const face = avatarSeed(scenario.merchant, scenario.id, selling);
@@ -988,7 +992,7 @@ function Play({
         text,
         model,
         undefined,
-        move.bluff ? { bluff: true } : move.leverage ? { leverage: true } : { offer, sweetener: move.sweetener },
+        { clean, ...(move.bluff ? { bluff: true } : move.leverage ? { leverage: true } : { offer, sweetener: move.sweetener }) },
       );
       // A reply with little room left takes its time, and a hesitant one stops and starts again
       const tell = next.state.log.at(-1)?.tell;
@@ -1059,7 +1063,7 @@ function Play({
     setChatDraft("");
     setError("");
     try {
-      onSave(await apiGameChat<HaggleState>(save.id, text, model));
+      onSave(await apiGameChat<HaggleState>(save.id, text, model, { clean }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setChatDraft(text);
@@ -1190,7 +1194,7 @@ function Play({
         <Line
           face={face}
           who="them"
-          text={state.opening}
+          text={say(state.opening)}
           note={state.callback ? `They were asking ${money(state.callback.was)} before.` : undefined}
         />
         {selling && state.opening_agreed && state.log.length === 0 && (
@@ -1236,7 +1240,7 @@ function Play({
             <Line
               face={face}
               who="them"
-              text={entry.reply}
+              text={say(entry.reply)}
               note={
                 [
                   entry.flaw ? `Not in the listing: ${entry.flaw}. A fair reason to pay less.` : "",
@@ -1425,7 +1429,7 @@ function Play({
               <p className="neg-time">{gap(a.at, i > 0 ? all[i - 1].at : (state.log.at(-1)?.at ?? state.started_at))}</p>
             )}
             <Line who="you" text={a.you} />
-            <Line face={face} who="them" text={a.reply} />
+            <Line face={face} who="them" text={say(a.reply)} />
           </Fragment>
         ))}
         {chatPending && (
@@ -1703,7 +1707,9 @@ function Inbox({
                     <div className="pref-item-name">
                       {p.merchant} <span className="neg-inbox-kind">· {p.kind}</span>
                     </div>
-                    <div className="pref-item-desc neg-inbox-message">{p.opening}</div>
+                    <div className="pref-item-desc neg-inbox-message">
+                      {isCleanLanguage() ? cleanText(p.opening) : p.opening}
+                    </div>
                   </div>
                   <span className="pref-content-badge">
                     {picking === i ? "Opening" : p.opening_agreed ? `${money(p.opening_bid)}, full price` : money(p.opening_bid)}

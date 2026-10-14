@@ -1,5 +1,6 @@
 import { NegotiationIcon } from "../icons";
 import type { GameInfo } from "../types";
+import { MarketplaceSettings } from "./MarketplaceSettings";
 import { Negotiation } from "./Negotiation";
 
 export const negotiation: GameInfo = {
@@ -13,4 +14,5 @@ export const negotiation: GameInfo = {
   tags: ["Haggling", "Buy and sell"],
   status: "available",
   component: Negotiation,
+  settings: MarketplaceSettings,
 };

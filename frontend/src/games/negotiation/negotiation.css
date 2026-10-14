@@ -1515,3 +1515,64 @@ html .neg .neg-account-part--stuff:hover,
 html .neg .neg-account-part--stuff:disabled {
   background: linear-gradient(135deg, color-mix(in srgb, var(--pastel-lavender) 16%, transparent), transparent 70%), var(--glass-bg);
 }
+
+/* ---- Marketplace settings ---- */
+
+.neg-settings {
+  max-width: 460px;
+}
+
+.neg-setting {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.neg-setting-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neg-setting .pref-setting-hint {
+  margin: 0;
+}
+
+/* An on/off switch: the knob slides right and the track takes the accent when on */
+html .neg-browser .neg-switch,
+html .neg-browser .neg-switch:hover {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--game-tile-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--game-muted) 25%, transparent);
+  box-shadow: none;
+  cursor: pointer;
+  transform: none;
+  transition: background 0.2s;
+}
+
+html .neg-browser .neg-switch.is-on {
+  border-color: var(--game-accent);
+  background: var(--game-accent);
+}
+
+.neg-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+}
+
+.neg-switch.is-on .neg-switch-knob {
+  transform: translateX(18px);
+}

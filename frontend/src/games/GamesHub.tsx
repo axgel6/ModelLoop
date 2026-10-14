@@ -19,10 +19,14 @@ export function GamesHub({ model }: GamesHubProps) {
     if (pathParts()[1] !== (openId ?? undefined)) replacePath(openId ? `/games/${openId}` : "/games");
   }, [openId]);
   const Game = GAMES.find((g) => g.id === openId)?.component;
+  // The game whose settings are open, if any
+  const [settingsFor, setSettingsFor] = useState<string | null>(null);
+  const Settings = GAMES.find((g) => g.id === settingsFor)?.settings;
   if (Game) return <Game model={model} onExit={() => setOpenId(null)} />;
 
   return (
     <div className="games-hub">
+      {Settings && <Settings onClose={() => setSettingsFor(null)} />}
       <div className="games-hub-inner">
         <header className="games-hub-header">
           <h2 className="games-hub-title">Games</h2>
@@ -36,8 +40,8 @@ export function GamesHub({ model }: GamesHubProps) {
             const playable = game.status === "available" && !!game.component;
             const Icon = game.icon;
             return (
+              <div key={game.id} className="game-card-wrap">
               <button
-                key={game.id}
                 type="button"
                 className="game-card"
                 disabled={!playable}
@@ -66,6 +70,21 @@ export function GamesHub({ model }: GamesHubProps) {
                   </span>
                 </span>
               </button>
+              {game.settings && playable && (
+                <button
+                  type="button"
+                  className="game-card-settings"
+                  onClick={() => setSettingsFor(game.id)}
+                  title={`${game.name} settings`}
+                  aria-label={`${game.name} settings`}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
+              )}
+              </div>
             );
           })}
 

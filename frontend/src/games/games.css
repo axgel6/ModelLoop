@@ -390,3 +390,49 @@ html .games-hub .game-card:disabled {
   justify-content: center;
   padding: 48px 16px;
 }
+
+/* A card and, beside it, its settings gear: the gear sits in the card's top corner but is not inside
+   the card's button, so it opens the settings instead of the game */
+.game-card-wrap {
+  position: relative;
+  display: flex;
+}
+
+.game-card-wrap > .game-card {
+  flex: 1;
+}
+
+html .games-hub .game-card-settings,
+html .games-hub .game-card-settings:hover {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--game-tile-border);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--game-tile) 80%, transparent);
+  box-shadow: none;
+  color: var(--game-muted);
+  cursor: pointer;
+  transform: none;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    transform 0.3s;
+}
+
+html .games-hub .game-card-settings:hover {
+  color: var(--game-ink);
+  border-color: var(--game-accent);
+  transform: rotate(45deg);
+}
+
+/* The title keeps clear of the gear in the corner */
+.game-card-wrap:has(.game-card-settings) .game-card-head {
+  padding-right: 40px;
+}

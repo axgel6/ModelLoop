@@ -137,6 +137,29 @@ def has_deadline(scenario: dict) -> bool:
     return bool(_DEADLINE.search(text))
 
 
+# ---- Unhinged characters: a friend with a sailor's mouth ----
+
+SWEARING = (
+    "You have a sailor's mouth: swear freely and casually in nearly every message (fuck, shit, damn, hell, "
+    "bastard and the like), the way some friends talk. It is for colour and comedy, never aimed at the other "
+    "person as an insult, and never a slur or anything hateful. You are still friendly underneath."
+)
+
+
+CLEAN_SWEARING = (
+    "You are loud, colourful and dramatic, but the player has asked for clean language: no swearing at all. "
+    "Say heck, dang or freaking instead."
+)
+
+
+def swearing(scenario: dict, clean: bool = False) -> list[str]:
+    """The extra line for a character who swears, or nothing for everyone else. With `clean`, the
+    player's Marketplace setting, they keep their energy and lose the language."""
+    if not scenario.get("swears"):
+        return []
+    return [CLEAN_SWEARING if clean else SWEARING]
+
+
 # ---- Reviews: after every chat, the other side may rate you ----
 
 REVIEWS_KEPT = 50

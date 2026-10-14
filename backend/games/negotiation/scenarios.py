@@ -13,7 +13,7 @@ NEW = "New"
 PARTS = "For parts"
 
 
-def _listing(id, item, price, condition, seller, persona, description, opening, delivery="Local pickup", floor=None):
+def _listing(id, item, price, condition, seller, persona, description, opening, delivery="Local pickup", floor=None, swears=False):
     """`floor` overrides how low the seller will go, as shares of the price: a rich seller who
     does not need the money takes far less than most."""
     return {
@@ -21,6 +21,8 @@ def _listing(id, item, price, condition, seller, persona, description, opening, 
         "merchant": seller, "persona": persona, "description": description, "opening": opening,
         "setting": f"Marketplace · {delivery}",
         **({"floor_share": floor} if floor else {}),
+        # An Unhinged seller: swears like a sailor, friendly underneath (see extras.SWEARING)
+        **({"swears": True} if swears else {}),
     }
 
 
@@ -1851,6 +1853,38 @@ _CATALOGUE = [
         "Five sealed 11-inch iPad Pro M5s from a launch event that over-ordered. Never opened. All five go together.",
         "Hi, yes. My boss wants them gone today. {price} for all five? Honestly, offer whatever.",
         floor=(0.15, 0.40),
+    ),
+    # Unhinged sellers: a sailor's mouth, friendly underneath
+    "Home and collectables",
+    _listing(
+        "catchair", "Gaming chair, cat-scratched to hell", 90, FAIR, "Dante",
+        "a chaotic gamer finally moving out of his mom's basement, hyped and dramatic about everything, zero filter",
+        "Big racing-style gaming chair. Reclines, rolls, holds your ass up for twelve-hour sessions. The cat destroyed the left armrest. Smells fine, I swear.",
+        "Yo, it's still here! The cat fucked up one armrest but it's comfy as hell. {price} and it's yours.",
+        swears=True,
+    ),
+    _listing(
+        "drumkit", "Pearl Export 5-piece drum kit with cymbals", 450, GOOD, "Jojo",
+        "a burnt-out metal drummer quitting the band, friendly, laughs at everything, no filter whatsoever",
+        "Five-piece Pearl Export with hi-hat, crash and ride cymbals, throne and kick pedal. Heads are worn but they still hit. One cymbal stand is a little wobbly.",
+        "Hell yeah, still got it. Played the shit out of it but it still slaps. {price}.",
+        swears=True,
+    ),
+    "Vehicles",
+    _listing(
+        "loudcivic", "1998 Honda Civic hatchback, loud exhaust", 4500, FAIR, "Big Mike",
+        "a car guy who roasts his own car nonstop, brutally honest, loves talking engines",
+        "1998 Civic hatch, 212,000 miles. Aftermarket exhaust, loud as hell, neighbours hate it. Runs strong, AC is dead, passenger window is slow. Clean title.",
+        "Still available! She's loud as fuck and the AC is dead, but she runs like a damn champ. {price}.",
+        swears=True,
+    ),
+    "Fun stuff",
+    _listing(
+        "airhockey", "Full-size air hockey table, one paddle missing", 120, FAIR, "Roxy",
+        "a chaotic bartender clearing out her garage, curses constantly, cracks herself up",
+        "Seven-foot air hockey table, blower still works great. One paddle walked off at a party, one puck left. Some scratches on the rails. You haul it.",
+        "Ha, yes! Someone stole a damn paddle at my party but the rest works. {price}, you're hauling this bitch yourself.",
+        swears=True,
     ),
 ]
 

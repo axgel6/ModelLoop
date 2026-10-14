@@ -24,4 +24,6 @@ export interface GameInfo {
   status: GameStatus;
   /** The game itself. Required once status is "available". */
   component?: ComponentType<GameProps>;
+  /** The game's own settings, opened from a gear on its card. Leave out for a game without any. */
+  settings?: ComponentType<{ onClose: () => void }>;
 }

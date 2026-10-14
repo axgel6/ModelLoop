@@ -112,10 +112,15 @@ export async function apiPlayTurn<State>(
 }
 
 /** Talk sent once a game is settled, such as chatting on after a haggle. Nothing in the game changes. */
-export async function apiGameChat<State>(id: string, message: string, model?: string): Promise<GameSave<State>> {
+export async function apiGameChat<State>(
+  id: string,
+  message: string,
+  model?: string,
+  extra?: Record<string, unknown>,
+): Promise<GameSave<State>> {
   const res = await apiFetch(`/api/v1/games/${id}/chat`, {
     method: "POST",
-    body: JSON.stringify({ message, model: model || undefined }),
+    body: JSON.stringify({ ...extra, message, model: model || undefined }),
   });
   if (!res.ok) throw await failure(res, "That message didn't send. Try again.");
   return res.json();

@@ -5,6 +5,7 @@ in character, about pickup, the item or anything else. No I/O in this file.
 """
 import copy
 
+from . import extras
 from .engine import _money, now
 
 MAX_EXCHANGES = 30             # how much after-talk a chat keeps
@@ -48,11 +49,12 @@ def _outcome(state: dict, selling: bool) -> str:
     return f"They walked away without buying your {item}."
 
 
-def describe_for_model(state: dict, message: str) -> str:
+def describe_for_model(state: dict, message: str, clean: bool = False) -> str:
     selling = state.get("mode") == "sell"
     scenario = state["scenario"]
     lines = [
         f"You are {scenario['merchant']}, the {'buyer' if selling else 'seller'}. Personality: {scenario['persona']}.",
+        *extras.swearing(scenario, clean),
         f"{scenario['merchant']} is your own name. The person you are talking to is someone else: never call them {scenario['merchant']}.",
         f"How it went: {_outcome(state, selling)}",
         "",
