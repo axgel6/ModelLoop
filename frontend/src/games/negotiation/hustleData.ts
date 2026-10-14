@@ -2,8 +2,6 @@
 import { apiFetch } from "../../components/api";
 import type { FreeBank, HustleRun } from "./types";
 
-export const HUSTLE_SCORES = "marketplace-hustle";
-
 export interface HustleView {
   run: HustleRun | null;
   /** What each listing costs in this run, by listing id */

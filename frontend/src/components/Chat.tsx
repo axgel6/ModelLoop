@@ -52,6 +52,7 @@ import {
 import ConnectionBanner from "./ConnectionBanner";
 import { StretchyLogo } from "./StretchyLogo";
 import { GamesHub, GamesIcon } from "../games/GamesHub";
+import { inGamesPath, replacePath } from "../subroute";
 
 // ── Sidebar chat item ─────────────────────────────────────────────────────────
 
@@ -199,6 +200,11 @@ function Chat({
   const {
     models,
     modelCapabilities,
+    gameModel,
+    setGameModel,
+    serverDefaults,
+    thinking,
+    setThinking,
     selectedModel,
     setSelectedModel,
     isConnected,
@@ -217,6 +223,8 @@ function Chat({
     speechRate,
     setSpeechRate,
   } = useChatSettings();
+  // Thinking is offered only for a model that can do it, as Ollama reports
+  const canThink = (modelCapabilities[selectedModel] ?? []).includes("thinking");
   const [prefSection, setPrefSection] = useState<PrefSection>("model");
 
   const {
@@ -235,9 +243,20 @@ function Chat({
 
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showGames, setShowGames] = useState(false);
+  // A refresh on /games/... comes back to the games
+  const [showGames, setShowGames] = useState(() => inGamesPath());
   // Bumped on every click of the sidebar's Games entry, which remounts the hub
   const [gamesVisit, setGamesVisit] = useState(0);
+
+  // The address bar follows what is on screen, so a refresh lands back here. Inside the games,
+  // the hub and each game keep their own deeper part of the path.
+  useEffect(() => {
+    if (showGames) {
+      if (!inGamesPath()) replacePath("/games");
+    } else {
+      replacePath(activeChatId ? `/chat/${encodeURIComponent(activeChatId)}` : "/chat");
+    }
+  }, [showGames, activeChatId]);
   const [searchIndex, setSearchIndex] = useState(0);
 
   const closeSidebar = () => {
@@ -424,7 +443,6 @@ function Chat({
       return;
     }
     if (rawInput === "/code") {
-      setSelectedModel("qwen2.5-coder:7b");
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "Switched to code mode." },
@@ -435,10 +453,11 @@ function Chat({
       return;
     }
     if (rawInput === "/math") {
-      setSelectedModel("deepseek-r1:7b");
+      // Working a problem through is what thinking is for
+      if (canThink) setThinking(true);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Switched to math mode." },
+        { role: "assistant", content: canThink ? "Switched to math mode, with thinking on." : "Switched to math mode." },
       ]);
       setSystemPrompt(
         "You are an expert teacher who explains problems clearly and patiently. Your goal is not just to give the answer, but to teach the reasoning behind it. When solving a problem: Break the solution into clear, numbered steps. Each step should be separated and easy to follow. Explain what is happening in each step using simple language. Explain why the step is necessary so the learner understands the logic, not just the procedure. Show the intermediate work, not just the final result. Define any important terms or concepts that appear during the explanation. Use examples or small reminders of rules (formulas, properties, or definitions) when they are applied. After solving the problem, include a short summary of the key idea or pattern that helps recognize similar problems in the future. Formatting rules: Use numbered steps. Keep explanations concise but clear. Separate calculations from explanations when helpful. The goal is to help the learner understand how to think through the problem, not just memorize the answer.",
@@ -446,18 +465,26 @@ function Chat({
       return;
     }
     if (rawInput === "/think") {
-      setSelectedModel("deepseek-r1:7b");
+      const on = canThink && !thinking;
+      if (canThink) setThinking(on);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Switched to thinking mode." },
+        {
+          role: "assistant",
+          content: !canThink
+            ? `${selectedModel} cannot think. Pick a model that can, such as qwen3.5, in Preferences.`
+            : on
+              ? "Thinking on. I will reason through it before answering."
+              : "Thinking off.",
+        },
       ]);
       return;
     }
     if (rawInput === "/fast") {
-      setSelectedModel("llama3.1:8b");
+      setThinking(false);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Switched to fast mode." },
+        { role: "assistant", content: "Fast mode: thinking off." },
       ]);
       return;
     }
@@ -528,6 +555,7 @@ function Chat({
               top_p: topP,
               num_predict: numPredict,
               images,
+              think: thinking && canThink,
             },
             ctrl.signal,
           )
@@ -543,6 +571,7 @@ function Chat({
               top_p: topP,
               num_predict: numPredict,
               images,
+              think: thinking && canThink,
               force_search: options?.forceSearch,
             },
             ctrl.signal,
@@ -1033,6 +1062,7 @@ function Chat({
                 onClick={() => {
                   setShowGames(true);
                   // Always lands on the game selection, even from inside a game
+                  replacePath("/games");
                   setGamesVisit((n) => n + 1);
                   if (window.innerWidth < 768) closeSidebar();
                 }}
@@ -1453,7 +1483,8 @@ function Chat({
             </div>
           </div>
 
-          {showGames && <GamesHub key={gamesVisit} model={selectedModel || undefined} />}
+          {/* The games play with their own model, picked in Advanced settings or the server's GAME_MODEL */}
+          {showGames && <GamesHub key={gamesVisit} model={gameModel || undefined} />}
 
           {/* Messages */}
           <div
@@ -1574,6 +1605,8 @@ function Chat({
               inputSetRef.current = setFn;
             }}
             selectedModel={selectedModel}
+            models={models}
+            modelCapabilities={modelCapabilities}
             setSelectedModel={setSelectedModel}
             estimatedTokens={estimatedTokens}
             messageCount={messages.length}
@@ -1588,6 +1621,8 @@ function Chat({
             onVoiceToggle={voice.toggle}
             focusedMode={focusedMode}
             onFocusedModeToggle={() => setFocusedMode((f) => !f)}
+            thinking={thinking && canThink}
+            onThinkingToggle={canThink ? () => setThinking(!thinking) : undefined}
             {...(!isGuest && activeChatId
               ? {
                   documents,
@@ -1806,6 +1841,9 @@ function Chat({
           modelCapabilities={modelCapabilities}
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
+          gameModel={gameModel}
+          setGameModel={setGameModel}
+          serverGameModel={serverDefaults.game}
           initialSection={prefSection}
           onNameChange={(name) => setUserName(name)}
           onLogout={() => {

@@ -1,8 +1,8 @@
-import { Avatar } from "./Avatar";
-import { avatarSeed } from "./avatarSeed";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeKey } from "../../components/useEscapeKey";
+import { Avatar } from "./Avatar";
+import { avatarSeed } from "./avatarSeed";
 import type { HaggleListing } from "./types";
 
 const SORTS = {

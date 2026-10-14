@@ -44,6 +44,8 @@ class ChatRequest(BaseModel):
     num_predict:   Optional[int]       = Field(default=-1, ge=-1, le=32768)
     images:        Optional[list[str]] = Field(default=None, max_length=4)
     force_search:  Optional[bool]      = Field(default=False)
+    # Reason before answering, for models that can. Ignored by the rest.
+    think:         Optional[bool]      = Field(default=False)
 
 
 class GuestChatRequest(BaseModel):
@@ -55,6 +57,7 @@ class GuestChatRequest(BaseModel):
     top_p:         Optional[float]      = Field(default=0.9, ge=0.0, le=1.0)
     num_predict:   Optional[int]        = Field(default=-1, ge=-1, le=32768)
     images:        Optional[list[str]]  = Field(default=None, max_length=4)
+    think:         Optional[bool]       = Field(default=False)
 
 
 class RenameChatRequest(BaseModel):

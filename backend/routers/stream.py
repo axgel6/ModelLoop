@@ -17,10 +17,11 @@ from dependencies import get_user
 from rag import retrieve_rag_context
 from features import get_features
 import config as _config
+import ollama_caps
 from config import (
     IS_PRODUCTION, NGROK_HEADERS,
     SYSTEM_PROMPT_WITH_TOOLS, SYSTEM_PROMPT_NO_TOOLS, PROPRIETARY_INSTRUCTIONS,
-    THINKING_MODELS, TOOL_CAPABLE_MODELS, NO_SYSTEM_PROMPT_MODELS, API_KEY,
+    TOOL_CAPABLE_MODELS, NO_SYSTEM_PROMPT_MODELS, API_KEY,
     ENABLE_GUEST_CHAT, CHAT_RATE_LIMIT, GUEST_CHAT_RATE_LIMIT, GUEST_CHAT_DAILY_LIMIT,
     fix_math_delimiters,
 )
@@ -62,9 +63,6 @@ _EMBEDDED_TOOL_RE = re.compile(
 
 def _strip_embedded_tool_calls(text: str) -> str:
     return _EMBEDDED_TOOL_RE.sub("", text).rstrip()
-
-def _is_thinking_model(model: str) -> bool:
-    return any(p in model.lower() for p in THINKING_MODELS)
 
 def _supports_tools(model: str) -> bool:
     return any(p in model.lower() for p in TOOL_CAPABLE_MODELS)
@@ -139,6 +137,8 @@ async def _describe_images(images: list[str], base_url: str) -> str:
         "keep_alive": -1,
         "options": {"temperature": 0.1},
     }
+    if await ollama_caps.can_think(base_url, _config.VISION_MODEL):
+        payload["think"] = False
     try:
         resp = await _ollama_http.post(
             f"{base_url}/api/chat",
@@ -152,7 +152,8 @@ async def _describe_images(images: list[str], base_url: str) -> str:
         return ""
 
 
-async def _ollama_stream(messages: list, model: str, temperature: float, base_url: str, top_p: float = 0.9, num_predict: int = -1, tools: Optional[list] = None):
+async def _ollama_stream(messages: list, model: str, temperature: float, base_url: str, top_p: float = 0.9, num_predict: int = -1, tools: Optional[list] = None, think: Optional[bool] = None):
+    """`think` is True or False for a model that can think (it is told which), and None for the rest."""
     options: dict = {"temperature": temperature, "top_p": top_p}
     if num_predict != -1:
         options["num_predict"] = num_predict
@@ -163,10 +164,11 @@ async def _ollama_stream(messages: list, model: str, temperature: float, base_ur
         "keep_alive": -1,
         "options":    options,
     }
-    if tools and not _is_thinking_model(model) and _supports_tools(model):
+    # Tools (web search, weather) for any model Ollama says can call them, or that the settings list
+    if tools and not think and (_supports_tools(model) or "tools" in await ollama_caps.capabilities(base_url, model)):
         payload["tools"] = tools
-    if _is_thinking_model(model):
-        payload["think"] = True
+    if think is not None:
+        payload["think"] = think
     async with _ollama_http.stream(
         "POST",
         f"{base_url}/api/chat",
@@ -214,8 +216,11 @@ async def _chat_stream_response(
     db: AsyncSession,
     user: Optional[User] = None,
     chat: Optional[Chat] = None,
+    think: bool = False,
 ) -> StreamingResponse:
     is_guest = user is None
+    # A model that can think is always told whether to, so it never thinks unasked
+    think_mode = bool(think) if await ollama_caps.can_think(base_url, model) else None
 
     actions_enabled = features["actions"]
     photo_enabled   = features["photo_upload"]
@@ -303,7 +308,7 @@ async def _chat_stream_response(
     if user and user.personal_context:
         effective_system += f"\n\n<user_context>\n{user.personal_context}\n</user_context>"
 
-    if not is_guest and PROPRIETARY_INSTRUCTIONS and not _is_thinking_model(model):
+    if not is_guest and PROPRIETARY_INSTRUCTIONS:
         effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 
     full_name = user.full_name if user else None
@@ -387,7 +392,7 @@ async def _chat_stream_response(
                 gave_up        = False
 
                 tool_use_announced = False
-                stream = _ollama_stream(current_messages, model, temperature, base_url, top_p=top_p, num_predict=num_predict, tools=active_tools or None)
+                stream = _ollama_stream(current_messages, model, temperature, base_url, top_p=top_p, num_predict=num_predict, tools=active_tools or None, think=think_mode)
                 async for chunk in stream:
                     if "_thinking" in chunk:
                         yield f"data: {json.dumps({'type': 'thinking_token', 'token': chunk['_thinking']})}\n\n"
@@ -673,6 +678,7 @@ async def chat_stream(
         db=db,
         user=user,
         chat=chat,
+        think=bool(body.think),
     )
 
 
@@ -704,4 +710,5 @@ async def guest_chat_stream(
         search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
         base_url=await effective_ollama_url(None),
         db=db,
+        think=bool(body.think),
     )

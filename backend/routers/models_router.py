@@ -3,7 +3,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 import config as _config
-from config import DEFAULT_MODEL, NGROK_HEADERS, THINKING_MODELS, TOOL_CAPABLE_MODELS
+import asyncio
+
+import ollama_caps
+from config import DEFAULT_MODEL, NGROK_HEADERS, TOOL_CAPABLE_MODELS
 from dependencies import get_optional_user
 from models import User
 from ollama_http import client as ollama_client
@@ -15,14 +18,19 @@ router = APIRouter(tags=["models"])
 _cached_models: list[str] = []
 
 
-def _model_capabilities(name: str) -> list[str]:
-    lower = name.lower()
-    caps = []
-    if any(p in lower for p in THINKING_MODELS):
-        caps.append("thinking")
-    if any(p in lower for p in TOOL_CAPABLE_MODELS):
+async def _model_capabilities(base_url: str, name: str) -> list[str]:
+    """What the picker and chat show for a model: thinking and images as Ollama reports them,
+    and web search for the models allowed to use tools."""
+    reported = await ollama_caps.capabilities(base_url, name)
+    caps = [c for c in ("thinking", "vision") if c in reported]
+    if "tools" in reported or any(p in name.lower() for p in TOOL_CAPABLE_MODELS):
         caps.append("web")
     return caps
+
+
+async def _all_capabilities(base_url: str, names: list[str]) -> dict[str, list[str]]:
+    found = await asyncio.gather(*(_model_capabilities(base_url, n) for n in names))
+    return dict(zip(names, found))
 
 
 @router.get("/api/v1/models")
@@ -45,13 +53,21 @@ async def get_models(user: Optional[User] = Depends(get_optional_user)):
         if shared:
             _cached_models = fetched
 
-        return {"models": fetched, "capabilities": {m: _model_capabilities(m) for m in fetched}}
+        return {
+            "models": fetched,
+            "capabilities": await _all_capabilities(base_url, fetched),
+            # What chat and the games fall back to when nothing is picked
+            "defaults": {"chat": DEFAULT_MODEL, "game": _config.GAME_MODEL},
+        }
 
     except Exception as e:
         logger.error('ollama_fetch_failed error=%s', str(e))
         if shared and _cached_models:
-            capabilities = {m: _model_capabilities(m) for m in _cached_models}
-            return {"models": _cached_models, "capabilities": capabilities}
+            capabilities = await _all_capabilities(base_url, _cached_models)
+            return {
+                "models": _cached_models, "capabilities": capabilities,
+                "defaults": {"chat": DEFAULT_MODEL, "game": _config.GAME_MODEL},
+            }
         # Not str(e): httpx status errors carry the full URL, and the shared server's
         # address must not reach callers (this endpoint is open to guests).
         raise HTTPException(status_code=502, detail="Could not reach the model server")

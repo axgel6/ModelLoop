@@ -17,6 +17,7 @@ import {
 } from "./components/api";
 import { type Theme, type Font, type TextSize } from "./components/ChatPreferences";
 import { useRoute } from "./router";
+import { chatIdFromPath } from "./subroute";
 import { dayPart } from "./components/utils/chatUtils";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
@@ -33,7 +34,7 @@ function App() {
   const [view, setView] = useRoute(
     localStorage.getItem("token") ? "chat" : "welcome",
   );
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(() => chatIdFromPath());
   const [isGuest, setIsGuest] = useState(false);
   const [chats, setChats] = useState<ChatMeta[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -41,7 +42,10 @@ function App() {
   const refreshChats = async () => {
     setChatsLoading(true);
     try {
-      setChats(await apiListChats());
+      const list = await apiListChats();
+      setChats(list);
+      // A chat named in the address bar that is not yours, or no longer exists, opens nothing
+      setActiveChatId((id) => (id && !list.some((c) => c.id === id) ? null : id));
     } catch {
       /* ignore */
     } finally {

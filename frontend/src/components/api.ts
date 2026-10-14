@@ -420,6 +420,8 @@ export async function apiGetMessages(chatId: string): Promise<Message[]> {
 export async function apiGetModels(): Promise<{
   models: string[];
   capabilities: Record<string, string[]>;
+  /** What chat and the games fall back to when nothing is picked */
+  defaults: { chat?: string; game?: string };
 }> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/models`, { headers: authHeaders() }),
@@ -430,7 +432,7 @@ export async function apiGetModels(): Promise<{
     (m: string) => !m.startsWith("nomic-embed-text"),
   );
   const capabilities: Record<string, string[]> = data.capabilities ?? {};
-  return { models: all, capabilities };
+  return { models: all, capabilities, defaults: data.defaults ?? {} };
 }
 
 export interface RateLimits {
@@ -529,6 +531,8 @@ export async function apiGuestChatStream(
     top_p?: number;
     num_predict?: number;
     images?: string[];
+    /** Reason before answering, for models that can */
+    think?: boolean;
   },
   signal?: AbortSignal,
 ): Promise<Response> {
@@ -568,6 +572,8 @@ export async function apiChatStream(
     num_predict?: number;
     images?: string[];
     force_search?: boolean;
+    /** Reason before answering, for models that can */
+    think?: boolean;
   },
   signal?: AbortSignal,
 ): Promise<Response> {

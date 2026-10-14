@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useEscapeKey } from "./useEscapeKey";
-import { haptics } from "../haptics";
 import { sounds } from "../sounds";
 import {
   apiGetMe,
@@ -44,6 +43,11 @@ interface ChatPreferencesProps {
   modelCapabilities: Record<string, string[]>;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
+  /** The games' model; empty means the server's default */
+  gameModel: string;
+  setGameModel: (model: string) => void;
+  /** The server's default for games (GAME_MODEL), to name in the picker */
+  serverGameModel?: string;
   onDeleteAccount: () => Promise<void>;
   onClearAllChats: () => Promise<void>;
   onNameChange?: (name: string | null) => void;
@@ -118,6 +122,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   modelCapabilities,
   selectedModel,
   setSelectedModel,
+  gameModel,
+  setGameModel,
+  serverGameModel,
   onDeleteAccount,
   onClearAllChats,
   onNameChange,
@@ -393,6 +400,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   const isActive = m === selectedModel;
                   const [name, tag] = m.split(":");
                   const caps = modelCapabilities[m] ?? [];
+                  // The model the games play with: your pick in Advanced, or the server's default
+                  const gamesModel = gameModel && models.includes(gameModel) ? gameModel : serverGameModel;
                   return (
                     <div
                       key={m}
@@ -413,6 +422,16 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                           {caps.includes("thinking") && (
                             <span className="pref-model-badge pref-model-badge--thinking">
                               Thinking
+                            </span>
+                          )}
+                          {caps.includes("vision") && (
+                            <span className="pref-model-badge pref-model-badge--vision" title="Can read images">
+                              Images
+                            </span>
+                          )}
+                          {m === gamesModel && (
+                            <span className="pref-model-badge pref-model-badge--games" title="The games play with this model">
+                              Games
                             </span>
                           )}
                         </div>
@@ -1148,6 +1167,37 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             <div className="pref-account-scroll">
               <div className="pref-account-card">
                 <div className="pref-account-field">
+                  <div className="pref-field-label">Games model</div>
+                  <div className="pref-field-desc">
+                    The model the games play with, apart from the one you chat with. The games need one
+                    that follows instructions closely and replies in clean JSON. Leave it on the server
+                    default unless you want to try another.
+                  </div>
+                  <select
+                    className="pref-name-input pref-game-model"
+                    value={gameModel && models.includes(gameModel) ? gameModel : ""}
+                    onChange={(e) => setGameModel(e.target.value)}
+                    aria-label="Games model"
+                  >
+                    <option value="">
+                      Server default{serverGameModel ? ` (${serverGameModel})` : ""}
+                    </option>
+                    {models.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  {gameModel && !models.includes(gameModel) && models.length > 0 && (
+                    <div className="pref-ollama-msg pref-ollama-msg--error">
+                      {gameModel} is not on this server, so the games use the server default.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pref-account-card">
+                <div className="pref-account-field">
                   <div className="pref-field-label">Ollama Server</div>
                   <div className="pref-field-desc">
                     Leave empty to use the shared test server. To use your own,
@@ -1336,18 +1386,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         <div
           className="pref-modal"
           ref={sheetRef}
-          onClick={(e) => {
-            const t = e.target as HTMLElement;
-            if (t.closest(".pref-theme-card")) haptics.trigger("medium");
-            else if (t.closest(".pref-danger-item")) haptics.trigger("warning");
-            else if (t.closest(".pref-list-item")) haptics.trigger("light");
-            else if (t.closest(".pref-nav-item")) haptics.trigger("selection");
-            else if (t.closest("button.pref-close-btn"))
-              haptics.trigger("light");
-            else if (t.closest("button:not(:disabled)"))
-              haptics.trigger("selection");
-            e.stopPropagation();
-          }}
+          // Clicks inside stay inside, so they do not close the window. Their sounds come from the
+          // page-wide press handler in main.tsx, which already knows every element here.
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="pref-sheet-handle" {...sheetDrag} />
           <div className="pref-sidebar" ref={navRef} {...sheetDrag}>
@@ -1376,15 +1417,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         >
           <div
             className="pref-delete-dialog-box"
-            onClick={(e) => {
-              const btn = (e.target as HTMLElement).closest(
-                "button:not(:disabled)",
-              ) as HTMLElement | null;
-              if (btn?.classList.contains("pref-confirm-yes"))
-                haptics.trigger("warning");
-              else if (btn) haptics.trigger("selection");
-              e.stopPropagation();
-            }}
+            // Sounds come from the page-wide press handler; this only keeps clicks inside the dialog
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="pref-delete-dialog-title">Delete Account</div>
             <div className="pref-delete-dialog-text">
@@ -1418,15 +1452,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         >
           <div
             className="pref-delete-dialog-box"
-            onClick={(e) => {
-              const btn = (e.target as HTMLElement).closest(
-                "button:not(:disabled)",
-              ) as HTMLElement | null;
-              if (btn?.classList.contains("pref-confirm-yes"))
-                haptics.trigger("warning");
-              else if (btn) haptics.trigger("selection");
-              e.stopPropagation();
-            }}
+            // Sounds come from the page-wide press handler; this only keeps clicks inside the dialog
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="pref-delete-dialog-title">Clear All Chats</div>
             <div className="pref-delete-dialog-text">

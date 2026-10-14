@@ -2,6 +2,7 @@
 // Purely decorative: it never intercepts the click (see .sparkle in App.css).
 
 import { sounds } from "./sounds";
+import { inGamesPath } from "./subroute";
 
 // Anything that does something, holds text worth selecting, or closes a layer
 // when clicked is not "empty space".
@@ -48,7 +49,8 @@ export function sparkleAt(x: number, y: number) {
   if (reducedMotion.matches) return;
 
   const root = document.createElement("div");
-  root.className = "sparkle";
+  // In the games, the burst takes the colours of the SNES face buttons
+  root.className = inGamesPath() ? "sparkle sparkle--snes" : "sparkle";
   root.style.left = `${Math.round(x)}px`;
   root.style.top = `${Math.round(y)}px`;
   for (const [dx, dy, shape] of BITS) {

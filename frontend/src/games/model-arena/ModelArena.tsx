@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { apiGetModels } from "../../components/api";
-import { MODEL_PRESETS } from "../../components/models";
+import { useOpenSave } from "../useOpenSave";
 import {
   apiCreateGame,
   apiDeleteGame,
@@ -32,7 +32,22 @@ function nameOf(side: { model: string; character: string }): string {
 }
 
 export function ModelArena({ model, onExit }: GameProps) {
-  const [save, setSave] = useState<ArenaSave | null>(null);
+  // The open debate is kept in the address bar, so a refresh reopens it
+  const [save, setSave, restoring] = useOpenSave<ArenaState>("model-arena");
+
+  if (restoring)
+    return (
+      <div className="games-restoring" role="status">
+        <span className="waiting">
+          <span className="waiting-leaves" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span className="thinking-phrase">Picking up where you left off</span>
+        </span>
+      </div>
+    );
 
   if (save) return <Stage save={save} onSave={setSave} onLeave={() => setSave(null)} />;
   return <Menu model={model} onOpen={setSave} onExit={onExit} />;
@@ -50,14 +65,13 @@ function Menu({
   onExit: () => void;
 }) {
   const [debates, setDebates] = useState<GameSaveSummary<ArenaSummary>[]>([]);
-  const [models, setModels] = useState<string[]>(() => [
-    ...new Set([...(model ? [model] : []), ...MODEL_PRESETS.map((p) => p.model)]),
-  ]);
+  // The games' model to start with; the installed list replaces it once the server answers
+  const [models, setModels] = useState<string[]>(() => (model ? [model] : []));
   const [topic, setTopic] = useState("");
   const [mode, setMode] = useState<ArenaMode>("argument");
   const [sides, setSides] = useState<[SideDraft, SideDraft]>(() => [
-    { model: model || MODEL_PRESETS[0].model, character: DEFAULT_CHARACTERS[0] },
-    { model: MODEL_PRESETS[1].model, character: DEFAULT_CHARACTERS[1] },
+    { model: model ?? "", character: DEFAULT_CHARACTERS[0] },
+    { model: model ?? "", character: DEFAULT_CHARACTERS[1] },
   ]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -66,7 +80,7 @@ function Menu({
     apiListGames<ArenaSummary>(GAME_TYPE)
       .then(setDebates)
       .catch(() => setDebates([]));
-    // Offer what the server actually has; the presets stand in until it answers.
+    // Offer what the server actually has. With one model installed, both sides use it.
     apiGetModels()
       .then(({ models: installed }) => {
         if (installed.length === 0) return;

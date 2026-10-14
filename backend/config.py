@@ -21,10 +21,13 @@ def _env_bool(name: str, default: bool) -> bool:
 
 OLLAMA_BASE_URL  = os.environ.get("OLLAMA_URL")
 DEFAULT_MODEL    = os.environ.get("DEFAULT_MODEL", "llama3.1:8b")
+# The model the games use when the player has not picked one in Advanced settings
+GAME_MODEL       = os.environ.get("GAME_MODEL") or DEFAULT_MODEL
 VISION_MODEL     = os.environ.get("VISION_MODEL", "gemma3:4b-it-qat")
 EMBED_MODEL      = os.environ.get("EMBED_MODEL", "nomic-embed-text")
-THINKING_MODELS          = [m.strip().lower() for m in os.environ.get("THINKING_MODELS", "deepseek-r1").split(",") if m.strip()]
-TOOL_CAPABLE_MODELS      = [m.strip().lower() for m in os.environ.get("TOOL_CAPABLE_MODELS", "llama3.1,llama3.2,qwen2.5,command-r,phi4,smollm2,llama3.3").split(",") if m.strip()]
+# Only a fallback for when Ollama cannot be asked what a model can do (see ollama_caps.py)
+THINKING_MODELS          = [m.strip().lower() for m in os.environ.get("THINKING_MODELS", "").split(",") if m.strip()]
+TOOL_CAPABLE_MODELS      = [m.strip().lower() for m in os.environ.get("TOOL_CAPABLE_MODELS", "llama3.1,llama3.2,qwen2.5,qwen3,command-r,phi4,smollm2,llama3.3").split(",") if m.strip()]
 NO_SYSTEM_PROMPT_MODELS  = [m.strip().lower() for m in os.environ.get("NO_SYSTEM_PROMPT_MODELS", "dolphin").split(",") if m.strip()]
 IS_PRODUCTION    = os.environ.get("APP_ENV", "development").lower() == "production"
 NGROK_HEADERS    = {"ngrok-skip-browser-warning": "true"}

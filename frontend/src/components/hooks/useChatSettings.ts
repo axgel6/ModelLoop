@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { apiGetModels, apiHealth } from "../api";
-import { DEFAULT_MODEL, MODEL_PRESETS } from "../ChatInput";
+import { DEFAULT_MODEL } from "../ChatInput";
 
 const DEFAULT_SYSTEM_PROMPT = "";
+const GAME_MODEL_KEY = "game_model";
+const THINK_KEY = "think_mode";
 
 export function useChatSettings() {
   const [models, setModels] = useState<string[]>([]);
@@ -19,23 +21,48 @@ export function useChatSettings() {
     const stored = localStorage.getItem("voice_speech_rate");
     return stored ? parseFloat(stored) : 1.0;
   });
+  // The games' model: empty means the server's default (GAME_MODEL). Remembered in this browser.
+  const [gameModel, setGameModelState] = useState<string>(() => {
+    try {
+      return localStorage.getItem(GAME_MODEL_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  // Thinking: the model reasons before answering. On or off for every model that can, remembered.
+  const [thinking, setThinkingState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(THINK_KEY) === "on";
+    } catch {
+      return false;
+    }
+  });
+  const setThinking = (on: boolean) => {
+    setThinkingState(on);
+    try {
+      localStorage.setItem(THINK_KEY, on ? "on" : "off");
+    } catch {
+      // private mode: it lasts until the page closes
+    }
+  };
+  const [serverDefaults, setServerDefaults] = useState<{ chat?: string; game?: string }>({});
   const modelsLoadedRef = useRef(false);
 
   useEffect(() => {
     const tryLoadModels = async () => {
       try {
-        const { models: availableModels, capabilities } = await apiGetModels();
+        const { models: availableModels, capabilities, defaults } = await apiGetModels();
         setModels(availableModels);
         setModelCapabilities(capabilities);
+        setServerDefaults(defaults);
         setIsConnected(true);
         modelsLoadedRef.current = true;
         if (availableModels.length > 0) {
           setSelectedModel((prev) => {
             if (availableModels.includes(prev)) return prev;
-            const firstPreset = MODEL_PRESETS.find((p) =>
-              availableModels.includes(p.model),
-            );
-            return firstPreset ? firstPreset.model : availableModels[0];
+            // Then the server's DEFAULT_MODEL, then whatever is installed
+            if (defaults.chat && availableModels.includes(defaults.chat)) return defaults.chat;
+            return availableModels[0];
           });
         }
         return true;
@@ -66,6 +93,16 @@ export function useChatSettings() {
     };
   }, []);
 
+  const setGameModel = (model: string) => {
+    setGameModelState(model);
+    try {
+      if (model) localStorage.setItem(GAME_MODEL_KEY, model);
+      else localStorage.removeItem(GAME_MODEL_KEY);
+    } catch {
+      // private mode: it lasts until the page closes
+    }
+  };
+
   const setSpeechRate = (rate: number) => {
     localStorage.setItem("voice_speech_rate", String(rate));
     setSpeechRateState(rate);
@@ -74,6 +111,11 @@ export function useChatSettings() {
   return {
     models,
     modelCapabilities,
+    gameModel,
+    setGameModel,
+    serverDefaults,
+    thinking,
+    setThinking,
     selectedModel,
     setSelectedModel,
     isConnected,

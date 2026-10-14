@@ -1,21 +1,23 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DocumentMeta } from "./api";
-import { MODEL_PRESETS } from "./models";
 import { sounds } from "../sounds";
 import type { VoiceStatus } from "./hooks/useVoiceConversation";
 
-export { MODEL_PRESETS, DEFAULT_MODEL } from "./models";
+export { DEFAULT_MODEL } from "./models";
 
 const SLASH_COMMANDS = [
   { cmd: "/clear", desc: "Clear conversation" },
   { cmd: "/search", desc: "Force web search for your query" },
-  { cmd: "/code", desc: "Code mode (qwen2.5-coder:7b)" },
-  { cmd: "/math", desc: "Math mode (deepseek-r1:7b)" },
-  { cmd: "/think", desc: "Thinking mode (deepseek-r1:7b)" },
-  { cmd: "/fast", desc: "Fast mode (llama3.1:8b)" },
+  { cmd: "/code", desc: "Code mode: coding instructions" },
+  { cmd: "/math", desc: "Math mode: step by step, thinking on" },
+  { cmd: "/think", desc: "Turn thinking on or off" },
+  { cmd: "/fast", desc: "Fast mode: thinking off" },
   { cmd: "/ratelimit", desc: "Show rate limit info" },
   { cmd: "/help", desc: "Show commands" },
 ];
+
+// How a model's abilities read in the quick switch, as on the badges in Preferences
+const CAPABILITY_LABEL: Record<string, string> = { web: "Web", thinking: "Thinking", vision: "Images" };
 
 interface ChatInputProps {
   loading: boolean;
@@ -27,6 +29,9 @@ interface ChatInputProps {
   assistantName?: string;
   selectedModel?: string;
   setSelectedModel?: (model: string) => void;
+  /** Installed models, for the quick switch */
+  models?: string[];
+  modelCapabilities?: Record<string, string[]>;
   documents?: DocumentMeta[];
   docsUploading?: boolean;
   docUploadError?: string | null;
@@ -45,6 +50,10 @@ interface ChatInputProps {
   onVoiceToggle?: () => void;
   focusedMode?: boolean;
   onFocusedModeToggle?: () => void;
+  /** Thinking is on: the model reasons before answering */
+  thinking?: boolean;
+  /** Shown only for a model that can think */
+  onThinkingToggle?: () => void;
 }
 
 function ChatInput({
@@ -56,6 +65,8 @@ function ChatInput({
   assistantName = "ModelLoop",
   selectedModel,
   setSelectedModel,
+  models = [],
+  modelCapabilities = {},
   documents = [],
   docsUploading = false,
   docUploadError,
@@ -74,6 +85,8 @@ function ChatInput({
   onVoiceToggle,
   focusedMode = false,
   onFocusedModeToggle,
+  thinking = false,
+  onThinkingToggle,
 }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
@@ -96,8 +109,8 @@ function ChatInput({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const docFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const currentPresetLabel =
-    MODEL_PRESETS.find((p) => p.model === selectedModel)?.label ?? "Custom";
+  // The quick switch names the model by its family, without the size tag
+  const currentModelLabel = selectedModel ? selectedModel.split(":")[0] : "Model";
 
   const adjustTextareaHeight = () => {
     const ta = textareaRef.current;
@@ -690,28 +703,28 @@ function ChatInput({
                   >
                     <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
-                  {currentPresetLabel}
+                  {currentModelLabel}
                 </button>
                 {modelDropdownOpen && (
                   <div className="tools-dropdown-menu tools-dropdown-menu--right">
-                    {MODEL_PRESETS.map((preset) => (
+                    {models.map((m) => (
                       <button
-                        key={preset.label}
-                        className={`tools-dropdown-item${selectedModel === preset.model ? " active" : ""}`}
+                        key={m}
+                        className={`tools-dropdown-item${selectedModel === m ? " active" : ""}`}
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          setSelectedModel(preset.model);
+                          setSelectedModel(m);
                           setModelDropdownOpen(false);
                         }}
                         type="button"
-                        title={preset.model}
+                        title={m}
                       >
                         <span className="tools-dropdown-item-text">
-                          <span className="tools-dropdown-item-label">
-                            {preset.label}
-                          </span>
+                          <span className="tools-dropdown-item-label">{m.split(":")[0]}</span>
                           <span className="tools-dropdown-item-desc">
-                            {preset.model}
+                            {[m.split(":")[1], ...(modelCapabilities[m] ?? []).map((c) => CAPABILITY_LABEL[c] ?? c)]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </span>
                         </span>
                       </button>
@@ -719,6 +732,21 @@ function ChatInput({
                   </div>
                 )}
               </div>
+            )}
+            {onThinkingToggle && (
+              <button
+                className={`toolbar-icon-btn toolbar-think-btn${thinking ? " is-on" : ""}`}
+                onClick={onThinkingToggle}
+                title={thinking ? "Thinking on: it reasons before answering" : "Thinking off: quick answers"}
+                aria-pressed={thinking}
+                type="button"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18h6M10 21h4" />
+                  <path className="think-bulb" d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" />
+                </svg>
+                <span className="toolbar-dock-label">{thinking ? "Thinking on" : "Think"}</span>
+              </button>
             )}
             {onFocusedModeToggle && (
               <button

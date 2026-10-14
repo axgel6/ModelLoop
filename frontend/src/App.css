@@ -916,6 +916,28 @@ html[data-theme="meadow"] .connection-banner {
   color: #ebdbb2;
 }
 
+/* Think switched on: the bulb lights up, filled in the theme's accent with a soft glow */
+.toolbar-think-btn.is-on,
+.toolbar-think-btn.is-on:hover {
+  color: var(--game-accent, #fabd2f);
+}
+
+.toolbar-think-btn .think-bulb {
+  transition: fill 0.2s;
+}
+
+.toolbar-think-btn.is-on .think-bulb {
+  fill: color-mix(in srgb, var(--game-accent, #fabd2f) 55%, transparent);
+}
+
+.toolbar-think-btn svg {
+  transition: filter 0.2s;
+}
+
+.toolbar-think-btn.is-on svg {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--game-accent, #fabd2f) 70%, transparent));
+}
+
 /* "Tools" chip button */
 .toolbar-chip-btn {
   display: flex;
@@ -4453,6 +4475,18 @@ html:where([data-theme="frost"])[data-theme] .pref-avatar-swatch--default:hover 
   border: 1px solid rgba(211, 134, 155, 0.35);
 }
 
+.pref-model-badge--vision {
+  background: rgba(250, 189, 47, 0.16);
+  color: #d79921;
+  border: 1px solid rgba(250, 189, 47, 0.35);
+}
+
+.pref-model-badge--games {
+  background: rgba(184, 187, 38, 0.16);
+  color: #98971a;
+  border: 1px solid rgba(184, 187, 38, 0.35);
+}
+
 :where(html[data-theme="frost"]) .pref-model-badge--thinking {
   border: 1px solid rgba(180, 142, 173, 0.35);
 }
@@ -5110,6 +5144,36 @@ html[data-theme="meadow"] .pref-modal {
   box-shadow: 0 8px 40px rgba(41, 66, 49, 0.12);
 }
 
+/* Preferences: the content side is see-through, with what is behind it blurred. The backdrop
+   already dims the app, so it takes this much see-through for the app to show at all.
+   The left bar keeps its own solid background, so only the content shows through. */
+.pref-modal,
+html[data-theme] .pref-modal {
+  --pref-see-through: 75%;
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+}
+
+.pref-modal {
+  background: color-mix(in srgb, #282828 var(--pref-see-through), transparent);
+}
+
+html[data-theme="dune"] .pref-modal {
+  background: color-mix(in srgb, #ffffff var(--pref-see-through), transparent);
+}
+
+html[data-theme="ember"] .pref-modal {
+  background: color-mix(in srgb, #32302f var(--pref-see-through), transparent);
+}
+
+html[data-theme="frost"] .pref-modal {
+  background: color-mix(in srgb, #373e4d var(--pref-see-through), transparent);
+}
+
+html[data-theme="meadow"] .pref-modal {
+  background: color-mix(in srgb, #ffffff var(--pref-see-through), transparent);
+}
+
 html[data-theme="dune"] .pref-sidebar {
   background: #f5f0e8;
   border-right-color: #e7e0d6;
@@ -5530,24 +5594,32 @@ html[data-theme="meadow"] .pref-list-item.active .pref-item-icon {
   color: #ffffff;
 }
 
+html[data-theme="dune"] .pref-list-item.active .pref-model-badge--vision,
+html[data-theme="dune"] .pref-list-item.active .pref-model-badge--games,
 html[data-theme="dune"] .pref-list-item.active .pref-model-badge--web {
   background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+html[data-theme="ember"] .pref-list-item.active .pref-model-badge--vision,
+html[data-theme="ember"] .pref-list-item.active .pref-model-badge--games,
 html[data-theme="ember"] .pref-list-item.active .pref-model-badge--web {
   background: rgba(255, 255, 255, 0.052);
   color: #ebdbb2;
   border-color: rgba(102, 92, 84, 0.8);
 }
 
+html[data-theme="frost"] .pref-list-item.active .pref-model-badge--vision,
+html[data-theme="frost"] .pref-list-item.active .pref-model-badge--games,
 html[data-theme="frost"] .pref-list-item.active .pref-model-badge--web {
   background: rgba(255, 255, 255, 0.052);
   color: #353c4a;
   border-color: rgba(55, 62, 77, 0.3);
 }
 
+html[data-theme="meadow"] .pref-list-item.active .pref-model-badge--vision,
+html[data-theme="meadow"] .pref-list-item.active .pref-model-badge--games,
 html[data-theme="meadow"] .pref-list-item.active .pref-model-badge--web {
   background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
@@ -13015,6 +13087,31 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
   top: -3px;
 }
 
+/* In the games: each direction takes the colour of the SNES face button on that side of the
+   diamond (X blue on top, A red on the right, B yellow below, Y green on the left), and each
+   diagonal the colour of one of the two buttons beside it. The bits are added in the order
+   right, left, down, up, then down-right, down-left, up-right, up-left (see BITS in sparkle.ts).
+   The tones are the Super Famicom's own muted ones, which sit better beside the app's soft colours. */
+.sparkle--snes .sparkle-bit:nth-child(1),
+.sparkle--snes .sparkle-bit:nth-child(5) {
+  background: #c2464b; /* A: dusty red */
+}
+
+.sparkle--snes .sparkle-bit:nth-child(2),
+.sparkle--snes .sparkle-bit:nth-child(8) {
+  background: #4f9a68; /* Y: muted green */
+}
+
+.sparkle--snes .sparkle-bit:nth-child(3),
+.sparkle--snes .sparkle-bit:nth-child(6) {
+  background: #c99a2e; /* B: mustard, dark enough to show on the light themes */
+}
+
+.sparkle--snes .sparkle-bit:nth-child(4),
+.sparkle--snes .sparkle-bit:nth-child(7) {
+  background: #5372b8; /* X: slate blue */
+}
+
 /* --dx and --dy are -1, 0 or 1 (0.75 on the diagonals): the direction to travel */
 @keyframes sparkle-burst {
   0% {
@@ -13185,4 +13282,11 @@ html.stretchy-dragging * {
 html[data-theme] .chat-topbar .topbar-icon-btn.is-held,
 html[data-theme] .sidebar-brand-btn.is-held {
   z-index: 5;
+}
+
+/* Advanced settings: the games' own model */
+.pref-game-model {
+  width: 100%;
+  margin-top: 10px;
+  cursor: pointer;
 }

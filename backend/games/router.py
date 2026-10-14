@@ -12,6 +12,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import config as _config
+import ollama_caps
 import ollama_http
 from config import CHAT_RATE_LIMIT, MODEL_NAME_PATTERN, NGROK_HEADERS, THINKING_MODELS
 from database import get_db, AsyncSessionLocal
@@ -236,6 +237,19 @@ async def list_games(
     return {"games": [_serialize(g, with_state=False) for g in result.scalars().all()]}
 
 
+async def _best(user: User, db: AsyncSession, game_type: str) -> list[dict]:
+    result = await db.execute(
+        select(GameScore)
+        .where(GameScore.user_id == user.id, GameScore.game_type == game_type)
+        .order_by(GameScore.score.desc(), GameScore.created_at.asc())
+        .limit(10)
+    )
+    return [
+        {"id": str(row.id), "title": row.title, "score": row.score, "created_at": row.created_at, **row.detail}
+        for row in result.scalars().all()
+    ]
+
+
 @router.get("/scores")
 async def best_scores(
     game_type: str = ceo.GAME_TYPE,
@@ -243,16 +257,7 @@ async def best_scores(
     db: AsyncSession = Depends(get_db),
 ):
     """The caller's ten best finished runs."""
-    result = await db.execute(
-        select(GameScore)
-        .where(GameScore.user_id == user.id, GameScore.game_type == game_type)
-        .order_by(GameScore.score.desc(), GameScore.created_at.asc())
-        .limit(10)
-    )
-    return {"scores": [
-        {"id": str(row.id), "title": row.title, "score": row.score, "created_at": row.created_at, **row.detail}
-        for row in result.scalars().all()
-    ]}
+    return {"scores": await _best(user, db, game_type)}
 
 
 @router.get("/negotiation/listings")
@@ -299,6 +304,11 @@ def _run_view(run_game: Optional[GameSession]) -> dict:
 @router.get("/negotiation/hustle")
 async def get_hustle(user: User = Depends(get_user), db: AsyncSession = Depends(get_db)) -> dict:
     """The caller's latest Hustle run, and what everything costs in it."""
+    return await _current_hustle(user, db)
+
+
+async def _current_hustle(user: User, db: AsyncSession) -> dict:
+    """The latest run, settled first if its last day went on a chat that was never finished."""
     run_game = await _hustle_run(user, db)
     if run_game and run_game.state["status"] == "active" and run_game.state["day"] >= run_game.state["days"]:
         # The last day was spent on a chat that was never finished: the run is over all the same
@@ -391,15 +401,45 @@ async def negotiation_inventory(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Everything the caller has bought in Negotiation, newest first."""
+    return {"items": await _inventory(user, db)}
+
+
+async def _inventory(user: User, db: AsyncSession) -> list[dict]:
     result = await db.execute(
         select(GameScore)
         .where(GameScore.user_id == user.id, GameScore.game_type == haggle.GAME_TYPE)
         .order_by(GameScore.created_at.desc())
     )
-    return {"items": [
+    return [
         haggle.inventory_item({"id": str(row.id), "title": row.title, "score": row.score, "bought_at": row.created_at, **row.detail})
         for row in result.scalars().all()
-    ]}
+    ]
+
+
+@router.get("/negotiation/overview")
+async def negotiation_overview(user: User = Depends(get_user), db: AsyncSession = Depends(get_db)) -> dict:
+    """Everything the Marketplace menu shows, in one trip: the chat still open, the Hustle run,
+    the inventory, the bank and the leaderboards. The catalogue of listings stays separate."""
+    open_chat = (await db.execute(
+        select(GameSession)
+        .where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)
+        .order_by(GameSession.updated_at.desc())
+    )).scalars().all()
+    unfinished = next((g for g in open_chat if g.state.get("status") in ("active", "choosing")), None)
+    hustle_view = await _current_hustle(user, db)
+    account = await _free_bank(user, db)
+    await db.commit()
+    return {
+        "unfinished": _serialize(unfinished, with_state=False) if unfinished else None,
+        "hustle": hustle_view,
+        "inventory": await _inventory(user, db),
+        "bank": await _bank_view(account, user, db),
+        "scores": {
+            "buy": await _best(user, db, haggle.GAME_TYPE),
+            "sell": await _best(user, db, SALE_GAME_TYPE),
+            "hustle": await _best(user, db, hustle.GAME_TYPE),
+        },
+    }
 
 
 @router.post("/ceo-simulator", status_code=201)
@@ -1125,8 +1165,9 @@ async def _pick_model(base_url: str, wanted: str) -> str:
         raise HTTPException(status_code=502, detail="The model server has no models installed.")
     if wanted in available:
         return wanted
-    if _config.DEFAULT_MODEL in available:
-        return _config.DEFAULT_MODEL
+    for fallback in (_config.GAME_MODEL, _config.DEFAULT_MODEL):
+        if fallback in available:
+            return fallback
     # Reasoning models are slow and add nothing to a JSON turn; prefer any other.
     plain = [m for m in available if not any(p in m.lower() for p in THINKING_MODELS)]
     return (plain or available)[0]
@@ -1145,7 +1186,7 @@ async def _ask_json(base_url: str, model: str, system: str, prompt: str, schema:
         "format": schema,
         "options": {"temperature": 0.8},
     }
-    if any(p in model.lower() for p in THINKING_MODELS):
+    if await ollama_caps.can_think(base_url, model):
         payload["think"] = False
     resp = await ollama_http.client().post(
         f"{base_url}/api/chat", json=payload, headers=NGROK_HEADERS, timeout=TURN_TIMEOUT_SECONDS,
@@ -1166,7 +1207,7 @@ async def _ask_text(base_url: str, model: str, messages: list[dict], max_tokens:
         "keep_alive": -1,
         "options": {"temperature": 0.9, "num_predict": max_tokens},
     }
-    if any(p in model.lower() for p in THINKING_MODELS):
+    if await ollama_caps.can_think(base_url, model):
         payload["think"] = False
     resp = await ollama_http.client().post(
         f"{base_url}/api/chat", json=payload, headers=NGROK_HEADERS, timeout=TURN_TIMEOUT_SECONDS,
@@ -1199,7 +1240,7 @@ async def _ask_with_retry(
     game_id: uuid.UUID, base_url: str, wanted: Optional[str], system: str, prompt: str, schema: dict,
 ) -> dict:
     """The model's JSON reply to a turn, from the model asked for or the nearest one the server has."""
-    model = await _pick_model(base_url, (wanted or _config.DEFAULT_MODEL).strip())
+    model = await _pick_model(base_url, (wanted or _config.GAME_MODEL).strip())
     return await _retrying(game_id, model, lambda: _ask_json(base_url, model, system, prompt, schema))
 
 

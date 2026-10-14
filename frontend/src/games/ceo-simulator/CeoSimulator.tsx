@@ -11,6 +11,7 @@ import {
   type GameScoreRow,
   type GameSaveSummary,
 } from "../api";
+import { useOpenSave } from "../useOpenSave";
 import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
 import { DIFFICULTIES, LEVELS, ROLE_TITLE, STYLES, type Difficulty, type FounderStyle, type Role } from "./setup";
@@ -89,7 +90,22 @@ function signedMoney(amount: number): string {
 }
 
 export function CeoSimulator({ model, onExit }: GameProps) {
-  const [save, setSave] = useState<CeoSave | null>(null);
+  // The open company is kept in the address bar, so a refresh reopens it
+  const [save, setSave, restoring] = useOpenSave<CeoState>("ceo-simulator");
+
+  if (restoring)
+    return (
+      <div className="games-restoring" role="status">
+        <span className="waiting">
+          <span className="waiting-leaves" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span className="thinking-phrase">Picking up where you left off</span>
+        </span>
+      </div>
+    );
 
   if (save) {
     return (

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { pathParts, replacePath } from "../subroute";
 import { GAMES } from "./registry";
 import "./games.css";
 
@@ -8,7 +9,15 @@ interface GamesHubProps {
 }
 
 export function GamesHub({ model }: GamesHubProps) {
-  const [openId, setOpenId] = useState<string | null>(null);
+  // A refresh on /games/<game> reopens that game
+  const [openId, setOpenId] = useState<string | null>(() => {
+    const [first, id] = pathParts();
+    return first === "games" && GAMES.some((g) => g.id === id && g.component) ? id : null;
+  });
+  useEffect(() => {
+    // Only when the game changes: a game keeps its own save at the end of the path
+    if (pathParts()[1] !== (openId ?? undefined)) replacePath(openId ? `/games/${openId}` : "/games");
+  }, [openId]);
   const Game = GAMES.find((g) => g.id === openId)?.component;
   if (Game) return <Game model={model} onExit={() => setOpenId(null)} />;
 

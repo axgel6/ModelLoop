@@ -19,7 +19,8 @@ export function viewForPath(pathname: string): View {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path === "/" || path === "/welcome") return "welcome";
   if (path === "/login") return "login";
-  if (path === "/chat") return "chat";
+  // Deeper paths say where you are inside the chat view: a conversation, the games, a game
+  if (path === "/chat" || path.startsWith("/chat/") || path === "/games" || path.startsWith("/games/")) return "chat";
   if (path === "/terms") return "terms";
   return "welcome"; // unknown path: show the explainer rather than a blank screen
 }
@@ -35,7 +36,8 @@ export function useRoute(initial: View): [View, (next: View) => void] {
     // Normalize the first entry so an unknown or non-canonical path (/nonsense, /chat/)
     // becomes the real URL of what is on screen. replaceState, so Back still leaves the app.
     const path = window.location.pathname;
-    if (path !== "/" && path !== pathForView(view)) {
+    // A deeper path that already belongs to this view stays as it is
+    if (path !== "/" && path !== pathForView(view) && viewForPath(path) !== view) {
       window.history.replaceState({ view }, "", pathForView(view));
     }
   }, []);

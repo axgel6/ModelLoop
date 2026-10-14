@@ -3,26 +3,23 @@ import {
   apiCreateGame,
   apiEditGame,
   apiGameChat,
-  apiGameScores,
   apiGetGame,
-  apiListGames,
   apiPlayTurn,
   type GameSave,
   type GameSaveSummary,
   type GameScoreRow,
 } from "../api";
-import { apiFetch } from "../../components/api";
 import { useEscapeKey } from "../../components/useEscapeKey";
 import { sounds } from "../../sounds";
 import { createPortal } from "react-dom";
 import { BackButton } from "../BackButton";
+import { useOpenSave } from "../useOpenSave";
 import type { GameProps } from "../types";
 import { Avatar } from "./Avatar";
 import { avatarSeed } from "./avatarSeed";
 import { Bank } from "./Bank";
 import { CustomListingForm } from "./CustomListingForm";
 import {
-  HUSTLE_SCORES,
   apiBank,
   apiHustle,
   apiMoveMoney,
@@ -32,8 +29,8 @@ import {
   type HustleView,
 } from "./hustleData";
 import { Inventory } from "./Inventory";
-import { apiInventory } from "./inventoryData";
 import { ListingBrowser } from "./ListingBrowser";
+import { apiListings, apiOverview, cachedListings, cachedOverview } from "./menuData";
 import { LISTINGS_SHOWN, dealListings } from "./setup";
 import type {
   CustomListing,
@@ -49,8 +46,6 @@ import type {
 import "./negotiation.css";
 
 const GAME_TYPE = "negotiation";
-// Sales are scored apart from purchases
-const SALE_SCORES = "negotiation-sale";
 // What is sent when the player bluffs without typing anything. The server uses the same lines.
 const BLUFF_MESSAGE = "I think I'll leave it. Thanks anyway.";
 const SELL_BLUFF_MESSAGE = "Just a heads up, someone else is coming to look at it later today.";
@@ -111,15 +106,45 @@ const TELLS = {
 } as const;
 
 type HaggleSave = GameSave<HaggleState>;
+// Which of Free play and Hustle the menu is on, kept for the tab
+const PLAY_KEY = "marketplace_play";
 
 
 export function Negotiation({ model, onExit }: GameProps) {
-  const [save, setSave] = useState<HaggleSave | null>(null);
+  // The open chat is kept in the address bar, so a refresh reopens it
+  const [save, setSave, restoring] = useOpenSave<HaggleState>(GAME_TYPE);
   // Leaving a finished purchase can go straight to the inventory
   const [showInventory, setShowInventory] = useState(false);
-  // Free play or a Hustle run, kept while the player goes in and out of chats
-  const [play, setPlay] = useState<"free" | "hustle">("free");
+  // Free play or a Hustle run, kept while the player goes in and out of chats, and through a refresh
+  const [play, setPlayState] = useState<"free" | "hustle">(() => {
+    try {
+      return sessionStorage.getItem(PLAY_KEY) === "hustle" ? "hustle" : "free";
+    } catch {
+      return "free";
+    }
+  });
+  const setPlay = (next: "free" | "hustle") => {
+    setPlayState(next);
+    try {
+      sessionStorage.setItem(PLAY_KEY, next);
+    } catch {
+      // private mode: it just will not survive a refresh
+    }
+  };
 
+  if (restoring)
+    return (
+      <div className="games-restoring" role="status">
+        <span className="waiting">
+          <span className="waiting-leaves" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span className="thinking-phrase">Picking up where you left off</span>
+        </span>
+      </div>
+    );
   if (save)
     return (
       <Play
@@ -152,15 +177,19 @@ function Menu({
   play: "free" | "hustle";
   onPlay: (play: "free" | "hustle") => void;
 }) {
-  const [hustle, setHustle] = useState<HustleView | null>(null);
-  const [hustleScores, setHustleScores] = useState<GameScoreRow[]>([]);
+  // What this visit already loaded draws the menu at once; a fresh copy replaces it as it arrives
+  const cached = cachedOverview();
+  const cachedAll = cachedListings();
+  const [ready, setReady] = useState(!!cached && !!cachedAll);
+  const [hustle, setHustle] = useState<HustleView | null>(cached?.hustle ?? null);
+  const [hustleScores, setHustleScores] = useState<GameScoreRow[]>(cached?.scores.hustle ?? []);
   const [bankOpen, setBankOpen] = useState(false);
   // Free play has its own account, apart from any Hustle run
-  const [freeBank, setFreeBank] = useState<FreeBank | null>(null);
+  const [freeBank, setFreeBank] = useState<FreeBank | null>(cached?.bank ?? null);
   const [freeBankOpen, setFreeBankOpen] = useState(false);
   const [showScores, setShowScores] = useState(false);
   const [mode, setMode] = useState<HaggleMode>("buy");
-  const [inventory, setInventory] = useState<InventoryItem[] | null>(null);
+  const [inventory, setInventory] = useState<InventoryItem[] | null>(cached?.inventory ?? null);
   const [inventoryOpen, setInventoryOpen] = useState(startInInventory);
   const [customOpen, setCustomOpen] = useState(false);
   // Selling: which purchase, and the price it goes up at
@@ -168,48 +197,45 @@ function Menu({
   const [asking, setAsking] = useState("");
   // Free play: the listing's description, rewritten as the player likes. Hustle: notes added under it
   const [listingText, setListingText] = useState("");
-  const [saleScores, setSaleScores] = useState<GameScoreRow[]>([]);
-  const [unfinished, setUnfinished] = useState<GameSaveSummary<HaggleSummary> | null>(null);
-  const [scores, setScores] = useState<GameScoreRow[]>([]);
+  const [saleScores, setSaleScores] = useState<GameScoreRow[]>(cached?.scores.sell ?? []);
+  const [unfinished, setUnfinished] = useState<GameSaveSummary<HaggleSummary> | null>(cached?.unfinished ?? null);
+  const [scores, setScores] = useState<GameScoreRow[]>(cached?.scores.buy ?? []);
   // null is "Surprise me": the server deals a scenario
   const [scenario, setScenario] = useState<string | null>(null);
   // Everything for sale, and the handful on screen; the refresh button deals another
-  const [listings, setListings] = useState<HaggleListing[]>([]);
-  const [offered, setOffered] = useState<HaggleListing[]>([]);
+  const [listings, setListings] = useState<HaggleListing[]>(cachedAll ?? []);
+  const [offered, setOffered] = useState<HaggleListing[]>(() => (cachedAll ? dealListings(cachedAll) : []));
   const [browsing, setBrowsing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  // Everything in two requests, drawn together: one for the player's own things, one for the catalogue
   useEffect(() => {
-    apiListGames<HaggleSummary>(GAME_TYPE)
-      .then((saves) => setUnfinished(saves.find((s) => s.summary.status === "active" || s.summary.status === "choosing") ?? null))
-      .catch(() => setUnfinished(null));
-    apiGameScores(GAME_TYPE)
-      .then(setScores)
-      .catch(() => setScores([]));
-    apiGameScores(SALE_SCORES)
-      .then(setSaleScores)
-      .catch(() => setSaleScores([]));
-    apiGameScores(HUSTLE_SCORES)
-      .then(setHustleScores)
-      .catch(() => setHustleScores([]));
-    apiHustle()
-      .then(setHustle)
-      .catch(() => setHustle({ run: null, prices: {} }));
-    apiInventory()
-      .then(setInventory)
-      .catch(() => setInventory([]));
-    apiBank()
-      .then(setFreeBank)
-      .catch(() => setFreeBank(null));
-    // Without the list there is still "Surprise me", which the server deals itself
-    apiFetch("/api/v1/games/negotiation/listings")
-      .then((res) => (res.ok ? res.json() : { listings: [] }))
-      .then(({ listings: all }: { listings: HaggleListing[] }) => {
+    let current = true;
+    Promise.all([apiOverview().catch(() => null), apiListings().catch(() => [] as HaggleListing[])]).then(
+      ([fresh, all]) => {
+        if (!current) return;
+        if (fresh) {
+          setUnfinished(fresh.unfinished);
+          setHustle(fresh.hustle);
+          setInventory(fresh.inventory);
+          setFreeBank(fresh.bank);
+          setScores(fresh.scores.buy);
+          setSaleScores(fresh.scores.sell);
+          setHustleScores(fresh.scores.hustle);
+        } else {
+          setHustle((h) => h ?? { run: null, prices: {} });
+          setInventory((i) => i ?? []);
+        }
         setListings(all);
-        setOffered(dealListings(all));
-      })
-      .catch(() => {});
+        // Keep the handful on screen if this visit already dealt them
+        setOffered((shown) => (shown.length > 0 ? shown : dealListings(all)));
+        setReady(true);
+      },
+    );
+    return () => {
+      current = false;
+    };
   }, []);
 
   // In a Hustle run, everything comes from the run: its holdings, its prices, its balance
@@ -263,6 +289,28 @@ function Menu({
       setBusy(false);
     }
   };
+
+  if (!ready)
+    return (
+      <div className="neg neg--menu">
+        <div className="neg-menu">
+          <div className="game-menu-head">
+            <BackButton label="Back to all games" onClick={onExit} />
+            <h2 className="neg-title">Marketplace</h2>
+          </div>
+          <div className="neg-loading">
+            <span className="waiting" role="status">
+              <span className="waiting-leaves" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              <span className="thinking-phrase">Opening the marketplace</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    );
 
   return (
     <div className="neg neg--menu">
@@ -708,11 +756,11 @@ function AccountBar({
 }) {
   return (
     <div className="neg-account">
-      <button type="button" className="neg-account-part" onClick={onBank}>
+      <button type="button" className="neg-account-part neg-account-part--money" onClick={onBank}>
         <span className="neg-account-value">{money(cash)}</span>
         <span className="pref-item-desc">{detail}</span>
       </button>
-      <button type="button" className="neg-account-part" onClick={onInventory} disabled={items === 0}>
+      <button type="button" className="neg-account-part neg-account-part--stuff" onClick={onInventory} disabled={items === 0}>
         <span className="neg-account-value">
           {items} {items === 1 ? "item" : "items"}
         </span>

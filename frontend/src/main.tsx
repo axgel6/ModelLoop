@@ -10,7 +10,10 @@ import { initStretchy } from "./stretchy";
 
 initStretchy();
 
-document.addEventListener("click", (e) => {
+// Sound, haptics and the sparkle for a press. They run the moment the pointer goes down, before
+// React re-renders anything: on "click" they waited for the whole screen to update first, which a
+// heavy screen turned into an audible lag.
+function feedback(e: MouseEvent) {
   const target = e.target as HTMLElement;
 
   // ---- Buttons ----
@@ -69,6 +72,21 @@ document.addEventListener("click", (e) => {
 
   // ---- Empty space ----
   if (isEmptySpaceClick(e)) sparkleAt(e.clientX, e.clientY);
+}
+
+// Mouse, touch and pen: on the press itself, in the capture phase so nothing can delay or stop it
+document.addEventListener(
+  "pointerdown",
+  (e) => {
+    if (e.isPrimary && e.button === 0) feedback(e);
+  },
+  { capture: true },
+);
+
+// Keyboard (Enter or Space on a button) only reaches "click", and its clicks carry no pointer
+// detail, so nothing pressed with a pointer gets its feedback twice
+document.addEventListener("click", (e) => {
+  if (e.detail === 0) feedback(e);
 });
 
 // ---- Sliders: haptic tick on each step change ----

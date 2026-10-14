@@ -1489,3 +1489,29 @@ html .neg .neg-extra--research:hover:not(:disabled) {
   font-weight: 600;
   text-align: center;
 }
+
+/* The menu's first load: one quiet line, then the whole menu at once */
+.neg-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+/* ---- Pastels: the account tiles' soft tints, from the same family as the avatars' backgrounds ---- */
+
+.neg {
+  --pastel-mint: #9fe0bd;
+  --pastel-lavender: #c4b3ef;
+}
+
+/* The account tiles: money in mint, stuff in lavender, barely there */
+html .neg .neg-account-part--money,
+html .neg .neg-account-part--money:hover {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--pastel-mint) 16%, transparent), transparent 70%), var(--glass-bg);
+}
+
+html .neg .neg-account-part--stuff,
+html .neg .neg-account-part--stuff:hover,
+html .neg .neg-account-part--stuff:disabled {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--pastel-lavender) 16%, transparent), transparent 70%), var(--glass-bg);
+}
