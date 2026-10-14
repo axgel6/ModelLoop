@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { apiHealth, apiLogin, apiRegister, scheduleProactiveRefresh } from "./api";
+import {
+  apiHealth,
+  apiLogin,
+  apiRegister,
+  scheduleProactiveRefresh,
+} from "./api";
 import ConnectionBanner from "./ConnectionBanner";
 import { StretchyLogo } from "./StretchyLogo";
 
@@ -102,9 +107,13 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
           </button>
 
           <div className="login-header">
-            <h1 className="login-logo"><StretchyLogo /></h1>
+            <h1 className="login-logo">
+              <StretchyLogo />
+            </h1>
             <p className="login-subtitle">
-              {isLogin ? "Sign in to continue" : "Create an account"}
+              {isLogin
+                ? "Welcome back. Sign in to pick up where you left off."
+                : "Create an account to save your chats, pick a theme, and play games."}
             </p>
           </div>
 
@@ -179,7 +188,13 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
               onClick={handleSubmit}
               disabled={loading}
             >
-              {loading ? <span className="btn-spinner" /> : isLogin ? "Sign In" : "Create Account"}
+              {loading ? (
+                <span className="btn-spinner" />
+              ) : isLogin ? (
+                "Sign In"
+              ) : (
+                "Create Account"
+              )}
             </button>
           </div>
 
