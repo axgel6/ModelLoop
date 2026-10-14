@@ -85,6 +85,8 @@ export interface HaggleState {
     category?: string | null;
     /** Selling: what sort of buyer this is, such as "Collector" */
     kind?: string;
+    /** Selling in a Hustle run: the player's own claims, shown under the item's real description */
+    notes?: string | null;
   };
   opening: string;
   list_price: number;

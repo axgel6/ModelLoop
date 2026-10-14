@@ -92,6 +92,10 @@ class NewNegotiation(BaseModel):
     custom:       Optional[CustomListing] = None
     inventory_id: Optional[uuid.UUID]     = None
     asking:       Optional[int]           = Field(default=None, gt=0, le=1_000_000)
+    # Selling from the inventory. Free play may rewrite the description; a Hustle run keeps the
+    # item's real description and condition, and the player adds notes the buyer takes as claims
+    description:  Optional[str]           = Field(default=None, max_length=600)
+    notes:        Optional[str]           = Field(default=None, max_length=300)
     # Part of the player's Hustle run: real money, and it uses a day
     hustle:       bool                    = False
 
@@ -360,6 +364,8 @@ async def create_negotiation(
         " ".join(body.custom.item.split()), body.custom.price, body.custom.condition,
         body.custom.category and " ".join(body.custom.category.split()), " ".join(body.custom.description.split()),
     )
+    if body.notes is not None:
+        raise HTTPException(status_code=422, detail="Seller's notes are for Hustle runs")
     if body.mode == selling.MODE:
         if body.inventory_id:
             row = await _unsold_purchase(body.inventory_id, user, db)
@@ -368,6 +374,8 @@ async def create_negotiation(
                 "id": item.get("listing"), "item": item["title"], "list_price": item["list_price"],
                 **{k: item.get(k) for k in ("condition", "description", "category", "setting")},
             }
+            if body.description is not None:
+                listing["description"] = " ".join(body.description.split())
             state = selling.new_game(listing, body.asking or item["list_price"], item.get("paid"), str(row.id), body.difficulty)
         elif custom:
             state = selling.new_game(custom, body.asking or custom["list_price"], None, None, body.difficulty)
@@ -395,6 +403,8 @@ async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession
     run = run_game.state
     if body.custom:
         raise HTTPException(status_code=422, detail="Listings of your own are for free play")
+    if body.description is not None:
+        raise HTTPException(status_code=422, detail="A Hustle item keeps its description; add notes instead")
     if body.mode == selling.MODE:
         item = body.inventory_id and hustle.holding(run, str(body.inventory_id))
         if not item or item.get("sold"):
@@ -403,7 +413,10 @@ async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession
             "id": item.get("listing"), "item": item["title"], "list_price": item["list_price"],
             **{k: item.get(k) for k in ("condition", "description", "category", "setting")},
         }
-        state = selling.new_game(listing, body.asking or item["list_price"], item["paid"], item["id"], body.difficulty)
+        state = selling.new_game(
+            listing, body.asking or item["list_price"], item["paid"], item["id"], body.difficulty,
+            notes=body.notes and " ".join(body.notes.split()),
+        )
     else:
         scenario = haggle.scenario_for(body.scenario)
         state = haggle.new_game(scenario["id"], body.difficulty, list_price=hustle.price_of(run, scenario))

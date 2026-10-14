@@ -100,6 +100,8 @@ function Menu({
   // Selling: which purchase, and the price it goes up at
   const [sellPick, setSellPick] = useState<string | null>(null);
   const [asking, setAsking] = useState("");
+  // Free play: the listing's description, rewritten as the player likes. Hustle: notes added under it
+  const [listingText, setListingText] = useState("");
   const [saleScores, setSaleScores] = useState<GameScoreRow[]>([]);
   const [unfinished, setUnfinished] = useState<GameSaveSummary<HaggleSummary> | null>(null);
   const [scores, setScores] = useState<GameScoreRow[]>([]);
@@ -172,6 +174,7 @@ function Menu({
     setMode("sell");
     setSellPick(item.id);
     setAsking(String(item.list_price));
+    setListingText(live ? "" : (item.description ?? ""));
   };
 
   const run = async (load: () => Promise<HaggleSave>) => {
@@ -448,6 +451,32 @@ function Menu({
                   {picked.paid != null && `You paid ${money(picked.paid)}. `}It lists for about {money(picked.list_price)}.
                   Asking higher leaves room to come down; the buyer's limit depends on what it is worth, not on your price.
                 </span>
+                {live ? (
+                  <>
+                    <p className="pref-setting-hint neg-facts">
+                      {[picked.condition, picked.description].filter(Boolean).join(". ") || "No description."}
+                    </p>
+                    <textarea
+                      className="neg-custom-description"
+                      value={listingText}
+                      onChange={(e) => setListingText(e.target.value)}
+                      maxLength={300}
+                      rows={3}
+                      aria-label="Your notes for the listing"
+                      placeholder="Add your own notes: what is included, why it is a good deal. The condition and description above stay as they are, and buyers will not believe claims that contradict them."
+                    />
+                  </>
+                ) : (
+                  <textarea
+                    className="neg-custom-description"
+                    value={listingText}
+                    onChange={(e) => setListingText(e.target.value)}
+                    maxLength={600}
+                    rows={3}
+                    aria-label="The listing's description"
+                    placeholder="Condition, what is included, any flaws. The buyer only knows what is written here."
+                  />
+                )}
               </div>
             )}
           </>
@@ -491,6 +520,11 @@ function Menu({
                     mode: "sell",
                     inventory_id: picked.id,
                     asking: askingValue > 0 ? askingValue : undefined,
+                    ...(live
+                      ? { notes: listingText.trim() || undefined }
+                      : listingText.trim() !== (picked.description ?? "").trim()
+                        ? { description: listingText.trim() }
+                        : {}),
                     difficulty,
                     hustle: !!live,
                   }),
@@ -867,7 +901,7 @@ function Play({
 
       {/* The chat's own bubbles: the seller on the left, you on the right */}
       <div className="neg-feed">
-        {scenario.description && (
+        {(scenario.description || scenario.notes) && (
           <div className="neg-listing">
             <div className="neg-listing-head">
               <span className="pref-item-name">{scenario.item}</span>
@@ -876,7 +910,8 @@ function Play({
             <span className="msg-timestamp">
               {[selling ? "Your listing" : "", scenario.condition, scenario.setting].filter(Boolean).join(" · ")}
             </span>
-            <p className="pref-item-desc">{scenario.description}</p>
+            {scenario.description && <p className="pref-item-desc">{scenario.description}</p>}
+            {scenario.notes && <p className="pref-item-desc neg-notes">Seller's notes: {scenario.notes}</p>}
           </div>
         )}
         <p className="msg-timestamp neg-persona">

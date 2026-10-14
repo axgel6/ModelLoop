@@ -829,6 +829,16 @@ html .neg .neg-modes .neg-chip.is-on:hover {
   font-size: 0.8rem;
 }
 
+/* A Hustle item's real condition and description, which notes add to but cannot change */
+.neg-asking .neg-facts {
+  margin: 4px 0 0;
+  color: var(--game-ink);
+}
+
+.neg-listing .neg-notes {
+  font-style: italic;
+}
+
 html .neg-browser .neg-sell,
 html .neg-browser .neg-sell:hover {
   align-self: flex-start;
