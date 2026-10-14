@@ -95,6 +95,20 @@ class GameSession(Base):
     created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+# One finished run of a game. Kept apart from the save so the score survives
+# the save being deleted, and so free play after the end cannot change it.
+class GameScore(Base):
+    __tablename__ = "game_scores"
+
+    id:         Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    user_id:    Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    game_type:  Mapped[str]       = mapped_column(String(40), nullable=False)
+    title:      Mapped[str]       = mapped_column(String(80), nullable=False)
+    score:      Mapped[int]       = mapped_column(Integer, nullable=False)
+    # Whatever else the game wants shown beside the score (rating, how it ended)
+    detail:     Mapped[dict]      = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
+
 # ----- Document Models -----
 
 class Document(Base):

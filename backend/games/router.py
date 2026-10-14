@@ -16,7 +16,7 @@ from config import CHAT_RATE_LIMIT, MODEL_NAME_PATTERN, NGROK_HEADERS, THINKING_
 from database import get_db, AsyncSessionLocal
 from dependencies import get_user
 from games.ceo_simulator import engine as ceo
-from models import GameSession, User
+from models import GameScore, GameSession, User
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
 
@@ -36,6 +36,8 @@ class NewCeoGame(BaseModel):
     company:  str             = Field(..., min_length=1, max_length=60)
     pitch:    str             = Field(default="", max_length=200)
     products: list[ProductIn] = Field(..., min_length=1, max_length=ceo.MAX_START_PRODUCTS)
+    difficulty: str           = Field(default="normal", pattern="^(easy|normal|hard)$")
+    style: Optional[str]      = Field(default=None, pattern="^(bootstrapper|growth|perfectionist)$")
 
 
 class ProductEdit(BaseModel):
@@ -44,12 +46,24 @@ class ProductEdit(BaseModel):
 
 
 class OfferAnswer(BaseModel):
-    accept: bool
+    """The id of one of the offer's choices; yes/no offers use "accept" and "reject"."""
+    choice: str = Field(..., min_length=1, max_length=20)
+
+
+class LoanRequest(BaseModel):
+    amount: int = Field(..., gt=0, le=10_000_000)
+
+
+class LoanRepayment(BaseModel):
+    """Which loan to clear, by its position in the game's list of loans."""
+    index: int = Field(..., ge=0, le=10)
 
 
 class TurnAction(BaseModel):
     """A decision made with a dashboard form instead of typed out."""
-    type:       str             = Field(..., pattern="^(launch|discontinue)$")
+    type:       str             = Field(..., pattern="^(launch|discontinue|hire)$")
+    role:       Optional[str]   = Field(default=None, max_length=20)
+    count:      Optional[int]   = Field(default=None, ge=1, le=25)
     name:       Optional[str]   = Field(default=None, max_length=40)
     price:      Optional[float] = Field(default=None, gt=0, le=1_000_000)
     product_id: Optional[str]   = Field(default=None, max_length=20)
@@ -70,13 +84,32 @@ def _serialize(game: GameSession, with_state: bool = True) -> dict:
         "updated_at": game.updated_at,
     }
     if with_state:
-        out["state"] = ceo.upgrade(game.state) if game.game_type == ceo.GAME_TYPE else game.state
+        state = ceo.upgrade(game.state) if game.game_type == ceo.GAME_TYPE else game.state
+        # The undo snapshot is a second copy of the whole game: say it exists, do not send it.
+        out["state"] = {**{k: v for k, v in state.items() if k != "undo"}, "can_undo": bool(state.get("undo"))}
     else:
         # Enough for a save list without shipping every turn of every game
         out["summary"] = {k: game.state.get(k) for k in (
             "turn", "cash", "status", "valuation", "result", "official_result", "free_play",
         )}
     return out
+
+
+def _score_for(user: User, title: str, state: dict) -> Optional[GameScore]:
+    """A score row for a run that has just ended, or None if there is nothing to record.
+
+    Free play has an official result already and never adds another.
+    """
+    result = state.get("result")
+    if not result or state.get("official_result"):
+        return None
+    return GameScore(
+        user_id=user.id, game_type=ceo.GAME_TYPE, title=title[:80], score=int(result["score"]),
+        detail={
+            **{k: result.get(k) for k in ("outcome", "rating", "weeks", "goal_met", "typed_cash")},
+            "difficulty": state.get("difficulty", "normal"),
+        },
+    )
 
 
 async def _owned_game(game_id: uuid.UUID, user: User, db: AsyncSession) -> GameSession:
@@ -102,6 +135,25 @@ async def list_games(
     return {"games": [_serialize(g, with_state=False) for g in result.scalars().all()]}
 
 
+@router.get("/scores")
+async def best_scores(
+    game_type: str = ceo.GAME_TYPE,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The caller's ten best finished runs."""
+    result = await db.execute(
+        select(GameScore)
+        .where(GameScore.user_id == user.id, GameScore.game_type == game_type)
+        .order_by(GameScore.score.desc(), GameScore.created_at.asc())
+        .limit(10)
+    )
+    return {"scores": [
+        {"id": str(row.id), "title": row.title, "score": row.score, "created_at": row.created_at, **row.detail}
+        for row in result.scalars().all()
+    ]}
+
+
 @router.post("/ceo-simulator", status_code=201)
 async def create_ceo_game(
     body: NewCeoGame,
@@ -125,6 +177,8 @@ async def create_ceo_game(
         company,
         " ".join(body.pitch.split()),
         [{"name": n, "price": p.price} for n, p in zip(names, body.products)],
+        difficulty=body.difficulty,
+        style=body.style,
     )
     game = GameSession(user_id=user.id, game_type=ceo.GAME_TYPE, title=company, state=state)
     db.add(game)
@@ -199,6 +253,110 @@ async def continue_game(
     return _serialize(game)
 
 
+@router.patch("/{game_id}/loan")
+async def take_loan(
+    game_id: uuid.UUID,
+    body: LoanRequest,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Borrow from the bank. Instant: no turn, no model call."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != ceo.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = ceo.take_loan(ceo.upgrade(game.state), body.amount)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+class StaffHire(BaseModel):
+    candidate_id: str = Field(..., min_length=1, max_length=20)
+
+
+@router.patch("/{game_id}/staff/hire")
+async def hire_candidate(
+    game_id: uuid.UUID,
+    body: StaffHire,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Hire someone from the candidate pool. Instant: no turn, no model call."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != ceo.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = ceo.hire_candidate(ceo.upgrade(game.state), body.candidate_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/staff/{staff_id}/release")
+async def release_staff(
+    game_id: uuid.UUID,
+    staff_id: str,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Let one person go. Before week one, this undoes a hire for a full refund."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != ceo.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = ceo.release_staff(ceo.upgrade(game.state), staff_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/undo")
+async def undo_turn(
+    game_id: uuid.UUID,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Take back the last week played."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != ceo.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = ceo.undo_turn(game.state)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    game.title = game.state["company"]["name"][:80]
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/loan/repay")
+async def repay_loan(
+    game_id: uuid.UUID,
+    body: LoanRepayment,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pay a loan off early. Instant: no turn, no model call."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != ceo.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = ceo.repay_loan(ceo.upgrade(game.state), body.index)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
 @router.patch("/{game_id}/offer")
 async def answer_offer(
     game_id: uuid.UUID,
@@ -211,9 +369,12 @@ async def answer_offer(
     if game.game_type != ceo.GAME_TYPE:
         raise HTTPException(status_code=400, detail="Unknown game")
     try:
-        game.state = ceo.answer_offer(ceo.upgrade(game.state), body.accept)
+        game.state = ceo.answer_offer(ceo.upgrade(game.state), body.choice)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    score = _score_for(user, game.title, game.state)  # accepting a buyout ends the run
+    if score:
+        db.add(score)
     await db.commit()
     await db.refresh(game)
     return _serialize(game)
@@ -282,6 +443,8 @@ async def play_turn(
     state = ceo.upgrade(game.state)
     if state.get("status") != "active":
         raise HTTPException(status_code=409, detail="This game is over")
+    if not state.get("staff"):
+        raise HTTPException(status_code=422, detail="Hire at least one person before the first week.")
 
     action = None
     if body.action:
@@ -332,6 +495,9 @@ async def play_turn(
             update(GameSession).where(GameSession.id == game_id)
             .values(state=new_state, title=new_state["company"]["name"][:80])
         )
+        score = _score_for(user, new_state["company"]["name"], new_state)
+        if score:
+            write_db.add(score)
         await write_db.commit()
         await write_db.refresh(current)
         return _serialize(current)

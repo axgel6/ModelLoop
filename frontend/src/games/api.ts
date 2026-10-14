@@ -41,6 +41,25 @@ export async function apiListGames(gameType: string): Promise<GameSaveSummary[]>
   return (await res.json()).games;
 }
 
+/** A finished run. Beyond the score, the fields are whatever the game recorded. */
+export interface GameScoreRow {
+  id: string;
+  title: string;
+  score: number;
+  outcome?: string;
+  rating?: string;
+  weeks?: number;
+  /** Cash the player typed into existence during the run */
+  typed_cash?: number;
+  difficulty?: string;
+}
+
+export async function apiGameScores(gameType: string): Promise<GameScoreRow[]> {
+  const res = await apiFetch(`/api/v1/games/scores?game_type=${encodeURIComponent(gameType)}`);
+  if (!res.ok) throw await failure(res, "I couldn't load your best runs.");
+  return (await res.json()).scores;
+}
+
 export async function apiCreateGame<State>(gameType: string, setup: unknown): Promise<GameSave<State>> {
   const res = await apiFetch(`/api/v1/games/${gameType}`, {
     method: "POST",

@@ -521,7 +521,7 @@ html .ceo .ceo-option:disabled {
 
 .ceo-side {
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -529,6 +529,78 @@ html .ceo .ceo-option:disabled {
   border: 1px solid var(--game-card-border);
   border-radius: 18px;
   background: var(--game-card);
+}
+
+/* The summary stays put; only the tab's contents scroll */
+.ceo-side-top {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ceo-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+}
+
+/* Every state spelled out, so the themes' button hover cannot resize or recolour a tab */
+html .ceo .ceo-tab,
+html .ceo .ceo-tab:hover,
+html .ceo .ceo-tab:active,
+html .ceo .ceo-tab:focus {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px 4px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transform: none;
+  transition: none;
+  outline: none;
+}
+
+html .ceo .ceo-tab.is-on,
+html .ceo .ceo-tab.is-on:hover,
+html .ceo .ceo-tab.is-on:active,
+html .ceo .ceo-tab.is-on:focus {
+  border-color: var(--game-accent);
+  background: color-mix(in srgb, var(--game-accent) 14%, transparent);
+  color: var(--game-ink);
+}
+
+html .ceo .ceo-tab:focus-visible {
+  outline: 2px solid var(--game-accent);
+  outline-offset: 2px;
+}
+
+.ceo-tab-dot {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ceo-down);
+}
+
+.ceo-tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 2px;
 }
 
 .ceo-side .ceo-label {
@@ -592,6 +664,15 @@ html .ceo .ceo-option:disabled {
   border-radius: 999px;
   background: var(--game-accent);
   transition: width 0.4s ease;
+}
+
+.ceo-meter-fill.is-warn {
+  background: var(--ceo-down);
+}
+
+.ceo-meter .ceo-stat-note {
+  display: block;
+  margin-top: 3px;
 }
 
 .ceo-products,
@@ -754,6 +835,354 @@ html .ceo .ceo-edit-input.ceo-product-price {
   color: var(--game-muted);
 }
 
+/* ---- Offer and event choices ---- */
+
+.ceo-offer.is-crisis {
+  border-color: var(--ceo-down);
+}
+
+.ceo-offer.is-crisis .ceo-entry-week {
+  color: var(--ceo-down);
+}
+
+.ceo-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 4px 0 2px;
+}
+
+.ceo-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  max-width: 220px;
+}
+
+.ceo-price--wide {
+  flex: none;
+}
+
+.ceo-loans {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ceo-loan {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.74rem;
+}
+
+html .ceo .ceo-link:disabled {
+  opacity: 0.45;
+  cursor: default;
+  text-decoration: none;
+}
+
+/* ---- Setup pickers, team, and the week's summary line ---- */
+
+.ceo-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Its own class, not the chart tab's: sharing that one let the chart tab's hover
+   rule shrink the label and padding whenever a toggle was hovered.
+   Every state is spelled out and identical, so nothing changes on hover or
+   press. A toggle only looks different when it is the one picked. */
+html .ceo .ceo-toggle,
+html .ceo .ceo-toggle:hover,
+html .ceo .ceo-toggle:active,
+html .ceo .ceo-toggle:focus {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  opacity: 1;
+  transform: none;
+  transition: none;
+  animation: none;
+  outline: none;
+}
+
+html .ceo .ceo-toggle.is-on,
+html .ceo .ceo-toggle.is-on:hover,
+html .ceo .ceo-toggle.is-on:active,
+html .ceo .ceo-toggle.is-on:focus {
+  border-color: var(--game-accent);
+  background: color-mix(in srgb, var(--game-accent) 14%, transparent);
+  color: var(--game-ink);
+}
+
+html .ceo .ceo-toggle:focus-visible {
+  outline: 2px solid var(--game-accent);
+  outline-offset: 2px;
+}
+
+.ceo-team {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 14px;
+  font-size: 0.76rem;
+}
+
+.ceo-team li {
+  display: flex;
+  justify-content: space-between;
+}
+
+.ceo-team li span:last-child {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ceo-entry .ceo-entry-summary {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+/* ---- People: the team and the candidates ---- */
+
+.ceo-people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.ceo-side .ceo-people {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.ceo-person {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 12px;
+  font-size: 0.74rem;
+}
+
+.ceo-person-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html .ceo .ceo-person .ceo-link {
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  align-self: center;
+}
+
+html .ceo .ceo-person .ceo-link.is-armed {
+  color: var(--ceo-down);
+}
+
+.ceo-person-level {
+  grid-column: 1;
+  font-weight: 600;
+}
+
+/* Seniority reads from the text; the weight just helps the eye find the stars */
+.ceo-person-level.is-star {
+  color: var(--game-heading);
+}
+
+.ceo-person-cost {
+  grid-column: 1;
+  color: var(--game-muted);
+}
+
+/* ---- Milestones and best runs ---- */
+
+.ceo-milestones li {
+  border-color: var(--game-accent);
+  color: var(--game-ink);
+  font-weight: 700;
+}
+
+.ceo-scores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ceo-score {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ceo-score-rank {
+  flex: 0 0 1.2em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-muted);
+}
+
+.ceo-score-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+}
+
+.ceo-score-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Trend chart ---- */
+
+.ceo-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ceo-chart-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+html .ceo .ceo-chart-tab,
+html .ceo .ceo-chart-tab:hover {
+  flex: 1;
+  padding: 4px 0;
+  border: 1px solid var(--game-card-border);
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+html .ceo .ceo-chart-tab:hover {
+  color: var(--game-ink);
+}
+
+html .ceo .ceo-chart-tab.is-on,
+html .ceo .ceo-chart-tab.is-on:hover {
+  border-color: var(--game-accent);
+  color: var(--game-ink);
+}
+
+.ceo-chart-plot {
+  position: relative;
+}
+
+.ceo-chart-plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.ceo-chart-line {
+  fill: none;
+  stroke: var(--game-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.ceo-chart-area {
+  fill: var(--game-accent);
+  opacity: 0.12;
+}
+
+.ceo-chart-zero,
+.ceo-chart-cross {
+  stroke: var(--game-muted);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.ceo-chart-zero {
+  stroke-dasharray: 3 3;
+}
+
+/* The ring is the card colour, so the dot stays readable where it sits on the line */
+.ceo-chart-dot {
+  fill: var(--game-accent);
+  stroke: var(--game-card-hover);
+  stroke-width: 2;
+}
+
+.ceo-chart-axis {
+  fill: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 9px;
+}
+
+.ceo-chart-range {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-muted);
+}
+
+.ceo-chart-tip {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 3px 7px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 8px;
+  background: var(--game-card-hover);
+  color: var(--game-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.ceo-chart-tip-week {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
 /* Narrow: the numbers go on top in a short scrolling strip, the story below */
 @media (max-width: 900px) {
   .ceo {
@@ -766,9 +1195,21 @@ html .ceo .ceo-edit-input.ceo-product-price {
     grid-template-rows: auto minmax(0, 1fr);
   }
 
+  /* One scrolling strip on a narrow screen: the tab body grows instead of scrolling inside it */
   .ceo-side {
     order: -1;
-    max-height: 34vh;
+    max-height: 42vh;
+    overflow-y: auto;
+  }
+
+  .ceo-side-top,
+  .ceo-tabs {
+    flex-shrink: 0;
+  }
+
+  .ceo-tab-body {
+    flex: none;
+    overflow: visible;
   }
 
   .ceo-stats {

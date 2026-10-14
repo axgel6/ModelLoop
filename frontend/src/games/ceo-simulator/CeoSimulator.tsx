@@ -3,14 +3,18 @@ import {
   apiCreateGame,
   apiDeleteGame,
   apiEditGame,
+  apiGameScores,
   apiGetGame,
   apiListGames,
   apiPlayTurn,
   type GameSave,
+  type GameScoreRow,
   type GameSaveSummary,
 } from "../api";
 import type { GameProps } from "../types";
-import type { CeoProduct, CeoState } from "./types";
+import { DIFFICULTIES, LEVELS, ROLE_TITLE, STYLES, type Difficulty, type FounderStyle, type Role } from "./setup";
+import { TrendChart } from "./TrendChart";
+import type { CeoPerson, CeoProduct, CeoState } from "./types";
 import "./ceo.css";
 
 const GAME_TYPE = "ceo-simulator";
@@ -18,6 +22,44 @@ const MAX_START_PRODUCTS = 4;
 const MAX_PRODUCTS = 8;
 const LAUNCH_COST = 3000;
 const RESCUE_GRANT = 50000;
+// Team rules, as in the engine
+const DESK_COST = 150;
+const REVENUE_PER_PERSON = 5000;
+const POOL_REFRESH = 4;
+// Loan terms, as in the engine
+const LOAN_WEEKS = 26;
+const LOAN_INTEREST = 0.15;
+const MIN_LOAN = 5000;
+const EARLY_REPAY_INTEREST = 0.5;
+
+/** What it costs to clear a loan today. Mirrors payoff_amount in the engine. */
+function payoff(loan: { principal: number; weeks_left: number }): number {
+  return Math.ceil(((loan.principal * loan.weeks_left) / LOAN_WEEKS) * (1 + LOAN_INTEREST * EARLY_REPAY_INTEREST));
+}
+
+type SideTab = "team" | "products" | "money" | "buzz";
+const TABS: { id: SideTab; label: string }[] = [
+  { id: "team", label: "Team" },
+  { id: "products", label: "Products" },
+  { id: "money", label: "Money" },
+  { id: "buzz", label: "Buzz" },
+];
+const TAB_KEY = "ceo_side_tab";
+
+function savedTab(): SideTab {
+  try {
+    const saved = localStorage.getItem(TAB_KEY);
+    if (TABS.some((t) => t.id === saved)) return saved as SideTab;
+  } catch {
+    // storage unavailable: use the default
+  }
+  return "team";
+}
+
+const YES_NO = [
+  { id: "accept", label: "Accept", hint: undefined },
+  { id: "reject", label: "Reject", hint: undefined },
+];
 
 const OUTCOME_LABEL: Record<string, string> = {
   bankrupt: "Bankrupt",
@@ -28,7 +70,8 @@ const OUTCOME_LABEL: Record<string, string> = {
 // A decision made with a form in the dashboard instead of typed out
 type TurnAction =
   | { type: "launch"; name: string; price: number }
-  | { type: "discontinue"; product_id: string };
+  | { type: "discontinue"; product_id: string }
+  | { type: "hire"; role: Role; count: number };
 
 type CeoSave = GameSave<CeoState>;
 type ProductDraft = { name: string; price: string };
@@ -46,7 +89,14 @@ export function CeoSimulator({ model, onExit }: GameProps) {
   const [save, setSave] = useState<CeoSave | null>(null);
 
   if (save) {
-    return <Play save={save} model={model} onSave={setSave} onLeave={() => setSave(null)} />;
+    return (
+      <Play
+        save={save}
+        model={model}
+        onSave={(next) => setSave((prev) => (typeof next === "function" ? prev && next(prev) : next))}
+        onLeave={() => setSave(null)}
+      />
+    );
   }
   return <Menu onOpen={setSave} onExit={onExit} />;
 }
@@ -55,9 +105,12 @@ export function CeoSimulator({ model, onExit }: GameProps) {
 
 function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () => void }) {
   const [saves, setSaves] = useState<GameSaveSummary[] | null>(null);
+  const [scores, setScores] = useState<GameScoreRow[]>([]);
   const [company, setCompany] = useState("");
   const [pitch, setPitch] = useState("");
   const [products, setProducts] = useState<ProductDraft[]>([{ name: "", price: "" }]);
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [style, setStyle] = useState<FounderStyle>("bootstrapper");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -65,6 +118,9 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
     apiListGames(GAME_TYPE)
       .then(setSaves)
       .catch(() => setSaves([]));
+    apiGameScores(GAME_TYPE)
+      .then(setScores)
+      .catch(() => setScores([]));
   }, []);
 
   const setProduct = (index: number, patch: Partial<ProductDraft>) =>
@@ -84,6 +140,8 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
           company: company.trim(),
           pitch: pitch.trim(),
           products: filled.map((p) => ({ name: p.name.trim(), price: Number(p.price) })),
+          difficulty,
+          style,
         }),
       );
     } catch (err) {
@@ -122,7 +180,7 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
         <h2 className="ceo-title">CEO Simulator</h2>
         <p className="ceo-sub">
           Each turn is one week, and you have one year. Your score is what your share of the company is worth at
-          the end. Reach $1,000,000 to win.
+          the end. Reach $2,500,000 to win.
         </p>
 
         {saves && saves.length > 0 && (
@@ -153,6 +211,34 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {scores.length > 0 && (
+          <section className="ceo-card">
+            <h3 className="ceo-label">Best runs</h3>
+            <ol className="ceo-scores">
+              {scores.map((row, i) => (
+                <li key={row.id} className="ceo-score">
+                  <span className="ceo-score-rank">{i + 1}</span>
+                  <span className="ceo-score-name">
+                    {row.title}
+                    <span className="ceo-save-meta">
+                      {[
+                        row.rating,
+                        row.difficulty && row.difficulty !== "normal" ? row.difficulty : undefined,
+                        row.outcome ? OUTCOME_LABEL[row.outcome]?.toLowerCase() : undefined,
+                        row.weeks ? `${row.weeks} weeks` : undefined,
+                        row.typed_cash ? `${money(row.typed_cash)} typed in` : undefined,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </span>
+                  <span className="ceo-score-value">{money(row.score)}</span>
+                </li>
+              ))}
+            </ol>
           </section>
         )}
 
@@ -226,12 +312,18 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
             )}
           </div>
 
+          <Picker label="Founder style" options={STYLES} value={style} onChange={setStyle} />
+          <Picker label="Difficulty" options={DIFFICULTIES} value={difficulty} onChange={setDifficulty} />
+
           {error && <p className="ceo-error">{error}</p>}
 
           <button type="submit" className="ceo-btn" disabled={!ready || busy}>
             {busy ? "Starting" : "Start company"}
           </button>
-          <p className="ceo-hint">You begin with $100,000 in cash and a team of 5.</p>
+          <p className="ceo-hint">
+            You begin with {money(DIFFICULTIES.find((d) => d.id === difficulty)!.cash)} and no staff. Your first job
+            is to hire a team with it.
+          </p>
         </form>
       </div>
     </div>
@@ -248,7 +340,8 @@ function Play({
 }: {
   save: CeoSave;
   model?: string;
-  onSave: (save: CeoSave) => void;
+  /** A new save, or a function of the current one for changes shown before the server confirms them */
+  onSave: (next: CeoSave | ((current: CeoSave) => CeoSave)) => void;
   onLeave: () => void;
 }) {
   const state = save.state;
@@ -292,14 +385,98 @@ function Play({
 
   // The product whose Discontinue button has been clicked once and awaits a second click
   const [dropId, setDropId] = useState<string | null>(null);
-  const answerOffer = async (accept: boolean) => {
+  const answerOffer = async (choice: string) => {
     setError("");
     try {
-      onSave(await apiEditGame<CeoState>(save.id, "offer", { accept }));
+      onSave(await apiEditGame<CeoState>(save.id, "offer", { choice }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     }
   };
+
+  const borrow = async (amount: number) => {
+    setError("");
+    try {
+      onSave(await apiEditGame<CeoState>(save.id, "loan", { amount }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  };
+
+  const repay = async (index: number) => {
+    setError("");
+    try {
+      onSave(await apiEditGame<CeoState>(save.id, "loan/repay", { index }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  };
+
+  const undo = async () => {
+    setError("");
+    try {
+      onSave(await apiEditGame<CeoState>(save.id, "undo", {}));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  };
+
+  // Hires and draft undos show at once and are sent in the background, one at a
+  // time and in order: each request reads the save the previous one wrote, so two
+  // sent together would overwrite each other.
+  const sendQueue = useRef<Promise<void>>(Promise.resolve());
+  const unsent = useRef(0);
+  const [syncing, setSyncing] = useState(false);
+
+  const staffChange = (path: string, body: unknown, showNow?: (state: CeoState) => CeoState) => {
+    setError("");
+    if (showNow) onSave((current) => ({ ...current, state: showNow(current.state) }));
+    unsent.current += 1;
+    setSyncing(true);
+    sendQueue.current = sendQueue.current.then(async () => {
+      try {
+        const confirmed = await apiEditGame<CeoState>(save.id, path, body);
+        unsent.current -= 1;
+        // Mid-burst, the screen is ahead of this reply: only the last one is the whole truth.
+        if (unsent.current === 0) onSave(confirmed);
+      } catch (err) {
+        unsent.current -= 1;
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+        try {
+          onSave(await apiGetGame<CeoState>(save.id)); // what was shown did not happen: reload what did
+        } catch {
+          // offline: the error above stands
+        }
+      } finally {
+        if (unsent.current === 0) setSyncing(false);
+      }
+    });
+  };
+
+  const hire = (person: CeoPerson) =>
+    staffChange("staff/hire", { candidate_id: person.id }, (current) => ({
+      ...current,
+      cash: current.cash - person.fee,
+      employees: current.employees + 1,
+      candidates: (current.candidates ?? []).filter((c) => c.id !== person.id),
+      staff: [...(current.staff ?? []), person],
+    }));
+
+  const release = (person: CeoPerson) =>
+    staffChange(
+      `staff/${person.id}/release`,
+      {},
+      // Before week one this is a plain refund. Later it costs severance and morale, which the server works out.
+      state.turn === 0
+        ? (current) => ({
+            ...current,
+            cash: current.cash + person.fee,
+            employees: Math.max(0, current.employees - 1),
+            staff: (current.staff ?? []).filter((p) => p.id !== person.id),
+            candidates: [...(current.candidates ?? []), person],
+          })
+        : undefined,
+    );
 
   const keepGoing = async () => {
     setError("");
@@ -310,6 +487,30 @@ function Play({
     }
   };
 
+  const [tab, setTab] = useState<SideTab>(savedTab);
+  const pickTab = (next: SideTab) => {
+    setTab(next);
+    try {
+      localStorage.setItem(TAB_KEY, next);
+    } catch {
+      // not remembered this time
+    }
+  };
+
+  const staff = state.staff ?? [];
+  const payroll = staff.reduce((sum, p) => sum + p.salary + DESK_COST, 0);
+  // What the team can sell in a week at ordinary morale, and what the products are likely to sell
+  const capacity = Math.round(staff.reduce((sum, p) => sum + p.power, 0) * REVENUE_PER_PERSON);
+  const expected = state.start_revenue ?? 14000;
+  // A dot on a tab when something behind it wants attention
+  const needsYou: Record<SideTab, boolean> = {
+    team:
+      state.status === "active" &&
+      ((state.workload ?? 0) >= 100 || (state.turn > 0 && state.candidates_turn === state.turn)),
+    products: false,
+    money: state.status === "active" && state.cash < 0,
+    buzz: false,
+  };
   const stake = Math.round(state.valuation * state.equity);
   const over = state.status !== "active";
   const previous = state.history[state.history.length - 2];
@@ -337,10 +538,35 @@ function Play({
           <div className="ceo-feed">
             <div className="ceo-entry">
               <p className="ceo-entry-text">
-                {state.company.name} opens for business with {money(state.start_cash)} in the bank and a team of 5.
-                {state.turn === 0 && " What is your first move?"}
+                {state.company.name} opens with {money(state.start_cash)} in the bank.
+                {state.turn === 0 &&
+                  (staff.length === 0
+                    ? " Before week one, hire your team from the people below."
+                    : " Hire anyone else you want, then make your first decision.")}
               </p>
             </div>
+
+            {state.turn === 0 && !over && (
+              <div className="ceo-entry">
+                <div className="ceo-entry-head">
+                  <span className="ceo-entry-week">Build your team</span>
+                  <span className="ceo-entry-week">
+                    {staff.length} hired · {money(payroll)} a week
+                  </span>
+                </div>
+                <p className="ceo-hint">
+                  Everyone adds capacity. Sales, product and support people also do one extra thing every week. Higher
+                  levels do more per person and cost more per result. You expect about {money(expected)} of sales a
+                  week, and this team can handle {money(capacity)}.
+                </p>
+                <People
+                  people={state.candidates ?? []}
+                  action="Hire"
+                  cash={state.cash}
+                  onPick={hire}
+                />
+              </div>
+            )}
 
             {state.log.map((entry) => (
               <div key={entry.turn} className="ceo-entry">
@@ -352,6 +578,14 @@ function Play({
                 </div>
                 <p className="ceo-entry-decision">{entry.decision}</p>
                 <p className="ceo-entry-text">{entry.narrative}</p>
+                {entry.summary && <p className="ceo-entry-summary">{entry.summary}</p>}
+                {entry.milestones && entry.milestones.length > 0 && (
+                  <ul className="ceo-changes ceo-milestones">
+                    {entry.milestones.map((label) => (
+                      <li key={label}>Milestone: {label}</li>
+                    ))}
+                  </ul>
+                )}
                 {entry.changes.length > 0 && (
                   <ul className="ceo-changes">
                     {entry.changes.map((change, i) => (
@@ -369,22 +603,38 @@ function Play({
               </div>
             )}
             {state.offer && !over && !pending && (
-              <div className="ceo-entry ceo-offer">
+              <div className={`ceo-entry ceo-offer${state.offer.kind === "crisis" ? " is-crisis" : ""}`}>
                 <div className="ceo-entry-head">
                   <span className="ceo-entry-week">
-                    {state.offer.type === "buyout" ? "Buyout offer" : "Investment offer"}
+                    {state.offer.title ?? (state.offer.type === "buyout" ? "Buyout offer" : "Investment offer")}
                   </span>
+                  {state.offer.kind && (
+                    <span className="ceo-entry-week">{state.offer.kind === "crisis" ? "Crisis" : "Opportunity"}</span>
+                  )}
                 </div>
                 <p className="ceo-entry-text">{state.offer.text}</p>
-                <div className="ceo-offer-actions">
-                  <button type="button" className="ceo-btn" onClick={() => answerOffer(true)}>
-                    Accept
-                  </button>
-                  <button type="button" className="ceo-option" onClick={() => answerOffer(false)}>
-                    Reject
-                  </button>
-                  <span className="ceo-hint">Answering does not use your week. It lapses if you play on.</span>
+                <div className="ceo-choices">
+                  {(state.offer.choices ?? YES_NO).map((choice, i) => (
+                    <div key={choice.id} className="ceo-choice">
+                      <button
+                        type="button"
+                        className={i === 0 ? "ceo-btn" : "ceo-option"}
+                        onClick={() => answerOffer(choice.id)}
+                      >
+                        {choice.label}
+                      </button>
+                      {choice.hint && <span className="ceo-hint">{choice.hint}</span>}
+                    </div>
+                  ))}
                 </div>
+                <p className="ceo-hint">
+                  Answering does not use your week.{" "}
+                  {state.offer.default
+                    ? `If you play on without answering: ${
+                        state.offer.choices?.find((c) => c.id === state.offer?.default)?.label.toLowerCase() ?? "it gets worse"
+                      }.`
+                    : "It lapses if you play on."}
+                </p>
               </div>
             )}
             {error && <p className="ceo-error">{error}</p>}
@@ -441,6 +691,8 @@ function Play({
                 decide(draft);
               }}
             >
+              {staff.length === 0 && <p className="ceo-hint">Hire at least one person to begin.</p>}
+              {syncing && staff.length > 0 && <p className="ceo-hint">Saving your team</p>}
               <div className="ceo-options">
                 {state.options.map((option) => (
                   <button
@@ -448,7 +700,7 @@ function Play({
                     type="button"
                     className="ceo-option"
                     onClick={() => decide(option)}
-                    disabled={!!pending}
+                    disabled={!!pending || staff.length === 0 || syncing}
                   >
                     {option}
                   </button>
@@ -464,146 +716,463 @@ function Play({
                   disabled={!!pending}
                   aria-label="Your decision"
                 />
-                <button type="submit" className="ceo-btn" disabled={!draft.trim() || !!pending}>
+                <button type="submit" className="ceo-btn" disabled={!draft.trim() || !!pending || staff.length === 0 || syncing}>
                   Decide
                 </button>
               </div>
+              {state.can_undo && !pending && (
+                <button type="button" className="ceo-link ceo-link--quiet" onClick={undo}>
+                  Undo last week
+                </button>
+              )}
             </form>
           )}
         </div>
 
         <aside className="ceo-side">
-          <div className="ceo-value">
-            <span className="ceo-stat-label">Company value</span>
-            <span className="ceo-value-amount">{money(state.valuation)}</span>
-            {state.equity < 1 && (
-              <span className="ceo-stat-note">
-                You own {Math.round(state.equity * 100)}%, worth {money(stake)}
-              </span>
-            )}
-            <div className="ceo-meter-track" title={`Goal: ${money(state.goal)}`}>
-              <div
-                className="ceo-meter-fill"
-                style={{ width: `${Math.max(0, Math.min(100, (stake / state.goal) * 100))}%` }}
-              />
-            </div>
-            <span className="ceo-stat-note">
-              {state.free_play && state.official_result
-                ? `Free play. Final score: ${money(state.official_result.score)}`
-                : stake >= state.goal
-                  ? "Goal reached"
-                  : `${money(state.goal - stake)} to the ${money(state.goal)} goal`}
-            </span>
-          </div>
-
-          <div className="ceo-stats">
-            <Stat label="Cash" value={money(state.cash)} tone={state.cash < 50000 ? "down" : undefined} />
-            <Stat
-              label="Revenue"
-              value={money(state.last.revenue)}
-              note={
-                revenueDelta === null
-                  ? "last week"
-                  : `${signedMoney(revenueDelta)} vs prior`
-              }
-              tone={revenueDelta === null ? undefined : revenueDelta < 0 ? "down" : "up"}
-            />
-            <Stat
-              label="Profit"
-              value={money(state.last.profit)}
-              note="last week"
-              tone={state.turn === 0 ? undefined : state.last.profit < 0 ? "down" : "up"}
-            />
-            <Stat label="Employees" value={String(state.employees)} />
-          </div>
-
-          <Meter label="Reputation" value={state.reputation} />
-          <Meter label="Team morale" value={state.morale} />
-
-          <h3 className="ceo-label">Products</h3>
-          {active.length === 0 ? (
-            <p className="ceo-hint">Nothing on sale.</p>
-          ) : (
-            <ul className="ceo-products">
-              {active.map((p) => (
-                <li key={p.id} className="ceo-product">
-                  <EditableValue
-                    className="ceo-product-name"
-                    label={`Rename ${p.name}`}
-                    shown={p.name}
-                    initial={p.name}
-                    maxLength={40}
-                    disabled={over || !!pending}
-                    onCommit={(name) => editProduct(p, { name })}
-                  />
-                  <EditableValue
-                    className="ceo-product-price"
-                    label={`Change the price of ${p.name}`}
-                    shown={money(p.price)}
-                    initial={String(p.price)}
-                    numeric
-                    disabled={over || !!pending}
-                    onCommit={(price) => editProduct(p, { price: Number(price) })}
-                  />
-                  <span className="ceo-product-meta">
-                    {state.turn === 0
-                      ? "No sales yet"
-                      : `${p.units_sold.toLocaleString()} sold · ${money(p.revenue)}`}
+          {/* Always in view: the numbers checked every week */}
+          <div className="ceo-side-top">
+              <div className="ceo-value">
+                <span className="ceo-stat-label">Company value</span>
+                <span className="ceo-value-amount">{money(state.valuation)}</span>
+                {state.equity < 1 && (
+                  <span className="ceo-stat-note">
+                    You own {Math.round(state.equity * 100)}%, worth {money(stake)}
                   </span>
-                  {!over && active.length > 1 && (
-                    <button
-                      type="button"
-                      className={`ceo-link ceo-link--quiet ceo-product-drop${dropId === p.id ? " is-armed" : ""}`}
-                      disabled={!!pending}
-                      onBlur={() => setDropId(null)}
-                      onClick={() => {
-                        if (dropId !== p.id) return setDropId(p.id);
-                        setDropId(null);
-                        decide(`Discontinue ${p.name}`, { type: "discontinue", product_id: p.id });
-                      }}
-                    >
-                      {dropId === p.id ? "Confirm: uses this week" : "Discontinue"}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {!over && active.length < MAX_PRODUCTS && (
-            <AddProduct
-              disabled={!!pending}
-              onLaunch={(name, price) =>
-                decide(`Launch a new product: ${name} at ${money(price)}`, { type: "launch", name, price })
-              }
-            />
-          )}
-          {active.length > 0 && !over && (
-            <p className="ceo-hint">
-              Click a name or price to change it. A new price shifts demand right away.
-            </p>
-          )}
+                )}
+                <div className="ceo-meter-track" title={`Goal: ${money(state.goal)}`}>
+                  <div
+                    className="ceo-meter-fill"
+                    style={{ width: `${Math.max(0, Math.min(100, (stake / state.goal) * 100))}%` }}
+                  />
+                </div>
+                <span className="ceo-stat-note">
+                  {state.free_play && state.official_result
+                    ? `Free play. Final score: ${money(state.official_result.score)}`
+                    : stake >= state.goal
+                      ? "Goal reached"
+                      : `${money(state.goal - stake)} to the ${money(state.goal)} goal`}
+                </span>
+              </div>
 
-          <h3 className="ceo-label">What people are saying</h3>
-          {state.reactions.length === 0 ? (
-            <p className="ceo-hint">Nobody is talking about you yet.</p>
-          ) : (
-            <ul className="ceo-reactions">
-              {state.reactions.map((r, i) => (
-                <li key={i} className={`ceo-reaction is-${r.sentiment}`}>
-                  <span className="ceo-reaction-source">{r.source}</span>
-                  <span>{r.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+              <div className="ceo-stats">
+                <Stat
+                  label="Cash"
+                  value={money(state.cash)}
+                  tone={state.cash < 20000 ? "down" : undefined}
+                  note={state.cash < 0 && !over ? "Overdrawn: fix it this week" : undefined}
+                />
+                <Stat
+                  label="Revenue"
+                  value={money(state.last.revenue)}
+                  note={
+                    revenueDelta === null
+                      ? "last week"
+                      : `${signedMoney(revenueDelta)} vs prior`
+                  }
+                  tone={revenueDelta === null ? undefined : revenueDelta < 0 ? "down" : "up"}
+                />
+                <Stat
+                  label="Profit"
+                  value={money(state.last.profit)}
+                  note="last week"
+                  tone={state.turn === 0 ? undefined : state.last.profit < 0 ? "down" : "up"}
+                />
+                <Stat label="Employees" value={String(state.employees)} />
+              </div>
+
+              <Meter label="Reputation" value={state.reputation} />
+              <Meter label="Team morale" value={state.morale} />
+              {state.workload !== undefined && state.turn > 0 && (
+                <Meter
+                  label="Team workload"
+                  value={state.workload}
+                  shown={`${state.workload}%`}
+                  warn={state.workload >= 100}
+                  note={
+                    state.workload >= 100
+                      ? "Orders are being turned away. Hire to sell more."
+                      : state.workload >= 85
+                        ? "Nearly full. More demand will need more people."
+                        : undefined
+                  }
+                />
+              )}
+          </div>
+
+          <div className="ceo-tabs" role="tablist" aria-label="Company details">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={t.id === tab}
+                className={`ceo-tab${t.id === tab ? " is-on" : ""}`}
+                onClick={() => pickTab(t.id)}
+              >
+                {t.label}
+                {needsYou[t.id] && <span className="ceo-tab-dot" role="img" aria-label="needs attention" />}
+              </button>
+            ))}
+          </div>
+
+          <div className="ceo-tab-body" role="tabpanel">
+            {tab === "team" && (
+              <>
+                  {staff.length === 0 ? (
+                    <p className="ceo-hint">Nobody yet.</p>
+                  ) : (
+                    <>
+                      <p className="ceo-hint">
+                        {staff.length} {staff.length === 1 ? "person" : "people"}, {money(payroll)} a week.
+                      </p>
+                      <People
+                        people={staff}
+                        action={state.turn === 0 ? "Undo" : "Let go"}
+                        confirm={state.turn > 0}
+                        disabled={over || !!pending}
+                        onPick={release}
+                      />
+                    </>
+                  )}
+
+                  {state.turn > 0 && !over && (
+                    <>
+                      <h3 className="ceo-label">Hiring</h3>
+                      {(state.candidates ?? []).length === 0 ? (
+                        <p className="ceo-hint">Nobody is looking right now.</p>
+                      ) : (
+                        <People
+                          people={state.candidates ?? []}
+                          action="Hire"
+                          cash={state.cash}
+                          disabled={!!pending}
+                          onPick={hire}
+                        />
+                      )}
+                      <p className="ceo-hint">
+                        New candidates in {Math.max(1, POOL_REFRESH - (state.turn - (state.candidates_turn ?? 0)))}{" "}
+                        {POOL_REFRESH - (state.turn - (state.candidates_turn ?? 0)) === 1 ? "week" : "weeks"}. Hiring is instant.
+                      </p>
+                    </>
+                  )}
+              </>
+            )}
+
+            {tab === "products" && (
+              <>
+                  {active.length === 0 ? (
+                    <p className="ceo-hint">Nothing on sale.</p>
+                  ) : (
+                    <ul className="ceo-products">
+                      {active.map((p) => (
+                        <li key={p.id} className="ceo-product">
+                          <EditableValue
+                            className="ceo-product-name"
+                            label={`Rename ${p.name}`}
+                            shown={p.name}
+                            initial={p.name}
+                            maxLength={40}
+                            disabled={over || !!pending}
+                            onCommit={(name) => editProduct(p, { name })}
+                          />
+                          <EditableValue
+                            className="ceo-product-price"
+                            label={`Change the price of ${p.name}`}
+                            shown={money(p.price)}
+                            initial={String(p.price)}
+                            numeric
+                            disabled={over || !!pending}
+                            onCommit={(price) => editProduct(p, { price: Number(price) })}
+                          />
+                          <span className="ceo-product-meta">
+                            {state.turn === 0
+                              ? "No sales yet"
+                              : `${p.units_sold.toLocaleString()} sold · ${money(p.revenue)}`}
+                          </span>
+                          {!over && active.length > 1 && (
+                            <button
+                              type="button"
+                              className={`ceo-link ceo-link--quiet ceo-product-drop${dropId === p.id ? " is-armed" : ""}`}
+                              disabled={!!pending}
+                              onBlur={() => setDropId(null)}
+                              onClick={() => {
+                                if (dropId !== p.id) return setDropId(p.id);
+                                setDropId(null);
+                                decide(`Discontinue ${p.name}`, { type: "discontinue", product_id: p.id });
+                              }}
+                            >
+                              {dropId === p.id ? "Confirm: uses this week" : "Discontinue"}
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {!over && active.length < MAX_PRODUCTS && (
+                    <AddProduct
+                      cost={state.launch_cost ?? LAUNCH_COST}
+                      disabled={!!pending}
+                      onLaunch={(name, price) =>
+                        decide(`Launch a new product: ${name} at ${money(price)}`, { type: "launch", name, price })
+                      }
+                    />
+                  )}
+                  {active.length > 0 && !over && (
+                    <p className="ceo-hint">
+                      Click a name or price to change it. A new price shifts demand right away.
+                    </p>
+                  )}
+              </>
+            )}
+
+            {tab === "money" && (
+              <>
+                  <TrendChart history={state.history} />
+
+                  <Bank
+                    loans={state.loans ?? []}
+                    credit={state.credit ?? 0}
+                    cash={state.cash}
+                    disabled={over || !!pending}
+                    onBorrow={borrow}
+                    onRepay={repay}
+                  />
+              </>
+            )}
+
+            {tab === "buzz" && (
+              <>
+                  {state.reactions.length === 0 ? (
+                    <p className="ceo-hint">Nobody is talking about you yet.</p>
+                  ) : (
+                    <ul className="ceo-reactions">
+                      {state.reactions.map((r, i) => (
+                        <li key={i} className={`ceo-reaction is-${r.sentiment}`}>
+                          <span className="ceo-reaction-source">{r.source}</span>
+                          <span>{r.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+              </>
+            )}
+          </div>
         </aside>
       </div>
     </div>
   );
 }
 
+/** A labelled row of choices with the picked one's description underneath. */
+function Picker<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { id: T; label: string; blurb: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="ceo-field">
+      <span>{label}</span>
+      <div className="ceo-picker" role="radiogroup" aria-label={label}>
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={option.id === value}
+            className={`ceo-toggle${option.id === value ? " is-on" : ""}`}
+            onClick={() => onChange(option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <p className="ceo-hint">{options.find((o) => o.id === value)?.blurb}</p>
+    </div>
+  );
+}
+
+/** A list of people, each with one action: hire a candidate, or let a team member go. */
+function People({
+  people,
+  action,
+  cash,
+  confirm,
+  disabled,
+  onPick,
+}: {
+  people: CeoPerson[];
+  action: string;
+  /** Given for candidates: anyone whose fee is more than this cannot be hired */
+  cash?: number;
+  /** Ask for a second click before acting */
+  confirm?: boolean;
+  disabled?: boolean;
+  onPick: (person: CeoPerson) => void;
+}) {
+  const [armed, setArmed] = useState<string | null>(null);
+  return (
+    <ul className="ceo-people">
+      {people.map((person) => {
+        const tooDear = cash !== undefined && person.fee > cash;
+        return (
+          <li key={person.id} className="ceo-person">
+            <span className="ceo-person-name">{person.name}</span>
+            <span className={`ceo-person-level is-${person.level}`}>
+              {LEVELS[person.level] ?? person.level} {ROLE_TITLE[person.role] ?? person.role}
+            </span>
+            <span className="ceo-person-cost">
+              {money(person.salary)} a week{cash !== undefined && `, ${money(person.fee)} to hire`}
+            </span>
+            <button
+              type="button"
+              className={`ceo-link${armed === person.id ? " is-armed" : ""}`}
+              disabled={disabled || tooDear}
+              title={tooDear ? "Not enough cash" : undefined}
+              onBlur={() => setArmed(null)}
+              onClick={() => {
+                if (confirm && armed !== person.id) return setArmed(person.id);
+                setArmed(null);
+                onPick(person);
+              }}
+            >
+              {armed === person.id ? "Confirm" : action}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** What is owed to the bank, and a form to borrow more. Borrowing is instant and uses no turn. */
+function Bank({
+  loans,
+  credit,
+  cash,
+  disabled,
+  onBorrow,
+  onRepay,
+}: {
+  loans: { principal: number; weekly: number; weeks_left: number }[];
+  credit: number;
+  cash: number;
+  disabled: boolean;
+  onBorrow: (amount: number) => void;
+  onRepay: (index: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const owed = loans.reduce((sum, loan) => sum + loan.weekly * loan.weeks_left, 0);
+  const weekly = loans.reduce((sum, loan) => sum + loan.weekly, 0);
+  const wanted = Number(amount);
+  const valid = wanted >= MIN_LOAN && wanted <= credit;
+  const repay = Math.ceil((wanted * (1 + LOAN_INTEREST)) / LOAN_WEEKS);
+
+  if (owed === 0 && credit < MIN_LOAN) return null;
+
+  return (
+    <>
+      <h3 className="ceo-label">Bank</h3>
+      {owed > 0 && (
+        <p className="ceo-hint">
+          You owe {money(owed)}, repaid at {money(weekly)} a week.
+        </p>
+      )}
+      {loans.length > 0 && (
+        <ul className="ceo-loans">
+          {loans.map((loan, i) => {
+            const cost = payoff(loan);
+            const saved = loan.weekly * loan.weeks_left - cost;
+            return (
+              <li key={i} className="ceo-loan">
+                <span>
+                  {money(loan.principal)} loan, {loan.weeks_left} {loan.weeks_left === 1 ? "week" : "weeks"} left
+                </span>
+                <button
+                  type="button"
+                  className="ceo-link"
+                  disabled={disabled || cost > cash}
+                  onClick={() => onRepay(i)}
+                  title={cost > cash ? "Not enough cash" : `Saves ${money(saved)} in interest`}
+                >
+                  Pay off for {money(cost)}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {!open && credit >= MIN_LOAN && (
+        <button
+          type="button"
+          className="ceo-link"
+          disabled={disabled}
+          onClick={() => {
+            setAmount(String(Math.min(credit, 25000)));
+            setOpen(true);
+          }}
+        >
+          Borrow money
+        </button>
+      )}
+      {open && (
+        <form
+          className="ceo-add"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!valid || disabled) return;
+            onBorrow(wanted);
+            setOpen(false);
+          }}
+        >
+          <div className="ceo-price ceo-price--wide">
+            <span>$</span>
+            <input
+              className="ceo-input"
+              value={amount}
+              autoFocus
+              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
+              inputMode="numeric"
+              aria-label="Amount to borrow"
+            />
+          </div>
+          <p className="ceo-hint">
+            {valid
+              ? `Repaid at ${money(repay)} a week for ${LOAN_WEEKS} weeks, ${money(repay * LOAN_WEEKS)} in all.`
+              : `The bank will lend between ${money(MIN_LOAN)} and ${money(credit)}.`}
+          </p>
+          <div className="ceo-add-actions">
+            <button type="submit" className="ceo-btn" disabled={!valid || disabled}>
+              Borrow
+            </button>
+            <button type="button" className="ceo-link ceo-link--quiet" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </>
+  );
+}
+
 /** "Add product" link that opens a name and price form. Launching is the week's decision. */
-function AddProduct({ disabled, onLaunch }: { disabled: boolean; onLaunch: (name: string, price: number) => void }) {
+function AddProduct({
+  cost,
+  disabled,
+  onLaunch,
+}: {
+  cost: number;
+  disabled: boolean;
+  onLaunch: (name: string, price: number) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -658,7 +1227,7 @@ function AddProduct({ disabled, onLaunch }: { disabled: boolean; onLaunch: (name
         </div>
       </div>
       <p className="ceo-hint">
-        Costs {money(LAUNCH_COST)} to launch and is your decision for this week.
+        Costs {money(cost)} to launch and is your decision for this week.
       </p>
       <div className="ceo-add-actions">
         <button type="submit" className="ceo-btn" disabled={!ready || disabled}>
@@ -744,16 +1313,33 @@ function Stat({ label, value, note, tone }: { label: string; value: string; note
   );
 }
 
-function Meter({ label, value }: { label: string; value: number }) {
+function Meter({
+  label,
+  value,
+  shown,
+  note,
+  warn,
+}: {
+  label: string;
+  value: number;
+  /** Text for the figure, when it is not just the number */
+  shown?: string;
+  note?: string;
+  warn?: boolean;
+}) {
   return (
     <div className="ceo-meter">
       <div className="ceo-meter-head">
         <span>{label}</span>
-        <span>{value}</span>
+        <span>{shown ?? value}</span>
       </div>
       <div className="ceo-meter-track">
-        <div className="ceo-meter-fill" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+        <div
+          className={`ceo-meter-fill${warn ? " is-warn" : ""}`}
+          style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
+        />
       </div>
+      {note && <span className={`ceo-stat-note${warn ? " is-down" : ""}`}>{note}</span>}
     </div>
   );
 }
