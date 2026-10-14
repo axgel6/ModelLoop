@@ -61,6 +61,7 @@ export interface GameScoreRow {
   /** Negotiation, selling: who bought it, and the sale price less what was paid for it */
   buyer?: string;
   profit?: number | null;
+  created_at?: string;
   merchant?: string;
   rounds?: number;
 }

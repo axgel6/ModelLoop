@@ -69,6 +69,8 @@ export interface HaggleState {
   opening_bid?: number;
   /** Selling: the buyer opened at the asking price, so they will pay it as soon as the player accepts */
   opening_agreed?: boolean;
+  /** The Hustle run this chat belongs to, if any */
+  run_id?: string;
   turn: number;
   difficulty: string;
   /** Haggles saved before listings had them carry no condition or description */
@@ -135,4 +137,48 @@ export interface CustomListing {
   condition: string | null;
   category: string | null;
   description: string;
+}
+
+/** One line of a Hustle run's statement */
+export interface LedgerEntry {
+  day: number;
+  kind: "buy" | "sell";
+  item: string;
+  /** Who it was bought from or sold to */
+  other: string;
+  /** Negative for money out */
+  amount: number;
+  /** The balance after it */
+  balance: number;
+  holding: string;
+  /** Sales: the price less what was paid */
+  profit?: number;
+  at: string;
+}
+
+/** A Hustle run: Marketplace with a real balance and a set number of days. Mirrors backend/games/negotiation/hustle.py */
+export interface HustleRun {
+  id: string;
+  status: "active" | "finished" | "broke";
+  start_cash: number;
+  cash: number;
+  /** Chats started so far; each uses a day */
+  day: number;
+  days: number;
+  net_worth: number;
+  /** What was bought in the run, sold or not */
+  holdings: InventoryItem[];
+  ledger: LedgerEntry[];
+  milestones: number[];
+  result: {
+    net_worth: number;
+    cash: number;
+    profit: number;
+    rating: string;
+    days_used: number;
+    bought: number;
+    sold: number;
+    best_flip: number | null;
+    worst_flip: number | null;
+  } | null;
 }

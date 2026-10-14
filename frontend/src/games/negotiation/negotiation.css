@@ -766,16 +766,46 @@ html .neg-browser .neg-chip.is-on:hover {
 
 /* ---- Buying or selling ---- */
 
+/* A segmented switch on the app's glass: the picked side is a pressed pill inside it */
 .neg-modes {
-  display: flex;
-  gap: 6px;
-  margin: -6px 0 18px;
+  align-self: flex-start;
+  display: inline-flex;
+  gap: 2px;
+  margin: 0 0 18px;
+  padding: 4px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 html .neg .neg-modes .neg-chip,
 html .neg .neg-modes .neg-chip:hover {
-  padding: 7px 18px;
+  min-width: 84px;
+  padding: 6px 16px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted);
   font-size: 0.8rem;
+  font-weight: 600;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+html .neg .neg-modes .neg-chip:hover {
+  color: var(--game-ink);
+}
+
+html .neg .neg-modes .neg-chip.is-on,
+html .neg .neg-modes .neg-chip.is-on:hover {
+  border-color: var(--game-press-border);
+  background: var(--game-press);
+  box-shadow: var(--game-press-shadow);
+  color: var(--game-accent-ink);
 }
 
 /* The asking price, under the item picked to sell */
@@ -846,4 +876,266 @@ html .neg-browser .neg-sell:hover {
 
 .neg-custom-description:focus {
   border-color: var(--game-accent);
+}
+
+/* ---- Hustle ---- */
+
+html {
+  --neg-up: #b8bb26;
+  --neg-down: #fb4934;
+}
+
+html[data-theme="dune"] {
+  --neg-up: #4d7c0f;
+  --neg-down: #b91c1c;
+}
+
+html[data-theme="frost"] {
+  --neg-up: #a3be8c;
+  --neg-down: #c7747c;
+}
+
+html[data-theme="meadow"] {
+  --neg-up: #2f7d57;
+  --neg-down: #b4423a;
+}
+
+/* Free play or Hustle: the top level, at the far end of the title row */
+.neg-plays {
+  align-self: center;
+  flex-shrink: 0;
+  margin: 0 0 0 auto;
+}
+
+html .neg .neg-plays .neg-chip,
+html .neg .neg-plays .neg-chip:hover {
+  min-width: 0;
+  padding: 5px 14px;
+  font-size: 0.76rem;
+}
+
+/* The title row needs a little air before what follows, now the switch is beside it */
+.neg-menu > .game-menu-head {
+  flex-wrap: wrap;
+  row-gap: 10px;
+  margin-bottom: 12px;
+}
+
+.neg-days {
+  height: 4px;
+  margin: 0 16px 12px;
+  border-radius: 999px;
+  background: var(--game-card-border);
+  overflow: hidden;
+}
+
+.neg-days span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--game-accent);
+}
+
+.neg-hustle-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+}
+
+.neg-hustle-intro .neg-start {
+  margin-top: 6px;
+}
+
+html .neg .neg-balance,
+html .neg .neg-balance:hover {
+  align-self: center;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.neg-run-over {
+  margin-top: 6px;
+}
+
+.neg-pay-rows dd.is-down,
+.neg-inventory-total-value.is-down,
+.neg-bank-sum.is-down {
+  color: var(--neg-down);
+}
+
+.neg-inventory-total-value.is-up,
+.neg-bank-sum.is-up {
+  color: var(--neg-up);
+}
+
+/* The bank account window */
+
+.neg-bank-balance {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0 4px;
+}
+
+.neg-bank-amount {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-heading);
+}
+
+.neg-bank-chart svg {
+  display: block;
+  width: 100%;
+  height: 90px;
+}
+
+.neg-bank-start {
+  stroke: var(--game-muted);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.neg-bank-area {
+  fill: var(--game-accent);
+  opacity: 0.12;
+  stroke: none;
+}
+
+.neg-bank-line-path {
+  fill: none;
+  stroke: var(--game-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.neg-bank-chart-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.66rem;
+  color: var(--game-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.neg-bank-empty {
+  margin: 0;
+  text-align: center;
+}
+
+.neg-bank-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+.neg-bank-facts span {
+  padding: 3px 10px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 999px;
+}
+
+.neg-bank-facts .neg-bank-milestone {
+  border-color: var(--game-accent);
+  color: var(--game-ink);
+}
+
+.neg-bank-statement {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  border: 1px solid var(--game-card-border);
+  border-radius: 16px;
+  scrollbar-width: thin;
+}
+
+.neg-bank-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--game-card-border);
+}
+
+.neg-bank-line:last-child {
+  border-bottom: none;
+}
+
+.neg-bank-kind {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--game-muted) 15%, transparent);
+  font-weight: 700;
+  color: var(--game-muted);
+}
+
+.neg-bank-kind.is-buy {
+  color: var(--neg-down);
+  background: color-mix(in srgb, var(--neg-down) 14%, transparent);
+}
+
+.neg-bank-kind.is-sell {
+  color: var(--neg-up);
+  background: color-mix(in srgb, var(--neg-up) 14%, transparent);
+}
+
+.neg-bank-what {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.neg-bank-item {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--game-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neg-bank-what .pref-setting-hint,
+.neg-bank-sums .pref-setting-hint {
+  font-size: 0.7rem;
+}
+
+.neg-bank-sums {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.neg-bank-sum {
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-ink);
+}
+
+/* On a short screen the whole account scrolls, instead of the statement being squeezed out of the window */
+.landing-theme-modal.neg-bank {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.neg-bank .neg-bank-statement {
+  flex: none;
+  overflow: visible;
 }

@@ -1,20 +1,18 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeKey } from "../../components/useEscapeKey";
-import type { CustomListing, HaggleMode } from "./types";
+import type { CustomListing } from "./types";
 
 const CONDITIONS = ["New", "Used - Like New", "Used - Good", "Used - Fair", "For parts"];
 
-/** Write a listing of your own: something to buy from a model seller, or to sell to a model buyer */
+/** List something of your own to sell. A model buyer messages about it. */
 export function CustomListingForm({
-  mode,
   categories,
   busy,
   error,
   onSubmit,
   onClose,
 }: {
-  mode: HaggleMode;
   categories: string[];
   busy: boolean;
   error: string;
@@ -30,7 +28,6 @@ export function CustomListingForm({
 
   const amount = Math.round(Number(price));
   const ready = item.trim().length >= 3 && amount > 0;
-  const selling = mode === "sell";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,21 +46,17 @@ export function CustomListingForm({
       <form
         className="landing-theme-modal neg-browser neg-custom"
         role="dialog"
-        aria-label={selling ? "Sell something of your own" : "Write your own listing"}
+        aria-label="Sell something of your own"
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
       >
         <div className="landing-theme-modal-header">
-          <span>{selling ? "Sell something of your own" : "Write your own listing"}</span>
+          <span>Sell something of your own</span>
           <button type="button" className="landing-theme-modal-close" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
-        <p className="pref-setting-hint">
-          {selling
-            ? "List anything you like. A buyer will message you about it."
-            : "Describe anything you want to buy. A seller will be found for it, and they will stick to what you write."}
-        </p>
+        <p className="pref-setting-hint">List anything you like. A buyer will message you about it.</p>
 
         <div className="login-field">
           <label htmlFor="neg-custom-item">Title</label>
@@ -79,7 +72,7 @@ export function CustomListingForm({
 
         <div className="neg-custom-row">
           <div className="login-field">
-            <label htmlFor="neg-custom-price">{selling ? "Asking price ($)" : "Listed price ($)"}</label>
+            <label htmlFor="neg-custom-price">Asking price ($)</label>
             <input
               id="neg-custom-price"
               value={price}
@@ -121,7 +114,7 @@ export function CustomListingForm({
             onChange={(e) => setDescription(e.target.value)}
             maxLength={600}
             rows={4}
-            placeholder="Condition, what is included, any flaws. Whoever you haggle with only knows what is written here."
+            placeholder="Condition, what is included, any flaws. The buyer only knows what is written here."
           />
         </div>
 
@@ -129,7 +122,7 @@ export function CustomListingForm({
 
         <div className="neg-start">
           <button type="submit" className="start-button" disabled={!ready || busy}>
-            {busy ? "Posting" : selling ? "List it" : "Message the seller"}
+            {busy ? "Posting" : "List it"}
           </button>
         </div>
       </form>

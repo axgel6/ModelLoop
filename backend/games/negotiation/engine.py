@@ -226,44 +226,31 @@ def _tell(s: dict) -> Optional[str]:
     return "slow" if room < TELL_TIGHT else None
 
 
-# Who sells a listing the player wrote themselves
-CUSTOM_SELLERS = [
-    ("Jamie", "friendly and a bit chatty, happy to answer questions, wants a fair price"),
-    ("Pat", "brisk and busy, short replies, will not be pushed around"),
-    ("Morgan", "proud of what they are selling, sentimental about it, slow to come down"),
-    ("Chris", "laid back, clearing space, would rather sell today than wait for top dollar"),
-    ("Robin", "careful and exact, has looked up what these sell for and quotes it"),
-    ("Sam", "a bit of a talker, mentions other people asking about it, enjoys the back and forth"),
-]
-CUSTOM_OPENINGS = [
-    "Hi, yes it's still available! {price}.",
-    "Yep, still have it. Asking {price}.",
-    "Hello, yes it is. {price}, pickup whenever suits you.",
-]
 CONDITIONS = ("New", "Used - Like New", "Used - Good", "Used - Fair", "For parts")
 
 
-def custom_listing(item: str, price: int, condition: Optional[str], category: Optional[str], description: str,
-                   rng: Optional[random.Random] = None) -> dict:
-    """A listing the player wrote, with a seller found for it."""
-    rng = rng or random.Random()
-    name, persona = rng.choice(CUSTOM_SELLERS)
+def custom_listing(item: str, price: int, condition: Optional[str], category: Optional[str], description: str) -> dict:
+    """Something the player listed themselves to sell, written up like a catalogue listing."""
     return {
         "id": "custom", "item": item, "list_price": price,
         "condition": condition if condition in CONDITIONS else None,
         "category": category or "Custom", "description": description,
-        "merchant": name, "persona": persona, "opening": rng.choice(CUSTOM_OPENINGS),
         "setting": "Marketplace · Local pickup",
     }
 
 
+def scenario_for(scenario_id: Optional[str], rng: Optional[random.Random] = None) -> dict:
+    """The scenario asked for, or one dealt at random."""
+    return _SCENARIOS_BY_ID.get(scenario_id or "") or (rng or random).choice(SCENARIOS)
+
+
 def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Optional[random.Random] = None,
-             listing: Optional[dict] = None) -> dict:
-    """`listing` buys something the player listed themselves instead of a catalogue item."""
+             list_price: Optional[int] = None) -> dict:
+    """`list_price` overrides the scenario's usual price, as a Hustle run does."""
     rng = rng or random.Random()
-    scenario = listing or _SCENARIOS_BY_ID.get(scenario_id or "") or rng.choice(SCENARIOS)
+    scenario = scenario_for(scenario_id, rng)
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
-    list_price = scenario["list_price"]
+    list_price = list_price or scenario["list_price"]
     floor = min(_nice(list_price * rng.uniform(*FLOOR_SHARE), list_price), list_price - 1)
     return {
         "status": "active",          # active | deal | walked
