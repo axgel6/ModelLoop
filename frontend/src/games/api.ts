@@ -58,6 +58,9 @@ export interface GameScoreRow {
   /** Negotiation: what was paid, against the price first asked */
   paid?: number;
   list_price?: number;
+  /** Negotiation, selling: who bought it, and the sale price less what was paid for it */
+  buyer?: string;
+  profit?: number | null;
   merchant?: string;
   rounds?: number;
 }

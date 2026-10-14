@@ -2,6 +2,7 @@
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -18,6 +19,7 @@ from dependencies import get_user
 from games.ceo_simulator import engine as ceo
 from games.model_arena import engine as arena
 from games.negotiation import engine as haggle
+from games.negotiation import selling
 from models import GameScore, GameSession, User
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/games", tags=["games"])
 
 MAX_SAVES_PER_GAME = 20
+SALE_GAME_TYPE = "negotiation-sale"   # sales are scored apart from purchases
 TURN_TIMEOUT_SECONDS = 180
 
 
@@ -71,10 +74,24 @@ class TurnAction(BaseModel):
     product_id: Optional[str]   = Field(default=None, max_length=20)
 
 
+class CustomListing(BaseModel):
+    """A listing the player writes themselves, to buy from a model seller or to sell to a model buyer."""
+    item:        str           = Field(..., min_length=3, max_length=80)
+    price:       int           = Field(..., gt=0, le=1_000_000)
+    condition:   Optional[str] = Field(default=None, max_length=20)
+    category:    Optional[str] = Field(default=None, max_length=30)
+    description: str           = Field(default="", max_length=600)
+
+
 class NewNegotiation(BaseModel):
-    """Leave the scenario out to be dealt one at random."""
-    scenario:   Optional[str] = Field(default=None, max_length=20)
-    difficulty: str           = Field(default="normal", pattern="^(easy|normal|hard)$")
+    """Buying: a catalogue scenario (left out, one is dealt at random) or a custom listing.
+    Selling: something from the inventory, or a custom listing, at an asking price."""
+    mode:         str                     = Field(default="buy", pattern="^(buy|sell)$")
+    scenario:     Optional[str]           = Field(default=None, max_length=20)
+    difficulty:   str                     = Field(default="normal", pattern="^(easy|normal|hard)$")
+    custom:       Optional[CustomListing] = None
+    inventory_id: Optional[uuid.UUID]     = None
+    asking:       Optional[int]           = Field(default=None, gt=0, le=1_000_000)
 
 
 class ArenaSide(BaseModel):
@@ -112,8 +129,13 @@ class TurnRequest(BaseModel):
 
 
 # How a game shows its state to the player, in full and in a save list. Games not listed use the CEO shapes.
+def _haggle_rules(state: dict):
+    """The rules a negotiation plays by: buying, or selling to a model buyer."""
+    return selling if state.get("mode") == selling.MODE else haggle
+
+
 _VIEWS = {
-    haggle.GAME_TYPE: (haggle.public, haggle.summary),
+    haggle.GAME_TYPE: (lambda s: _haggle_rules(s).public(s), lambda s: _haggle_rules(s).summary(s)),
     arena.GAME_TYPE:  (arena.public, arena.summary),
 }
 
@@ -262,11 +284,29 @@ async def create_negotiation(
     user: User = Depends(get_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Start a haggle. Only one is kept at a time: a new one replaces the last."""
+    """Start a haggle, buying or selling. Only one is kept at a time: a new one replaces the last."""
+    custom = body.custom and haggle.custom_listing(
+        " ".join(body.custom.item.split()), body.custom.price, body.custom.condition,
+        body.custom.category and " ".join(body.custom.category.split()), " ".join(body.custom.description.split()),
+    )
+    if body.mode == selling.MODE:
+        if body.inventory_id:
+            row = await _unsold_purchase(body.inventory_id, user, db)
+            item = haggle.inventory_item({"id": str(row.id), "title": row.title, **row.detail})
+            listing = {
+                "id": item.get("listing"), "item": item["title"], "list_price": item["list_price"],
+                **{k: item.get(k) for k in ("condition", "description", "category", "setting")},
+            }
+            state = selling.new_game(listing, body.asking or item["list_price"], item.get("paid"), str(row.id), body.difficulty)
+        elif custom:
+            state = selling.new_game(custom, body.asking or custom["list_price"], None, None, body.difficulty)
+        else:
+            raise HTTPException(status_code=422, detail="Pick something from your inventory, or describe what you are selling")
+    else:
+        state = haggle.new_game(body.scenario, body.difficulty, listing=custom or None)
     await db.execute(
         delete(GameSession).where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)
     )
-    state = haggle.new_game(body.scenario, body.difficulty)
     game = GameSession(user_id=user.id, game_type=haggle.GAME_TYPE, title=state["scenario"]["item"][:80], state=state)
     db.add(game)
     await db.commit()
@@ -538,8 +578,60 @@ async def answer_offer(
     return _serialize(game)
 
 
+async def _unsold_purchase(row_id: uuid.UUID, user: User, db: AsyncSession) -> GameScore:
+    """Something the caller bought and still has."""
+    row = (await db.execute(
+        select(GameScore).where(
+            GameScore.id == row_id, GameScore.user_id == user.id, GameScore.game_type == haggle.GAME_TYPE,
+        )
+    )).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="That is not in your inventory")
+    if row.detail.get("sold"):
+        raise HTTPException(status_code=409, detail="You already sold that")
+    return row
+
+
+def _sale_score(user: User, state: dict) -> Optional[GameScore]:
+    """A score row for a sale that went through. Keeping the item records nothing."""
+    result = state.get("result") or {}
+    if result.get("outcome") != "sold":
+        return None
+    return GameScore(
+        user_id=user.id, game_type=SALE_GAME_TYPE, title=state["scenario"]["item"][:80], score=int(result["score"]),
+        detail={
+            **{k: result.get(k) for k in ("outcome", "rating", "paid", "rounds", "profit", "ceiling")},
+            "asking": state["list_price"],
+            "cost": state.get("cost"),
+            "buyer": state["scenario"]["merchant"],
+            "buyer_kind": state["scenario"].get("kind"),
+            "difficulty": state.get("difficulty", "normal"),
+            "inventory_id": state.get("inventory_id"),
+            **{k: state["scenario"].get(k) for k in ("condition", "category")},
+        },
+    )
+
+
+async def _mark_sold(user: User, state: dict, db: AsyncSession) -> None:
+    """Record a sale against the purchase it came from, so the inventory shows it as sold."""
+    result = state.get("result") or {}
+    if result.get("outcome") != "sold" or not state.get("inventory_id"):
+        return
+    row = (await db.execute(
+        select(GameScore).where(GameScore.id == uuid.UUID(state["inventory_id"]), GameScore.user_id == user.id)
+    )).scalar_one_or_none()
+    if row and not row.detail.get("sold"):
+        # A new dict, so the change to the JSON column is noticed
+        row.detail = {**row.detail, "sold": {
+            "price": result["paid"], "profit": result.get("profit"), "buyer": state["scenario"]["merchant"],
+            "rating": result["rating"], "at": datetime.now(timezone.utc).isoformat(),
+        }}
+
+
 def _haggle_score(user: User, state: dict) -> Optional[GameScore]:
     """A score row for a haggle that ended in a deal. Walking away records nothing."""
+    if state.get("mode") == selling.MODE:
+        return _sale_score(user, state)
     result = state.get("result") or {}
     if result.get("outcome") != "deal":
         return None
@@ -553,22 +645,24 @@ def _haggle_score(user: User, state: dict) -> Optional[GameScore]:
             "difficulty": state.get("difficulty", "normal"),
             "listing": state["scenario"].get("id"),
             **{k: state["scenario"].get(k) for k in ("condition", "description", "setting")},
-            "category": haggle.category_of(state["scenario"].get("id")),
+            "category": state["scenario"].get("category") or haggle.category_of(state["scenario"].get("id")),
         },
     )
 
 
-async def _end_haggle(game_id: uuid.UUID, user: User, db: AsyncSession, move) -> dict:
+async def _end_haggle(game_id: uuid.UUID, user: User, db: AsyncSession, move: str) -> dict:
+    """`move` is accept (take the price on the table) or walk_away, in whichever direction the haggle runs."""
     game = await _owned_game(game_id, user, db)
     if game.game_type != haggle.GAME_TYPE:
         raise HTTPException(status_code=400, detail="Unknown game")
     try:
-        game.state = move(game.state)
+        game.state = getattr(_haggle_rules(game.state), move)(game.state)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     score = _haggle_score(user, game.state)
     if score:
         db.add(score)
+    await _mark_sold(user, game.state, db)
     await db.commit()
     await db.refresh(game)
     return _serialize(game)
@@ -580,8 +674,8 @@ async def accept_price(
     user: User = Depends(get_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Pay the seller's current price, which closes the haggle. Instant: no turn, no model call."""
-    return await _end_haggle(game_id, user, db, haggle.accept)
+    """Close at the price on the table: pay the seller, or take the buyer's money. Instant: no model call."""
+    return await _end_haggle(game_id, user, db, "accept")
 
 
 @router.patch("/{game_id}/walk")
@@ -590,8 +684,8 @@ async def walk_away(
     user: User = Depends(get_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Leave without buying. Instant: no turn, no model call."""
-    return await _end_haggle(game_id, user, db, haggle.walk_away)
+    """Leave without buying, or keep the item instead of selling. Instant: no model call."""
+    return await _end_haggle(game_id, user, db, "walk_away")
 
 
 async def _pick_model(base_url: str, wanted: str) -> str:
@@ -732,20 +826,26 @@ async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db
         raise HTTPException(status_code=409, detail="This haggle is over")
     message = " ".join(body.decision.split())
     # "Deal!" typed into the message box agrees to the price on the table. Paying is still the player's to do.
+    rules = _haggle_rules(state)
     agreeing = body.offer is None and not body.bluff and haggle.is_acceptance(message)
     if state.get("final"):
-        raise HTTPException(status_code=409, detail="That was their final price. Pay it or walk away.")
+        raise HTTPException(status_code=409, detail="That was their final offer. Take it or leave it.")
     bluff = body.bluff
-    if bluff and not haggle.can_bluff(state):
+    if bluff and not rules.can_bluff(state):
         raise HTTPException(status_code=409, detail="They have seen that move already.")
     if bluff:
-        message, offer = message or haggle.BLUFF_MESSAGE, None
+        message, offer = message or rules.BLUFF_MESSAGE, None
     elif agreeing:
         offer = state["ask"]
+    elif body.offer is not None:
+        offer = body.offer
+    elif rules is selling:
+        offer = selling.stated_price(message, state)
     else:
-        offer = body.offer if body.offer is not None else haggle.stated_offer(message, state["list_price"], state["scenario"]["item"], state["ask"])
+        offer = haggle.stated_offer(message, state["list_price"], state["scenario"]["item"], state["ask"])
     if not message and offer is not None:
-        message = f"How about ${offer:,}?"
+        # The words the screen shows for a price sent on its own
+        message = f"How about ${offer:,}?" if rules is haggle else f"I can do ${offer:,}."
     if not message:
         raise HTTPException(status_code=422, detail="Say something or make an offer")
     game_id, turn_before = game.id, state["turn"]
@@ -754,10 +854,10 @@ async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db
     await db.close()
 
     reply = await _ask_with_retry(
-        game_id, base_url, body.model, haggle.SYSTEM_PROMPT,
-        haggle.describe_for_model(state, message, offer, bluff), haggle.REPLY_SCHEMA,
+        game_id, base_url, body.model, rules.SYSTEM_PROMPT,
+        rules.describe_for_model(state, message, offer, bluff), haggle.REPLY_SCHEMA,
     )
-    new_state = haggle.apply_turn(state, message, offer, reply, bluff)
+    new_state = rules.apply_turn(state, message, offer, reply, bluff)
 
     async with AsyncSessionLocal() as write_db:
         fresh = await write_db.execute(

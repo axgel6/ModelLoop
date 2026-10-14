@@ -1,6 +1,8 @@
-// Mirrors the state built by backend/games/negotiation/engine.py
+// Mirrors the state built by backend/games/negotiation/engine.py (buying) and selling.py (selling)
 
-export type HaggleStatus = "active" | "deal" | "walked";
+/** Buying ends in a deal or walking away; selling in a sale or keeping the item */
+export type HaggleStatus = "active" | "deal" | "walked" | "sold" | "kept";
+export type HaggleMode = "buy" | "sell";
 
 export interface HaggleEntry {
   turn: number;
@@ -27,7 +29,7 @@ export interface HaggleEntry {
 }
 
 export interface HaggleResult {
-  outcome: "deal" | "walked";
+  outcome: "deal" | "walked" | "sold" | "kept";
   /** 0 to 100: the share of the possible discount the player won */
   score: number;
   rating: string;
@@ -36,6 +38,10 @@ export interface HaggleResult {
   /** The lowest the merchant would have gone, revealed once it is over */
   floor: number;
   rounds: number;
+  /** Selling: the most the buyer would have paid */
+  ceiling?: number;
+  /** Selling something from the inventory: the sale price less what was paid for it */
+  profit?: number | null;
 }
 
 /** A marketplace listing, as the start screen shows it */
@@ -55,6 +61,14 @@ export interface HaggleListing {
 
 export interface HaggleState {
   status: HaggleStatus;
+  /** Missing on haggles from before selling existed; those are buying */
+  mode?: HaggleMode;
+  /** Selling: what the player paid for it, if it came from the inventory */
+  cost?: number | null;
+  /** Selling: the buyer's first offer */
+  opening_bid?: number;
+  /** Selling: the buyer opened at the asking price, so they will pay it as soon as the player accepts */
+  opening_agreed?: boolean;
   turn: number;
   difficulty: string;
   /** Haggles saved before listings had them carry no condition or description */
@@ -66,6 +80,9 @@ export interface HaggleState {
     persona: string;
     condition?: string | null;
     description?: string;
+    category?: string | null;
+    /** Selling: what sort of buyer this is, such as "Collector" */
+    kind?: string;
   };
   opening: string;
   list_price: number;
@@ -83,6 +100,7 @@ export interface HaggleState {
 export interface HaggleSummary {
   turn: number;
   status: HaggleStatus;
+  mode?: HaggleMode;
   item: string;
   merchant: string;
   ask: number;
@@ -106,4 +124,15 @@ export interface InventoryItem {
   category?: string | null;
   description?: string | null;
   setting?: string | null;
+  /** Sold on again, and how that went */
+  sold?: { price: number; profit: number | null; buyer: string; rating: string; at: string } | null;
+}
+
+/** A listing the player writes themselves */
+export interface CustomListing {
+  item: string;
+  price: number;
+  condition: string | null;
+  category: string | null;
+  description: string;
 }

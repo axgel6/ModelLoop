@@ -177,7 +177,7 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
       <div className="ceo-menu">
         <div className="game-menu-head">
           <BackButton label="Back to all games" onClick={onExit} />
-          <h2 className="ceo-title">CEO Simulator</h2>
+          <h2 className="ceo-title">Founder Mode</h2>
         </div>
         <p className="ceo-sub">
           Each turn is one week, and you have one year. Your score is what your share of the company is worth at

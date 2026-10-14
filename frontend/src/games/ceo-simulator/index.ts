@@ -4,8 +4,8 @@ import { CeoSimulator } from "./CeoSimulator";
 
 export const ceoSimulator: GameInfo = {
   id: "ceo-simulator",
-  name: "CEO Simulator",
-  monogram: "CS",
+  name: "Founder Mode",
+  monogram: "FM",
   icon: CeoIcon,
   tagline: "Build a company one decision at a time",
   description:

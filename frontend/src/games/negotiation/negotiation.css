@@ -1,5 +1,5 @@
 /* ============================================================
-   Negotiation
+   Marketplace (the Negotiation game)
    Built from the chat's own pieces: message bubbles, the message
    box, the Presets list rows, the Preferences cards and the
    standard buttons. Only the layout particular to a haggle lives here.
@@ -583,6 +583,8 @@ html .neg .neg-pay-confirm.is-armed:hover {
   gap: 6px;
 }
 
+html .neg .neg-chip,
+html .neg .neg-chip:hover,
 html .neg-browser .neg-chip,
 html .neg-browser .neg-chip:hover {
   padding: 5px 12px;
@@ -599,10 +601,13 @@ html .neg-browser .neg-chip:hover {
   transform: none;
 }
 
+html .neg .neg-chip:hover,
 html .neg-browser .neg-chip:hover {
   color: var(--game-ink);
 }
 
+html .neg .neg-chip.is-on,
+html .neg .neg-chip.is-on:hover,
 html .neg-browser .neg-chip.is-on,
 html .neg-browser .neg-chip.is-on:hover {
   border-color: var(--game-accent);
@@ -746,4 +751,88 @@ html .neg-browser .neg-chip.is-on:hover {
   .neg-inventory-totals {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* ---- Buying or selling ---- */
+
+.neg-modes {
+  display: flex;
+  gap: 6px;
+  margin: -6px 0 18px;
+}
+
+html .neg .neg-modes .neg-chip,
+html .neg .neg-modes .neg-chip:hover {
+  padding: 7px 18px;
+  font-size: 0.8rem;
+}
+
+/* The asking price, under the item picked to sell */
+.neg-asking {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -6px 4px 18px;
+}
+
+.neg-asking .neg-offer {
+  align-self: flex-start;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  font-size: 0.8rem;
+}
+
+html .neg-browser .neg-sell,
+html .neg-browser .neg-sell:hover {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
+/* ---- Writing a listing ---- */
+
+.neg-custom .pref-setting-hint {
+  margin: -4px 0 0;
+}
+
+.neg-custom-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+
+.neg-custom-row .login-field {
+  flex: 0 0 150px;
+}
+
+.neg-custom-row .neg-select {
+  padding-bottom: 8px;
+}
+
+.neg-custom .login-field label {
+  font-size: 0.78rem;
+}
+
+.neg-custom-description {
+  width: 100%;
+  padding: 12px 18px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.neg-custom-description:focus {
+  border-color: var(--game-accent);
 }

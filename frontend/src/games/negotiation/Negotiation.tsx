@@ -13,16 +13,28 @@ import {
 import { apiFetch } from "../../components/api";
 import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
+import { CustomListingForm } from "./CustomListingForm";
 import { Inventory } from "./Inventory";
 import { apiInventory, inventoryTotals } from "./inventoryData";
 import { ListingBrowser } from "./ListingBrowser";
 import { DIFFICULTIES, LISTINGS_SHOWN, dealListings, type Difficulty } from "./setup";
-import type { HaggleEntry, HaggleListing, HaggleState, HaggleSummary, InventoryItem } from "./types";
+import type {
+  CustomListing,
+  HaggleEntry,
+  HaggleListing,
+  HaggleMode,
+  HaggleState,
+  HaggleSummary,
+  InventoryItem,
+} from "./types";
 import "./negotiation.css";
 
 const GAME_TYPE = "negotiation";
-// What is sent when the player bluffs without typing anything. The server uses the same line.
+// Sales are scored apart from purchases
+const SALE_SCORES = "negotiation-sale";
+// What is sent when the player bluffs without typing anything. The server uses the same lines.
 const BLUFF_MESSAGE = "I think I'll leave it. Thanks anyway.";
+const SELL_BLUFF_MESSAGE = "Just a heads up, someone else is coming to look at it later today.";
 // The haggle happens in the marketplace chat, so what gives the seller away is how they reply, not how they look.
 // The faster the answer, the more room is left in the price.
 // How long the payment button stays armed after the first tap
@@ -37,6 +49,11 @@ type HaggleSave = GameSave<HaggleState>;
 
 function money(amount: number): string {
   return `$${Math.round(amount).toLocaleString("en-US")}`;
+}
+
+/** A profit or loss, with its sign */
+function signedMoney(amount: number): string {
+  return `${amount < 0 ? "-" : "+"}${money(Math.abs(amount))}`;
 }
 
 export function Negotiation({ model, onExit }: GameProps) {
@@ -70,8 +87,14 @@ function Menu({
   onExit: () => void;
   startInInventory: boolean;
 }) {
+  const [mode, setMode] = useState<HaggleMode>("buy");
   const [inventory, setInventory] = useState<InventoryItem[] | null>(null);
   const [inventoryOpen, setInventoryOpen] = useState(startInInventory);
+  const [customOpen, setCustomOpen] = useState(false);
+  // Selling: which purchase, and the price it goes up at
+  const [sellPick, setSellPick] = useState<string | null>(null);
+  const [asking, setAsking] = useState("");
+  const [saleScores, setSaleScores] = useState<GameScoreRow[]>([]);
   const [unfinished, setUnfinished] = useState<GameSaveSummary<HaggleSummary> | null>(null);
   const [scores, setScores] = useState<GameScoreRow[]>([]);
   // null is "Surprise me": the server deals a scenario
@@ -91,6 +114,9 @@ function Menu({
     apiGameScores(GAME_TYPE)
       .then(setScores)
       .catch(() => setScores([]));
+    apiGameScores(SALE_SCORES)
+      .then(setSaleScores)
+      .catch(() => setSaleScores([]));
     apiInventory()
       .then(setInventory)
       .catch(() => setInventory([]));
@@ -103,6 +129,17 @@ function Menu({
       })
       .catch(() => {});
   }, []);
+
+  const unsold = (inventory ?? []).filter((i) => !i.sold);
+  const picked = unsold.find((i) => i.id === sellPick) ?? null;
+  const askingValue = Math.round(Number(asking));
+  const categories = [...new Set(listings.map((l) => l.category).filter(Boolean))];
+
+  const pickToSell = (item: InventoryItem) => {
+    setMode("sell");
+    setSellPick(item.id);
+    setAsking(String(item.list_price));
+  };
 
   const run = async (load: () => Promise<HaggleSave>) => {
     if (busy) return;
@@ -121,12 +158,28 @@ function Menu({
       <div className="neg-menu">
         <div className="game-menu-head">
           <BackButton label="Back to all games" onClick={onExit} />
-          <h2 className="neg-title">Negotiation</h2>
+          <h2 className="neg-title">Marketplace</h2>
         </div>
         <p className="neg-sub">
-          Pick a listing and message the seller to talk the price down. Questions about the item are free; haggling costs a little of their patience, and you
-          only learn how low they would have gone once it is over.
+          {mode === "buy"
+            ? "Pick a listing and message the seller to talk the price down. Questions about the item are free; haggling costs a little of their patience, and you only learn how low they would have gone once it is over."
+            : "List something you bought and a buyer messages you with an offer. Talk them up before they lose interest. You only learn how high they would have gone once it is over."}
         </p>
+
+        <div className="neg-modes" role="radiogroup" aria-label="Buying or selling">
+          {(["buy", "sell"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={mode === m}
+              className={`neg-chip${mode === m ? " is-on" : ""}`}
+              onClick={() => setMode(m)}
+            >
+              {m === "buy" ? "Buying" : "Selling"}
+            </button>
+          ))}
+        </div>
 
         {inventory && inventory.length > 0 && (
           <>
@@ -150,8 +203,10 @@ function Menu({
                     {inventory.length} {inventory.length === 1 ? "thing" : "things"} bought
                   </div>
                   <div className="pref-item-desc">
-                    {money(inventoryTotals(inventory).spent)} spent, {money(inventoryTotals(inventory).saved)} saved.
-                    Latest: {inventory[0].title}
+                    {money(inventoryTotals(inventory).spent)} spent, {money(inventoryTotals(inventory).saved)} saved
+                    {inventoryTotals(inventory).sold > 0 &&
+                      `, ${inventoryTotals(inventory).sold} sold for ${signedMoney(inventoryTotals(inventory).profit)}`}
+                    . Latest: {inventory[0].title}
                   </div>
                 </div>
                 <span className="pref-content-badge">Open</span>
@@ -159,7 +214,30 @@ function Menu({
             </div>
           </>
         )}
-        {inventoryOpen && inventory && <Inventory items={inventory} onClose={() => setInventoryOpen(false)} />}
+        {inventoryOpen && inventory && (
+          <Inventory
+            items={inventory}
+            onClose={() => setInventoryOpen(false)}
+            onSell={(item) => {
+              pickToSell(item);
+              setInventoryOpen(false);
+            }}
+          />
+        )}
+        {customOpen && (
+          <CustomListingForm
+            mode={mode}
+            categories={categories}
+            busy={busy}
+            error={error}
+            onClose={() => setCustomOpen(false)}
+            onSubmit={(custom: CustomListing) =>
+              run(() =>
+                apiCreateGame<HaggleState>(GAME_TYPE, { mode, custom, difficulty, asking: custom.price }),
+              )
+            }
+          />
+        )}
 
         {unfinished && (
           <>
@@ -170,7 +248,8 @@ function Menu({
                 <div className="pref-item-info">
                   <div className="pref-item-name">{unfinished.summary.item}</div>
                   <div className="pref-item-desc">
-                    {unfinished.summary.merchant} is asking {money(unfinished.summary.ask)}
+                    {unfinished.summary.merchant} is {unfinished.summary.mode === "sell" ? "offering" : "asking"}{" "}
+                    {money(unfinished.summary.ask)}
                   </div>
                 </div>
                 <button
@@ -186,6 +265,8 @@ function Menu({
           </>
         )}
 
+        {mode === "buy" ? (
+          <>
         <div className="neg-section-row">
           <h3 className="pref-field-label neg-section">What are you buying?</h3>
           <button
@@ -231,6 +312,13 @@ function Menu({
               onPick={() => setScenario(s.id)}
             />
           ))}
+          <Option
+            icon="+"
+            name="Write your own listing"
+            desc="Anything you want to buy. A seller will be found for it."
+            on={false}
+            onPick={() => setCustomOpen(true)}
+          />
         </div>
 
         {browsing && (
@@ -249,7 +337,60 @@ function Menu({
           />
         )}
 
-        <h3 className="pref-field-label neg-section">How tough is the seller?</h3>
+          </>
+        ) : (
+          <>
+            <h3 className="pref-field-label neg-section">What are you selling?</h3>
+            <div className="pref-account-card neg-card">
+              {unsold.map((i) => (
+                <Option
+                  key={i.id}
+                  icon={i.title.charAt(0).toUpperCase()}
+                  name={i.title}
+                  desc={[i.paid != null ? `You paid ${money(i.paid)}` : "", i.condition, i.category].filter(Boolean).join(" · ")}
+                  badge={money(i.list_price)}
+                  on={sellPick === i.id}
+                  onPick={() => pickToSell(i)}
+                />
+              ))}
+              {unsold.length === 0 && (
+                <div className="pref-list-item neg-row--static">
+                  <div className="pref-item-info">
+                    <div className="pref-item-name">Nothing to sell yet</div>
+                    <div className="pref-item-desc">Buy something first, or sell something of your own.</div>
+                  </div>
+                </div>
+              )}
+              <Option
+                icon="+"
+                name="Something of your own"
+                desc="Write a listing for anything you like"
+                on={false}
+                onPick={() => setCustomOpen(true)}
+              />
+            </div>
+
+            {picked && (
+              <div className="neg-asking">
+                <label className="neg-offer">
+                  <span>Asking price $</span>
+                  <input
+                    value={asking}
+                    onChange={(e) => setAsking(e.target.value.replace(/[^\d]/g, "").slice(0, 7))}
+                    inputMode="numeric"
+                    aria-label="Your asking price in dollars"
+                  />
+                </label>
+                <span className="pref-setting-hint">
+                  {picked.paid != null && `You paid ${money(picked.paid)}. `}It lists for about {money(picked.list_price)}.
+                  Asking higher leaves room to come down; the buyer's limit depends on what it is worth, not on your price.
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
+        <h3 className="pref-field-label neg-section">How tough is the {mode === "buy" ? "seller" : "buyer"}?</h3>
         <div className="pref-account-card neg-card">
           {DIFFICULTIES.map((d) => (
             <Option
@@ -265,20 +406,63 @@ function Menu({
         {error && <p className="neg-error">{error}</p>}
 
         <div className="neg-start">
-          <button
-            type="button"
-            className="start-button"
-            onClick={() => run(() => apiCreateGame<HaggleState>(GAME_TYPE, { scenario, difficulty }))}
-            disabled={busy}
-          >
-            {busy ? "Opening the chat" : "Message the seller"}
-          </button>
+          {mode === "buy" ? (
+            <button
+              type="button"
+              className="start-button"
+              onClick={() => run(() => apiCreateGame<HaggleState>(GAME_TYPE, { scenario, difficulty }))}
+              disabled={busy}
+            >
+              {busy ? "Opening the chat" : "Message the seller"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="start-button"
+              onClick={() =>
+                picked &&
+                run(() =>
+                  apiCreateGame<HaggleState>(GAME_TYPE, {
+                    mode: "sell",
+                    inventory_id: picked.id,
+                    asking: askingValue > 0 ? askingValue : undefined,
+                    difficulty,
+                  }),
+                )
+              }
+              disabled={busy || !picked || !(askingValue > 0)}
+            >
+              {busy ? "Posting" : "List it"}
+            </button>
+          )}
           {unfinished && (
-            <span className="pref-setting-hint">Messaging a new seller drops the chat still on the table.</span>
+            <span className="pref-setting-hint">Starting a new chat drops the one still on the table.</span>
           )}
         </div>
 
-        {scores.length > 0 && (
+        {mode === "sell" && saleScores.length > 0 && (
+          <>
+            <h3 className="pref-field-label neg-section">Best sales</h3>
+            <div className="pref-account-card neg-card">
+              {saleScores.map((row, i) => (
+                <div key={row.id} className="pref-list-item neg-row--static">
+                  <div className="pref-item-icon">{i + 1}</div>
+                  <div className="pref-item-info">
+                    <div className="pref-item-name">{row.title}</div>
+                    <div className="pref-item-desc">
+                      {row.paid != null ? `Sold for ${money(row.paid)}` : row.rating}
+                      {row.buyer ? ` to ${row.buyer}` : ""}
+                      {row.profit != null ? ` · ${signedMoney(row.profit)}` : ""}
+                    </div>
+                  </div>
+                  <span className="pref-content-badge">{row.score}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {mode === "buy" && scores.length > 0 && (
           <>
             <h3 className="pref-field-label neg-section">Best deals</h3>
             <div className="pref-account-card neg-card">
@@ -365,6 +549,10 @@ function Play({
 }) {
   const state = save.state;
   const { scenario, result } = state;
+  // Selling turns the screen round: they offer, you name prices, and they pay you
+  const selling = state.mode === "sell";
+  const bare = (amount: number) => (selling ? `I can do ${money(amount)}.` : `How about ${money(amount)}?`);
+  const sold = result?.outcome === "deal" || result?.outcome === "sold";
   const [draft, setDraft] = useState("");
   const [offerDraft, setOfferDraft] = useState("");
   const [pending, setPending] = useState<{ text: string; offer?: number } | null>(null);
@@ -387,7 +575,9 @@ function Play({
     const text = draft.trim();
     if ((!bluff && !text && offer === undefined) || busy) return;
     setPending(
-      bluff ? { text: text || BLUFF_MESSAGE } : { text: text || `How about ${money(offer ?? 0)}?`, offer },
+      bluff
+        ? { text: text || (selling ? SELL_BLUFF_MESSAGE : BLUFF_MESSAGE) }
+        : { text: text || bare(offer ?? 0), offer },
     );
     setError("");
     setDraft("");
@@ -426,15 +616,15 @@ function Play({
   return (
     <div className="neg neg--play">
       <div className="neg-head">
-        <BackButton label="Back to the listings" onClick={() => onLeave(false)} />
+        <BackButton label="Back to marketplace" onClick={() => onLeave(false)} />
         <h2 className="neg-title">{scenario.item}</h2>
         <span className="pref-content-badge">
           {result
-            ? result.outcome === "deal"
-              ? "Deal"
-              : "Walked away"
+            ? { deal: "Deal", walked: "Walked away", sold: "Sold", kept: "Kept it" }[result.outcome]
             : state.final
-              ? "Final price"
+              ? selling
+                ? "Final offer"
+                : "Final price"
               : `Round ${state.turn + 1}`}
         </span>
       </div>
@@ -444,7 +634,7 @@ function Play({
           <div className="pref-item-icon">{scenario.merchant.charAt(0)}</div>
           <div className="pref-item-info">
             <div className="pref-item-name">{scenario.merchant}</div>
-            <div className="pref-item-desc">{scenario.setting}</div>
+            <div className="pref-item-desc">{selling ? `${scenario.kind ?? "Buyer"} · messaged your listing` : scenario.setting}</div>
           </div>
         </div>
         <div className="neg-patience">
@@ -461,14 +651,25 @@ function Play({
         </div>
         <div className="neg-price">
           <span className="neg-title">{money(state.ask)}</span>
-          <span className="pref-item-desc">
-            {result?.paid != null ? "You paid" : "Asking"}
-            {state.ask < state.list_price && (
-              <>
-                , down from <s>{money(state.list_price)}</s>
-              </>
-            )}
-          </span>
+          {selling ? (
+            <span className="pref-item-desc">
+              {result?.paid != null ? "They paid" : "Offering"}
+              {state.opening_bid != null && state.ask > state.opening_bid && (
+                <>
+                  , up from <s>{money(state.opening_bid)}</s>
+                </>
+              )}
+            </span>
+          ) : (
+            <span className="pref-item-desc">
+              {result?.paid != null ? "You paid" : "Asking"}
+              {state.ask < state.list_price && (
+                <>
+                  , down from <s>{money(state.list_price)}</s>
+                </>
+              )}
+            </span>
+          )}
         </div>
       </div>
 
@@ -481,7 +682,7 @@ function Play({
               <span className="pref-content-badge">{money(state.list_price)}</span>
             </div>
             <span className="msg-timestamp">
-              {[scenario.condition, scenario.setting].filter(Boolean).join(" · ")}
+              {[selling ? "Your listing" : "", scenario.condition, scenario.setting].filter(Boolean).join(" · ")}
             </span>
             <p className="pref-item-desc">{scenario.description}</p>
           </div>
@@ -489,17 +690,32 @@ function Play({
         <p className="msg-timestamp neg-persona">
           {scenario.merchant}: {scenario.persona}.
         </p>
-        <Line who="you" text="Hi, is this still available?" />
+        {/* Buying, you message first; selling, the buyer does */}
+        {!selling && <Line who="you" text="Hi, is this still available?" />}
         <Line who="them" text={state.opening} />
+        {selling && state.opening_agreed && state.log.length === 0 && (
+          <PayCard
+            who="them"
+            label={`${scenario.merchant} sent`}
+            amount={state.ask}
+            status={sold ? "Received" : undefined}
+            action={!result && !pending ? { label: "Accept", onClick: () => setPaying(true), disabled: busy } : undefined}
+          />
+        )}
 
         {state.log.map((entry, i) => (
           <Fragment key={entry.turn}>
             {/* An offer sent with nothing typed is just the card */}
-            {(entry.offer == null || entry.you !== `How about ${money(entry.offer)}?`) && (
+            {(entry.offer == null || entry.you !== bare(entry.offer)) && (
               <Line who="you" text={entry.you} note={entry.bluff ? "A bluff. It only works once." : undefined} />
             )}
             {entry.offer != null && (
-              <PayCard who="you" label="Your offer" amount={entry.offer} status={entry.agreed ? "Accepted" : "Declined"} />
+              <PayCard
+                who="you"
+                label={selling ? "Your price" : "Your offer"}
+                amount={entry.offer}
+                status={entry.agreed ? "Accepted" : "Declined"}
+              />
             )}
             <Line
               who="them"
@@ -531,10 +747,22 @@ function Play({
                 return (
                   <PayCard
                     who="them"
-                    label={`${scenario.merchant} requests`}
+                    label={`${scenario.merchant} ${selling ? "sent" : "requests"}`}
                     amount={entry.ask}
-                    status={result?.paid === entry.ask && i === state.log.length - 1 ? "Paid" : live ? undefined : "Expired"}
-                    action={live ? { label: "Pay", onClick: () => setPaying(true), disabled: busy } : undefined}
+                    status={
+                      result?.paid === entry.ask && i === state.log.length - 1
+                        ? selling
+                          ? "Received"
+                          : "Paid"
+                        : live
+                          ? undefined
+                          : "Expired"
+                    }
+                    action={
+                      live
+                        ? { label: selling ? "Accept" : "Pay", onClick: () => setPaying(true), disabled: busy }
+                        : undefined
+                    }
                   />
                 );
               })()}
@@ -543,11 +771,9 @@ function Play({
 
         {pending && (
           <>
-            {(pending.offer === undefined || pending.text !== `How about ${money(pending.offer)}?`) && (
-              <Line who="you" text={pending.text} />
-            )}
+            {(pending.offer === undefined || pending.text !== bare(pending.offer)) && <Line who="you" text={pending.text} />}
             {pending.offer !== undefined && (
-              <PayCard who="you" label="Your offer" amount={pending.offer} status="Sent" />
+              <PayCard who="you" label={selling ? "Your price" : "Your offer"} amount={pending.offer} status="Sent" />
             )}
             <div className="message-row assistant neg-waiting">
               <span className="waiting" role="status">
@@ -562,23 +788,52 @@ function Play({
           </>
         )}
 
-        {/* Paying the seller's standing price, with no request of theirs to mark as paid */}
-        {result?.paid != null && !(state.log.at(-1)?.agreed && state.log.at(-1)?.ask === result.paid) && (
-          <PayCard who="you" label={`Paid to ${scenario.merchant}`} amount={result.paid} status="Paid" />
-        )}
+        {/* Settling the standing price, with no card of theirs to mark as done */}
+        {result?.paid != null &&
+          !(state.log.at(-1)?.agreed && state.log.at(-1)?.ask === result.paid) &&
+          !(selling && state.opening_agreed && state.log.length === 0) && (
+            <PayCard
+              who={selling ? "them" : "you"}
+              label={selling ? `Received from ${scenario.merchant}` : `Paid to ${scenario.merchant}`}
+              amount={result.paid}
+              status={selling ? "Received" : "Paid"}
+            />
+          )}
 
         {result && (
           <div className="neg-verdict">
             <span className="neg-title">{result.rating}</span>
-            <span className="pref-setting-hint">
-              {result.paid != null
-                ? `You paid ${money(result.paid)} for something listed at ${money(state.list_price)}, saving ${money(result.saved ?? 0)} in ${result.rounds} ${result.rounds === 1 ? "round" : "rounds"}.`
-                : "You left without buying. No deal, no score."}
-            </span>
-            <span className="pref-setting-hint">
-              The lowest {scenario.merchant} would have gone was {money(result.floor)}.
-              {result.paid != null && ` You won ${result.score}% of the discount that was there to be had.`}
-            </span>
+            {selling ? (
+              <>
+                <span className="pref-setting-hint">
+                  {result.paid != null
+                    ? `You sold it to ${scenario.merchant} for ${money(result.paid)}, ${money(result.saved ?? 0)} up from their first offer, in ${result.rounds} ${result.rounds === 1 ? "round" : "rounds"}.`
+                    : "You kept it. No sale, no score."}
+                </span>
+                <span className="pref-setting-hint">
+                  {scenario.merchant} would have gone up to {money(result.ceiling ?? result.floor)}.
+                  {result.paid != null && ` You won ${result.score}% of the room there was.`}
+                </span>
+                {result.profit != null && state.cost != null && (
+                  <span className="pref-setting-hint">
+                    You paid {money(state.cost)} for it, so that is a {result.profit >= 0 ? "profit" : "loss"} of{" "}
+                    {money(Math.abs(result.profit))}.
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="pref-setting-hint">
+                  {result.paid != null
+                    ? `You paid ${money(result.paid)} for something listed at ${money(state.list_price)}, saving ${money(result.saved ?? 0)} in ${result.rounds} ${result.rounds === 1 ? "round" : "rounds"}.`
+                    : "You left without buying. No deal, no score."}
+                </span>
+                <span className="pref-setting-hint">
+                  The lowest {scenario.merchant} would have gone was {money(result.floor)}.
+                  {result.paid != null && ` You won ${result.score}% of the discount that was there to be had.`}
+                </span>
+              </>
+            )}
           </div>
         )}
 
@@ -591,14 +846,15 @@ function Play({
           <button type="button" className="start-button" onClick={() => onLeave(false)}>
             Back to marketplace
           </button>
-          {result.outcome === "deal" && (
+          {(result.outcome === "deal" || (result.outcome === "sold" && state.cost != null)) && (
             <button type="button" className="pref-confirm-no" onClick={() => onLeave(true)}>
-              See it in your inventory
+              See your inventory
             </button>
           )}
         </div>
       ) : paying ? (
         <PaySheet
+          receiving={selling}
           to={scenario.merchant}
           item={scenario.item}
           amount={state.ask}
@@ -608,12 +864,12 @@ function Play({
         />
       ) : state.final ? (
         <div className="neg-controls">
-          <span className="pref-setting-label">That was their final price.</span>
+          <span className="pref-setting-label">That was their final {selling ? "offer" : "price"}.</span>
           <button type="button" className="start-button" onClick={() => setPaying(true)} disabled={busy}>
-            Pay {money(state.ask)}
+            {selling ? "Accept" : "Pay"} {money(state.ask)}
           </button>
           <button type="button" className="pref-confirm-no" onClick={() => close("walk")} disabled={busy}>
-            Walk away
+            {selling ? "Keep it" : "Walk away"}
           </button>
         </div>
       ) : (
@@ -623,21 +879,21 @@ function Play({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             maxLength={400}
-            placeholder={`Make your case to ${scenario.merchant}`}
+            placeholder={selling ? `Reply to ${scenario.merchant}` : `Make your case to ${scenario.merchant}`}
             disabled={busy}
             aria-label="Your message"
           />
           <div className="input-toolbar">
             <div className="toolbar-left">
               <label className="neg-offer">
-                <span>Offer $</span>
+                <span>{selling ? "Your price $" : "Offer $"}</span>
                 <input
                   value={offerDraft}
                   onChange={(e) => setOfferDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 8))}
                   inputMode="numeric"
                   placeholder="none"
                   disabled={busy}
-                  aria-label="Your offer in dollars"
+                  aria-label={selling ? "Your price in dollars" : "Your offer in dollars"}
                 />
               </label>
             </div>
@@ -648,16 +904,20 @@ function Play({
                   className="toolbar-chip-btn"
                   onClick={() => play(true)}
                   disabled={busy}
-                  title="Say you are leaving and see if the price moves. Works once, and costs patience."
+                  title={
+                    selling
+                      ? "Mention someone else is interested and see if their offer moves. Works once, and costs patience."
+                      : "Say you are leaving and see if the price moves. Works once, and costs patience."
+                  }
                 >
-                  Bluff leaving
+                  {selling ? "Mention another buyer" : "Bluff leaving"}
                 </button>
               )}
               <button type="button" className="toolbar-chip-btn" onClick={() => close("walk")} disabled={busy}>
-                Walk away
+                {selling ? "Keep it" : "Walk away"}
               </button>
               <button type="button" className="toolbar-chip-btn" onClick={() => setPaying(true)} disabled={busy}>
-                Take it at {money(state.ask)}
+                {selling ? "Sell" : "Take it"} at {money(state.ask)}
               </button>
               <button
                 type="submit"
@@ -709,8 +969,9 @@ function PayCard({
   );
 }
 
-/** The payment sheet. Nothing is bought until the button is tapped twice. */
+/** The payment sheet. Nothing changes hands until the button is tapped twice. */
 function PaySheet({
+  receiving = false,
   to,
   item,
   amount,
@@ -718,6 +979,8 @@ function PaySheet({
   onConfirm,
   onCancel,
 }: {
+  /** Selling: the money is coming to you */
+  receiving?: boolean;
   to: string;
   item: string;
   amount: number;
@@ -750,7 +1013,7 @@ function PaySheet({
   };
 
   return (
-    <div className="neg-pay-sheet" role="dialog" aria-label="Confirm payment">
+    <div className="neg-pay-sheet" role="dialog" aria-label={receiving ? "Accept payment" : "Confirm payment"}>
       <div className="neg-pay-sheet-head">
         <span className="neg-pay-brand">ModelLoop Pay</span>
         <button type="button" className="neg-link neg-link--quiet" onClick={onCancel} disabled={busy}>
@@ -759,7 +1022,7 @@ function PaySheet({
       </div>
       <dl className="neg-pay-rows">
         <div>
-          <dt>Pay</dt>
+          <dt>{receiving ? "From" : "Pay"}</dt>
           <dd>{to}</dd>
         </div>
         <div>
@@ -779,7 +1042,17 @@ function PaySheet({
         aria-live="polite"
       >
         <span className="neg-pay-confirm-mark" aria-hidden="true" />
-        {busy ? "Paying" : armed ? "Tap again to pay" : "Double tap to pay"}
+        {receiving
+          ? busy
+            ? "Accepting"
+            : armed
+              ? "Tap again to accept"
+              : "Double tap to accept"
+          : busy
+            ? "Paying"
+            : armed
+              ? "Tap again to pay"
+              : "Double tap to pay"}
       </button>
     </div>
   );

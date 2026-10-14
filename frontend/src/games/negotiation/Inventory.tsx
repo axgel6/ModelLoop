@@ -25,7 +25,16 @@ function when(iso: string): string {
 }
 
 /** Everything bought in Negotiation, with what was paid and everything the listing said */
-export function Inventory({ items, onClose }: { items: InventoryItem[]; onClose: () => void }) {
+export function Inventory({
+  items,
+  onClose,
+  onSell,
+}: {
+  items: InventoryItem[];
+  onClose: () => void;
+  /** Put something up for sale */
+  onSell: (item: InventoryItem) => void;
+}) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("newest");
   useEscapeKey(onClose);
@@ -64,7 +73,11 @@ export function Inventory({ items, onClose }: { items: InventoryItem[]; onClose:
           <Total label="Items" value={String(items.length)} />
           <Total label="Spent" value={money(totals.spent)} />
           <Total label="Saved" value={money(totals.saved)} />
-          <Total label="Off list" value={`${totals.share}%`} />
+          {totals.sold > 0 ? (
+            <Total label={`Profit on ${totals.sold} sold`} value={`${totals.profit < 0 ? "-" : "+"}${money(Math.abs(totals.profit))}`} />
+          ) : (
+            <Total label="Off list" value={`${totals.share}%`} />
+          )}
         </div>
 
         {items.length > 0 && (
@@ -94,7 +107,7 @@ export function Inventory({ items, onClose }: { items: InventoryItem[]; onClose:
             <article key={i.id} className="neg-inventory-item">
               <div className="neg-listing-head">
                 <span className="pref-item-name">{i.title}</span>
-                <span className="pref-content-badge">{i.paid != null ? money(i.paid) : ""}</span>
+                <span className="pref-content-badge">{i.sold ? "Sold" : i.paid != null ? money(i.paid) : ""}</span>
               </div>
               <span className="msg-timestamp">
                 {[i.condition, i.category, `Bought from ${i.merchant}`, i.setting?.split("·").pop()?.trim(), when(i.bought_at)]
@@ -108,7 +121,18 @@ export function Inventory({ items, onClose }: { items: InventoryItem[]; onClose:
                 {i.rounds != null ? ` · ${i.rounds} ${i.rounds === 1 ? "round" : "rounds"}` : ""}
                 {i.difficulty && i.difficulty !== "normal" ? ` · ${i.difficulty}` : ""}
               </span>
+              {i.sold && (
+                <span className="neg-inventory-deal">
+                  Sold to {i.sold.buyer} for {money(i.sold.price)} · {i.sold.rating}
+                  {i.sold.profit != null && ` · ${i.sold.profit < 0 ? "a loss of" : "a profit of"} ${money(Math.abs(i.sold.profit))}`}
+                </span>
+              )}
               {i.description && <p className="pref-item-desc">{i.description}</p>}
+              {!i.sold && (
+                <button type="button" className="neg-chip neg-sell" onClick={() => onSell(i)}>
+                  Sell it
+                </button>
+              )}
             </article>
           ))}
           {items.length === 0 && (

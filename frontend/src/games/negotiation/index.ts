@@ -4,13 +4,13 @@ import { Negotiation } from "./Negotiation";
 
 export const negotiation: GameInfo = {
   id: "negotiation",
-  name: "Negotiation",
-  monogram: "NG",
+  name: "Marketplace",
+  monogram: "MP",
   icon: NegotiationIcon,
-  tagline: "Talk the price down before they lose patience",
+  tagline: "Buy low, sell high, one message at a time",
   description:
-    "Pick a marketplace listing and message the seller. Good arguments move the price, bad offers burn patience, and the lowest they would go stays hidden until the end.",
-  tags: ["Conversation", "Quick play"],
+    "Message sellers to talk their prices down, then flip what you bought to buyers who lowball you. Good arguments move the price, bad offers burn patience, and nobody's limit shows until the end.",
+  tags: ["Haggling", "Buy and sell"],
   status: "available",
   component: Negotiation,
 };

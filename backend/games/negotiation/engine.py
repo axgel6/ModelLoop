@@ -163,6 +163,13 @@ def _fill(text: str, price: float, keep: tuple = ()) -> str:
     return _FIGURE.sub(lambda m: m.group(0) if m.group(0).replace(" ", "") in allowed else _money(price), filled)
 
 
+def _then(said: str, more: str) -> str:
+    """The model's reply with a sentence of the game's added after it."""
+    if said and said[-1] not in ".!?":
+        said += "."
+    return f"{said} {more}".strip()
+
+
 def stated_offer(message: str, list_price: Optional[int] = None, item: str = "", ask: Optional[int] = None) -> Optional[int]:
     """A price typed into the message, for players who skip the offer box: a dollar
     figure, or failing that a bare number that could plausibly be a price for this item.
@@ -219,9 +226,42 @@ def _tell(s: dict) -> Optional[str]:
     return "slow" if room < TELL_TIGHT else None
 
 
-def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Optional[random.Random] = None) -> dict:
+# Who sells a listing the player wrote themselves
+CUSTOM_SELLERS = [
+    ("Jamie", "friendly and a bit chatty, happy to answer questions, wants a fair price"),
+    ("Pat", "brisk and busy, short replies, will not be pushed around"),
+    ("Morgan", "proud of what they are selling, sentimental about it, slow to come down"),
+    ("Chris", "laid back, clearing space, would rather sell today than wait for top dollar"),
+    ("Robin", "careful and exact, has looked up what these sell for and quotes it"),
+    ("Sam", "a bit of a talker, mentions other people asking about it, enjoys the back and forth"),
+]
+CUSTOM_OPENINGS = [
+    "Hi, yes it's still available! {price}.",
+    "Yep, still have it. Asking {price}.",
+    "Hello, yes it is. {price}, pickup whenever suits you.",
+]
+CONDITIONS = ("New", "Used - Like New", "Used - Good", "Used - Fair", "For parts")
+
+
+def custom_listing(item: str, price: int, condition: Optional[str], category: Optional[str], description: str,
+                   rng: Optional[random.Random] = None) -> dict:
+    """A listing the player wrote, with a seller found for it."""
     rng = rng or random.Random()
-    scenario = _SCENARIOS_BY_ID.get(scenario_id or "") or rng.choice(SCENARIOS)
+    name, persona = rng.choice(CUSTOM_SELLERS)
+    return {
+        "id": "custom", "item": item, "list_price": price,
+        "condition": condition if condition in CONDITIONS else None,
+        "category": category or "Custom", "description": description,
+        "merchant": name, "persona": persona, "opening": rng.choice(CUSTOM_OPENINGS),
+        "setting": "Marketplace · Local pickup",
+    }
+
+
+def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Optional[random.Random] = None,
+             listing: Optional[dict] = None) -> dict:
+    """`listing` buys something the player listed themselves instead of a catalogue item."""
+    rng = rng or random.Random()
+    scenario = listing or _SCENARIOS_BY_ID.get(scenario_id or "") or rng.choice(SCENARIOS)
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
     list_price = scenario["list_price"]
     floor = min(_nice(list_price * rng.uniform(*FLOOR_SHARE), list_price), list_price - 1)
@@ -229,7 +269,7 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
         "status": "active",          # active | deal | walked
         "turn": 0,
         "difficulty": difficulty if difficulty in DIFFICULTIES else "normal",
-        "scenario": {k: scenario[k] for k in ("id", "item", "merchant", "setting", "persona", "condition", "description")},
+        "scenario": {k: scenario.get(k) for k in ("id", "item", "merchant", "setting", "persona", "condition", "description", "category")},
         "opening": _fill(scenario["opening"], list_price),
         "list_price": list_price,
         "ask": list_price,
@@ -439,9 +479,9 @@ def apply_turn(state: dict, message: str, offer: Optional[int], reply: dict, blu
             if _money(s["ask"]) not in said:
                 # The seller has to say a price that changed, or one that is now final. Otherwise it goes unsaid.
                 if s["final"]:
-                    said = f"{said} {_money(s['ask'])} is my final price.".strip()
+                    said = _then(said, f"{_money(s['ask'])} is my final price.")
                 elif s["ask"] < before:
-                    said = f"{said} I can do {_money(s['ask'])}.".strip()
+                    said = _then(said, f"I can do {_money(s['ask'])}.")
             entry["reply"] = said
         if kind != "deal":
             entry["tell"] = _tell(s)

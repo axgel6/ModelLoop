@@ -4,7 +4,7 @@ import type { HaggleListing } from "./types";
 export type Difficulty = "easy" | "normal" | "hard";
 
 export const DIFFICULTIES: { id: Difficulty; label: string; blurb: string }[] = [
-  { id: "easy", label: "Easy", blurb: "A patient merchant who folds quickly." },
+  { id: "easy", label: "Easy", blurb: "Patient, and quick to give ground." },
   { id: "normal", label: "Normal", blurb: "The standard haggle." },
   { id: "hard", label: "Hard", blurb: "Short on patience and slow to budge." },
 ];
