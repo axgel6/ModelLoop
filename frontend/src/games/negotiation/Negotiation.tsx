@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   apiCreateGame,
   apiEditGame,
+  apiGameChat,
   apiGameScores,
   apiGetGame,
   apiListGames,
@@ -11,17 +12,30 @@ import {
   type GameScoreRow,
 } from "../api";
 import { apiFetch } from "../../components/api";
+import { useEscapeKey } from "../../components/useEscapeKey";
+import { sounds } from "../../sounds";
+import { createPortal } from "react-dom";
 import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
 import { Bank } from "./Bank";
 import { CustomListingForm } from "./CustomListingForm";
-import { HUSTLE_SCORES, apiHustle, apiStartHustle, money, signedMoney, type HustleView } from "./hustleData";
+import {
+  HUSTLE_SCORES,
+  apiBank,
+  apiHustle,
+  apiMoveMoney,
+  apiStartHustle,
+  money,
+  signedMoney,
+  type HustleView,
+} from "./hustleData";
 import { Inventory } from "./Inventory";
-import { apiInventory, inventoryTotals } from "./inventoryData";
+import { apiInventory } from "./inventoryData";
 import { ListingBrowser } from "./ListingBrowser";
-import { DIFFICULTIES, LISTINGS_SHOWN, dealListings, type Difficulty } from "./setup";
+import { LISTINGS_SHOWN, dealListings } from "./setup";
 import type {
   CustomListing,
+  FreeBank,
   HaggleEntry,
   HaggleListing,
   HaggleMode,
@@ -42,6 +56,25 @@ const SELL_BLUFF_MESSAGE = "Just a heads up, someone else is coming to look at i
 // The faster the answer, the more room is left in the price.
 // How long the payment button stays armed after the first tap
 const DOUBLE_TAP_MS = 1200;
+// Terms other than money, each offered once per chat. Mirrors SWEETENERS in backend/games/negotiation/extras.py
+const SWEETENERS = {
+  buy: [
+    { id: "cash", label: "Cash, today", said: "I can pay cash, today." },
+    { id: "pickup", label: "Pick up now", said: "I can come pick it up right now." },
+    { id: "shipping", label: "Cover shipping", said: "I'll cover the shipping." },
+  ],
+  sell: [
+    { id: "dropoff", label: "Drop it off", said: "I can drop it off to you." },
+    { id: "hold", label: "Hold it for you", said: "I'll hold it for you, no one else gets it." },
+    { id: "anytime", label: "Pickup any time", said: "Pick it up whenever suits you." },
+  ],
+} as const;
+// Checking sold listings costs this much in a Hustle run, as RESEARCH_FEE in hustle.py
+const RESEARCH_FEE = 5;
+// How long a slow or hesitant reply keeps you waiting, so the pace itself gives something away
+const SLOW_REPLY_MS = 1200;
+const HESITANT_PAUSE_MS = 900;
+const wait = (ms: number) => new Promise((done) => window.setTimeout(done, ms));
 const TELLS = {
   quick: "They replied straight away.",
   slow: "They took a while to reply.",
@@ -93,6 +126,10 @@ function Menu({
   const [hustle, setHustle] = useState<HustleView | null>(null);
   const [hustleScores, setHustleScores] = useState<GameScoreRow[]>([]);
   const [bankOpen, setBankOpen] = useState(false);
+  // Free play has its own account, apart from any Hustle run
+  const [freeBank, setFreeBank] = useState<FreeBank | null>(null);
+  const [freeBankOpen, setFreeBankOpen] = useState(false);
+  const [showScores, setShowScores] = useState(false);
   const [mode, setMode] = useState<HaggleMode>("buy");
   const [inventory, setInventory] = useState<InventoryItem[] | null>(null);
   const [inventoryOpen, setInventoryOpen] = useState(startInInventory);
@@ -111,13 +148,12 @@ function Menu({
   const [listings, setListings] = useState<HaggleListing[]>([]);
   const [offered, setOffered] = useState<HaggleListing[]>([]);
   const [browsing, setBrowsing] = useState(false);
-  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     apiListGames<HaggleSummary>(GAME_TYPE)
-      .then((saves) => setUnfinished(saves.find((s) => s.summary.status === "active") ?? null))
+      .then((saves) => setUnfinished(saves.find((s) => s.summary.status === "active" || s.summary.status === "choosing") ?? null))
       .catch(() => setUnfinished(null));
     apiGameScores(GAME_TYPE)
       .then(setScores)
@@ -134,6 +170,9 @@ function Menu({
     apiInventory()
       .then(setInventory)
       .catch(() => setInventory([]));
+    apiBank()
+      .then(setFreeBank)
+      .catch(() => setFreeBank(null));
     // Without the list there is still "Surprise me", which the server deals itself
     apiFetch("/api/v1/games/negotiation/listings")
       .then((res) => (res.ok ? res.json() : { listings: [] }))
@@ -149,6 +188,7 @@ function Menu({
   const live = hustleRun?.status === "active" ? hustleRun : null;
   const items = live ? live.holdings : (inventory ?? []);
   const priceOf = (l: HaggleListing) => (live ? (hustle?.prices[l.id] ?? l.list_price) : l.list_price);
+  const valueOf = (l: HaggleListing) => (live ? (hustle?.values?.[l.id] ?? l.value) : l.value);
   const browsable = live
     ? listings.map((l) => ({ ...l, list_price: priceOf(l), value: hustle?.values?.[l.id] ?? l.value }))
     : listings;
@@ -216,25 +256,69 @@ function Menu({
             ))}
           </div>
         </div>
-        {play === "hustle" && (
-          <HustlePanel
-            run={hustleRun}
-            busy={busy}
-            scores={hustleScores}
-            onStart={startRun}
-            onBank={() => setBankOpen(true)}
-          />
+        {play === "hustle" && !live && (
+          <HustlePanel run={hustleRun} busy={busy} scores={hustleScores} onStart={startRun} />
         )}
         {bankOpen && hustleRun && <Bank run={hustleRun} onClose={() => setBankOpen(false)} />}
+        {live ? (
+          <AccountBar
+            cash={live.cash}
+            detail={[`Day ${live.day} of ${live.days}`, stars(freeBank)].filter(Boolean).join(" · ")}
+            progress={live.day / live.days}
+            items={items.length}
+            onBank={() => setBankOpen(true)}
+            onInventory={() => setInventoryOpen(true)}
+          />
+        ) : (
+          play === "free" &&
+          freeBank && (
+            <AccountBar
+              cash={freeBank.cash}
+              detail={[`Net worth ${money(freeBank.net_worth)}`, stars(freeBank)].filter(Boolean).join(" · ")}
+              items={items.length}
+              onBank={() => setFreeBankOpen(true)}
+              onInventory={() => setInventoryOpen(true)}
+            />
+          )
+        )}
+        {live && (live.callbacks ?? []).length > 0 && (
+          <>
+            <h3 className="pref-field-label neg-section">Messages</h3>
+            <div className="pref-account-card neg-card">
+              {(live.callbacks ?? []).map((c) => (
+                <div key={c.id} className="pref-list-item neg-row--static">
+                  <div className="pref-item-icon">{c.merchant.charAt(0)}</div>
+                  <div className="pref-item-info">
+                    <div className="pref-item-name">
+                      {c.merchant}: Still interested? I can do {money(c.price)} now.
+                    </div>
+                    <div className="pref-item-desc">
+                      {c.item} · was {money(c.was)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="start-button"
+                    onClick={() => run(() => apiCreateGame<HaggleState>(GAME_TYPE, { callback: c.id, hustle: true }))}
+                    disabled={busy}
+                  >
+                    Reply
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {freeBankOpen && freeBank && (
+          <Bank
+            free={freeBank}
+            onMove={async (kind, amount) => setFreeBank(await apiMoveMoney(kind, amount))}
+            onClose={() => setFreeBankOpen(false)}
+          />
+        )}
 
         {(play === "free" || live) && (
           <>
-        <p className="neg-sub">
-          {mode === "buy"
-            ? "Pick a listing and message the seller to talk the price down. Questions about the item are free; haggling costs a little of their patience, and you only learn how low they would have gone once it is over."
-            : "List something you bought and a buyer messages you with an offer. Talk them up before they lose interest. You only learn how high they would have gone once it is over."}
-        </p>
-
         <div className="neg-modes" role="radiogroup" aria-label="Buying or selling">
           {(["buy", "sell"] as const).map((m) => (
             <button
@@ -250,39 +334,6 @@ function Menu({
           ))}
         </div>
 
-        {items.length > 0 && (
-          <>
-            <h3 className="pref-field-label neg-section">{live ? "This run's inventory" : "Your inventory"}</h3>
-            <div className="pref-account-card neg-card">
-              <div
-                className="pref-list-item"
-                role="button"
-                tabIndex={0}
-                onClick={() => setInventoryOpen(true)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setInventoryOpen(true);
-                  }
-                }}
-              >
-                <div className="pref-item-icon">{items.length}</div>
-                <div className="pref-item-info">
-                  <div className="pref-item-name">
-                    {items.length} {items.length === 1 ? "thing" : "things"} bought
-                  </div>
-                  <div className="pref-item-desc">
-                    {money(inventoryTotals(items).spent)} spent, {money(inventoryTotals(items).saved)} saved
-                    {inventoryTotals(items).sold > 0 &&
-                      `, ${inventoryTotals(items).sold} sold for ${signedMoney(inventoryTotals(items).profit)}`}
-                    . Latest: {live ? items[items.length - 1].title : items[0].title}
-                  </div>
-                </div>
-                <span className="pref-content-badge">Open</span>
-              </div>
-            </div>
-          </>
-        )}
         {inventoryOpen && items.length > 0 && (
           <Inventory
             items={live ? [...items].reverse() : items}
@@ -301,7 +352,7 @@ function Menu({
             onClose={() => setCustomOpen(false)}
             onSubmit={(custom: CustomListing) =>
               run(() =>
-                apiCreateGame<HaggleState>(GAME_TYPE, { mode: "sell", custom, difficulty, asking: custom.price }),
+                apiCreateGame<HaggleState>(GAME_TYPE, { mode: "sell", custom, asking: custom.price }),
               )
             }
           />
@@ -312,12 +363,13 @@ function Menu({
             <h3 className="pref-field-label neg-section">Still on the table</h3>
             <div className="pref-account-card neg-card">
               <div className="pref-list-item neg-row--static">
-                <div className="pref-item-icon">{unfinished.summary.merchant.charAt(0)}</div>
+                <div className="pref-item-icon">{unfinished.summary.merchant?.charAt(0) ?? unfinished.summary.prospects}</div>
                 <div className="pref-item-info">
                   <div className="pref-item-name">{unfinished.summary.item}</div>
                   <div className="pref-item-desc">
-                    {unfinished.summary.merchant} is {unfinished.summary.mode === "sell" ? "offering" : "asking"}{" "}
-                    {money(unfinished.summary.ask)}
+                    {unfinished.summary.status === "choosing" || !unfinished.summary.merchant
+                      ? `${unfinished.summary.prospects ?? "Some"} buyers waiting in your inbox`
+                      : `${unfinished.summary.merchant} is ${unfinished.summary.mode === "sell" ? "offering" : "asking"} ${money(unfinished.summary.ask ?? 0)}`}
                   </div>
                 </div>
                 <button
@@ -336,7 +388,7 @@ function Menu({
         {mode === "buy" ? (
           <>
         <div className="neg-section-row">
-          <h3 className="pref-field-label neg-section">What are you buying?</h3>
+          <h3 className="pref-field-label neg-section">Pick a listing</h3>
           <button
             type="button"
             className="neg-link neg-refresh neg-show-all"
@@ -349,6 +401,8 @@ function Menu({
             type="button"
             className="neg-link neg-refresh"
             disabled={listings.length === 0}
+            title="Show me others"
+            aria-label="Show me others"
             onClick={() => {
               setOffered((current) => dealListings(listings, current.map((s) => s.id)));
               setScenario(null); // the one that was picked may no longer be on the list
@@ -358,17 +412,9 @@ function Menu({
               <path d="M21 12a9 9 0 1 1-2.64-6.36" />
               <path d="M21 3v6h-6" />
             </svg>
-            Show me others
           </button>
         </div>
         <div className="pref-account-card neg-card">
-          <Option
-            icon="?"
-            name="Surprise me"
-            desc="A listing picked at random"
-            on={scenario === null}
-            onPick={() => setScenario(null)}
-          />
           {offered.map((s) => (
             <Option
               key={s.id}
@@ -376,15 +422,16 @@ function Menu({
               name={s.item}
               desc={[
                 live && priceOf(s) > live.cash ? "Over budget" : "",
+                `Resells for ${money(valueOf(s))}`,
                 s.condition,
                 s.merchant,
-                s.setting.split("·").pop()?.trim(),
               ]
                 .filter(Boolean)
                 .join(" · ")}
               badge={money(priceOf(s))}
               on={scenario === s.id}
-              onPick={() => setScenario(s.id)}
+              // Picking it again goes back to a random listing
+              onPick={() => setScenario(scenario === s.id ? null : s.id)}
             />
           ))}
         </div>
@@ -408,7 +455,7 @@ function Menu({
           </>
         ) : (
           <>
-            <h3 className="pref-field-label neg-section">What are you selling?</h3>
+            <h3 className="pref-field-label neg-section">Pick something to sell</h3>
             <div className="pref-account-card neg-card">
               {unsold.map((i) => (
                 <Option
@@ -454,9 +501,8 @@ function Menu({
                   />
                 </label>
                 <span className="pref-setting-hint">
-                  {picked.paid != null && `You paid ${money(picked.paid)}. `}It resells for about{" "}
-                  {money(picked.value ?? picked.list_price)}.
-                  Asking higher leaves room to come down; the buyer's limit depends on what it is worth, not on your price.
+                  Resells for about {money(picked.value ?? picked.list_price)}
+                  {picked.paid != null && ` · you paid ${money(picked.paid)}`}
                 </span>
                 {live ? (
                   <>
@@ -469,10 +515,7 @@ function Menu({
                       aria-label="The listing's description, with your notes added at the end"
                       placeholder="Add your own notes: what is included, why it is a good deal."
                     />
-                    <span className="pref-setting-hint">
-                      Add to the end. The condition and the original description stay as they are, and buyers will
-                      not believe anything you add that contradicts them.
-                    </span>
+                    <span className="pref-setting-hint">Add your notes at the end. Buyers will not believe claims that contradict the listing.</span>
                   </>
                 ) : (
                   <textarea
@@ -490,19 +533,6 @@ function Menu({
           </>
         )}
 
-        <h3 className="pref-field-label neg-section">How tough is the {mode === "buy" ? "seller" : "buyer"}?</h3>
-        <div className="pref-account-card neg-card">
-          {DIFFICULTIES.map((d) => (
-            <Option
-              key={d.id}
-              name={d.label}
-              desc={d.blurb}
-              on={difficulty === d.id}
-              onPick={() => setDifficulty(d.id)}
-            />
-          ))}
-        </div>
-
         {error && <p className="neg-error">{error}</p>}
 
         <div className="neg-start">
@@ -511,11 +541,11 @@ function Menu({
               type="button"
               className="start-button"
               onClick={() =>
-                run(() => apiCreateGame<HaggleState>(GAME_TYPE, { scenario, difficulty, hustle: !!live }))
+                run(() => apiCreateGame<HaggleState>(GAME_TYPE, { scenario, hustle: !!live }))
               }
               disabled={busy}
             >
-              {busy ? "Opening the chat" : "Message the seller"}
+              {busy ? "Opening the chat" : scenario ? "Message the seller" : "Message a random seller"}
             </button>
           ) : (
             <button
@@ -533,7 +563,6 @@ function Menu({
                       : listingText.trim() !== (picked.description ?? "").trim()
                         ? { description: listingText.trim() }
                         : {}),
-                    difficulty,
                     hustle: !!live,
                   }),
                 )
@@ -555,7 +584,13 @@ function Menu({
           </>
         )}
 
-        {play === "free" && mode === "sell" && saleScores.length > 0 && (
+        {play === "free" && (mode === "sell" ? saleScores : scores).length > 0 && (
+          <button type="button" className="neg-link neg-scores-toggle" onClick={() => setShowScores((v) => !v)}>
+            {showScores ? "Hide" : "Show"} best {mode === "sell" ? "sales" : "deals"}
+          </button>
+        )}
+
+        {showScores && play === "free" && mode === "sell" && saleScores.length > 0 && (
           <>
             <h3 className="pref-field-label neg-section">Best sales</h3>
             <div className="pref-account-card neg-card">
@@ -577,7 +612,7 @@ function Menu({
           </>
         )}
 
-        {play === "free" && mode === "buy" && scores.length > 0 && (
+        {showScores && play === "free" && mode === "buy" && scores.length > 0 && (
           <>
             <h3 className="pref-field-label neg-section">Best deals</h3>
             <div className="pref-account-card neg-card">
@@ -605,51 +640,62 @@ function Menu({
   );
 }
 
-/** Hustle: the run's balance and days, or how to start one, or how the last one went */
+/** Your marketplace rating, once anyone has reviewed you */
+function stars(profile: FreeBank | null): string {
+  if (!profile?.rating) return "";
+  return `${profile.rating.toFixed(1)} stars (${profile.review_count})`;
+}
+
+/** The money and the stuff: balance and inventory side by side, each opening its own window */
+function AccountBar({
+  cash,
+  detail,
+  progress,
+  items,
+  onBank,
+  onInventory,
+}: {
+  cash: number;
+  detail: string;
+  /** Hustle: the share of the run's days used */
+  progress?: number;
+  items: number;
+  onBank: () => void;
+  onInventory: () => void;
+}) {
+  return (
+    <div className="neg-account">
+      <button type="button" className="neg-account-part" onClick={onBank}>
+        <span className="neg-account-value">{money(cash)}</span>
+        <span className="pref-item-desc">{detail}</span>
+      </button>
+      <button type="button" className="neg-account-part" onClick={onInventory} disabled={items === 0}>
+        <span className="neg-account-value">
+          {items} {items === 1 ? "item" : "items"}
+        </span>
+        <span className="pref-item-desc">{items === 0 ? "Nothing bought yet" : "Inventory"}</span>
+      </button>
+      {progress != null && (
+        <div className="neg-days neg-account-days" aria-hidden="true">
+          <span style={{ width: `${100 * progress}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Hustle, outside a run: how to start one, or how the last one went */
 function HustlePanel({
   run,
   busy,
   scores,
   onStart,
-  onBank,
 }: {
   run: HustleRun | null;
   busy: boolean;
   scores: GameScoreRow[];
   onStart: () => void;
-  onBank: () => void;
 }) {
-  if (run?.status === "active") {
-    const profit = run.net_worth - run.start_cash;
-    return (
-      <div className="pref-account-card neg-card">
-        <div
-          className="pref-list-item neg-bank-row"
-          role="button"
-          tabIndex={0}
-          onClick={onBank}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onBank();
-            }
-          }}
-        >
-          <div className="pref-item-icon">$</div>
-          <div className="pref-item-info">
-            <div className="pref-item-name">{money(run.cash)} in your account</div>
-            <div className="pref-item-desc">
-              Net worth {money(run.net_worth)} ({signedMoney(profit)}) · Day {run.day} of {run.days}
-            </div>
-          </div>
-          <span className="pref-content-badge">Bank</span>
-        </div>
-        <div className="neg-days" aria-hidden="true">
-          <span style={{ width: `${(100 * run.day) / run.days}%` }} />
-        </div>
-      </div>
-    );
-  }
   return (
     <>
       <div className="pref-account-card neg-card neg-hustle-intro">
@@ -770,6 +816,8 @@ function Play({
   const [draft, setDraft] = useState("");
   const [offerDraft, setOfferDraft] = useState("");
   const [pending, setPending] = useState<{ text: string; offer?: number } | null>(null);
+  // While a reply is on its way: typing, or a hesitant stop part way
+  const [typing, setTyping] = useState<"typing" | "stopped">("typing");
   const [closing, setClosing] = useState(false);
   // The payment sheet is up: the price on the table, waiting for a double tap
   const [paying, setPaying] = useState(false);
@@ -779,9 +827,21 @@ function Play({
   const [run, setRun] = useState<HustleRun | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
   const inRun = !!state.run_id;
+  // Free play: the free play account pays and gets paid instead
+  const [freeBank, setFreeBank] = useState<FreeBank | null>(null);
+  const balance = run ? run.cash : freeBank?.cash;
+  // Talking on once the haggle is over
+  const [chatting, setChatting] = useState(false);
+  const [chatDraft, setChatDraft] = useState("");
+  const [chatPending, setChatPending] = useState<string | null>(null);
 
   const refreshRun = useCallback(() => {
-    if (!inRun) return;
+    if (!inRun) {
+      apiBank()
+        .then(setFreeBank)
+        .catch(() => {});
+      return;
+    }
     apiHustle()
       .then(({ run: latest }) => setRun(latest && latest.id === state.run_id ? latest : null))
       .catch(() => {});
@@ -791,26 +851,53 @@ function Play({
 
   useEffect(() => {
     feedEnd.current?.scrollIntoView({ block: "end" });
-  }, [state.log.length, pending, error, state.status, paying]);
+  }, [state.log.length, pending, error, state.status, paying, state.after?.length, chatPending]);
 
   const offerValue = Math.round(Number(offerDraft));
   const offer = offerValue > 0 ? offerValue : undefined;
   const busy = !!pending || closing;
 
+  const sweeteners = SWEETENERS[selling ? "sell" : "buy"];
+  const ping = state.ping ?? null;
+
   // `bluff`: saying you are leaving to see if the price moves. It works once, and carries no offer.
-  const play = async (bluff: boolean) => {
+  // `leverage`: holding up another buyer's real offer. `sweetener`: a term other than money.
+  const play = async (move: { bluff?: boolean; leverage?: boolean; sweetener?: string } = {}) => {
     const text = draft.trim();
-    if ((!bluff && !text && offer === undefined) || busy) return;
+    const special = move.bluff || move.leverage || !!move.sweetener;
+    if ((!special && !text && offer === undefined) || busy) return;
+    const said = move.sweetener ? sweeteners.find((x) => x.id === move.sweetener)?.said : undefined;
     setPending(
-      bluff
+      move.bluff
         ? { text: text || (selling ? SELL_BLUFF_MESSAGE : BLUFF_MESSAGE) }
-        : { text: text || bare(offer ?? 0), offer },
+        : move.leverage && ping
+          ? { text: text || `${ping.merchant} just offered ${money(ping.offer)}. Can you beat that?` }
+          : { text: text || said || bare(offer ?? 0), offer },
     );
+    setTyping("typing");
     setError("");
     setDraft("");
     setOfferDraft("");
     try {
-      onSave(await apiPlayTurn<HaggleState>(save.id, text, model, undefined, bluff ? { bluff: true } : { offer }));
+      const next = await apiPlayTurn<HaggleState>(
+        save.id,
+        text,
+        model,
+        undefined,
+        move.bluff ? { bluff: true } : move.leverage ? { leverage: true } : { offer, sweetener: move.sweetener },
+      );
+      // A reply with little room left takes its time, and a hesitant one stops and starts again
+      const tell = next.state.log.at(-1)?.tell;
+      if (tell === "hesitant") {
+        await wait(HESITANT_PAUSE_MS);
+        setTyping("stopped");
+        await wait(HESITANT_PAUSE_MS);
+        setTyping("typing");
+        await wait(HESITANT_PAUSE_MS);
+      } else if (tell === "slow") {
+        await wait(SLOW_REPLY_MS);
+      }
+      onSave(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setDraft(text);
@@ -822,11 +909,11 @@ function Play({
 
   const send = (e: React.FormEvent) => {
     e.preventDefault();
-    play(false);
+    play();
   };
 
-  // Taking the price or walking away: settled by the server at once, no model involved
-  const close = async (path: "accept" | "walk") => {
+  // Instant moves outside a turn: no model call
+  const edit = async (path: string) => {
     if (busy) return;
     setClosing(true);
     setError("");
@@ -836,25 +923,76 @@ function Play({
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setClosing(false);
+      refreshRun();
+    }
+  };
+
+  // Taking the price or walking away: settled by the server at once, no model involved
+  const close = async (path: "accept" | "walk") => {
+    if (busy) return;
+    setClosing(true);
+    setError("");
+    try {
+      const next = await apiEditGame<HaggleState>(save.id, path, {});
+      if (next.state.result?.paid != null) sounds.play("pay");
+      const pickup = next.state.result?.pickup?.kind;
+      if (pickup === "counterfeit" || pickup === "fake_payment") window.setTimeout(() => sounds.play("warn"), 700);
+      onSave(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setClosing(false);
       setPaying(false);
       refreshRun();
     }
   };
+
+  const talk = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = chatDraft.trim();
+    if (!text || chatPending) return;
+    setChatPending(text);
+    setChatDraft("");
+    setError("");
+    try {
+      onSave(await apiGameChat<HaggleState>(save.id, text, model));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setChatDraft(text);
+    } finally {
+      setChatPending(null);
+    }
+  };
+
+  if (state.status === "choosing")
+    return <Inbox save={save} balance={balance} onSave={onSave} onLeave={() => onLeave(false)} />;
 
   return (
     <div className="neg neg--play">
       <div className="neg-head">
         <BackButton label="Back to marketplace" onClick={() => onLeave(false)} />
         <h2 className="neg-title">{scenario.item}</h2>
-        {run && (
+        {(run || freeBank) && (
           <button type="button" className="neg-link neg-balance" onClick={() => setBankOpen(true)} title="Bank account">
-            {money(run.cash)} · Day {run.day}/{run.days}
+            {run ? `${money(run.cash)} · Day ${run.day}/${run.days}` : money(freeBank!.cash)}
           </button>
         )}
-        {bankOpen && run && <Bank run={run} onClose={() => setBankOpen(false)} />}
+        {state.deadline && !result && (
+          <span className="pref-content-badge neg-deadline" title="The seller needs it gone. It may sell to someone else.">
+            {state.deadline.rounds} {state.deadline.rounds === 1 ? "message" : "messages"} left
+          </span>
+        )}
+        {bankOpen && (run || freeBank) && (
+          <Bank
+            run={run ?? undefined}
+            free={run ? undefined : (freeBank ?? undefined)}
+            onMove={run ? undefined : async (kind, amount) => setFreeBank(await apiMoveMoney(kind, amount))}
+            onClose={() => setBankOpen(false)}
+          />
+        )}
         <span className="pref-content-badge">
           {result
-            ? { deal: "Deal", walked: "Walked away", sold: "Sold", kept: "Kept it" }[result.outcome]
+            ? { deal: "Deal", walked: "Walked away", sold: "Sold", kept: "Kept it", lost: "Gone" }[result.outcome]
             : state.final
               ? selling
                 ? "Final offer"
@@ -925,9 +1063,17 @@ function Play({
         <p className="msg-timestamp neg-persona">
           {scenario.merchant}: {scenario.persona}.
         </p>
+        {state.switched_to && state.log.length === 0 && (
+          <p className="msg-timestamp neg-notice">You switched to {state.switched_to}.</p>
+        )}
+        {state.research && <p className="msg-timestamp neg-notice">Sold listings: {state.research}</p>}
         {/* Buying, you message first; selling, the buyer does */}
         {!selling && <Line who="you" text="Hi, is this still available?" />}
-        <Line who="them" text={state.opening} />
+        <Line
+          who="them"
+          text={state.opening}
+          note={state.callback ? `They were asking ${money(state.callback.was)} before.` : undefined}
+        />
         {selling && state.opening_agreed && state.log.length === 0 && (
           <PayCard
             who="them"
@@ -942,7 +1088,20 @@ function Play({
           <Fragment key={entry.turn}>
             {/* An offer sent with nothing typed is just the card */}
             {(entry.offer == null || entry.you !== bare(entry.offer)) && (
-              <Line who="you" text={entry.you} note={entry.bluff ? "A bluff. It only works once." : undefined} />
+              <Line
+                who="you"
+                text={entry.you}
+                note={
+                  [
+                    entry.bluff ? "A bluff. It only works once." : "",
+                    entry.leverage ? "A real offer from another buyer." : "",
+                    entry.sweetener ? `Offered: ${sweeteners.find((x) => x.id === entry.sweetener)?.label ?? entry.sweetener}.` : "",
+                    i === state.log.length - 1 && !pending ? "Seen" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
+              />
             )}
             {entry.offer != null && (
               <PayCard
@@ -957,6 +1116,7 @@ function Play({
               text={entry.reply}
               note={
                 [
+                  entry.flaw ? `Not in the listing: ${entry.flaw}. A fair reason to pay less.` : "",
                   entry.insulted
                     ? "That number offended them. It cost extra patience."
                     : entry.bluff
@@ -975,6 +1135,24 @@ function Play({
                   .join(" ") || undefined
               }
             />
+            {entry.ping && (
+              <div className="neg-rival">
+                <span className="msg-timestamp">
+                  {entry.ping.merchant} also messaged: I can do {money(entry.ping.offer)}.
+                </span>
+                {/* Only the latest offer from another buyer still stands */}
+                {ping && i === state.log.length - 1 && !result && !state.final && (
+                  <span className="neg-rival-actions">
+                    <button type="button" className="toolbar-chip-btn" onClick={() => play({ leverage: true })} disabled={busy}>
+                      Tell {scenario.merchant}
+                    </button>
+                    <button type="button" className="toolbar-chip-btn" onClick={() => edit("switch")} disabled={busy}>
+                      Switch to {entry.ping.merchant}
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
             {entry.agreed &&
               (() => {
                 // Only the latest request can be paid, and only while its price still stands
@@ -1017,7 +1195,9 @@ function Play({
                   <i />
                   <i />
                 </span>
-                <span className="thinking-phrase">{scenario.merchant} is thinking it over</span>
+                <span className="thinking-phrase">
+                  {scenario.merchant} {typing === "stopped" ? "stopped typing" : "is typing"}
+                </span>
               </span>
             </div>
           </>
@@ -1049,10 +1229,8 @@ function Play({
                   {scenario.merchant} would have gone up to {money(result.ceiling ?? result.floor)}.
                   {result.paid != null && ` You won ${result.score}% of the room there was.`}
                 </span>
-                {run && (
-                  <span className="pref-setting-hint">
-                    Your balance is now {money(run.cash)}.
-                  </span>
+                {balance != null && result.paid != null && (
+                  <span className="pref-setting-hint">Your balance is now {money(balance)}.</span>
                 )}
                 {result.profit != null && state.cost != null && (
                   <span className="pref-setting-hint">
@@ -1066,16 +1244,48 @@ function Play({
                 <span className="pref-setting-hint">
                   {result.paid != null
                     ? `You paid ${money(result.paid)} for something listed at ${money(state.list_price)}, saving ${money(result.saved ?? 0)} in ${result.rounds} ${result.rounds === 1 ? "round" : "rounds"}.`
-                    : "You left without buying. No deal, no score."}
+                    : result.outcome === "lost"
+                      ? `${scenario.merchant} sold it to someone who turned up first. Nothing was paid.`
+                      : "You left without buying. No deal, no score."}
                 </span>
                 <span className="pref-setting-hint">
                   The lowest {scenario.merchant} would have gone was {money(result.floor)}.
                   {result.paid != null && ` You won ${result.score}% of the discount that was there to be had.`}
                 </span>
-                {run && result.paid != null && (
-                  <span className="pref-setting-hint">Your balance is now {money(run.cash)}.</span>
+                {balance != null && result.paid != null && (
+                  <span className="pref-setting-hint">Your balance is now {money(balance)}.</span>
                 )}
               </>
+            )}
+            {result.pickup && result.pickup.kind !== "fine" && (
+              <div className={`neg-pickup${result.pickup.kind === "flaw" ? "" : " is-scam"}`}>
+                <span className="pref-item-name">{result.pickup.issue}</span>
+                {result.pickup.loss != null && (
+                  <span className="pref-setting-hint">
+                    {result.pickup.kind === "fake_payment"
+                      ? `You are out the item and the ${money(result.pickup.loss)}.`
+                      : `It is worth ${money(result.pickup.loss)} less than you thought.`}
+                  </span>
+                )}
+                {result.pickup.kind === "flaw" &&
+                  (result.pickup.asked ? (
+                    <span className="pref-setting-hint">
+                      {result.pickup.refunded
+                        ? `${scenario.merchant} sent ${money(result.pickup.refunded)} back.`
+                        : `${scenario.merchant} refused. "Sold as seen."`}
+                    </span>
+                  ) : (
+                    <button type="button" className="toolbar-chip-btn" onClick={() => edit("refund")} disabled={busy}>
+                      Ask for {money(result.pickup.refund ?? 0)} back
+                    </button>
+                  ))}
+              </div>
+            )}
+            {result.pickup?.kind === "fine" && <span className="pref-setting-hint">{result.pickup.issue}</span>}
+            {state.review && (
+              <span className="pref-setting-hint neg-review">
+                {state.review.by} left you {state.review.stars} {state.review.stars === 1 ? "star" : "stars"}: "{state.review.text}"
+              </span>
             )}
             {run && run.status !== "active" && run.result && (
               <span className="pref-setting-label neg-run-over">
@@ -1085,14 +1295,68 @@ function Play({
           </div>
         )}
 
+        {/* Talk after the deal: no prices, no cards, just the chat */}
+        {(state.after ?? []).map((a, i) => (
+          <Fragment key={`after-${i}`}>
+            <Line who="you" text={a.you} />
+            <Line who="them" text={a.reply} />
+          </Fragment>
+        ))}
+        {chatPending && (
+          <>
+            <Line who="you" text={chatPending} />
+            <div className="message-row assistant neg-waiting">
+              <span className="waiting" role="status">
+                <span className="waiting-leaves" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span className="thinking-phrase">{scenario.merchant} is typing</span>
+              </span>
+            </div>
+          </>
+        )}
+
         {error && <p className="neg-error">{error}</p>}
         <div ref={feedEnd} />
       </div>
 
-      {result ? (
+      {result && chatting ? (
+        <form className="input-wrapper neg-composer" onSubmit={talk}>
+          <input
+            className="chat-textarea"
+            value={chatDraft}
+            onChange={(e) => setChatDraft(e.target.value)}
+            maxLength={400}
+            placeholder={`Message ${scenario.merchant}`}
+            disabled={!!chatPending}
+            aria-label="Your message"
+            autoFocus
+          />
+          <div className="input-toolbar">
+            <div className="toolbar-left">
+              <span className="pref-setting-hint">The deal is done. This is just talk.</span>
+            </div>
+            <div className="toolbar-right">
+              <button type="button" className="toolbar-chip-btn" onClick={() => setChatting(false)}>
+                Done
+              </button>
+              <button type="submit" className="ask-button" disabled={!!chatPending || !chatDraft.trim()} title="Send (Enter)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none">
+                  <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </form>
+      ) : result ? (
         <div className="neg-controls">
           <button type="button" className="start-button" onClick={() => onLeave(false)}>
             Back to marketplace
+          </button>
+          <button type="button" className="pref-confirm-no" onClick={() => setChatting(true)}>
+            Keep chatting
           </button>
           {(result.outcome === "deal" || (result.outcome === "sold" && state.cost != null)) && (
             <button type="button" className="pref-confirm-no" onClick={() => onLeave(true)}>
@@ -1103,7 +1367,7 @@ function Play({
       ) : paying ? (
         <PaySheet
           receiving={selling}
-          balance={run ? run.cash : undefined}
+          balance={balance}
           to={scenario.merchant}
           item={scenario.item}
           amount={state.ask}
@@ -1122,6 +1386,34 @@ function Play({
           </button>
         </div>
       ) : (
+        <>
+        <div className="neg-extras" role="group" aria-label="More you can offer">
+          {sweeteners
+            .filter((x) => !(state.sweeteners ?? []).includes(x.id))
+            .map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                className="toolbar-chip-btn"
+                onClick={() => play({ sweetener: x.id })}
+                disabled={busy}
+                title="Better terms count for something. Each works once."
+              >
+                {x.label}
+              </button>
+            ))}
+          {!selling && !state.research && (
+            <button
+              type="button"
+              className="toolbar-chip-btn"
+              onClick={() => edit("research")}
+              disabled={busy}
+              title="See what tends to go wrong with these, so you know what to ask about"
+            >
+              Check sold listings{inRun ? ` (${money(RESEARCH_FEE)})` : ""}
+            </button>
+          )}
+        </div>
         <form className="input-wrapper neg-composer" onSubmit={send}>
           <input
             className="chat-textarea"
@@ -1151,7 +1443,7 @@ function Play({
                 <button
                   type="button"
                   className="toolbar-chip-btn"
-                  onClick={() => play(true)}
+                  onClick={() => play({ bluff: true })}
                   disabled={busy}
                   title={
                     selling
@@ -1181,6 +1473,103 @@ function Play({
             </div>
           </div>
         </form>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Selling: everyone who messaged about the listing, to pick one to answer */
+function Inbox({
+  save,
+  balance,
+  onSave,
+  onLeave,
+}: {
+  save: HaggleSave;
+  balance?: number;
+  onSave: (next: HaggleSave) => void;
+  onLeave: () => void;
+}) {
+  const state = save.state;
+  const prospects = state.prospects ?? [];
+  const [picking, setPicking] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  useEscapeKey(onLeave);
+
+  const pick = async (index: number) => {
+    if (picking !== null) return;
+    setPicking(index);
+    setError("");
+    try {
+      onSave(await apiEditGame<HaggleState>(save.id, "buyer", { index }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setPicking(null);
+    }
+  };
+
+  return (
+    <div className="neg neg--play">
+      <div className="neg-head">
+        <BackButton label="Back to marketplace" onClick={onLeave} />
+        <h2 className="neg-title">{state.scenario.item}</h2>
+        {balance != null && <span className="neg-link neg-balance">{money(balance)}</span>}
+        <span className="pref-content-badge">Listed at {money(state.list_price)}</span>
+      </div>
+      {createPortal(
+        <div className="chat-preferences-modal-overlay" onClick={onLeave}>
+          <div
+            className="landing-theme-modal neg-browser neg-inbox"
+            role="dialog"
+            aria-label="Buyers who messaged"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="landing-theme-modal-header">
+              <span>
+                {prospects.length} {prospects.length === 1 ? "buyer" : "buyers"} messaged you
+              </span>
+              <button type="button" className="landing-theme-modal-close" onClick={onLeave} aria-label="Close">
+                ✕
+              </button>
+            </div>
+            <p className="pref-setting-hint">
+              Your listing for {state.scenario.item} at {money(state.list_price)} got some messages. Pick who to
+              answer; the others move on. Their first offer is not their last.
+            </p>
+            <div className="pref-account-card neg-browser-list">
+              {prospects.map((p, i) => (
+                <div
+                  key={`${p.merchant}-${i}`}
+                  className={`pref-list-item${picking === i ? " active" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-disabled={picking !== null}
+                  onClick={() => pick(i)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      pick(i);
+                    }
+                  }}
+                >
+                  <div className="pref-item-icon">{p.merchant.charAt(0)}</div>
+                  <div className="pref-item-info">
+                    <div className="pref-item-name">
+                      {p.merchant} <span className="neg-inbox-kind">· {p.kind}</span>
+                    </div>
+                    <div className="pref-item-desc neg-inbox-message">{p.opening}</div>
+                  </div>
+                  <span className="pref-content-badge">
+                    {picking === i ? "Opening" : p.opening_agreed ? `${money(p.opening_bid)}, full price` : money(p.opening_bid)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {error && <p className="neg-error">{error}</p>}
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

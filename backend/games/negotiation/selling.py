@@ -15,6 +15,7 @@ import math
 import random
 from typing import Optional
 
+from . import extras
 from .engine import (
     DIFFICULTIES, FREE_QUESTIONS, LOG_LIMIT, MAX_REPLY, MAX_STIFFENING, MODEL_CONTEXT_ROUNDS,
     REPEAT_PERSUASION, RESISTANCE_PER_POINT, MAX_RESISTANCE, SHORT_MESSAGE_WORDS,
@@ -82,6 +83,62 @@ BUYERS = [
         ],
     },
 ]
+BUYERS += [
+    {
+        "kind": "Student", "ceiling": (0.70, 0.90), "opening": 0.60, "anchor": 0.55, "patience": 0,
+        "persona": "a broke college student, polite, counts every dollar, sometimes asks if they can pay half now",
+        "openings": [
+            "Hi! Is this still available? I'm a student, could you do {price}?",
+            "hey, any chance you'd take {price}? kinda all I have rn",
+        ],
+    },
+    {
+        "kind": "Gift shopper", "ceiling": (0.95, 1.20), "opening": 0.70, "anchor": 0.80, "patience": 1,
+        "persona": "buying a birthday present at the last minute, anxious about timing, will pay a little more to get it today",
+        "openings": [
+            "Hi! Is this available? It's for a birthday this weekend. Could you do {price}?",
+            "Hello, I need this for a gift asap. Would {price} work if I pick up today?",
+        ],
+    },
+    {
+        "kind": "Scalper", "ceiling": (0.60, 0.80), "opening": 0.50, "anchor": 0.45, "patience": -1,
+        "persona": "flips everything for profit, blunt, pushes hard and threatens to walk constantly",
+        "openings": [
+            "{price}. cash. today. yes or no",
+            "I'll do {price}, that's the market, not a dollar more.",
+        ],
+    },
+    {
+        "kind": "Parent", "ceiling": (0.85, 1.05), "opening": 0.70, "anchor": 0.75, "patience": 1,
+        "persona": "a parent shopping for their kid, friendly, asks practical questions about condition and pickup",
+        "openings": [
+            "Hi there! Is this still available? My son would love it. Would you take {price}?",
+            "Hello! Interested for my daughter. Could you do {price}?",
+        ],
+    },
+    {
+        "kind": "Millionaire", "ceiling": (1.50, 3.00), "opening": 0.55, "anchor": 0.95, "patience": 2, "weight": 0.35,
+        "persona": "made a fortune young, money means nothing to them, buys on a whim, bored by haggling but pays extra for a good story or a little flattery",
+        "names": ["Sterling", "Valentina", "Maximilian", "Aurelia", "Cassius", "Genevieve"],
+        "openings": [
+            "Is this still available? I'll take it. {price}, I can send it now.",
+            "Love it. {price} work? My driver can pick it up this afternoon.",
+        ],
+    },
+    {
+        "kind": "Tech founder", "ceiling": (1.30, 2.40), "opening": 0.60, "anchor": 0.90, "patience": 1, "weight": 0.35,
+        "persona": "just sold their startup, talks fast, values speed over price, pays more to skip the back and forth",
+        "names": ["Arjun", "Skye", "Elon", "Priya", "Devin", "Margo"],
+        "openings": [
+            "Hey, still available? {price}, I can pay instantly. Let's move fast.",
+            "Want it. {price} and I'll send payment the second you say yes.",
+        ],
+    },
+]
+PROSPECTS = (3, 5)             # how many buyers message about a new listing, at least and at most
+PING_CHANCE = 0.3              # each round, the chance one of the buyers not picked messages again with a better offer
+FAKE_PAYMENT_CHANCE = 0.03     # Hustle only: the chance a sale's payment turns out fake
+
 BUYER_NAMES = [
     "Alexis", "Brandon", "Carmen", "Darius", "Emily", "Frankie", "Gabe", "Hana", "Isaac", "Jade",
     "Kevin", "Luz", "Miguel", "Nia", "Oscar", "Paola", "Quinn", "Rashad", "Sasha", "Tom",
@@ -137,6 +194,7 @@ def _rating(score: int) -> str:
 def new_game(
     listing: dict, asking: int, cost: Optional[int] = None, inventory_id: Optional[str] = None,
     difficulty: str = "normal", rng: Optional[random.Random] = None, notes: Optional[str] = None,
+    patience_bonus: int = 0,
 ) -> dict:
     """`listing` has item, condition, description, category, list_price and value (what it
     resells for; list_price stands in without one); `asking` is the player's price; `cost` is
@@ -144,8 +202,54 @@ def new_game(
     `notes` are the player's own claims, shown with the listing but not part of its facts."""
     rng = rng or random.Random()
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
-    buyer = rng.choice(BUYERS)
     worth = max(1, int(listing.get("value") or listing["list_price"]))
+    names: set[str] = set()
+    prospects = [_prospect(rng, worth, asking, level, names, patience_bonus) for _ in range(rng.randint(*PROSPECTS))]
+    # Who messaged is the player's pick; until then the chat has no buyer in it
+    return {
+        "mode": MODE,
+        "status": "choosing",        # choosing | active | sold | kept
+        "prospects": prospects,
+        "turn": 0,
+        "difficulty": difficulty if difficulty in DIFFICULTIES else "normal",
+        "scenario": {
+            "id": listing.get("id") or "custom",
+            "item": listing["item"],
+            "merchant": None,
+            "setting": listing.get("setting") or "Marketplace · Local pickup",
+            "persona": None,
+            "kind": None,
+            "condition": listing.get("condition"),
+            "description": listing.get("description") or "",
+            "category": listing.get("category"),
+            "notes": notes or None,
+        },
+        "opening": None,
+        "list_price": asking,
+        "worth": worth,
+        "cost": cost,
+        "inventory_id": inventory_id,
+        "ask": None,
+        "opening_bid": None,
+        "ceiling": None,
+        "resistance": level["resistance"],
+        "patience": None,
+        "patience_max": None,
+        "final": False,
+        "bluffed": False,
+        "sweeteners": [],            # the terms other than money already offered
+        "others": [],                # the buyers not picked, who may message again
+        "ping": None,                # the latest offer from one of them, standing until used
+        # The buyer opened at the asking price or above: they will pay it as soon as the player accepts
+        "opening_agreed": False,
+        "log": [],
+        "result": None,
+    }
+
+
+def _prospect(rng: random.Random, worth: int, asking: int, level: dict, taken: set[str], patience_bonus: int = 0) -> dict:
+    """One buyer who messaged about the listing: who they are, their first offer, and their hidden limit."""
+    buyer = rng.choices(BUYERS, weights=[b.get("weight", 1.0) for b in BUYERS])[0]
     ceiling = max(1, _nice_down(worth * rng.uniform(*buyer["ceiling"]), worth))
     # A fair asking price draws a fair first offer; an inflated one does not drag them past their limit
     opening_bid = max(ceiling * buyer["opening"], min(asking * buyer["anchor"], ceiling * OPENING_CAP))
@@ -153,48 +257,46 @@ def new_game(
     opening = rng.choice(buyer["openings"])
     if "{price}" not in opening:
         opening = f"{opening}. would u do {{price}}"
-    patience = max(3, level["patience"] + buyer["patience"])
+    names = [n for n in buyer.get("names", BUYER_NAMES) if n not in taken] or BUYER_NAMES
+    name = rng.choice(names)
+    taken.add(name)
+    patience = max(3, level["patience"] + buyer["patience"] + patience_bonus)
     return {
-        "mode": MODE,
-        "status": "active",          # active | sold | kept
-        "turn": 0,
-        "difficulty": difficulty if difficulty in DIFFICULTIES else "normal",
-        "scenario": {
-            "id": listing.get("id") or "custom",
-            "item": listing["item"],
-            "merchant": rng.choice(BUYER_NAMES),
-            "setting": listing.get("setting") or "Marketplace · Local pickup",
-            "persona": buyer["persona"],
-            "kind": buyer["kind"],
-            "condition": listing.get("condition"),
-            "description": listing.get("description") or "",
-            "category": listing.get("category"),
-            "notes": notes or None,
-        },
-        "opening": _fill(opening, opening_bid),
-        "list_price": asking,
-        "worth": worth,
-        "cost": cost,
-        "inventory_id": inventory_id,
-        "ask": opening_bid,
-        "opening_bid": opening_bid,
-        "ceiling": ceiling,
-        "resistance": level["resistance"],
-        "patience": patience,
-        "patience_max": patience,
-        "final": False,
-        "bluffed": False,
-        # The buyer opened at the asking price or above: they will pay it as soon as the player accepts
-        "opening_agreed": opening_bid >= asking,
-        "log": [],
-        "result": None,
+        "merchant": name, "kind": buyer["kind"], "persona": buyer["persona"],
+        "opening": _fill(opening, opening_bid), "opening_bid": opening_bid, "ceiling": ceiling,
+        "patience": patience, "opening_agreed": opening_bid >= asking,
     }
 
 
+def choose(state: dict, index: int) -> dict:
+    """Answer one of the buyers who messaged. The others drop out of the chat."""
+    if state.get("status") != "choosing":
+        raise ValueError("You are already talking to a buyer")
+    prospects = state.get("prospects") or []
+    if not 0 <= index < len(prospects):
+        raise ValueError("That buyer is not in your inbox")
+    p = prospects[index]
+    s = copy.deepcopy(state)
+    s.pop("prospects")
+    s["others"] = [q for j, q in enumerate(prospects) if j != index]
+    s["status"] = "active"
+    s["scenario"].update(merchant=p["merchant"], persona=p["persona"], kind=p["kind"])
+    s.update(
+        opening=p["opening"], ask=p["opening_bid"], opening_bid=p["opening_bid"], ceiling=p["ceiling"],
+        patience=p["patience"], patience_max=p["patience"], opening_agreed=p["opening_agreed"],
+    )
+    return s
+
+
 def public(state: dict) -> dict:
-    """The buyer's limit stays hidden until the sale is over."""
-    hidden = ("resistance",) if state.get("status") != "active" else ("resistance", "ceiling")
-    return {k: v for k, v in state.items() if k not in hidden}
+    """The buyer's limit stays hidden until the sale is over, and so do the limits of the buyers in the inbox."""
+    hidden = ("resistance", "others") if state.get("status") not in ("active", "choosing") else ("resistance", "ceiling", "others")
+    out = {k: v for k, v in state.items() if k not in hidden}
+    if out.get("ping"):
+        out["ping"] = {k: out["ping"][k] for k in ("merchant", "offer")}
+    if "prospects" in out:
+        out["prospects"] = [{k: v for k, v in p.items() if k != "ceiling"} for p in out["prospects"]]
+    return out
 
 
 def summary(state: dict) -> dict:
@@ -206,6 +308,8 @@ def summary(state: dict) -> dict:
         "merchant": state.get("scenario", {}).get("merchant"),
         "ask": state.get("ask"),
         "result": state.get("result"),
+        # Buyers waiting in the inbox, before one is picked
+        "prospects": len(state.get("prospects") or []),
     }
 
 
@@ -239,7 +343,43 @@ def can_bluff(state: dict) -> bool:
     return state.get("status") == "active" and not state.get("final") and not state.get("bluffed")
 
 
-def describe_for_model(state: dict, message: str, price: Optional[int], bluff: bool = False) -> str:
+def can_leverage(state: dict) -> bool:
+    """A real offer from another buyer is on the table, to hold up against this one."""
+    return state.get("status") == "active" and not state.get("final") and bool(state.get("ping"))
+
+
+def can_sweeten(state: dict, key: Optional[str]) -> bool:
+    return bool(extras.sweetener(MODE, key)) and key not in (state.get("sweeteners") or [])
+
+
+def _can_match(state: dict) -> bool:
+    return state["ping"]["offer"] + _step(state["worth"]) <= state["ceiling"]
+
+
+def switch(state: dict) -> dict:
+    """Drop this buyer for the one who just messaged with a better offer. A fresh chat with them."""
+    if not can_leverage(state):
+        raise ValueError("Nobody else has made an offer")
+    s = copy.deepcopy(state)
+    ping = s.pop("ping")
+    p = s["others"].pop(ping["index"])
+    s["ping"] = None
+    s["scenario"].update(merchant=p["merchant"], persona=p["persona"], kind=p["kind"])
+    s.update(
+        opening=f"Hey, still available? I can do {_money(ping['offer'])}.", ask=ping["offer"], opening_bid=ping["offer"],
+        ceiling=p["ceiling"], patience=p["patience"], patience_max=p["patience"], final=False, bluffed=False,
+        sweeteners=[], log=[], opening_agreed=ping["offer"] >= s["list_price"],
+    )
+    # The turn moves on, so a reply still on its way for the old buyer is not saved over this
+    s["turn"] += 1
+    s["switched_to"] = p["merchant"]
+    return s
+
+
+def describe_for_model(
+    state: dict, message: str, price: Optional[int], bluff: bool = False,
+    sweetener: Optional[str] = None, leverage: bool = False,
+) -> str:
     scenario = state["scenario"]
     kind = _round_kind(state, price, bluff)
     lines = [
@@ -271,6 +411,18 @@ def describe_for_model(state: dict, message: str, price: Optional[int], bluff: b
         lines.append("The seller has said exactly this before. Rate it -1 and let them know you heard it the first time.")
     if bluff:
         lines.append("The seller says someone else is interested. You do not want to lose it.")
+    sweet = extras.sweetener(MODE, sweetener)
+    if sweet:
+        lines.append(f"{sweet[2]} That is worth something to you.")
+    if leverage and can_leverage(state):
+        ping = state["ping"]
+        lines.append(f"The seller says another buyer, {ping['merchant']}, has offered {_money(ping['offer'])}.")
+        lines.append("")
+        if _can_match(state):
+            lines.append("Instruction for this round: RAISE. You do not want to lose it to them: beat their offer and offer {price}, a little annoyed about it.")
+        else:
+            lines.append("Instruction for this round: FINAL OFFER. You cannot match that. State {price} as the most you can pay and tell them they can take the other offer if they like.")
+        return "\n".join(lines)
     lines.append("")
     if kind == "deal":
         agreed = _money(min(price, max(state["ask"], price)))
@@ -294,11 +446,18 @@ def describe_for_model(state: dict, message: str, price: Optional[int], bluff: b
     return "\n".join(lines)
 
 
-def apply_turn(state: dict, message: str, price: Optional[int], reply: dict, bluff: bool = False) -> dict:
-    """One round: the seller's message and price, answered by the buyer."""
+def apply_turn(
+    state: dict, message: str, price: Optional[int], reply: dict, bluff: bool = False,
+    sweetener: Optional[str] = None, leverage: bool = False, rng: Optional[random.Random] = None,
+) -> dict:
+    """One round: the seller's message and price, answered by the buyer. `leverage` holds up
+    another buyer's real offer; `sweetener` is a term other than money, each usable once."""
+    rng = rng or random.Random()
     s = copy.deepcopy(state)
-    bluff = bluff and can_bluff(s)
-    kind = _round_kind(s, price, bluff)
+    leverage = leverage and can_leverage(s)
+    bluff = bluff and not leverage and can_bluff(s)
+    sweet = None if bluff or leverage or not can_sweeten(s, sweetener) else sweetener
+    kind = "counter" if leverage else _round_kind(s, price, bluff)
     text = " ".join(str(reply.get("reply") or "").split())[:MAX_REPLY]
     try:
         persuasion = max(-2, min(2, int(reply.get("persuasion", 0))))
@@ -309,18 +468,36 @@ def apply_turn(state: dict, message: str, price: Optional[int], reply: dict, blu
     repeated = _repeated(s, message)
     if repeated:
         persuasion = min(persuasion, REPEAT_PERSUASION)
-    if bluff:
+    if bluff or leverage:
         persuasion = 0
+    if bluff:
         s["bluffed"] = True
-    quotable = (s["list_price"], price)
+    if sweet:
+        persuasion = min(2, persuasion + extras.SWEETENER_BONUS)
+        s["sweeteners"] = (s.get("sweeteners") or []) + [sweet]
+    quotable = (s["list_price"], price, s["ping"]["offer"] if leverage else None)
 
     s["turn"] += 1
     entry = {
         "turn": s["turn"], "you": message, "offer": price, "persuasion": persuasion,
-        "insulted": False, "repeated": repeated, "bluff": bluff,
+        "insulted": False, "repeated": repeated, "bluff": bluff, "sweetener": sweet, "leverage": leverage,
     }
 
-    if kind == "deal":
+    if leverage:
+        # A real rival offer: they beat it if they can, or say it is the most they will go
+        if _can_match(s):
+            s["ask"] = max(s["ask"], s["ping"]["offer"] + _step(s["worth"]))
+            s["patience"] = max(0, s["patience"] - 1)
+        else:
+            s["ask"] = max(s["ask"], _nice_down(s["ceiling"], s["worth"]))
+            s["final"] = True
+        s["ping"] = None
+        s["final"] = s["final"] or s["patience"] <= 0
+        said = _fill(text, s["ask"], quotable)
+        if _money(s["ask"]) not in said:
+            said = _then(said, f"{_money(s['ask'])} is my final offer." if s["final"] else f"I can do {_money(s['ask'])}.")
+        entry["reply"] = said
+    elif kind == "deal":
         # A price at or under what they would pay: they take it at that price
         s["ask"] = price
         entry["reply"] = _fill(text, price, quotable) or "Deal. Sending it now."
@@ -364,6 +541,19 @@ def apply_turn(state: dict, message: str, price: Optional[int], reply: dict, blu
         if kind != "deal":
             entry["tell"] = _tell(s)
 
+    others = s.get("others") or []
+    if kind != "deal" and not s["final"] and not leverage and others and rng.random() < PING_CHANCE:
+        # One of the buyers not picked comes back with a better offer
+        j = rng.randrange(len(others))
+        p = others[j]
+        offer = _nice_down(
+            min(p["ceiling"] * OPENING_CAP, max(p["opening_bid"], s["ask"] + _step(s["worth"]) * rng.randint(1, 3))),
+            s["worth"],
+        )
+        if offer > s["ask"]:
+            s["ping"] = {"index": j, "merchant": p["merchant"], "offer": offer}
+            entry["ping"] = {"merchant": p["merchant"], "offer": offer}
+
     entry["ask"] = s["ask"]
     entry["final"] = s["final"]
     # Agreeing does not end it: the buyer sends the money and the player accepts it
@@ -390,17 +580,30 @@ def _finish(s: dict, outcome: str, paid: Optional[int]) -> None:
     }
 
 
-def accept(state: dict) -> dict:
-    """Take the buyer's offer on the table."""
+def accept(state: dict, scams: bool = False, rng: Optional[random.Random] = None) -> dict:
+    """Take the buyer's offer on the table. In Hustle (`scams`), now and then the payment is fake."""
     if state.get("status") != "active":
         raise ValueError("This sale is over")
+    rng = rng or random.Random()
     s = copy.deepcopy(state)
     _finish(s, "sold", s["ask"])
+    if scams and rng.random() < FAKE_PAYMENT_CHANCE:
+        name = s["scenario"]["merchant"]
+        s["result"]["scammed"] = True
+        s["result"]["profit"] = None if s.get("cost") is None else -s["cost"]
+        s["result"]["pickup"] = {
+            "kind": "fake_payment", "loss": s["ask"],
+            "issue": f"The payment from {name} bounced after they drove off with it. It was fake, and {name} has blocked you.",
+        }
+    else:
+        s["result"]["pickup"] = {"kind": "fine", "issue": f"{s['scenario']['merchant']} picked it up. All good."}
     return s
 
 
 def walk_away(state: dict) -> dict:
     """Keep the item."""
+    if state.get("status") == "choosing":
+        raise ValueError("Pick a buyer first, or leave the listing for later")
     if state.get("status") != "active":
         raise ValueError("This sale is over")
     s = copy.deepcopy(state)

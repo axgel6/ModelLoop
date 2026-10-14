@@ -13,11 +13,14 @@ NEW = "New"
 PARTS = "For parts"
 
 
-def _listing(id, item, price, condition, seller, persona, description, opening, delivery="Local pickup"):
+def _listing(id, item, price, condition, seller, persona, description, opening, delivery="Local pickup", floor=None):
+    """`floor` overrides how low the seller will go, as shares of the price: a rich seller who
+    does not need the money takes far less than most."""
     return {
         "id": id, "item": item, "list_price": price, "condition": condition,
         "merchant": seller, "persona": persona, "description": description, "opening": opening,
         "setting": f"Marketplace · {delivery}",
+        **({"floor_share": floor} if floor else {}),
     }
 
 
@@ -1792,6 +1795,62 @@ _CATALOGUE = [
         "a Valorant player who changes mice every month, short and blunt",
         "Under a month of use. Feet are smooth, clicks are crisp. Dongle and cable in the box.",
         "Still here. Under a month old. {price}.",
+    ),
+    # Rich sellers: they do not need the money, and the right message gets a huge discount
+    "Vehicles",
+    _listing(
+        "urus", "2022 Lamborghini Urus, 18,000 miles", 215000, GOOD, "Dmitri",
+        "a crypto millionaire moving to Dubai next week, bored, does not need the money, says yes to almost anything if you make him laugh",
+        "Giallo yellow, full service history at the dealer, ceramic coated. Never tracked. Leaving the country, so it goes this week, whatever happens.",
+        "Ya it's available. Leaving for Dubai Friday. {price}, but honestly make me an offer, I'm bored.",
+        floor=(0.15, 0.40),
+    ),
+    "Bags",
+    _listing(
+        "birkin", "Hermès Birkin 30, Togo leather, gold hardware", 24000, LIKE_NEW, "Celeste",
+        "a socialite clearing out a walk-in closet before a renovation, airy, has no idea what anything costs and does not care",
+        "Etoupe Togo with gold hardware. Carried maybe three times. Dust bag, box, lock and keys included. The closet is being redone, so it all has to go.",
+        "Oh, hi! Yes, the closet is being redone so everything must go. {price}? Or whatever, darling, just be nice.",
+        floor=(0.15, 0.40),
+    ),
+    "Jewelry",
+    _listing(
+        "daytona", "Rolex Daytona 126500LN, 2023, full set", 32000, LIKE_NEW, "Winston",
+        "an old-money heir who owns too many watches, polite, finds haggling charming and a little beneath him",
+        "White dial, ceramic bezel. Box, papers and the warranty card, all dated 2023. Worn to two dinners. One of many, so it might as well be enjoyed.",
+        "Good afternoon. Yes, it is available. One of several, I am afraid. {price}, though I am open to a civilised offer.",
+        floor=(0.15, 0.40),
+    ),
+    "Home and collectables",
+    _listing(
+        "cloudsofa", "Restoration Hardware Cloud sofa, 3 pieces, from a mansion", 6800, LIKE_NEW, "Preston",
+        "clearing out the guest house, offhand, wants it gone before the movers arrive and will say yes to anyone who shows up",
+        "Three piece modular Cloud in performance linen, ivory. Sat in the guest house, barely used. Movers come Thursday, so it is first come first served.",
+        "Still here. Movers come Thursday. {price}, but honestly just come get it.",
+        floor=(0.15, 0.40),
+    ),
+    _listing(
+        "domcase", "Case of 6 Dom Pérignon 2015, unopened", 1500, NEW, "Lorenzo",
+        "a nightclub owner who over-ordered for a yacht party, laid-back, flattered by anyone who knows wine",
+        "Six bottles of the 2015 vintage, still in the original wooden case. Stored in a wine fridge. Local pickup only.",
+        "Ciao! Yes, too much for the party. {price}, or tell me something nice about the vintage.",
+        floor=(0.15, 0.40),
+    ),
+    "Fun stuff",
+    _listing(
+        "golfset", "Full TaylorMade Qi10 golf set with Scotty Cameron putter", 2400, LIKE_NEW, "Bradford",
+        "a retired hedge fund manager who took up sailing instead, cheerful, rounds every number down",
+        "Driver, woods, irons, wedges and a Scotty Cameron putter, in a Vessel tour bag. Played four rounds before the boat won.",
+        "Ha, yes! The boat won. Four rounds on them. Call it {price}, or less, I really do not mind.",
+        floor=(0.15, 0.40),
+    ),
+    "Apple and phones",
+    _listing(
+        "ipadstack", "Five iPad Pro M5s, sealed, leftover from a company event", 5000, NEW, "Avery",
+        "a tech CEO's assistant told to get rid of them today, frazzled, has no idea what they cost and just wants the boss off their back",
+        "Five sealed 11-inch iPad Pro M5s from a launch event that over-ordered. Never opened. All five go together.",
+        "Hi, yes. My boss wants them gone today. {price} for all five? Honestly, offer whatever.",
+        floor=(0.15, 0.40),
     ),
 ]
 

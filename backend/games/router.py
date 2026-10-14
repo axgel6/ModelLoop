@@ -19,7 +19,7 @@ from dependencies import get_user
 from games.ceo_simulator import engine as ceo
 from games.model_arena import engine as arena
 from games.negotiation import engine as haggle
-from games.negotiation import hustle, selling
+from games.negotiation import aftertalk, bank, extras, hustle, selling
 from models import GameScore, GameSession, User
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
@@ -98,6 +98,8 @@ class NewNegotiation(BaseModel):
     notes:        Optional[str]           = Field(default=None, max_length=300)
     # Part of the player's Hustle run: real money, and it uses a day
     hustle:       bool                    = False
+    # Hustle: answer a seller who messaged again after the player walked away
+    callback:     Optional[str]           = Field(default=None, max_length=20)
 
 
 class ArenaSide(BaseModel):
@@ -124,6 +126,22 @@ class ModeratorQuestion(BaseModel):
     question: str = Field(default="", max_length=300)
 
 
+class BuyerPick(BaseModel):
+    """Which of the buyers in the inbox to answer, by position."""
+    index: int = Field(..., ge=0, le=10)
+
+
+class BankMove(BaseModel):
+    """Free play money in from nowhere, or out to it."""
+    amount: int = Field(..., gt=0, le=bank.MAX_MOVE)
+
+
+class AfterChat(BaseModel):
+    """A message once the haggle is over: no prices, just talk."""
+    message: str           = Field(..., min_length=1, max_length=400)
+    model:   Optional[str] = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+
+
 class TurnRequest(BaseModel):
     decision: str                  = Field(default="", max_length=400)
     action:   Optional[TurnAction] = None
@@ -131,6 +149,10 @@ class TurnRequest(BaseModel):
     offer:    Optional[int]        = Field(default=None, gt=0, le=10_000_000)
     # Negotiation only: the player says they are leaving, to see if the price moves. Works once.
     bluff:    bool                 = False
+    # Negotiation only: a term other than money, such as cash today. Each works once per chat.
+    sweetener: Optional[str]       = Field(default=None, max_length=20)
+    # Selling only: hold up another buyer's real offer against this one
+    leverage: bool                 = False
     model:    Optional[str]        = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
 
 
@@ -171,13 +193,17 @@ def _serialize(game: GameSession, with_state: bool = True) -> dict:
 
 
 def _score_for(user: User, title: str, state: dict) -> Optional[GameScore]:
-    """A score row for a run that has just ended, or None if there is nothing to record.
+    """A score row for a run that has just ended, or for a year just completed, or None.
 
-    Free play has an official result already and never adds another.
+    A company that reaches the end of its year records its score once and plays on
+    (`year_scored`, which this takes off the state). Free play never adds another.
     """
-    result = state.get("result")
-    if not result or state.get("official_result"):
-        return None
+    if state.pop("year_scored", False):
+        result = state["official_result"]
+    else:
+        result = state.get("result")
+        if not result or state.get("official_result"):
+            return None
     return GameScore(
         user_id=user.id, game_type=ceo.GAME_TYPE, title=title[:80], score=int(result["score"]),
         detail={
@@ -280,7 +306,7 @@ async def get_hustle(user: User = Depends(get_user), db: AsyncSession = Depends(
             select(GameSession.id).where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)
         )).first()
         chat = open_chat and await db.get(GameSession, open_chat[0])
-        if not chat or chat.state.get("run_id") != str(run_game.id) or chat.state.get("status") != "active":
+        if not chat or chat.state.get("run_id") != str(run_game.id) or chat.state.get("status") not in ("active", "choosing"):
             _settle_run(user, run_game, db)
             await db.commit()
             await db.refresh(run_game)
@@ -300,6 +326,63 @@ async def start_hustle(user: User = Depends(get_user), db: AsyncSession = Depend
     await db.commit()
     await db.refresh(run_game)
     return _run_view(run_game)
+
+
+async def _free_bank(user: User, db: AsyncSession) -> GameSession:
+    """The caller's free play bank account, opened the first time it is needed."""
+    account = (await db.execute(
+        select(GameSession).where(GameSession.user_id == user.id, GameSession.game_type == bank.GAME_TYPE).limit(1)
+    )).scalar_one_or_none()
+    if not account:
+        account = GameSession(user_id=user.id, game_type=bank.GAME_TYPE, title="Bank account", state=bank.new_account())
+        db.add(account)
+        await db.flush()
+    return account
+
+
+async def _bank_view(account: GameSession, user: User, db: AsyncSession) -> dict:
+    """The account, with net worth: cash plus what was paid for everything still held."""
+    rows = (await db.execute(
+        select(GameScore.detail).where(GameScore.user_id == user.id, GameScore.game_type == haggle.GAME_TYPE)
+    )).scalars().all()
+    held = [d for d in rows if not d.get("sold")]
+    return {
+        **account.state,
+        "deposited": account.state.get("deposited", 0),
+        "rating": extras.rating(account.state.get("reviews") or []),
+        "reviews": (account.state.get("reviews") or [])[-5:][::-1],
+        "review_count": len(account.state.get("reviews") or []),
+        "held": len(held),
+        "net_worth": account.state["cash"] + sum(int(d.get("paid") or 0) for d in held),
+    }
+
+
+@router.get("/negotiation/bank")
+async def get_bank(user: User = Depends(get_user), db: AsyncSession = Depends(get_db)) -> dict:
+    """The free play bank account."""
+    account = await _free_bank(user, db)
+    await db.commit()
+    return await _bank_view(account, user, db)
+
+
+@router.post("/negotiation/bank/{kind}")
+async def move_money(
+    kind: str,
+    body: BankMove,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Deposit money from nowhere, or withdraw it into nowhere. `kind` is deposit or withdraw."""
+    if kind not in ("deposit", "withdraw"):
+        raise HTTPException(status_code=404, detail="Deposit or withdraw")
+    account = await _free_bank(user, db)
+    try:
+        account.state = bank.move(account.state, kind, body.amount)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(account)
+    return await _bank_view(account, user, db)
 
 
 @router.get("/negotiation/inventory")
@@ -359,8 +442,10 @@ async def create_negotiation(
     db: AsyncSession = Depends(get_db),
 ):
     """Start a haggle, buying or selling. Only one is kept at a time: a new one replaces the last."""
+    profile = await _free_bank(user, db)
+    trust = extras.trust_bonus(profile.state.get("reviews") or [])
     if body.hustle:
-        return await _create_hustle_chat(body, user, db)
+        return await _create_hustle_chat(body, user, db, trust)
     custom = body.custom and haggle.custom_listing(
         " ".join(body.custom.item.split()), body.custom.price, body.custom.condition,
         body.custom.category and " ".join(body.custom.category.split()), " ".join(body.custom.description.split()),
@@ -378,15 +463,17 @@ async def create_negotiation(
             }
             if body.description is not None:
                 listing["description"] = " ".join(body.description.split())
-            state = selling.new_game(listing, body.asking or item["list_price"], item.get("paid"), str(row.id), body.difficulty)
+            state = selling.new_game(
+                listing, body.asking or item["list_price"], item.get("paid"), str(row.id), body.difficulty, patience_bonus=trust,
+            )
         elif custom:
-            state = selling.new_game(custom, body.asking or custom["list_price"], None, None, body.difficulty)
+            state = selling.new_game(custom, body.asking or custom["list_price"], None, None, body.difficulty, patience_bonus=trust)
         else:
             raise HTTPException(status_code=422, detail="Pick something from your inventory, or describe what you are selling")
     elif custom:
         raise HTTPException(status_code=422, detail="Listings of your own are for selling")
     else:
-        state = haggle.new_game(body.scenario, body.difficulty)
+        state = haggle.new_game(body.scenario, body.difficulty, patience_bonus=trust)
     await db.execute(
         delete(GameSession).where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)
     )
@@ -397,7 +484,7 @@ async def create_negotiation(
     return _serialize(game)
 
 
-async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession) -> dict:
+async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession, trust: int = 0) -> dict:
     """A chat inside the Hustle run, at the run's prices. Starting it uses a day."""
     run_game = await _hustle_run(user, db)
     if not run_game or run_game.state["status"] != "active":
@@ -418,12 +505,26 @@ async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession
         }
         state = selling.new_game(
             listing, body.asking or item["list_price"], item["paid"], item["id"], body.difficulty,
-            notes=body.notes and " ".join(body.notes.split()),
+            notes=body.notes and " ".join(body.notes.split()), patience_bonus=trust,
         )
+    elif body.callback:
+        # A seller who messaged again: their new price, and they open with it
+        try:
+            run, callback = hustle.take_callback(run, body.callback)
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        scenario = haggle.scenario_for(callback["scenario"])
+        state = haggle.new_game(
+            scenario["id"], body.difficulty, list_price=callback["price"], value=hustle.value_of(run, scenario),
+            patience_bonus=trust,
+        )
+        state["opening"] = f"Hey, still interested? I can do ${callback['price']:,} now."
+        state["callback"] = {"was": callback["was"]}
     else:
         scenario = haggle.scenario_for(body.scenario)
         state = haggle.new_game(
             scenario["id"], body.difficulty, list_price=hustle.price_of(run, scenario), value=hustle.value_of(run, scenario),
+            patience_bonus=trust,
         )
     try:
         run_game.state = hustle.start_chat(run)
@@ -590,6 +691,31 @@ async def take_loan(
         raise HTTPException(status_code=400, detail="Unknown game")
     try:
         game.state = ceo.take_loan(ceo.upgrade(game.state), body.amount)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+class Infusion(BaseModel):
+    """Founder money put into the company."""
+    amount: int = Field(..., gt=0, le=ceo.MAX_INFUSION)
+
+
+@router.patch("/{game_id}/infuse")
+async def infuse_cash(
+    game_id: uuid.UUID,
+    body: Infusion,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Put the founder's own money in. Instant and unlimited: no turn, no model call."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != ceo.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    try:
+        game.state = ceo.infuse(ceo.upgrade(game.state), body.amount)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     await db.commit()
@@ -768,6 +894,7 @@ def _haggle_score(user: User, state: dict) -> Optional[GameScore]:
             **{k: result.get(k) for k in ("outcome", "rating", "paid", "rounds", "saved", "floor")},
             "list_price": state["list_price"],
             "value": state.get("value"),
+            "flaw": (state.get("flaw") or {}).get("text"),
             "merchant": state["scenario"]["merchant"],
             "difficulty": state.get("difficulty", "normal"),
             "listing": state["scenario"].get("id"),
@@ -786,10 +913,19 @@ async def _end_haggle(game_id: uuid.UUID, user: User, db: AsyncSession, move: st
     run_game = game.state.get("run_id") and await _hustle_run(user, db, game.state["run_id"])
     if run_game and rules is haggle and move == "accept" and not hustle.can_pay(run_game.state, game.state["ask"]):
         raise HTTPException(status_code=409, detail=f"You only have ${run_game.state['cash']:,} in your account.")
+    account = None if game.state.get("run_id") else await _free_bank(user, db)
+    if account and rules is haggle and move == "accept" and not bank.can_pay(account.state, game.state["ask"] or 0):
+        raise HTTPException(status_code=409, detail=f"You only have ${account.state['cash']:,} in your account.")
     try:
-        game.state = getattr(rules, move)(game.state)
+        # Fakes and bounced payments only happen where the money is real
+        game.state = rules.accept(game.state, scams=bool(run_game)) if move == "accept" else rules.walk_away(game.state)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    profile = account or await _free_bank(user, db)
+    left = extras.review(game.state)
+    profile.state = bank.add_review(profile.state, left)
+    # Shown with the result: who rated you, and how
+    game.state = {**game.state, "review": left}
     if game.state.get("run_id"):
         # A Hustle chat moves the run's money, not the free play inventory and scores
         if run_game and run_game.state["status"] == "active":
@@ -799,6 +935,8 @@ async def _end_haggle(game_id: uuid.UUID, user: User, db: AsyncSession, move: st
                     run_game.state = hustle.record_purchase(run_game.state, game.state)
                 elif outcome == "sold":
                     run_game.state = hustle.record_sale(run_game.state, game.state)
+                elif outcome == "walked" and rules is haggle:
+                    run_game.state = hustle.maybe_callback(run_game.state, game.state)
             except ValueError as e:
                 raise HTTPException(status_code=409, detail=str(e))
             _settle_run(user, run_game, db)
@@ -807,9 +945,147 @@ async def _end_haggle(game_id: uuid.UUID, user: User, db: AsyncSession, move: st
         if score:
             db.add(score)
         await _mark_sold(user, game.state, db)
+        result = game.state.get("result") or {}
+        if account and result.get("paid") is not None:
+            scenario = game.state["scenario"]
+            kind = "sell" if result["outcome"] == "sold" else "buy"
+            try:
+                account.state = bank.record(
+                    account.state, kind, int(result["paid"]), scenario["item"], scenario["merchant"],
+                    result.get("profit") if kind == "sell" else None,
+                )
+            except ValueError as e:
+                raise HTTPException(status_code=409, detail=str(e))
     await db.commit()
     await db.refresh(game)
     return _serialize(game)
+
+
+@router.patch("/{game_id}/buyer")
+async def pick_buyer(
+    game_id: uuid.UUID,
+    body: BuyerPick,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Selling: answer one of the buyers who messaged about the listing."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != haggle.GAME_TYPE or game.state.get("mode") != selling.MODE:
+        raise HTTPException(status_code=400, detail="Only a listing has buyers to pick from")
+    try:
+        game.state = selling.choose(game.state, body.index)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+async def _haggle_in_play(game_id: uuid.UUID, user: User, db: AsyncSession) -> GameSession:
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != haggle.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    return game
+
+
+@router.patch("/{game_id}/research")
+async def research_listing(game_id: uuid.UUID, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+    """Buying: check sold listings for what tends to go wrong with this item. Free, or $5 in Hustle. Once per chat."""
+    game = await _haggle_in_play(game_id, user, db)
+    state = game.state
+    if _haggle_rules(state) is not haggle or state.get("status") != "active":
+        raise HTTPException(status_code=409, detail="Only while you are buying")
+    if state.get("research"):
+        raise HTTPException(status_code=409, detail="You already checked")
+    run_game = state.get("run_id") and await _hustle_run(user, db, state["run_id"])
+    if run_game:
+        try:
+            run_game.state = hustle.charge(run_game.state, hustle.RESEARCH_FEE, state["scenario"]["item"], "Checked sold listings")
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+    game.state = {**state, "research": extras.flaw_hint(state.get("flaw"))}
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/refund")
+async def ask_for_refund(game_id: uuid.UUID, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+    """At pickup, ask the seller for money back for a flaw they kept quiet about. Once."""
+    game = await _haggle_in_play(game_id, user, db)
+    try:
+        game.state = haggle.ask_refund(game.state)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    amount = game.state["result"]["pickup"]["refunded"]
+    if amount:
+        item, other = game.state["scenario"]["item"], game.state["scenario"]["merchant"]
+        run_game = game.state.get("run_id") and await _hustle_run(user, db, game.state["run_id"])
+        if run_game:
+            run_game.state = hustle.refund(run_game.state, amount, item, other)
+        elif not game.state.get("run_id"):
+            account = await _free_bank(user, db)
+            account.state = bank.record(account.state, "refund", amount, item, other)
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.patch("/{game_id}/switch")
+async def switch_buyer(game_id: uuid.UUID, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+    """Selling: drop this buyer for the one who just messaged with a better offer."""
+    game = await _haggle_in_play(game_id, user, db)
+    if game.state.get("mode") != selling.MODE:
+        raise HTTPException(status_code=400, detail="Only a sale has other buyers")
+    try:
+        game.state = selling.switch(game.state)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+@router.post("/{game_id}/chat")
+@limiter.limit(CHAT_RATE_LIMIT)
+async def keep_chatting(
+    request: Request,
+    game_id: uuid.UUID,
+    body: AfterChat,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Talk on with the seller or buyer once the haggle is over. Nothing about the deal changes."""
+    game = await _owned_game(game_id, user, db)
+    if game.game_type != haggle.GAME_TYPE:
+        raise HTTPException(status_code=400, detail="Unknown game")
+    state = game.state
+    if not aftertalk.can_chat(state):
+        raise HTTPException(status_code=409, detail="Finish the haggle first")
+    message = " ".join(body.message.split())
+    talked_before = len(state.get("after") or [])
+    base_url = await effective_ollama_url(user)
+    # The model can take a while; do not hold a pooled connection for it.
+    await db.close()
+
+    reply = await _ask_with_retry(
+        game_id, base_url, body.model, aftertalk.SYSTEM_PROMPT,
+        aftertalk.describe_for_model(state, message), aftertalk.REPLY_SCHEMA,
+    )
+    new_state = aftertalk.apply_reply(state, message, reply)
+
+    async with AsyncSessionLocal() as write_db:
+        current = (await write_db.execute(
+            select(GameSession).where(GameSession.id == game_id, GameSession.user_id == user.id)
+        )).scalar_one_or_none()
+        if not current:
+            raise HTTPException(status_code=404, detail="Game not found")
+        if len(current.state.get("after") or []) != talked_before:
+            raise HTTPException(status_code=409, detail="That message was already sent. Reload the chat.")
+        await write_db.execute(update(GameSession).where(GameSession.id == game_id).values(state=new_state))
+        await write_db.commit()
+        await write_db.refresh(current)
+        return _serialize(current)
 
 
 @router.patch("/{game_id}/accept")
@@ -971,13 +1247,24 @@ async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db
     message = " ".join(body.decision.split())
     # "Deal!" typed into the message box agrees to the price on the table. Paying is still the player's to do.
     rules = _haggle_rules(state)
-    agreeing = body.offer is None and not body.bluff and haggle.is_acceptance(message)
+    agreeing = body.offer is None and not body.bluff and not body.leverage and not body.sweetener and haggle.is_acceptance(message)
     if state.get("final"):
         raise HTTPException(status_code=409, detail="That was their final offer. Take it or leave it.")
     bluff = body.bluff
     if bluff and not rules.can_bluff(state):
         raise HTTPException(status_code=409, detail="They have seen that move already.")
-    if bluff:
+    leverage = body.leverage
+    if leverage and (rules is not selling or not selling.can_leverage(state)):
+        raise HTTPException(status_code=409, detail="Nobody else has made an offer.")
+    sweet = body.sweetener
+    if sweet and not rules.can_sweeten(state, sweet):
+        raise HTTPException(status_code=409, detail="You have already offered that.")
+    if sweet and not message:
+        message = extras.sweetener(state.get("mode", "buy"), sweet)[1]
+    if leverage:
+        ping = state["ping"]
+        message, offer = message or f"{ping['merchant']} just offered ${ping['offer']:,}. Can you beat that?", None
+    elif bluff:
         message, offer = message or rules.BLUFF_MESSAGE, None
     elif agreeing:
         offer = state["ask"]
@@ -997,11 +1284,12 @@ async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db
     # The model can take a while; do not hold a pooled connection for it.
     await db.close()
 
+    extra = {"sweetener": sweet, **({"leverage": leverage} if rules is selling else {})}
     reply = await _ask_with_retry(
         game_id, base_url, body.model, rules.SYSTEM_PROMPT,
-        rules.describe_for_model(state, message, offer, bluff), haggle.REPLY_SCHEMA,
+        rules.describe_for_model(state, message, offer, bluff, **extra), haggle.REPLY_SCHEMA,
     )
-    new_state = rules.apply_turn(state, message, offer, reply, bluff)
+    new_state = rules.apply_turn(state, message, offer, reply, bluff, **extra)
 
     async with AsyncSessionLocal() as write_db:
         fresh = await write_db.execute(
@@ -1074,11 +1362,12 @@ async def play_turn(
         # Two tabs playing the same week: the first one in wins.
         if current.state.get("turn") != turn_before:
             raise HTTPException(status_code=409, detail="This turn was already played. Reload the game.")
+        # Before saving: a year just completed is scored here, and its flag comes off the state
+        score = _score_for(user, new_state["company"]["name"], new_state)
         await write_db.execute(
             update(GameSession).where(GameSession.id == game_id)
             .values(state=new_state, title=new_state["company"]["name"][:80])
         )
-        score = _score_for(user, new_state["company"]["name"], new_state)
         if score:
             write_db.add(score)
         await write_db.commit()

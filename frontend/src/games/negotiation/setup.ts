@@ -1,14 +1,6 @@
 // The choices on the start screen. What is for sale comes from the server (backend/games/negotiation/scenarios.py).
 import type { HaggleListing } from "./types";
 
-export type Difficulty = "easy" | "normal" | "hard";
-
-export const DIFFICULTIES: { id: Difficulty; label: string; blurb: string }[] = [
-  { id: "easy", label: "Easy", blurb: "Patient, and quick to give ground." },
-  { id: "normal", label: "Normal", blurb: "The standard haggle." },
-  { id: "hard", label: "Hard", blurb: "Short on patience and slow to budge." },
-];
-
 /** How many listings are offered at a time on the start screen; the rest are a refresh away */
 export const LISTINGS_SHOWN = 5;
 

@@ -129,7 +129,8 @@ HISTORY_LIMIT = 60
 LOG_LIMIT = 60
 
 # ---- The run: one year, scored on what your stake is worth ----
-GAME_LENGTH = 52               # weeks
+GAME_LENGTH = 52               # weeks until the score is locked in; the company runs on after it
+MAX_INFUSION = 1_000_000_000_000  # the most one cash infusion can be, only to keep the numbers sane
 GOAL = 2_500_000               # stake value that counts as a win
 RATINGS = [                    # (stake worth at least, verdict)
     (6_000_000, "Runaway success"),
@@ -347,10 +348,13 @@ _DISCONTINUE_TOPIC = re.compile(r"\b(discontinu\w*|drop\w*|kill\w*|retir\w*|stop
 
 # "$50,000", "50000", "50k", "1.5 million", but not "10%" or "2 people"
 _AMOUNT = re.compile(
-    r"\$\s?(\d[\d,]*(?:\.\d+)?)\s?(k|thousand|m|mil|million)?\b"
-    r"|\b(\d[\d,]*(?:\.\d+)?)\s?(k|thousand|m|mil|million)\b"
+    r"\$\s?(\d[\d,]*(?:\.\d+)?)\s?(k|thousand|m|mil|million|b|bn|billion|tn|trillion)?\b"
+    r"|\b(\d[\d,]*(?:\.\d+)?)\s?(k|thousand|m|mil|million|b|bn|billion|tn|trillion)\b"
     r"|\b((?:\d{1,3}(?:,\d{3})+|\d{4,})(?:\.\d+)?)\b(?!\s?%)", re.I)
-_AMOUNT_SCALE = {"k": 1e3, "thousand": 1e3, "m": 1e6, "mil": 1e6, "million": 1e6}
+_AMOUNT_SCALE = {
+    "k": 1e3, "thousand": 1e3, "m": 1e6, "mil": 1e6, "million": 1e6,
+    "b": 1e9, "bn": 1e9, "billion": 1e9, "tn": 1e12, "trillion": 1e12,
+}
 
 
 def _stated_income(decision: str) -> Optional[float]:
@@ -1250,6 +1254,24 @@ def take_loan(state: dict, amount: float) -> dict:
     return s
 
 
+def infuse(state: dict, amount: float) -> dict:
+    """The founder puts in their own money: as much as they like, as often as they like. Does not use a turn."""
+    s = copy.deepcopy(state)
+    amount = int(_num(amount))
+    if s["status"] != "active":
+        raise ValueError("This game is over.")
+    if not 0 < amount <= MAX_INFUSION:
+        raise ValueError(f"Put in between $1 and {_money(MAX_INFUSION)}.")
+    s["cash"] += amount
+    # Counted with the rest of the cash typed into existence, so a score can be read for what it is
+    s["typed_cash"] = s.get("typed_cash", 0) + amount
+    if s["cash"] >= 0:
+        s["weeks_in_red"] = 0
+    s["valuation"] = valuation(s)
+    s["pending"] = (s.get("pending") or []) + [f"Put {_money(amount)} of your own money in"]
+    return s
+
+
 def new_game(
     company: str,
     pitch: str,
@@ -1658,10 +1680,13 @@ def apply_turn(
         one_time_cost = _clamp(_num(effects.get("one_time_cost")), 0, affordable)
     # An amount the player named is taken as said; otherwise the model's figure
     # counts, but only when the decision is about money coming in.
+    # A figure the player names is founder money: taken in full, however large.
     one_time_income = _stated_income(decision)
-    if one_time_income is None:
+    if one_time_income is not None:
+        one_time_income = _clamp(one_time_income, 0, MAX_INFUSION)
+    else:
         one_time_income = _num(effects.get("one_time_income")) if _INCOME_TOPIC.search(decision) else 0
-    one_time_income = _clamp(one_time_income, 0, max(100_000, 16 * s["last"]["revenue"]))
+        one_time_income = _clamp(one_time_income, 0, max(100_000, 16 * s["last"]["revenue"]))
     if one_time_cost >= 1:
         changes.append(f"Spent {_money(one_time_cost)}")
     if one_time_income >= 1:
@@ -1774,9 +1799,18 @@ def apply_turn(
             "Overdrawn: get cash above zero by next week or the company folds" if left <= 1
             else f"Overdrawn: the bank will wait {left} more weeks"
         )
-    elif s["turn"] >= s["length"] and not s.get("free_play"):
-        _finish(s, "finished", s["valuation"])
     else:
+        if s["turn"] >= s["length"] and not s.get("free_play"):
+            # A year in: the score is locked in and recorded, and the company keeps going as free play
+            _finish(s, "finished", s["valuation"])
+            s["official_result"] = s["result"]
+            s["result"] = None
+            s["status"] = "active"
+            s["free_play"] = True
+            s["year_scored"] = True
+            changes.append(
+                f"One year in: your score of {_money(s['official_result']['score'])} is locked in. The company keeps going."
+            )
         if s["turn"] - s.get("candidates_turn", 0) >= POOL_REFRESH:
             s["candidates"] = _candidates(s, rng, HIRING_POOL)
             s["candidates_turn"] = s["turn"]
@@ -1797,8 +1831,11 @@ def apply_turn(
         "reactions": reactions,
         "financials": {**s["last"], "cash": s["cash"]},
     }])[-LOG_LIMIT:]
-    if s["status"] == "active":
+    if s["status"] == "active" and not s.get("year_scored"):
         s["undo"] = copy.deepcopy(before)
+    else:
+        # The week that locked in the score cannot be taken back and played again
+        s.pop("undo", None)
     return s
 
 

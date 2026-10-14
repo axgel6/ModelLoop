@@ -17,6 +17,7 @@ import random
 import re
 from typing import Optional
 
+from . import extras
 from .scenarios import SCENARIOS
 
 GAME_TYPE = "negotiation"
@@ -60,6 +61,13 @@ DIFFICULTIES = {
     "hard":   {"label": "Hard", "blurb": "Short on patience and slow to budge.", "patience": 6, "resistance": 0.65},
 }
 
+# What can go wrong once the money is paid
+REFUND_SHARE = 0.6             # of the price the flaw knocked off its worth, what a refund at pickup gives back
+COUNTERFEIT_CHANCE = 0.04      # Hustle only: the chance a pricey bag, watch, phone or bottle turns out fake
+COUNTERFEIT_MIN_VALUE = 150
+COUNTERFEIT_WORTH = 0.10       # what a fake is worth, as a share of the real thing
+_COUNTERFEIT_CATEGORIES = ("Bags", "Jewelry", "Fragrance", "Clothing and shoes", "Apple and phones")
+
 RATINGS = [                    # (score at least, verdict)
     (90, "Legendary haggler"),
     (70, "Sharp dealer"),
@@ -85,7 +93,7 @@ SYSTEM_PROMPT = """You play a seller on an online marketplace, like Facebook Mar
 The setting:
 - This is a text chat inside the marketplace app. You and the buyer have never met and cannot see or hear each other. Nobody is standing in a shop or at a stall.
 - Write the way people message about a listing: short and casual, no speeches. You may mention other people messaging you, when you are free for pickup, or what is in the listing.
-- The item is exactly as your listing describes it. Do not invent other flaws, extras or history, and do not offer to throw anything in.
+- The item is as your listing describes it, unless you are told below about a flaw the listing left out: then that flaw is real too. Do not invent any other flaws, extras or history, and do not offer to throw anything in.
 - Never describe gestures, looks, expressions or anything else the buyer could not see in a chat.
 
 "move" says what the buyer's latest message was:
@@ -254,13 +262,15 @@ def scenario_for(scenario_id: Optional[str], rng: Optional[random.Random] = None
 
 
 def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Optional[random.Random] = None,
-             list_price: Optional[int] = None, value: Optional[int] = None) -> dict:
-    """`list_price` and `value` override the scenario's usual price and resale value, as a Hustle run does."""
+             list_price: Optional[int] = None, value: Optional[int] = None, patience_bonus: int = 0) -> dict:
+    """`list_price` and `value` override the scenario's usual price and resale value, as a Hustle run does.
+    `patience_bonus` is what the player's reviews add to or take from the seller's patience."""
     rng = rng or random.Random()
     scenario = scenario_for(scenario_id, rng)
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
+    patience = max(3, level["patience"] + patience_bonus)
     list_price = list_price or scenario["list_price"]
-    floor = min(_nice(list_price * rng.uniform(*FLOOR_SHARE), list_price), list_price - 1)
+    floor = min(_nice(list_price * rng.uniform(*(scenario.get("floor_share") or FLOOR_SHARE)), list_price), list_price - 1)
     return {
         "status": "active",          # active | deal | walked
         "turn": 0,
@@ -273,10 +283,16 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
         "ask": list_price,
         "floor": floor,
         "resistance": level["resistance"],
-        "patience": level["patience"],
-        "patience_max": level["patience"],
+        "patience": patience,
+        "patience_max": patience,
         "final": False,              # the merchant has named a last price: take it or walk
         "bluffed": False,            # the player has used their one bluff
+        "sweeteners": [],            # the terms other than money already offered
+        # Something wrong the listing does not say. Found by asking, or found at pickup.
+        "flaw": extras.deal_flaw(scenario.get("category"), rng),
+        "research": None,            # what checking sold listings turned up
+        # A seller who has to be rid of it soon: rounds left before it goes to someone else
+        "deadline": {"rounds": extras.DEADLINE_ROUNDS} if extras.has_deadline(scenario) else None,
         # The price only becomes a purchase when the player pays it (accept)
         "log": [],
         "result": None,
@@ -284,9 +300,16 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
 
 
 def public(state: dict) -> dict:
-    """The state as the player may see it: the merchant's limits stay hidden until the haggle ends."""
+    """The state as the player may see it: the merchant's limits, and any flaw nobody has owned up to,
+    stay hidden until the haggle ends."""
     hidden = ("resistance",) if state.get("status") != "active" else ("resistance", "floor")
-    return {k: v for k, v in state.items() if k not in hidden}
+    out = {k: v for k, v in state.items() if k not in hidden}
+    flaw = out.get("flaw")
+    if flaw and not flaw.get("revealed") and state.get("status") == "active":
+        out["flaw"] = None
+    elif flaw:
+        out["flaw"] = {k: flaw[k] for k in ("text", "revealed")}
+    return out
 
 
 def catalogue() -> list[dict]:
@@ -339,7 +362,9 @@ def can_bluff(state: dict) -> bool:
     return state.get("status") == "active" and not state.get("final") and not state.get("bluffed")
 
 
-def describe_for_model(state: dict, message: str, offer: Optional[int], bluff: bool = False) -> str:
+def describe_for_model(
+    state: dict, message: str, offer: Optional[int], bluff: bool = False, sweetener: Optional[str] = None,
+) -> str:
     scenario = state["scenario"]
     kind = _round_kind(state, offer, bluff)
     lines = [
@@ -354,6 +379,11 @@ def describe_for_model(state: dict, message: str, offer: Optional[int], bluff: b
         lines.append(f"Condition: {scenario['condition']}")
     if scenario.get("description"):
         lines.append(f"Description: {scenario['description']}")
+    flaw = state.get("flaw")
+    if flaw and flaw.get("revealed"):
+        lines.append(f"Known flaw, which the buyer knows about: {flaw['text']}. It is a fair reason for a lower price.")
+    if state.get("deadline"):
+        lines.append(f"You need it gone soon: {state['deadline']['rounds']} more messages before you sell to whoever turns up first.")
     lines += [
         f"Handover: {scenario['setting'].split('·')[-1].strip()}",
         "",
@@ -372,6 +402,14 @@ def describe_for_model(state: dict, message: str, offer: Optional[int], bluff: b
         lines.append("The buyer has said exactly this before. Rate it -1 and let them know you heard it the first time.")
     if bluff:
         lines.append("The buyer says they are leaving. You do not want to lose the sale: call them back.")
+    sweet = extras.sweetener("buy", sweetener)
+    if sweet:
+        lines.append(f"{sweet[2]} That is worth something to you.")
+    if extras.asks_about(flaw, message):
+        lines.append(
+            f"The buyer is asking about something you left out of the listing: {flaw['text']}. "
+            "Admit it honestly in your reply, in a few words. Do not make it sound worse or better than it is."
+        )
     lines.append("")
     if kind == "deal":
         agreed = _money(min(offer, state["ask"]))
@@ -402,7 +440,7 @@ def _finish(s: dict, outcome: str, paid: Optional[int]) -> None:
     s["result"] = {
         "outcome": outcome,
         "score": score,
-        "rating": _rating(score) if paid is not None else "Walked away",
+        "rating": _rating(score) if paid is not None else "Someone else got it" if outcome == "lost" else "Walked away",
         "paid": paid,
         "saved": None if paid is None else s["list_price"] - paid,
         "floor": s["floor"],
@@ -410,11 +448,21 @@ def _finish(s: dict, outcome: str, paid: Optional[int]) -> None:
     }
 
 
-def apply_turn(state: dict, message: str, offer: Optional[int], reply: dict, bluff: bool = False) -> dict:
+def can_sweeten(state: dict, key: Optional[str]) -> bool:
+    return bool(extras.sweetener(state.get("mode", "buy"), key)) and key not in (state.get("sweeteners") or [])
+
+
+def apply_turn(
+    state: dict, message: str, offer: Optional[int], reply: dict, bluff: bool = False,
+    sweetener: Optional[str] = None, rng: Optional[random.Random] = None,
+) -> dict:
     """Play one round: the player's message and offer, answered by the model's reply.
-    `bluff` is the player saying they are leaving, which works once."""
+    `bluff` is the player saying they are leaving, which works once. `sweetener` is a
+    term other than money (cash today, pickup now), each usable once."""
+    rng = rng or random.Random()
     s = copy.deepcopy(state)
     bluff = bluff and can_bluff(s)
+    sweet = None if bluff or not can_sweeten(s, sweetener) else sweetener
     kind = _round_kind(s, offer, bluff)
     text = " ".join(str(reply.get("reply") or "").split())[:MAX_REPLY]
     try:
@@ -429,13 +477,24 @@ def apply_turn(state: dict, message: str, offer: Optional[int], reply: dict, blu
     if bluff:
         persuasion = 0               # the bluff does its own work; it is not an argument
         s["bluffed"] = True
+    if sweet:
+        # Better terms count however briefly they are put
+        persuasion = min(2, persuasion + extras.SWEETENER_BONUS)
+        s["sweeteners"] = (s.get("sweeteners") or []) + [sweet]
     quotable = (s["list_price"], offer)
 
     s["turn"] += 1
     entry = {
         "turn": s["turn"], "you": message, "offer": offer, "persuasion": persuasion,
-        "insulted": False, "repeated": repeated, "bluff": bluff,
+        "insulted": False, "repeated": repeated, "bluff": bluff, "sweetener": sweet,
     }
+    flaw = s.get("flaw")
+    if extras.asks_about(flaw, message):
+        # Owned up to: it is worth less, and the seller knows they cannot hold out for full price
+        flaw["revealed"] = True
+        s["value"] = max(1, round(s["value"] * (1 - flaw["loss"])))
+        s["floor"] = max(1, min(s["floor"], _nice(s["floor"] * (1 - flaw["loss"] / 2), s["list_price"])))
+        entry["flaw"] = flaw["text"]
 
     if kind == "deal":
         paid = min(offer, s["ask"])
@@ -444,7 +503,7 @@ def apply_turn(state: dict, message: str, offer: Optional[int], reply: dict, blu
         entry["persuasion"] = 0  # nothing left to persuade
     elif (
         str(reply.get("move") or "").lower() == "question" and offer is None and not bluff and not repeated
-        and kind == "counter" and sum(1 for e in s["log"] if e.get("question")) < FREE_QUESTIONS
+        and not sweet and kind == "counter" and sum(1 for e in s["log"] if e.get("question")) < FREE_QUESTIONS
     ):
         # Asking about the item is not haggling: it costs nothing and moves nothing
         entry["question"] = True
@@ -486,6 +545,19 @@ def apply_turn(state: dict, message: str, offer: Optional[int], reply: dict, blu
         if kind != "deal":
             entry["tell"] = _tell(s)
 
+    deadline = s.get("deadline")
+    if deadline and kind != "deal" and s["status"] == "active":
+        # The clock runs down: the seller softens, and someone else may get there first
+        deadline["rounds"] = max(0, deadline["rounds"] - 1)
+        s["resistance"] = max(0.0, s["resistance"] - extras.DEADLINE_SLIDE)
+        if s["turn"] >= 3 and rng.random() < extras.DEADLINE_RIVAL:
+            entry["reply"] = _then(entry["reply"], "Actually, sorry, someone just turned up and paid for it. It's gone.")
+            entry["lost"] = True
+            _finish(s, "lost", None)
+        elif deadline["rounds"] == 0 and not s["final"]:
+            s["final"] = True
+            entry["reply"] = _then(entry["reply"], f"I need it gone, so {_money(s['ask'])} is my final price.")
+
     entry["ask"] = s["ask"]
     entry["final"] = s["final"]
     s["log"] = (s["log"] + [entry])[-LOG_LIMIT:]
@@ -495,12 +567,49 @@ def apply_turn(state: dict, message: str, offer: Optional[int], reply: dict, blu
     return s
 
 
-def accept(state: dict) -> dict:
-    """Buy at the price on the table."""
+def accept(state: dict, scams: bool = False, rng: Optional[random.Random] = None) -> dict:
+    """Buy at the price on the table, then collect it. A flaw nobody owned up to shows up at
+    pickup; in Hustle (`scams`), a pricey item is now and then a fake."""
     if state.get("status") != "active":
         raise ValueError("This haggle is over")
+    rng = rng or random.Random()
     s = copy.deepcopy(state)
     _finish(s, "deal", s["ask"])
+    flaw = s.get("flaw")
+    if (
+        scams and s["scenario"].get("category") in _COUNTERFEIT_CATEGORIES
+        and s["value"] >= COUNTERFEIT_MIN_VALUE and rng.random() < COUNTERFEIT_CHANCE
+    ):
+        loss = s["value"] - max(1, round(s["value"] * COUNTERFEIT_WORTH))
+        s["value"] -= loss
+        s["result"]["pickup"] = {
+            "kind": "counterfeit", "loss": loss, "refund": 0,
+            "issue": f"It's a fake. A good one, but a fake. {s['scenario']['merchant']} has blocked you.",
+        }
+    elif flaw and not flaw.get("revealed"):
+        loss = round(s["value"] * flaw["loss"])
+        s["value"] = max(1, s["value"] - loss)
+        s["result"]["pickup"] = {
+            "kind": "flaw", "loss": loss, "issue": f"At pickup you notice {flaw['text']}.",
+            # Asked for once, on the spot; whether they pay up depends on how much patience they have left
+            "refund": max(1, round(min(s["ask"], loss) * REFUND_SHARE)), "asked": False, "refunded": None,
+        }
+    else:
+        s["result"]["pickup"] = {"kind": "fine", "issue": "Picked up, all as described."}
+    return s
+
+
+def ask_refund(state: dict, rng: Optional[random.Random] = None) -> dict:
+    """At pickup, ask for some money back for a flaw the seller kept quiet about. Once only."""
+    pickup = (state.get("result") or {}).get("pickup") or {}
+    if pickup.get("kind") != "flaw" or pickup.get("asked"):
+        raise ValueError("There is nothing to ask for back")
+    rng = rng or random.Random()
+    s = copy.deepcopy(state)
+    pickup = s["result"]["pickup"]
+    pickup["asked"] = True
+    willing = 0.35 + 0.5 * s["patience"] / max(1, s["patience_max"])
+    pickup["refunded"] = pickup["refund"] if rng.random() < willing else 0
     return s
 
 

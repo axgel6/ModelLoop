@@ -20,6 +20,8 @@ import "./arena.css";
 
 const GAME_TYPE = "model-arena";
 const STANCE_LABEL = { for: "For", against: "Against" } as const;
+// How close to the bottom of the feed, in pixels, still counts as following along
+const FOLLOW_SLACK = 80;
 
 type ArenaSave = GameSave<ArenaState>;
 type SideDraft = { model: string; character: string };
@@ -317,6 +319,13 @@ function Stage({
   const requesting = useRef(false);
   const onStage = useRef(true);
   const feedEnd = useRef<HTMLDivElement>(null);
+  const feed = useRef<HTMLDivElement>(null);
+  // Whether the reader is at the bottom of the feed. Only then does it follow new speeches;
+  // anyone scrolled up to read is left where they are.
+  const following = useRef(true);
+  const seenSpeeches = useRef(state.speeches.length);
+  // Speeches that arrived while the reader was scrolled up, from the first of them
+  const [unseen, setUnseen] = useState<{ from: number; count: number } | null>(null);
 
   useEffect(() => {
     onStage.current = true;
@@ -340,9 +349,38 @@ function Stage({
       });
   }, [state.status, state.turn, paused, error, save.id, onSave]);
 
+  const speechAt = (i: number) => feed.current?.querySelector<HTMLElement>(`[data-speech="${i}"]`) ?? null;
+
+  const onFeedScroll = () => {
+    const el = feed.current;
+    if (!el) return;
+    following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SLACK;
+    if (following.current) setUnseen(null);
+  };
+
+  // A new speech: show it from its first line if the reader was following, else say it is there
   useEffect(() => {
-    feedEnd.current?.scrollIntoView({ block: "end" });
-  }, [state.speeches.length, state.status, state.questions?.length, error]);
+    const before = seenSpeeches.current;
+    const now = state.speeches.length;
+    seenSpeeches.current = now;
+    if (now <= before) return;
+    if (following.current) {
+      speechAt(before)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    } else {
+      setUnseen((u) => ({ from: u?.from ?? before, count: (u?.count ?? 0) + now - before }));
+    }
+  }, [state.speeches.length]);
+
+  // Everything else that lands at the bottom (a question, the verdict, an error) only moves a reader who is there
+  useEffect(() => {
+    if (following.current) feedEnd.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [state.status, state.questions?.length, error, paused]);
+
+  const showUnseen = () => {
+    if (!unseen) return;
+    speechAt(unseen.from)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    setUnseen(null);
+  };
 
   // After a failed speech, pick up from wherever the server has got to.
   const retry = async () => {
@@ -442,7 +480,7 @@ function Stage({
       </div>
 
       {/* The chat's own bubbles: the side arguing for speaks from the left, the side against from the right */}
-      <div className="arena-feed">
+      <div className="arena-feed" ref={feed} onScroll={onFeedScroll}>
         {state.speeches.map((speech, i) => {
           const role = speech.side === 0 ? "assistant" : "user";
           // A question sits where it was asked: after the round it closed
@@ -450,7 +488,7 @@ function Stage({
           return (
             <Fragment key={i}>
             {opening && <Question text={opening} />}
-            <div className={`message-row ${role}`}>
+            <div className={`message-row ${role}`} data-speech={i}>
               <div className={`msg-bubble-group${speech.side === 1 ? " user-group" : ""}`}>
                 <div className={`message ${role}${voice.speaking === i ? " is-speaking" : ""}`}>{speech.text}</div>
                 <div className={`msg-meta${speech.side === 1 ? " user-meta" : ""}`}>
@@ -516,6 +554,14 @@ function Stage({
 
         {error && <p className="arena-error">{error}</p>}
         <div ref={feedEnd} />
+        {unseen && (
+          <button type="button" className="arena-unseen" onClick={showUnseen}>
+            {unseen.count === 1 ? "New speech" : `${unseen.count} new speeches`}
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {questionTime && (

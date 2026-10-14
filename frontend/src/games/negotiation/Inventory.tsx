@@ -122,6 +122,11 @@ export function Inventory({
                 {i.rounds != null ? ` · ${i.rounds} ${i.rounds === 1 ? "round" : "rounds"}` : ""}
                 {i.difficulty && i.difficulty !== "normal" ? ` · ${i.difficulty}` : ""}
               </span>
+              {(i.fake || i.flaw) && (
+                <span className="neg-inventory-deal is-down">
+                  {i.fake ? "A fake, found at pickup." : `Flaw: ${i.flaw}.`}
+                </span>
+              )}
               {i.sold && (
                 <span className="neg-inventory-deal">
                   Sold to {i.sold.buyer} for {money(i.sold.price)} · {i.sold.rating}

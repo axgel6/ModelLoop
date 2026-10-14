@@ -94,13 +94,6 @@ html .neg .pref-confirm-no {
   padding-bottom: 24px;
 }
 
-.neg-sub {
-  margin: 6px 0 18px;
-  font-size: 0.86rem;
-  line-height: 1.5;
-  color: var(--game-muted);
-}
-
 .neg-section {
   margin: 0 0 8px 4px;
 }
@@ -353,7 +346,10 @@ html .neg .neg-refresh:hover {
   opacity: 0.7;
 }
 
+/* The figure in the title's wide face */
 .neg-pay-amount {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
   font-size: 1.7rem;
   font-weight: 700;
   line-height: 1.15;
@@ -443,6 +439,8 @@ html .neg .neg-pay-sheet-head .neg-link {
 }
 
 .neg-pay-total dd {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
   font-size: 1.15rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -1142,4 +1140,183 @@ html .neg .neg-balance:hover {
 .neg-bank .neg-bank-statement {
   flex: none;
   overflow: visible;
+}
+
+/* ---- The inbox: buyers who messaged about a listing ---- */
+
+.neg-inbox .pref-setting-hint {
+  margin: -4px 0 0;
+}
+
+.neg-inbox .pref-list-item[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.neg-inbox-kind {
+  color: var(--game-muted);
+  font-weight: 400;
+}
+
+/* Their whole first message, not one clipped line */
+.neg-inbox .neg-inbox-message {
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.45;
+}
+
+/* Free play: sandbox money in and out */
+.neg-bank-move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.neg-bank-move .neg-offer {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  font-size: 0.8rem;
+}
+
+.neg-bank-move .neg-offer input {
+  width: 110px;
+}
+
+.neg-bank-move .pref-setting-hint,
+.neg-bank-move .neg-error {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+/* ---- The menu's account bar: balance and inventory side by side ---- */
+
+.neg-account {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+
+html .neg .neg-account-part,
+html .neg .neg-account-part:hover {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+  transform: none;
+}
+
+html .neg .neg-account-part:hover {
+  border-color: var(--game-accent);
+}
+
+html .neg .neg-account-part:disabled {
+  cursor: default;
+  border-color: var(--glass-border);
+}
+
+.neg-account-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.neg-account .pref-item-desc {
+  max-width: 100%;
+}
+
+/* Hustle: the run's days, under both halves */
+.neg-account .neg-account-days {
+  grid-column: 1 / -1;
+  margin: 0 4px;
+}
+
+html .neg .neg-scores-toggle {
+  align-self: flex-start;
+  margin: 0 4px 12px;
+}
+
+/* ---- In the chat: terms other than money, rival offers, the pickup ---- */
+
+/* Sweeteners and checking sold listings, just above the message box */
+.neg-extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 4px 8px;
+}
+
+/* Something the game says, not either side: centred, like the persona line */
+.neg-notice {
+  margin: -4px 0 12px;
+  padding: 0;
+  text-align: center;
+}
+
+/* Another buyer messaging with a better offer */
+.neg-rival {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 12px;
+  text-align: center;
+}
+
+.neg-rival .msg-timestamp {
+  padding: 0;
+}
+
+.neg-rival-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.neg-deadline {
+  color: var(--neg-down);
+}
+
+/* What turned up when it changed hands */
+.neg-pickup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 460px;
+  padding: 10px 16px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+}
+
+.neg-pickup.is-scam {
+  border-color: var(--neg-down);
+}
+
+.neg-pickup .pref-item-name {
+  white-space: normal;
+}
+
+.neg-review {
+  font-style: italic;
+}
+
+.neg-inventory-deal.is-down {
+  color: var(--neg-down);
 }

@@ -276,6 +276,36 @@ html .arena .arena-debater--against .pref-item-icon {
   scrollbar-width: thin;
 }
 
+/* Speeches that arrived while the reader was scrolled up: pinned to the bottom of the feed until clicked */
+html .arena .arena-unseen,
+html .arena .arena-unseen:hover {
+  position: sticky;
+  bottom: 10px;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transform: none;
+  animation: fade-in 0.15s ease-out both;
+}
+
+html .arena .arena-unseen:hover {
+  border-color: var(--game-accent);
+}
+
 /* A speech is a few paragraphs, not a one-line chat message */
 .arena-feed .message {
   text-align: left;

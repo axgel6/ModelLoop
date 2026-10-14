@@ -26,6 +26,12 @@ DAYS = 30
 PRICE_SWING = (0.85, 1.15)     # how far a listing's price can move from one run to the next
 MILESTONES = (2500, 5000, 10000, 25000)
 BROKE_BELOW = 10               # less cash than this, and nothing to sell, ends the run
+RESEARCH_FEE = 5               # checking sold listings in a chat
+# Walk away from a seller and they may message again a few days later, at a lower price
+CALLBACK_CHANCE = 0.5
+CALLBACK_DAYS = (1, 3)         # how many days later
+CALLBACK_OPEN = 3              # days the message stays worth answering
+CALLBACK_CUT = 0.85            # their new price, as a share of their last one, never under their floor
 
 RATINGS = [                    # (net worth as a multiple of the starting cash, verdict)
     (10.0, "Marketplace mogul"),
@@ -86,8 +92,8 @@ def unsold(run: dict) -> list[dict]:
 
 
 def net_worth(run: dict) -> int:
-    """Cash, plus what was paid for everything still held."""
-    return run["cash"] + sum(h["paid"] for h in unsold(run))
+    """Cash, plus what was paid for everything still held. A fake counts for what it is really worth."""
+    return run["cash"] + sum(min(h["paid"], h.get("value") or 0) if h.get("fake") else h["paid"] for h in unsold(run))
 
 
 def holding(run: dict, holding_id: str) -> Optional[dict]:
@@ -134,6 +140,9 @@ def record_purchase(run: dict, chat: dict) -> dict:
         "day": r["day"],
         "bought_at": _now(),
         "sold": None,
+        # What turned up at pickup
+        "fake": (result.get("pickup") or {}).get("kind") == "counterfeit",
+        "flaw": (chat.get("flaw") or {}).get("text"),
     }
     r["holdings"].append(item)
     r["ledger"].append({
@@ -151,19 +160,74 @@ def record_sale(run: dict, chat: dict) -> dict:
     item = holding(r, chat.get("inventory_id") or "")
     if not item or item.get("sold"):
         raise ValueError("That is no longer yours to sell.")
-    price = int(result["paid"])
+    # A payment that bounced brings nothing in, and the item is gone all the same
+    price = 0 if result.get("scammed") else int(result["paid"])
     r["cash"] += price
     item["sold"] = {
         "price": price, "profit": price - item["paid"], "buyer": scenario["merchant"],
-        "rating": result.get("rating"), "day": r["day"], "at": _now(),
+        "rating": result.get("rating"), "day": r["day"], "at": _now(), "scammed": bool(result.get("scammed")),
     }
     r["ledger"].append({
         "day": r["day"], "kind": "sell", "item": item["title"], "other": scenario["merchant"],
         "amount": price, "balance": r["cash"], "holding": item["id"], "profit": price - item["paid"],
-        "at": item["sold"]["at"],
+        "at": item["sold"]["at"], **({"note": "Payment bounced"} if result.get("scammed") else {}),
     })
     _reach_milestones(r)
     return r
+
+
+def charge(run: dict, amount: int, item: str, note: str) -> dict:
+    """A small cost in a chat, such as checking sold listings."""
+    if not can_pay(run, amount):
+        raise ValueError(f"You only have ${run['cash']:,} in your account.")
+    r = copy.deepcopy(run)
+    r["cash"] -= amount
+    r["ledger"].append({
+        "day": r["day"], "kind": "fee", "item": item, "other": note, "amount": -amount, "balance": r["cash"], "at": _now(),
+    })
+    return r
+
+
+def refund(run: dict, amount: int, item: str, other: str) -> dict:
+    """Money back from a seller at pickup."""
+    r = copy.deepcopy(run)
+    r["cash"] += amount
+    r["ledger"].append({
+        "day": r["day"], "kind": "refund", "item": item, "other": other, "amount": amount, "balance": r["cash"], "at": _now(),
+    })
+    _reach_milestones(r)
+    return r
+
+
+def maybe_callback(run: dict, chat: dict, rng: Optional[random.Random] = None) -> dict:
+    """After walking away from a seller, they may message again in a few days with a lower price."""
+    rng = rng or random.Random()
+    if rng.random() >= CALLBACK_CHANCE or not chat.get("scenario", {}).get("id"):
+        return run
+    r = copy.deepcopy(run)
+    price = max(chat["floor"], _nice(chat["ask"] * CALLBACK_CUT, chat["list_price"]))
+    if price >= chat["ask"]:
+        return run
+    due = r["day"] + rng.randint(*CALLBACK_DAYS)
+    r["callbacks"] = (r.get("callbacks") or []) + [{
+        "id": uuid.uuid4().hex[:12], "scenario": chat["scenario"]["id"], "merchant": chat["scenario"]["merchant"],
+        "item": chat["scenario"]["item"], "price": price, "was": chat["ask"], "due": due, "expires": due + CALLBACK_OPEN,
+    }]
+    return r
+
+
+def due_callbacks(run: dict) -> list[dict]:
+    return [c for c in run.get("callbacks") or [] if c["due"] <= run["day"] <= c["expires"]]
+
+
+def take_callback(run: dict, callback_id: str) -> tuple[dict, dict]:
+    """Answer a seller's message: it is used up whether or not a deal comes of it."""
+    callback = next((c for c in due_callbacks(run) if c["id"] == callback_id), None)
+    if not callback:
+        raise ValueError("That message has gone cold")
+    r = copy.deepcopy(run)
+    r["callbacks"] = [c for c in r["callbacks"] if c["id"] != callback_id]
+    return r, callback
 
 
 def _reach_milestones(r: dict) -> None:
@@ -214,6 +278,8 @@ def public(run: dict) -> dict:
     """The run as the player sees it. The price seed stays out: it would give every price away."""
     out = {k: v for k, v in run.items() if k != "price_seed"}
     out["net_worth"] = net_worth(run)
+    # Only messages that have arrived: one due later is not known yet
+    out["callbacks"] = due_callbacks(run)
     return out
 
 

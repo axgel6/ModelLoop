@@ -31,6 +31,8 @@ const POOL_REFRESH = 4;
 const LOAN_WEEKS = 26;
 const LOAN_INTEREST = 0.15;
 const MIN_LOAN = 5000;
+// The most one cash infusion can be, as in the engine
+const MAX_INFUSION = 1_000_000_000_000;
 const EARLY_REPAY_INTEREST = 0.5;
 
 /** What it costs to clear a loan today. Mirrors payoff_amount in the engine. */
@@ -180,8 +182,8 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
           <h2 className="ceo-title">Founder Mode</h2>
         </div>
         <p className="ceo-sub">
-          Each turn is one week, and you have one year. Your score is what your share of the company is worth at
-          the end. Reach $2,500,000 to win.
+          Each turn is one week. Your score is what your share of the company is worth after one year, and the
+          company keeps going for as long as you want after that. Reach $2,500,000 to win.
         </p>
 
         {saves && saves.length > 0 && (
@@ -419,6 +421,15 @@ function Play({
     setError("");
     try {
       onSave(await apiEditGame<CeoState>(save.id, "loan", { amount }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  };
+
+  const infuse = async (amount: number) => {
+    setError("");
+    try {
+      onSave(await apiEditGame<CeoState>(save.id, "infuse", { amount }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     }
@@ -790,7 +801,7 @@ function Play({
                 </div>
                 <span className="ceo-stat-note">
                   {state.free_play && state.official_result
-                    ? `Free play. Final score: ${money(state.official_result.score)}`
+                    ? `Year one scored ${money(state.official_result.score)}. Playing on.`
                     : stake >= state.goal
                       ? "Goal reached"
                       : `${money(state.goal - stake)} to the ${money(state.goal)} goal`}
@@ -979,6 +990,7 @@ function Play({
                     disabled={over || !!pending}
                     onBorrow={borrow}
                     onRepay={repay}
+                    onInfuse={infuse}
                   />
               </>
             )}
@@ -1126,6 +1138,7 @@ function Bank({
   disabled,
   onBorrow,
   onRepay,
+  onInfuse,
 }: {
   loans: { principal: number; weekly: number; weeks_left: number }[];
   credit: number;
@@ -1133,16 +1146,20 @@ function Bank({
   disabled: boolean;
   onBorrow: (amount: number) => void;
   onRepay: (index: number) => void;
+  /** Founder money: as much as you like, as often as you like, no turn used */
+  onInfuse: (amount: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
+  const [infusing, setInfusing] = useState(false);
+  const [infusion, setInfusion] = useState("");
+  const putIn = Number(infusion);
+  const canPutIn = putIn > 0 && putIn <= MAX_INFUSION;
   const owed = loans.reduce((sum, loan) => sum + loan.weekly * loan.weeks_left, 0);
   const weekly = loans.reduce((sum, loan) => sum + loan.weekly, 0);
   const wanted = Number(amount);
   const valid = wanted >= MIN_LOAN && wanted <= credit;
   const repay = Math.ceil((wanted * (1 + LOAN_INTEREST)) / LOAN_WEEKS);
-
-  if (owed === 0 && credit < MIN_LOAN) return null;
 
   return (
     <>
@@ -1175,6 +1192,48 @@ function Bank({
             );
           })}
         </ul>
+      )}
+      {!infusing && (
+        <button type="button" className="ceo-link" disabled={disabled} onClick={() => setInfusing(true)}>
+          Put in cash
+        </button>
+      )}
+      {infusing && (
+        <form
+          className="ceo-add"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!canPutIn || disabled) return;
+            onInfuse(putIn);
+            setInfusion("");
+            setInfusing(false);
+          }}
+        >
+          <div className="ceo-price ceo-price--wide">
+            <span>$</span>
+            <input
+              className="ceo-input"
+              value={infusion}
+              autoFocus
+              onChange={(e) => setInfusion(e.target.value.replace(/\D/g, "").slice(0, 13))}
+              onKeyDown={(e) => e.key === "Escape" && setInfusing(false)}
+              inputMode="numeric"
+              aria-label="Amount to put in"
+            />
+          </div>
+          <p className="ceo-hint">
+            Your own money, straight into the company. No limit, no repayment, no shares given up, and it does not use
+            a week. Leaderboard scores show how much cash was put in.
+          </p>
+          <div className="ceo-add-actions">
+            <button type="submit" className="start-button" disabled={!canPutIn || disabled}>
+              Put in {putIn > 0 ? money(putIn) : "cash"}
+            </button>
+            <button type="button" className="ceo-link ceo-link--quiet" onClick={() => setInfusing(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
       {!open && credit >= MIN_LOAN && (
         <button

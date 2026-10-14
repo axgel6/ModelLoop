@@ -2,7 +2,7 @@
 // no audio files to load. Every note comes from one pentatonic scale, which is why
 // any two sounds overlapping still sound pleasant together.
 
-export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle";
+export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle" | "pay";
 
 const STORAGE_KEY = "sound_fx";
 const VOLUME_KEY = "sound_volume";
@@ -26,6 +26,11 @@ const SOUNDS: Record<SoundName, Note[]> = {
   stop: [[G4, 0, 0.18, 0.06]],
   // Two low, soft notes stepping up: a small "bloop" for clicks on empty space
   sparkle: [[E4, 0, 0.1, 0.045], [A4, 0.07, 0.2, 0.04]],
+  // Money changing hands: a quick "cha" of two coin ticks, then the "ching" ringing out
+  pay: [
+    [C6, 0, 0.07, 0.05], [E6, 0.06, 0.07, 0.05],
+    [G5, 0.15, 0.6, 0.05], [C6, 0.15, 0.7, 0.05], [E6, 0.15, 0.8, 0.045],
+  ],
 };
 
 // The "voice" a reply is spoken in while it streams: low notes, picked at random.

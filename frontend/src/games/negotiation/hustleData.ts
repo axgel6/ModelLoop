@@ -1,6 +1,6 @@
 // The Hustle run: loading it, starting a new one, and the money words shared by its screens.
 import { apiFetch } from "../../components/api";
-import type { HustleRun } from "./types";
+import type { FreeBank, HustleRun } from "./types";
 
 export const HUSTLE_SCORES = "marketplace-hustle";
 
@@ -21,6 +21,26 @@ export async function apiHustle(): Promise<HustleView> {
 export async function apiStartHustle(): Promise<HustleView> {
   const res = await apiFetch("/api/v1/games/negotiation/hustle", { method: "POST" });
   if (!res.ok) throw new Error("I couldn't start a new run.");
+  return res.json();
+}
+
+/** The free play bank account, opened on first use */
+export async function apiBank(): Promise<FreeBank> {
+  const res = await apiFetch("/api/v1/games/negotiation/bank");
+  if (!res.ok) throw new Error("I couldn't load your bank account.");
+  return res.json();
+}
+
+/** Free play: money in from nowhere, or out to it */
+export async function apiMoveMoney(kind: "deposit" | "withdraw", amount: number): Promise<FreeBank> {
+  const res = await apiFetch(`/api/v1/games/negotiation/bank/${kind}`, {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().then((b) => b?.detail).catch(() => null);
+    throw new Error(typeof detail === "string" ? detail : `I couldn't ${kind} that.`);
+  }
   return res.json();
 }
 

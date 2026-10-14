@@ -1,7 +1,20 @@
 // Mirrors the state built by backend/games/negotiation/engine.py (buying) and selling.py (selling)
 
 /** Buying ends in a deal or walking away; selling in a sale or keeping the item */
-export type HaggleStatus = "active" | "deal" | "walked" | "sold" | "kept";
+export type HaggleStatus = "choosing" | "active" | "deal" | "walked" | "sold" | "kept" | "lost";
+
+/** Selling: a buyer who messaged about the listing, waiting in the inbox to be answered */
+export interface Prospect {
+  merchant: string;
+  kind: string;
+  persona: string;
+  /** Their first message, with their offer in it */
+  opening: string;
+  opening_bid: number;
+  patience: number;
+  /** They offered the asking price or more */
+  opening_agreed: boolean;
+}
 export type HaggleMode = "buy" | "sell";
 
 export interface HaggleEntry {
@@ -26,10 +39,31 @@ export interface HaggleEntry {
   /** The merchant's price after this round */
   ask: number;
   final: boolean;
+  /** A term other than money offered with this message, by id */
+  sweetener?: string | null;
+  /** Selling: another buyer's real offer was held up against this one */
+  leverage?: boolean;
+  /** Buying: the seller owned up to a flaw the listing left out */
+  flaw?: string;
+  /** Buying: someone else bought it first */
+  lost?: boolean;
+  /** Selling: one of the other buyers messaged with a better offer after this round */
+  ping?: { merchant: string; offer: number };
+}
+
+/** What happened when the item changed hands */
+export interface Pickup {
+  kind: "fine" | "flaw" | "counterfeit" | "fake_payment";
+  issue: string;
+  loss?: number;
+  /** A flaw: what the seller might give back, if asked */
+  refund?: number;
+  asked?: boolean;
+  refunded?: number | null;
 }
 
 export interface HaggleResult {
-  outcome: "deal" | "walked" | "sold" | "kept";
+  outcome: "deal" | "walked" | "sold" | "kept" | "lost";
   /** 0 to 100: the share of the possible discount the player won */
   score: number;
   rating: string;
@@ -42,6 +76,9 @@ export interface HaggleResult {
   ceiling?: number;
   /** Selling something from the inventory: the sale price less what was paid for it */
   profit?: number | null;
+  pickup?: Pickup;
+  /** Selling in Hustle: the payment bounced */
+  scammed?: boolean;
 }
 
 /** A marketplace listing, as the start screen shows it */
@@ -101,6 +138,26 @@ export interface HaggleState {
   bluffed?: boolean;
   log: HaggleEntry[];
   result: HaggleResult | null;
+  /** Selling, before a buyer is picked: everyone who messaged */
+  prospects?: Prospect[];
+  /** Talk after the haggle is over, oldest first */
+  after?: { you: string; reply: string }[];
+  /** Terms other than money already offered, by id */
+  sweeteners?: string[];
+  /** Buying: a flaw the seller has owned up to (one not yet found stays hidden) */
+  flaw?: { text: string; revealed: boolean } | null;
+  /** Buying: what checking sold listings turned up */
+  research?: string | null;
+  /** Buying: messages left before the seller sells to whoever turns up first */
+  deadline?: { rounds: number } | null;
+  /** Selling: a better offer from another buyer, standing until used */
+  ping?: { merchant: string; offer: number } | null;
+  /** Selling: the buyer switched to after a better offer */
+  switched_to?: string;
+  /** Hustle: a seller who messaged again, and their price before */
+  callback?: { was: number } | null;
+  /** The stars the other side left once it was over */
+  review?: { stars: number; text: string; by: string } | null;
 }
 
 export interface HaggleSummary {
@@ -108,8 +165,10 @@ export interface HaggleSummary {
   status: HaggleStatus;
   mode?: HaggleMode;
   item: string;
-  merchant: string;
-  ask: number;
+  merchant: string | null;
+  ask: number | null;
+  /** Buyers still waiting in the inbox */
+  prospects?: number;
 }
 
 /** Something bought in Negotiation. Purchases from before the inventory may lack the listing's details. */
@@ -132,6 +191,10 @@ export interface InventoryItem {
   category?: string | null;
   description?: string | null;
   setting?: string | null;
+  /** Hustle: it turned out to be a fake at pickup */
+  fake?: boolean;
+  /** A flaw found while buying it, or at pickup */
+  flaw?: string | null;
   /** Sold on again, and how that went */
   sold?: { price: number; profit: number | null; buyer: string; rating: string; at: string } | null;
 }
@@ -145,10 +208,12 @@ export interface CustomListing {
   description: string;
 }
 
-/** One line of a Hustle run's statement */
+/** One line of a bank statement, in a Hustle run or free play */
 export interface LedgerEntry {
-  day: number;
-  kind: "buy" | "sell";
+  /** Hustle only: free play has no days */
+  day?: number;
+  /** Free play also has deposits and withdrawals: money from and to nowhere */
+  kind: "buy" | "sell" | "deposit" | "withdraw" | "fee" | "refund";
   item: string;
   /** Who it was bought from or sold to */
   other: string;
@@ -156,10 +221,30 @@ export interface LedgerEntry {
   amount: number;
   /** The balance after it */
   balance: number;
-  holding: string;
+  holding?: string;
+  /** Something worth knowing about it, such as a payment that bounced */
+  note?: string;
   /** Sales: the price less what was paid */
   profit?: number;
   at: string;
+}
+
+/** The free play bank account. Mirrors backend/games/negotiation/bank.py */
+export interface FreeBank {
+  start_cash: number;
+  cash: number;
+  ledger: LedgerEntry[];
+  /** Cash plus what was paid for everything still held */
+  net_worth: number;
+  /** Deposits less withdrawals, left out of trading profit */
+  deposited: number;
+  /** Your marketplace rating out of 5, once someone has reviewed you */
+  rating: number | null;
+  /** The latest reviews, newest first */
+  reviews: { stars: number; text: string; by: string; at: string }[];
+  review_count: number;
+  /** How many purchases are still held */
+  held: number;
 }
 
 /** A Hustle run: Marketplace with a real balance and a set number of days. Mirrors backend/games/negotiation/hustle.py */
@@ -176,6 +261,8 @@ export interface HustleRun {
   holdings: InventoryItem[];
   ledger: LedgerEntry[];
   milestones: number[];
+  /** Sellers who messaged again after you walked away */
+  callbacks?: { id: string; merchant: string; item: string; price: number; was: number }[];
   result: {
     net_worth: number;
     cash: number;
