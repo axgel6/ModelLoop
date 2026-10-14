@@ -13,8 +13,11 @@ import {
 import { apiFetch } from "../../components/api";
 import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
-import { DIFFICULTIES, dealListings, type Difficulty } from "./setup";
-import type { HaggleEntry, HaggleListing, HaggleState, HaggleSummary } from "./types";
+import { Inventory } from "./Inventory";
+import { apiInventory, inventoryTotals } from "./inventoryData";
+import { ListingBrowser } from "./ListingBrowser";
+import { DIFFICULTIES, LISTINGS_SHOWN, dealListings, type Difficulty } from "./setup";
+import type { HaggleEntry, HaggleListing, HaggleState, HaggleSummary, InventoryItem } from "./types";
 import "./negotiation.css";
 
 const GAME_TYPE = "negotiation";
@@ -38,14 +41,37 @@ function money(amount: number): string {
 
 export function Negotiation({ model, onExit }: GameProps) {
   const [save, setSave] = useState<HaggleSave | null>(null);
+  // Leaving a finished purchase can go straight to the inventory
+  const [showInventory, setShowInventory] = useState(false);
 
-  if (save) return <Play save={save} model={model} onSave={setSave} onLeave={() => setSave(null)} />;
-  return <Menu onOpen={setSave} onExit={onExit} />;
+  if (save)
+    return (
+      <Play
+        save={save}
+        model={model}
+        onSave={setSave}
+        onLeave={(toInventory) => {
+          setSave(null);
+          setShowInventory(toInventory);
+        }}
+      />
+    );
+  return <Menu onOpen={setSave} onExit={onExit} startInInventory={showInventory} />;
 }
 
 // ---- Menu: pick what to buy ----
 
-function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: () => void }) {
+function Menu({
+  onOpen,
+  onExit,
+  startInInventory,
+}: {
+  onOpen: (save: HaggleSave) => void;
+  onExit: () => void;
+  startInInventory: boolean;
+}) {
+  const [inventory, setInventory] = useState<InventoryItem[] | null>(null);
+  const [inventoryOpen, setInventoryOpen] = useState(startInInventory);
   const [unfinished, setUnfinished] = useState<GameSaveSummary<HaggleSummary> | null>(null);
   const [scores, setScores] = useState<GameScoreRow[]>([]);
   // null is "Surprise me": the server deals a scenario
@@ -53,6 +79,7 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
   // Everything for sale, and the handful on screen; the refresh button deals another
   const [listings, setListings] = useState<HaggleListing[]>([]);
   const [offered, setOffered] = useState<HaggleListing[]>([]);
+  const [browsing, setBrowsing] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -64,6 +91,9 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
     apiGameScores(GAME_TYPE)
       .then(setScores)
       .catch(() => setScores([]));
+    apiInventory()
+      .then(setInventory)
+      .catch(() => setInventory([]));
     // Without the list there is still "Surprise me", which the server deals itself
     apiFetch("/api/v1/games/negotiation/listings")
       .then((res) => (res.ok ? res.json() : { listings: [] }))
@@ -98,6 +128,39 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
           only learn how low they would have gone once it is over.
         </p>
 
+        {inventory && inventory.length > 0 && (
+          <>
+            <h3 className="pref-field-label neg-section">Your inventory</h3>
+            <div className="pref-account-card neg-card">
+              <div
+                className="pref-list-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => setInventoryOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setInventoryOpen(true);
+                  }
+                }}
+              >
+                <div className="pref-item-icon">{inventory.length}</div>
+                <div className="pref-item-info">
+                  <div className="pref-item-name">
+                    {inventory.length} {inventory.length === 1 ? "thing" : "things"} bought
+                  </div>
+                  <div className="pref-item-desc">
+                    {money(inventoryTotals(inventory).spent)} spent, {money(inventoryTotals(inventory).saved)} saved.
+                    Latest: {inventory[0].title}
+                  </div>
+                </div>
+                <span className="pref-content-badge">Open</span>
+              </div>
+            </div>
+          </>
+        )}
+        {inventoryOpen && inventory && <Inventory items={inventory} onClose={() => setInventoryOpen(false)} />}
+
         {unfinished && (
           <>
             <h3 className="pref-field-label neg-section">Still on the table</h3>
@@ -125,6 +188,14 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
 
         <div className="neg-section-row">
           <h3 className="pref-field-label neg-section">What are you buying?</h3>
+          <button
+            type="button"
+            className="neg-link neg-refresh neg-show-all"
+            disabled={listings.length === 0}
+            onClick={() => setBrowsing(true)}
+          >
+            Show all {listings.length > 0 ? listings.length : ""}
+          </button>
           <button
             type="button"
             className="neg-link neg-refresh"
@@ -162,6 +233,22 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
           ))}
         </div>
 
+        {browsing && (
+          <ListingBrowser
+            listings={listings}
+            selected={scenario}
+            onClose={() => setBrowsing(false)}
+            onPick={(listing) => {
+              // The pick joins the handful on the start screen, at the top, if it was not there already
+              setOffered((current) =>
+                current.some((s) => s.id === listing.id) ? current : [listing, ...current].slice(0, LISTINGS_SHOWN),
+              );
+              setScenario(listing.id);
+              setBrowsing(false);
+            }}
+          />
+        )}
+
         <h3 className="pref-field-label neg-section">How tough is the seller?</h3>
         <div className="pref-account-card neg-card">
           {DIFFICULTIES.map((d) => (
@@ -187,7 +274,7 @@ function Menu({ onOpen, onExit }: { onOpen: (save: HaggleSave) => void; onExit: 
             {busy ? "Opening the chat" : "Message the seller"}
           </button>
           {unfinished && (
-            <span className="pref-setting-hint">Starting a new haggle drops the one still on the table.</span>
+            <span className="pref-setting-hint">Messaging a new seller drops the chat still on the table.</span>
           )}
         </div>
 
@@ -273,7 +360,8 @@ function Play({
   save: HaggleSave;
   model?: string;
   onSave: (next: HaggleSave) => void;
-  onLeave: () => void;
+  /** `toInventory`: open the inventory on the way out */
+  onLeave: (toInventory: boolean) => void;
 }) {
   const state = save.state;
   const { scenario, result } = state;
@@ -338,7 +426,7 @@ function Play({
   return (
     <div className="neg neg--play">
       <div className="neg-head">
-        <BackButton label="Back to the listings" onClick={onLeave} />
+        <BackButton label="Back to the listings" onClick={() => onLeave(false)} />
         <h2 className="neg-title">{scenario.item}</h2>
         <span className="pref-content-badge">
           {result
@@ -500,9 +588,14 @@ function Play({
 
       {result ? (
         <div className="neg-controls">
-          <button type="button" className="start-button" onClick={onLeave}>
-            Haggle again
+          <button type="button" className="start-button" onClick={() => onLeave(false)}>
+            Back to marketplace
           </button>
+          {result.outcome === "deal" && (
+            <button type="button" className="pref-confirm-no" onClick={() => onLeave(true)}>
+              See it in your inventory
+            </button>
+          )}
         </div>
       ) : paying ? (
         <PaySheet

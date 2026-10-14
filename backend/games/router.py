@@ -206,6 +206,23 @@ async def negotiation_listings(user: User = Depends(get_user)) -> dict:
     return {"listings": haggle.catalogue()}
 
 
+@router.get("/negotiation/inventory")
+async def negotiation_inventory(
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Everything the caller has bought in Negotiation, newest first."""
+    result = await db.execute(
+        select(GameScore)
+        .where(GameScore.user_id == user.id, GameScore.game_type == haggle.GAME_TYPE)
+        .order_by(GameScore.created_at.desc())
+    )
+    return {"items": [
+        haggle.inventory_item({"id": str(row.id), "title": row.title, "score": row.score, "bought_at": row.created_at, **row.detail})
+        for row in result.scalars().all()
+    ]}
+
+
 @router.post("/ceo-simulator", status_code=201)
 async def create_ceo_game(
     body: NewCeoGame,
@@ -528,11 +545,15 @@ def _haggle_score(user: User, state: dict) -> Optional[GameScore]:
         return None
     return GameScore(
         user_id=user.id, game_type=haggle.GAME_TYPE, title=state["scenario"]["item"][:80], score=int(result["score"]),
+        # Everything the inventory shows, kept with the purchase so it outlives the listing
         detail={
-            **{k: result.get(k) for k in ("outcome", "rating", "paid", "rounds")},
+            **{k: result.get(k) for k in ("outcome", "rating", "paid", "rounds", "saved", "floor")},
             "list_price": state["list_price"],
             "merchant": state["scenario"]["merchant"],
             "difficulty": state.get("difficulty", "normal"),
+            "listing": state["scenario"].get("id"),
+            **{k: state["scenario"].get(k) for k in ("condition", "description", "setting")},
+            "category": haggle.category_of(state["scenario"].get("id")),
         },
     )
 

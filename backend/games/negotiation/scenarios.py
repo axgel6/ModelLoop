@@ -21,8 +21,10 @@ def _listing(id, item, price, condition, seller, persona, description, opening, 
     }
 
 
-SCENARIOS = [
-    # ---- Graphics cards and PC parts ----
+# A string starts a category; every listing after it belongs there.
+_CATALOGUE = [
+    # Graphics cards and PC parts
+    "PC and gear",
     _listing(
         "rtx5090", "NVIDIA GeForce RTX 5090 Founders Edition", 2650, LIKE_NEW, "Derek",
         "knows exactly how scarce these are, slightly smug, ignores anyone who opens with a lowball",
@@ -155,7 +157,8 @@ SCENARIOS = [
         "It is still here. Works fine, my grandson says these are wanted for old games. {price}, and you carry it.",
     ),
 
-    # ---- Consoles ----
+    # Consoles
+    "Consoles",
     _listing(
         "ps5", "PlayStation 5 disc edition with two controllers", 380, GOOD, "Jordan",
         "laid back, selling because he never plays it, hates long back-and-forth",
@@ -279,7 +282,8 @@ SCENARIOS = [
         "The Crystal still saves, I checked. You will not find the pair cheaper than {price}.",
     ),
 
-    # ---- Rare games ----
+    # Rare games
+    "Games",
     _listing(
         "defjam", "Def Jam: Fight for NY, PS2, complete in box", 185, GOOD, "Andre",
         "knows every print run by heart, cannot stand people who call it just an old game",
@@ -384,7 +388,8 @@ SCENARIOS = [
         "Hi! Yes it's available. Case and manual included, plays perfectly. {price}.",
     ),
 
-    # ---- Common games ----
+    # Common games
+    "Games",
     _listing(
         "melee", "Super Smash Bros. Melee, GameCube", 62, GOOD, "Marco",
         "blunt, used to compete, has no patience for people who say it is just an old game",
@@ -434,7 +439,8 @@ SCENARIOS = [
         "Yes it's available! Guitar works, I tested every button. {price}.",
     ),
 
-    # ---- Lots ----
+    # Lots
+    "Bundles",
     _listing(
         "ps2lot", "PS2 game lot, 34 games", 160, GOOD, "Russ",
         "selling a whole collection in one go, refuses to split it and says so often",
@@ -484,7 +490,8 @@ SCENARIOS = [
         "Yes, still available. About 70 figures and two portals. {price} and you take the bin too.",
     ),
 
-    # ---- Phones and laptops ----
+    # Phones and laptops
+    "Apple and phones",
     _listing(
         "iphone11", "iPhone 11, 64GB, cracked back glass", 220, FAIR, "Tyler",
         "types in lowercase, swears it works perfectly, keeps saying he has other people asking",
@@ -504,7 +511,8 @@ SCENARIOS = [
         "32GB of RAM and the screen is flawless. The battery does need service, which is why it is {price}.",
     ),
 
-    # ---- Tickets ----
+    # Tickets
+    "Tickets",
     _listing(
         "weeknd", "Two floor tickets to The Weeknd, tonight", 640, None, "Jasmine",
         "brisk, cannot go herself, watching the clock as closely as you are",
@@ -527,7 +535,8 @@ SCENARIOS = [
         "Mobile transfer",
     ),
 
-    # ---- Cars and bikes ----
+    # Cars and bikes
+    "Vehicles",
     _listing(
         "civic", "2009 Honda Civic LX, 148,000 miles", 5200, FAIR, "Sal",
         "gruff and honest, kept every oil change receipt, thinks dealers are crooks",
@@ -571,7 +580,208 @@ SCENARIOS = [
         "Still available. Fresh tune-up, new brake pads. The chain has some miles on it. {price}.",
     ),
 
-    # ---- Everything else ----
+    # Bags
+    "Bags",
+    _listing(
+        "coachtabby", "Coach Tabby 26 shoulder bag, black leather", 265, LIKE_NEW, "Vanessa",
+        "polished and quick, has sold bags before, shuts down anyone who hints it is fake",
+        "Black pebbled leather with brass hardware. Carried maybe five times. Comes with the dust bag, both straps and the care card. No scratches on the C clasp. Bought at the Coach store, receipt available.",
+        "Hi! Yes, still available. Carried a handful of times, dust bag and both straps included. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "coachwillow", "Coach Willow tote in signature canvas", 180, GOOD, "Monique",
+        "warm, chatty, switching to a smaller bag, honest about the wear",
+        "Tan signature canvas with a rust leather trim. Used daily for about a year. Light corner wear on the bottom and a small pen mark inside the lining. Zip and snaps work perfectly. No dust bag.",
+        "Hey, yes it is! Used it for work for a year so there's some corner wear. {price}.",
+    ),
+    _listing(
+        "coachvintage", "Vintage Coach Court bag, 1990s, British tan", 120, GOOD, "Ruth",
+        "knows vintage leather, patient, a little amused by people who only want new",
+        "Made in the United States, creed stamp is clear with the serial number. Leather was cleaned and conditioned last month. Some darkening on the strap and a few light scratches that suit it. Turnlock works.",
+        "Yes, it is still available. Nineties glove leather, freshly conditioned. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "mkjetset", "Michael Kors Jet Set large tote, brown signature", 85, GOOD, "Tiffany",
+        "breezy, clearing her closet, replies in bursts between other things",
+        "Brown signature print with gold hardware. Handles show some wear at the edges. Inside is clean. One of the feet on the bottom is scratched. Smoke free home.",
+        "yes still have it! handles have a little wear, inside is clean. {price}",
+    ),
+    _listing(
+        "katespade", "Kate Spade Knott medium satchel, pink", 140, LIKE_NEW, "Allison",
+        "sweet and organised, it was a gift she never used, slightly guilty about selling it",
+        "Pebbled leather in a soft pink. Used twice. Comes with the crossbody strap and dust bag. No marks inside or out. It was a gift and pink is just not my colour.",
+        "Hi, yes! It was a gift, used twice. Strap and dust bag included. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "neverfull", "Louis Vuitton Neverfull MM, Damier Ebene", 1150, GOOD, "Simone",
+        "composed and exacting, expects authenticity questions and answers them once",
+        "Damier Ebene canvas with the red interior. Date code is inside and I can send a photo. Light wear on the handle edges, corners are clean, no cracks in the canvas. Pouch not included. Happy to meet at a store for authentication.",
+        "Good morning. Yes, it is available. Authentic, date code photos on request. {price}.",
+    ),
+    _listing(
+        "telfar", "Telfar medium shopping bag, tan", 190, LIKE_NEW, "Keisha",
+        "confident, waited months for this drop, knows exactly how fast they sell",
+        "Medium size in tan. Carried a few times, no scuffs on the embossed logo. Comes with the dust bag. Both handle sets are clean.",
+        "Yes it's available. Barely carried, dust bag included. You know these sell out. {price}.",
+        "Pickup or shipping",
+    ),
+
+    # Fragrance
+    "Fragrance",
+    _listing(
+        "goodgirl", "Carolina Herrera Good Girl eau de parfum, 80ml", 78, LIKE_NEW, "Daniela",
+        "friendly, has too many perfumes, quick to send a photo of the liquid level",
+        "The black stiletto bottle, 80ml. About 90 percent full, sprayed maybe fifteen times. Comes with the box. Bought at a department store, batch code is on the bottom.",
+        "Hi! Yes it's available. About 90 percent full, comes with the box. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "verygoodgirl", "Carolina Herrera Very Good Girl, 80ml, sealed", 95, NEW, "Marisol",
+        "matter of fact, received two for her birthday, will not open it to prove anything",
+        "The red stiletto bottle, 80ml, still in the cellophane. I was given two. Bought from a department store by my sister, gift receipt is long gone.",
+        "Yes, still sealed in the plastic. I got two as gifts. {price}.",
+    ),
+    _listing(
+        "goodgirlblush", "Carolina Herrera Good Girl Blush, 50ml", 62, GOOD, "Nadia",
+        "easygoing, it gives her a headache, selling at a loss and knows it",
+        "Pink stiletto bottle, 50ml. Around 70 percent full. No box. The sprayer works fine. Lovely scent, it is just too sweet for me.",
+        "hey, yes! about 70 percent left, no box. it's just too sweet for me. {price}",
+    ),
+    _listing(
+        "lemaleelixir", "Jean Paul Gaultier Le Male Elixir, 125ml", 98, LIKE_NEW, "Dante",
+        "a fragrance collector, talks in notes and longevity, wary of people asking for samples",
+        "125ml parfum, the gold torso bottle. Sprayed around ten times, level is just under the shoulder. Comes with the tin. Batch code matches the tin. From my own collection, stored away from light.",
+        "Still available. About ten sprays gone, comes with the tin. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "lemaleparfum", "Jean Paul Gaultier Le Male Le Parfum, 75ml", 72, GOOD, "Isaiah",
+        "relaxed, rotating out of sweet scents for the summer",
+        "75ml eau de parfum intense, the black bottle. Roughly 80 percent full. Tin has a dent on the lid. Sprayer and cap are fine.",
+        "Yeah it's available. Around 80 percent left, the tin has a dent. {price}.",
+    ),
+    _listing(
+        "ultramale", "Jean Paul Gaultier Ultra Male, 125ml", 88, GOOD, "Rafael",
+        "a bit of a salesman, insists this is the best batch, enjoys the back and forth",
+        "125ml eau de toilette intense. About 75 percent full. No tin. An older bottle from before the reformulation, which people look for. A small chip in the paint on the back.",
+        "Still got it. Older batch, about three quarters full. {price}.",
+    ),
+    _listing(
+        "scandal", "Jean Paul Gaultier Scandal Pour Homme, 100ml", 68, LIKE_NEW, "Trevor",
+        "low key, got it as a gift and it is not his style, wants a quick sale",
+        "100ml eau de toilette with the crown cap. Sprayed three or four times. Box included. Not really my kind of scent.",
+        "yeah still available. sprayed a few times, box included. {price}",
+    ),
+    _listing(
+        "sauvage", "Dior Sauvage Elixir, 60ml", 105, LIKE_NEW, "Khalil",
+        "smooth, precise about what he paid, does not respond to sob stories",
+        "60ml elixir, the dark bottle. Used lightly, well above 90 percent full. Box and magnetic cap included. Bought at the Dior counter.",
+        "It's available. Over 90 percent full with the box. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "bleu", "Bleu de Chanel eau de parfum, 100ml", 92, GOOD, "Greg",
+        "plain dealing, a dad who got three bottles for Christmas over the years",
+        "100ml eau de parfum. About 85 percent full. No box. Magnetic cap snaps on properly. Kept in a drawer.",
+        "Yes, still for sale. About 85 percent full, no box. {price}.",
+    ),
+    _listing(
+        "libre", "YSL Libre eau de parfum, 90ml", 84, LIKE_NEW, "Camila",
+        "bright and quick, bought the intense version instead and no longer needs this one",
+        "90ml eau de parfum. Sprayed a few times, basically full. Box included. I switched to the intense version.",
+        "Hi! Yes. Basically full, comes with the box. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "br540", "Baccarat Rouge 540 eau de parfum, 70ml, half full", 135, GOOD, "Elena",
+        "elegant and unhurried, knows half a bottle of this still costs real money",
+        "Maison Francis Kurkdjian, 70ml. About half full. Box and cap included. Bought at a department store, batch code on the base. Sprayer works perfectly.",
+        "Yes, it is available. About half the bottle is left, with the box. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "fragrancelot", "Lot of 8 designer colognes, partials", 160, GOOD, "Preston",
+        "clearing a shelf, cheerful, will not sell them one at a time and says so",
+        "Eight bottles, all between a third and three quarters full. Includes Acqua di Gio, Versace Eros, Invictus, 1 Million, Y by YSL, Polo Blue, Spicebomb and a Montblanc. No boxes. Selling together only.",
+        "Still available as a lot. Eight bottles, not splitting them up. {price}.",
+    ),
+
+    # Clothes and shoes
+    "Clothing and shoes",
+    _listing(
+        "levis501", "Vintage Levi's 501 jeans, 1990s, 32x32", 85, GOOD, "June",
+        "a vintage reseller, friendly, quotes what similar pairs sold for",
+        "Made in the United States, button fly, medium wash. Tagged 33 by 34, measures 32 by 32. Natural fading and one small repair at the back pocket. No holes in the knees.",
+        "Hi, yes! Nineties pair, made in the States. Measurements are in the listing. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "truereligion", "True Religion Ricky straight jeans, size 34", 60, GOOD, "Darius",
+        "laid back, wore them all through college, a bit nostalgic about it",
+        "Dark wash with the white horseshoe stitching. Size 34 waist. Some wear at the heel of the hems. No rips. All buttons and rivets intact.",
+        "Yeah still available. Size 34, a little heel wear on the hems. {price}.",
+    ),
+    _listing(
+        "diesel", "Diesel Zatiny bootcut jeans, 32x32", 55, LIKE_NEW, "Luca",
+        "stylish, slightly vain about his wardrobe, they no longer fit and it annoys him",
+        "Dark indigo, bootcut, 32 by 32. Worn a handful of times and washed inside out. No fading at all. They are just too snug on me now.",
+        "Still available. Worn a few times, no fading. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "rockrevival", "Rock Revival bootcut jeans, size 30", 48, GOOD, "Brittany",
+        "upbeat, cleaning out her high school closet, laughs at how many pairs she owned",
+        "Size 30, bootcut, with the thick white stitching and the cross on the back pockets. One rhinestone is missing from the left pocket. Hems are intact.",
+        "omg yes still have them! one rhinestone is missing on the pocket. {price}",
+    ),
+    _listing(
+        "agjeans", "AG Adriano Goldschmied Farrah skinny jeans, size 27", 52, LIKE_NEW, "Claire",
+        "tidy, concise, sells clothes regularly and replies like it",
+        "High rise skinny in a dark wash, size 27. Worn twice. No stretching at the knees. Originally from a department store.",
+        "Hello, yes. Worn twice, size 27. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "jeanslot", "Lot of 6 men's jeans: Levi's, Wrangler, Lee, 34x32", 70, GOOD, "Dale",
+        "a practical man who lost weight and is pleased about it, not sentimental about trousers",
+        "Six pairs, all 34 by 32. Three Levi's 505, two Wrangler and one Lee. All in wearable shape, two have paint spots from work. Washed and folded.",
+        "Yes, all six are still here. Lost some weight so they have to go. {price} for the lot.",
+    ),
+    _listing(
+        "lululemon", "Lululemon Align leggings, size 6, two pairs", 75, GOOD, "Hailey",
+        "sporty and direct, sells her old gear every season",
+        "Two pairs of Align high rise, 25 inch, size 6. One black, one navy. Light pilling on the inner thigh of the black pair. No holes, seams are solid.",
+        "Hi! Both pairs are still available. A little pilling on the black ones. {price} for both.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "nuptse", "The North Face 1996 Retro Nuptse jacket, black, medium", 195, GOOD, "Tomas",
+        "practical, moving somewhere warm, firm because winter is coming for everyone else",
+        "Black 700 fill down jacket, size medium. Worn for two winters. No rips. A small snag near the left cuff. The hood is still in the collar. Washed with down wash last month.",
+        "Still available. Two winters on it, one small snag by the cuff. {price}.",
+    ),
+    _listing(
+        "carhartt", "Carhartt Detroit jacket, brown duck, large", 110, GOOD, "Buck",
+        "a tradesman, few words, thinks the wear on it is the point",
+        "Brown duck canvas with the blanket lining, size large. Properly broken in. Fading on the shoulders and fraying at the cuffs. Zip works. No tears.",
+        "Yep. Broken in the way they should be. {price}.",
+    ),
+    _listing(
+        "supreme", "Supreme box logo hoodie, grey, large", 420, GOOD, "Kai",
+        "a streetwear reseller, clipped, checks your profile before replying",
+        "Heather grey with the red box logo, size large, from a 2021 drop. Worn and washed a few times, no cracking on the logo. Light pilling inside. Wash tag and season tag intact.",
+        "Available. Large, logo is clean, tags intact. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "techfleece", "Nike Tech Fleece set, black, medium", 115, GOOD, "Jaylen",
+        "young, quick replies, grew out of it over the summer",
+        "Full zip hoodie and joggers, both medium, both black. Some pilling between the legs on the joggers. Zips all work. No holes or stains.",
+        "yeah still got the set. medium, a little pilling on the joggers. {price}",
+    ),
     _listing(
         "jordans", "Air Jordan 1 Retro High, size 10, worn twice", 320, LIKE_NEW, "Malik",
         "a sneakerhead, quotes resale prices, will not tolerate the word fake",
@@ -579,6 +789,565 @@ SCENARIOS = [
         "Still available. Worn twice, no creasing, original box and both lace sets. {price}.",
         "Pickup or shipping",
     ),
+    _listing(
+        "docmartens", "Dr. Martens 1460 boots, black, size 9", 90, GOOD, "Fern",
+        "dry, did the painful work of breaking them in and thinks that has value",
+        "Black smooth leather, eight eyelet, size 9 US men's. Fully broken in. Creasing across the toe and scuffs on the left heel. Soles have plenty of life. Yellow stitching is all intact.",
+        "Still available. Already broken in, which you will thank me for. {price}.",
+    ),
+    _listing(
+        "uggs", "UGG Classic Short II boots, chestnut, size 8", 80, GOOD, "Megan",
+        "cheerful, moving somewhere warm, answers every question with an exclamation mark",
+        "Chestnut, women's size 8. Worn one winter. Slight water mark on the right toe that mostly brushed out. Sheepskin lining is still fluffy. Soles are not worn down.",
+        "Yes, still available! One winter of wear. {price}.",
+    ),
+    _listing(
+        "yeezy350", "Adidas Yeezy Boost 350 V2 Zebra, size 10.5", 210, GOOD, "Andre",
+        "careful, has dealt with fakes and scammers, will only meet in public",
+        "Size 10.5 US. Worn about fifteen times. Some yellowing on the midsole and light wear on the heel. Original box and receipt from the retailer. Insoles included.",
+        "Still available. Authentic, I have the receipt and the box. {price}.",
+    ),
+    _listing(
+        "nb550", "New Balance 550 white and green, size 9", 70, GOOD, "Priscilla",
+        "easygoing, bought the wrong size and wore them anyway",
+        "Size 9 US men's. Worn for a few months. Creasing on the toe box and some dirt on the laces. Soles are in good shape. No box.",
+        "Hi, yes. Some creasing, soles are good. {price}.",
+    ),
+    _listing(
+        "rayban", "Ray-Ban Wayfarer Classic sunglasses, black", 75, LIKE_NEW, "Oliver",
+        "polite, bought prescription ones and no longer needs these",
+        "Original Wayfarer in black with green lenses, size 50. No scratches on the lenses. Comes with the case and cleaning cloth. Hinges are tight.",
+        "Hello, yes. No scratches, case and cloth included. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "airwrap", "Dyson Airwrap Complete Long, nickel and copper", 340, GOOD, "Jenna",
+        "honest, it takes her too long to use in the morning, knows what they cost new",
+        "Complete Long set with all the barrels, the brushes, the dryer attachment and the storage case. Used for about a year. Filter cleaned regularly. Light scratches on the handle.",
+        "Hi! Yes, it's available. All the attachments and the case. {price}.",
+    ),
+    _listing(
+        "pandora", "Pandora Moments bracelet with 9 charms", 150, GOOD, "Lorena",
+        "sentimental, each charm has a story, would rather it went to someone who wears it",
+        "Sterling silver snake chain, 19 centimetres, with nine charms including two with pink stones. Some tarnish that polishes off. Clasp closes securely. Comes in the box.",
+        "Hello, yes, it is still available. Nine charms on it and the box. {price}.",
+        "Pickup or shipping",
+    ),
+
+    # More Apple and phones
+    "Apple and phones",
+    _listing(
+        "iphone15pm", "iPhone 15 Pro Max, 256GB, Natural Titanium", 780, LIKE_NEW, "Adrian",
+        "calm and precise, upgraded on day one, has the box and the battery screenshot ready",
+        "Unlocked, 256GB. Always in a case with a screen protector. Battery health 93 percent. Original box and USB-C cable. No scratches on the titanium.",
+        "Hi, yes it's available. Battery at 93 percent, box included. {price}.",
+    ),
+    _listing(
+        "iphonese", "iPhone SE 2022, 64GB, red", 140, GOOD, "Rhonda",
+        "a mum selling her son's old phone, kind, not very techy",
+        "Unlocked and reset. Battery health 85 percent. A few scratches on the back, screen is fine. Comes with a case and a charger.",
+        "Hello, yes it's still for sale. My son upgraded. Works perfectly. {price}.",
+    ),
+    _listing(
+        "ipadpro", "iPad Pro 11-inch M2, 128GB, with Apple Pencil", 620, LIKE_NEW, "Grace",
+        "an illustrator, careful with her gear, wants it to go to another artist",
+        "Wi-Fi, 128GB, space grey. Paper-feel screen protector fitted since day one. Includes the second generation Apple Pencil and the box. No dents or scratches.",
+        "Hi! Yes, it's available. Pencil included, screen protector since new. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "ipadmini", "iPad mini 6, 64GB, purple", 290, GOOD, "Ethan",
+        "a student who never uses it, polite, a little impatient",
+        "Wi-Fi model. Small scuff on one corner. Battery is strong. Charger and cable included, no box.",
+        "Yes it's available. Small scuff on a corner, works great. {price}.",
+    ),
+    _listing(
+        "airpodspro", "AirPods Pro 2 with MagSafe case", 125, GOOD, "Bryce",
+        "quick replies, lost one before and bought a whole new set, now has two",
+        "Both buds and the case, all original and paired from the same set. Cleaned and reset. Battery holds well. Spare ear tips in the box.",
+        "yep still got em. cleaned and reset, all original. {price}",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "airpodsmax", "AirPods Max, sky blue", 330, GOOD, "Leah",
+        "friendly, prefers in-ear for the gym, honest about the ear cushions",
+        "Sky blue with the smart case. Ear cushions are a little compressed. No dents on the cups. Charging cable included. Reset and unpaired.",
+        "Hi, yes still available! Cushions are a bit squashed but they sound perfect. {price}.",
+    ),
+    _listing(
+        "applewatch", "Apple Watch Series 9, 45mm, GPS", 210, GOOD, "Marcus",
+        "a runner, practical, switched to a sports watch",
+        "45mm midnight aluminium, GPS. Screen has a light scratch you see at an angle. Battery 96 percent. Comes with two bands and the charger. Unpaired.",
+        "Still available. Battery is at 96 percent, two bands included. {price}.",
+    ),
+    _listing(
+        "macbookair", "MacBook Air M1, 8GB, 256GB, gold", 450, GOOD, "Sophie",
+        "a graduate student moving on, organised, firm but friendly",
+        "Gold, 8GB RAM, 256GB storage. Battery cycle count around 300. A small dent on the bottom corner. Screen and keyboard are perfect. Charger included.",
+        "Hi, yes it's available! Around 300 battery cycles, small dent on the bottom. {price}.",
+    ),
+    _listing(
+        "imac", "iMac 24-inch M1, blue", 780, LIKE_NEW, "Howard",
+        "retired, bought it for video calls and found he prefers the iPad",
+        "Blue, 8GB RAM, 512GB storage. Keyboard with Touch ID and the mouse included. Barely used. Original box for collection.",
+        "Hello. Yes, it is still for sale. Hardly used, with the keyboard and mouse. {price}.",
+    ),
+    _listing(
+        "visionpro", "Apple Vision Pro, 256GB", 2450, LIKE_NEW, "Julian",
+        "an early adopter, a bit defensive about why he is selling, knows the resale is rough",
+        "256GB with both bands, the battery, the cover, the polishing cloth and the travel case. Light seal size 23W. Lenses are spotless. AppleCare until next year.",
+        "Hey, yes it's available. Full kit and the travel case, AppleCare too. {price}.",
+    ),
+    _listing(
+        "galaxys23", "Samsung Galaxy S23 Ultra, 256GB", 520, GOOD, "Hector",
+        "an Android loyalist, slightly smug about the camera, fair dealer",
+        "Phantom black, unlocked. S Pen included. Battery holds a full day. Small chip on the bottom edge of the frame. Screen is flawless.",
+        "Still available. S Pen included, screen is perfect. {price}.",
+    ),
+
+    # Jewelry
+    "Jewelry",
+    _listing(
+        "tennisbracelet", "Lab-grown diamond tennis bracelet, 5 carats", 1150, LIKE_NEW, "Natalia",
+        "composed, has the certificate, gets defensive at the word fake",
+        "14k white gold, 5 total carats of lab-grown diamonds, 7 inches. Comes with the grading certificate and the box. Worn to two weddings. The clasp has a safety latch.",
+        "Good evening. Yes, it is available, certificate included. {price}.",
+    ),
+    _listing(
+        "cartierlove", "Cartier Love bracelet, yellow gold, size 17", 5200, GOOD, "Celeste",
+        "polished, bought it for herself after a promotion, very precise about provenance",
+        "Size 17, 18k yellow gold. Comes with the screwdriver, box, pouch and the original receipt. Light surface scratches from wear. Happy to meet at a Cartier boutique.",
+        "Hello. It's available. Box, screwdriver and receipt included. {price}.",
+    ),
+    _listing(
+        "cubanchain", "10k gold Cuban link chain, 22 inch", 780, GOOD, "Jaylen",
+        "confident, knows the weight and the gold price by heart",
+        "Solid 10k yellow gold Miami Cuban, 6mm, 22 inches, 31 grams. Box clasp with a safety. Stamped. Can be tested at any jeweller before you pay.",
+        "Still got it. Solid, 31 grams, test it anywhere. {price}.",
+    ),
+    _listing(
+        "engagementring", "Engagement ring, 1 carat oval, platinum", 2600, LIKE_NEW, "Ryan",
+        "awkward and a little sad, wants it gone quietly, does not want to talk about why",
+        "1 carat oval natural diamond, G colour, VS2, platinum band, size 6. Comes with the appraisal and the box. Never worn.",
+        "Hi. Yes, it's available. Never worn, appraisal included. {price}.",
+    ),
+    _listing(
+        "pearls", "Strand of freshwater pearls with silver clasp", 95, GOOD, "Dorothy",
+        "gentle, her late mother's, wants them to be worn not stored",
+        "18 inch strand of white freshwater pearls with a sterling silver clasp. Freshly restrung last year. Good lustre. Comes in a velvet pouch.",
+        "Hello dear, yes they are still available. Freshly restrung. {price}.",
+    ),
+    _listing(
+        "tiffanyheart", "Tiffany Return to Tiffany heart tag necklace", 210, GOOD, "Brooke",
+        "bubbly, it was a gift from an ex and she is over it",
+        "Sterling silver heart tag on an 18 inch chain. Some light scratches, polishes up well. Comes with the blue pouch and box.",
+        "omg yes still have it! box and pouch included. {price}",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "vancleef", "Van Cleef and Arpels Alhambra necklace, onyx", 3900, GOOD, "Isabella",
+        "refined, unhurried, expects the buyer to ask about the papers",
+        "Vintage Alhambra pendant in 18k yellow gold with onyx. Comes with the certificate and box. Very light wear on the gold. Can meet at a jeweller to verify.",
+        "Good afternoon. Yes, it is available, with the certificate. {price}.",
+    ),
+    _listing(
+        "casio", "Casio G-Shock GA-2100 CasiOak, all black", 70, LIKE_NEW, "Ivan",
+        "matter of fact, collects watches and is rotating this one out",
+        "All black GA-2100. Worn a few times. No scratches on the crystal. Box and manual included.",
+        "Available. Barely worn, box included. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "seiko", "Seiko 5 Sports automatic, blue dial", 160, GOOD, "Kenji",
+        "a watch enthusiast, warms up to anyone who asks about the movement",
+        "SRPD51, blue dial, 42mm. Keeps good time, about ten seconds a day. Light desk diving marks on the clasp. Comes with an extra rubber strap.",
+        "Hello, yes. Runs about ten seconds a day. Extra strap included. {price}.",
+    ),
+
+    # More vehicles
+    "Vehicles",
+    _listing(
+        "wrangler", "2015 Jeep Wrangler Unlimited Sport, 112,000 miles", 17900, GOOD, "Cody",
+        "an outdoorsy guy, proud of the mods, talks trails",
+        "Four door, manual, hardtop and soft top both included. 2 inch lift and 33 inch tyres. Some rust starting on the frame. Clean title.",
+        "Still for sale. Both tops included, lifted on 33s. {price}.",
+    ),
+    _listing(
+        "camry", "2017 Toyota Camry SE, 64,000 miles", 15800, GOOD, "Linda",
+        "a schoolteacher, organised, has every service record in a folder",
+        "Automatic, one owner, clean title. Always dealer serviced. Small scratch on the rear bumper. New tyres last spring. Non smoker.",
+        "Hello, yes it's still available. One owner with every service record. {price}.",
+    ),
+    _listing(
+        "f150", "2012 Ford F-150 XLT, 158,000 miles", 10500, FAIR, "Bubba",
+        "a contractor, few words, it has worked hard and he says so",
+        "5.0 V8, four wheel drive, crew cab. Tow package. Dents in the bed from work. Runs strong. Check engine light for an evap code.",
+        "Yep. Truck's been working, runs strong. {price}.",
+    ),
+    _listing(
+        "bmw335", "2011 BMW 335i, 98,000 miles", 9800, GOOD, "Alex",
+        "an enthusiast, knows every common failure and swears he fixed them",
+        "N55 engine, automatic. Water pump and thermostat done last year. Valve cover gasket replaced. Small rip in the driver seat bolster. Clean title.",
+        "Still available. Water pump and gaskets already done. {price}.",
+    ),
+    _listing(
+        "miata", "1999 Mazda Miata, 131,000 miles", 5600, GOOD, "Penny",
+        "fun, it was her weekend car, will miss it",
+        "Manual, soft top with a new rear window. Timing belt done at 120,000. Some clear coat fading on the hood. Clean title. Smiles per gallon.",
+        "Hi! Yes, she's still for sale. New top window and timing belt. {price}.",
+    ),
+    _listing(
+        "cybertruck", "2024 Tesla Cybertruck AWD, 9,000 miles", 72000, LIKE_NEW, "Brent",
+        "loud about how much attention it gets, slightly over it",
+        "Dual motor, foundation series. Wrapped in matte black from new. Tonneau cover works. No damage. Clean title. Comes with the home charger.",
+        "Yeah it's available. Wrapped since new, no damage. {price}.",
+    ),
+    _listing(
+        "harley", "2008 Harley-Davidson Sportster 883, 14,000 miles", 4200, GOOD, "Rocco",
+        "gruff, upgrading to a bigger bike, does not haggle by text for long",
+        "Black, Vance and Hines pipes, new battery. Small dent in the tank. Clean title. Two keys.",
+        "Still for sale. New battery, loud pipes. {price}.",
+    ),
+    _listing(
+        "golfcart", "Club Car golf cart, gas, lifted", 3800, GOOD, "Darlene",
+        "a retiree leaving the golf community, sunny and chatty",
+        "Gas Club Car Precedent, 4 inch lift, rear flip seat, LED lights. Runs great. Seat covers have a small tear. Title not applicable.",
+        "Hello! Yes, it's still available. Lifted with the rear seat. {price}.",
+    ),
+    _listing(
+        "ebike", "Rad Power RadRunner electric bike", 820, GOOD, "Wes",
+        "a commuter who bought a car, upfront about the battery",
+        "Two batteries included, one holds about 30 miles, the other about 20. New brake pads. Passenger seat on the back. Charger included.",
+        "Still available. Two batteries with it. {price}.",
+    ),
+    _listing(
+        "jetski", "2006 Yamaha WaveRunner VX, with trailer", 4800, GOOD, "Trent",
+        "a lake guy, laid back, wants it sold before winter",
+        "Three seater, 180 hours. Starts every time. Seat has a patched tear. Trailer included with a new tyre. Cover included.",
+        "Yep still have it. 180 hours, trailer included. {price}.",
+    ),
+
+    # Prototypes
+    "Prototypes",
+    _listing(
+        "x360devkit", "Xbox 360 development kit, working", 680, GOOD, "Morgan",
+        "a collector of oddities, exact about what works and what does not",
+        "Black debug kit from the 2006 era. Boots and runs retail discs. Comes with the power brick and one controller. A sticker on top with the original studio asset tag.",
+        "Hello. Yes, it's available. Boots fine, asset tag still on it. {price}.",
+    ),
+    _listing(
+        "ps2devkit", "PlayStation 2 TEST unit, blue", 520, GOOD, "Vic",
+        "enthusiastic about game history, talks about which studio it came from",
+        "Blue DTL-H TEST console that plays burned discs. Laser reads well. Power cable included. A few scratches on the lid.",
+        "Still available! Blue test unit, plays everything. {price}.",
+    ),
+    _listing(
+        "iphoneproto", "Apple iPhone prototype board in a dev fused housing", 1800, GOOD, "Quentin",
+        "secretive, careful with words, answers questions in riddles",
+        "An engineering prototype iPhone in a plain housing with exposed screws and a serial label. Boots to a diagnostic menu, not iOS. Sold as a collectable only.",
+        "Hello. It's still available. Boots to diagnostics, it's a collectable. {price}.",
+    ),
+    _listing(
+        "nintendoproto", "Prototype Game Boy cartridge with an unreleased game", 950, GOOD, "Ophelia",
+        "a historian of obscure games, wants it documented, not flipped",
+        "Unmarked green board cartridge with a hand-written label. Contains an unfinished platformer that was never released. Plays to the third level.",
+        "Yes, it is available. It has been dumped and archived already. {price}.",
+    ),
+    _listing(
+        "conceptcar", "Hand-built concept car styling buck, quarter scale", 3200, FAIR, "Edgar",
+        "a retired car designer, proud and sentimental",
+        "Clay and fibreglass quarter scale model of a design that never went to production. About four feet long. Some cracking on the clay at the front. On a wooden stand.",
+        "Hello. Yes, it's still mine to sell. Quarter scale, on its stand. {price}.",
+    ),
+    _listing(
+        "sampleshoes", "Nike sample sneakers, size 9, never released colourway", 640, LIKE_NEW, "Malik",
+        "a sneakerhead, knows sample tags, quick and sharp",
+        "Size 9 sample pair with the sample stamp inside the tongue. Colourway was never released. Worn once indoors. Comes in a plain box.",
+        "Still got em. Sample stamp inside, never released. {price}.",
+    ),
+
+    # Dupes
+    "Dupes",
+    _listing(
+        "brdupe", "Baccarat Rouge 540 dupe: Dossier Ambery Saffron, 50ml", 28, LIKE_NEW, "Tasha",
+        "honest that it is a dupe, proud of how close it smells",
+        "Dossier Ambery Saffron, inspired by Baccarat Rouge 540. 50ml, about 90 percent full. Box included.",
+        "Hi! Yes. It's the Baccarat Rouge dupe and honestly so close. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "lululemondupe", "Lululemon Align dupe leggings, 3 pairs", 30, GOOD, "Hailey",
+        "sporty, clearing her drawer, swears these are just as good",
+        "Three pairs from Amazon, inspired by the Align. Size small. Black, navy and olive. Light pilling on one pair.",
+        "Hi, yes all three are available! They feel just like Aligns. {price}.",
+    ),
+    _listing(
+        "stanleydupe", "Stanley Quencher dupe tumbler, 40oz, 4 pack", 22, NEW, "Karen",
+        "a parent who bought too many, cheerful",
+        "Four 40oz tumblers inspired by the Stanley, in pastel colours. Still in the box. Lids and straws included.",
+        "Yes, still available! Never used, still boxed. {price} for all four.",
+    ),
+    _listing(
+        "ugg_dupe", "UGG Tasman dupe slippers, size 8", 25, GOOD, "Megan",
+        "bubbly, swapped to the real ones and is selling these",
+        "Chestnut suede slippers inspired by the Tasman, size 8. Worn a few times indoors. Lining is still fluffy.",
+        "Hi! Yes still have them. Worn a few times inside only. {price}.",
+    ),
+    _listing(
+        "dysondupe", "Dyson Airwrap dupe hair styler, 5 in 1", 45, LIKE_NEW, "Jenna",
+        "practical, honest that it is a dupe, upgraded to the real one",
+        "Five in one hot air styler with curling barrels, a brush and a dryer head. Used a handful of times. Comes in the box.",
+        "Hi, yes. It's an Airwrap dupe, works well. {price}.",
+    ),
+    _listing(
+        "bagdupe", "Coach Tabby inspired shoulder bag, black", 30, LIKE_NEW, "Vanessa",
+        "polished, makes it very clear it is not branded",
+        "Black faux leather shoulder bag inspired by the Coach Tabby. No branding on it. Used twice. Comes with a chain and a leather strap.",
+        "Hi! Yes. To be clear, it's an inspired style, no branding. {price}.",
+    ),
+
+    # Fun stuff
+    "Fun stuff",
+    _listing(
+        "arcade", "Ms. Pac-Man and Galaga arcade cabinet", 1250, GOOD, "Buck",
+        "a former bar owner, nostalgic, will not deliver",
+        "Full size upright cabinet. Monitor is bright. Plays both games with a switch inside. Some side art wear. Coin door works. You will need a truck and two people.",
+        "Still available. Plays both games, monitor is bright. {price}.",
+    ),
+    _listing(
+        "pinball", "Addams Family pinball machine", 6800, GOOD, "Gomez",
+        "theatrical and devoted to the machine, insists it is the best ever made",
+        "Original 1992 Bally. Thing flips. Playfield has some wear around the swamp. Display is bright. Recently cleaned and rubbered. Plays great.",
+        "Ah, yes, it is still available. Thing flips perfectly. {price}.",
+    ),
+    _listing(
+        "hottub", "Inflatable hot tub, 4 person", 180, GOOD, "Trish",
+        "sunny, upgrading to a real one, says it is clean every time she is asked",
+        "Coleman inflatable hot tub with the pump, heater and cover. Used one summer. Holds air, no leaks. Cleaned and dried.",
+        "Hi! Yes, still available. No leaks, cleaned and dry. {price}.",
+    ),
+    _listing(
+        "karaoke", "Karaoke machine with two microphones and disco lights", 65, GOOD, "Gloria",
+        "fun and loud, the neighbours finally won",
+        "Bluetooth karaoke speaker with two wireless mics and built in disco lights. Battery lasts about four hours. A little scuffing on the bottom.",
+        "Yes! It's still here. The neighbours have asked me to sell it. {price}.",
+    ),
+    _listing(
+        "furby", "Original 1998 Furby, working, with box", 95, GOOD, "Penelope",
+        "a little spooked by it, wants it out of the house",
+        "Original Tiger Furby in the box. Talks and blinks with fresh batteries. Fur is a bit flat on top.",
+        "Hello, yes it's available. It works. It also talks at night. {price}.",
+    ),
+    _listing(
+        "cardboard", "Life-size cardboard cutout of a famous wrestler", 30, GOOD, "Hank",
+        "finds it funny, his wife does not",
+        "Life-size standee, about six feet tall. One crease across the knees. Fold out stand on the back.",
+        "Still for sale. My wife says it has to go. {price}.",
+    ),
+    _listing(
+        "hotdog", "Inflatable hot dog costume, adult", 25, LIKE_NEW, "Chad",
+        "a little embarrassed, wore it once to a party",
+        "Adult size inflatable hot dog with mustard. Fan runs on four AA batteries. Worn once.",
+        "yeah it's available. wore it once. {price}",
+    ),
+    _listing(
+        "lavalamps", "Collection of 6 lava lamps", 70, GOOD, "Moonbeam",
+        "mellow and spacey, a collector moving to a smaller place",
+        "Six lava lamps in different colours, three of them 1990s originals. All work. One has a cloudy globe.",
+        "Hey, yes, all six are still glowing. {price} for the set.",
+    ),
+    _listing(
+        "teddybear", "Giant 6-foot teddy bear", 50, GOOD, "Brittany",
+        "dramatic, it was from an ex, wants it gone today",
+        "Six feet tall, brown, soft. Smoke and pet free home. Very clean. Takes up a whole seat in the car.",
+        "omg please take it. it's huge. {price}",
+    ),
+    _listing(
+        "vendingmachine", "Working soda vending machine", 650, GOOD, "Earl",
+        "a practical man with a garage full of odd things",
+        "Full size soda machine. Cools and vends. Takes coins and dollar bills. Some rust on the base. Keys included. Very heavy.",
+        "Yes, it still works. Keys included. Bring a dolly. {price}.",
+    ),
+    _listing(
+        "skeleton", "12-foot Halloween skeleton", 260, GOOD, "Morticia",
+        "dry and deadpan, treats the skeleton like family",
+        "The famous 12 foot skeleton with the LCD eyes. Comes apart in pieces for storage. Stakes and box included. One finger is slightly bent.",
+        "It is still available. He is twelve feet tall. {price}.",
+    ),
+    _listing(
+        "nokia", "Nokia 3310, original, working", 45, GOOD, "Grandpa Joe",
+        "amused anyone wants it, tells you it never broke",
+        "Original Nokia 3310 in blue. Holds a charge for days. Snake works. Charger included.",
+        "Yes, it's still here. Never broken once. Snake still works. {price}.",
+    ),
+
+    # Music and merch
+    "Music and merch",
+    _listing(
+        "houseofballoons", "The Weeknd, House of Balloons, 10th anniversary vinyl", 85, LIKE_NEW, "Zara",
+        "a day one XO fan, protective of the record, quick to quote what it sells for",
+        "Double LP, the 2021 tenth anniversary pressing. Played once on a good turntable. Sleeve has no ring wear. Comes with the original shrink and hype sticker.",
+        "Hi, yes it's available. Played once, hype sticker still on the shrink. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "trilogy", "The Weeknd, Trilogy box set, 2012 vinyl", 240, GOOD, "Andre",
+        "knows the early mixtapes by heart, tells you which songs were changed for the box set",
+        "Original 2012 Trilogy box, six LPs. Box has light shelf wear on the corners. All discs play clean. Insert poster included.",
+        "Still available. Original 2012 box, all six discs play clean. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "afterhourstour", "The Weeknd After Hours til Dawn tour hoodie, large", 95, GOOD, "Jordan",
+        "went to the stadium show, still hyped about it, laid back otherwise",
+        "Black hoodie from the After Hours til Dawn stadium tour, size large. Bought at the show. Washed cold, print has no cracking. Slight fading on the cuffs.",
+        "yep still have it, got it at the show. print is clean. {price}",
+    ),
+    _listing(
+        "thriller", "Michael Jackson, Thriller, 1982 first pressing vinyl", 120, GOOD, "Denise",
+        "a lifelong fan, can tell you where she was when the video premiered",
+        "Original 1982 Epic first pressing with the gatefold sleeve and the lyric inner. Vinyl is VG plus, a little surface noise on side one. Sleeve has a small seam split at the bottom.",
+        "Hello! Yes, it is still available. Original first pressing with the lyric sleeve. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "badtour", "Michael Jackson Bad World Tour 1988 shirt, vintage", 280, GOOD, "Ray",
+        "a vintage tee dealer, matter of fact about single stitching and tags",
+        "Original 1988 Bad tour shirt, single stitch, size XL tag fits like a large. Some cracking in the print and one pinhole near the collar. Faded black, the good kind.",
+        "Available. Real 1988 single stitch, tag photos on request. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "mjglove", "Michael Jackson replica sequined glove, with display case", 60, LIKE_NEW, "Lorenzo",
+        "a performer, playful, admits it is a replica up front",
+        "Rhinestone replica of the famous single glove, right hand, in an acrylic display case. Not worn on stage, display only. No missing stones.",
+        "Hey, yes. It's a replica glove, display only, in the case. {price}.",
+    ),
+    _listing(
+        "unveranosinti", "Bad Bunny, Un Verano Sin Ti, vinyl", 55, LIKE_NEW, "Valeria",
+        "a big Benito fan, cheerful, replies in Spanglish",
+        "Double LP of Un Verano Sin Ti. Played twice. Sleeve is clean. Comes with the original shrink.",
+        "hola! yes it's still available. played twice nada mas. {price}",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "bbjersey", "Bad Bunny World's Hottest Tour jersey, medium", 130, GOOD, "Diego",
+        "proud he went to the concert, firm because the jersey sold out",
+        "Official World's Hottest Tour jersey, size medium. Worn to the show and once after. No stains. Name and number on the back are intact.",
+        "Still have it! Official one from the tour, sold out that night. {price}.",
+    ),
+    _listing(
+        "cornejo", "Ivan Cornejo, Dañado, vinyl", 48, LIKE_NEW, "Marisol",
+        "soft spoken, it is her favourite album and she has the newer pressing too",
+        "Dañado on vinyl, played a handful of times. Sleeve and inner are clean. No warps.",
+        "Hi, yes it's still available. I have the other pressing too, so this one can go. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "cornejomerch", "Ivan Cornejo tour hoodie, signed, large", 160, GOOD, "Ana",
+        "a fan who met him at the signing, a bit emotional about selling",
+        "Black tour hoodie, size large, signed on the front at a meet and greet. Photo of the signing available. Worn twice, washed inside out.",
+        "Hi! Yes it's available. Signed at the meet and greet, I have the photo. {price}.",
+    ),
+    _listing(
+        "fuerzaregida", "Fuerza Regida tour snapback, signed", 110, GOOD, "Chuy",
+        "a corridos fan, loud and friendly, enjoys the haggle",
+        "Black snapback from the tour, signed on the brim by the band. Signatures have not smudged. Worn once to the concert.",
+        "Que onda, yes still have it. Signed on the brim. {price}.",
+    ),
+    _listing(
+        "pesopluma", "Peso Pluma Genesis vinyl, sealed", 42, NEW, "Ximena",
+        "a collector who bought two, brisk and organised",
+        "Genesis on vinyl, still sealed. Hype sticker on the shrink. Corner has a tiny bump from shipping.",
+        "Hi! Yes, still sealed. Tiny corner bump from shipping. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "elvisgolden", "Elvis Presley, Elvis' Golden Records, 1958 mono LP", 95, GOOD, "Walt",
+        "an old rocker, has the story of buying it as a teenager",
+        "Original 1958 RCA Victor mono pressing. Plays with light crackle. Cover has ring wear and a name written on the back in pen.",
+        "Yes sir, still have it. Bought it new myself. Plays well. {price}.",
+    ),
+    _listing(
+        "elvissun", "Elvis Presley Sun Records 45, That's All Right", 950, FAIR, "Beverly",
+        "her late father's, careful, has had it appraised",
+        "Original Sun 209 45, That's All Right with Blue Moon of Kentucky on the B side. Label is clean, vinyl is well played with visible wear. Appraisal letter included.",
+        "Hello. It's still available, with the appraisal letter. {price}.",
+    ),
+    _listing(
+        "isthisit", "The Strokes, Is This It, 2001 UK first pressing vinyl", 140, GOOD, "Felix",
+        "a New York indie kid in his thirties, knows the UK cover story and will tell it",
+        "Original UK pressing with the first cover art. VG plus vinyl, clean sleeve with a little corner wear. Inner sleeve included.",
+        "Still available. UK first press with the original cover. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "strokestee", "The Strokes 2002 tour shirt, vintage, medium", 85, GOOD, "Nico",
+        "cool and laconic, collects band tees, will not drop much",
+        "Original 2002 tour shirt, size medium, faded black. Small hole by the hem. Print is cracked in the right way.",
+        "Available. Real 2002 tour tee. {price}.",
+    ),
+    _listing(
+        "blonde", "Frank Ocean, Blonde, 2022 vinyl", 160, LIKE_NEW, "Kai",
+        "a streetwear guy, clipped replies, knows the official pressing sells out instantly",
+        "Official 2022 double LP pressing. Played once. Sleeve and discs are clean.",
+        "Available. Official press, played once. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "sos", "SZA, SOS, vinyl", 38, GOOD, "Brianna",
+        "friendly, wants it to go to a fan",
+        "SOS double LP. Played several times. Sleeve has light wear. No skips.",
+        "Hi! Yes, it's available. No skips. {price}.",
+    ),
+    _listing(
+        "gnx", "Kendrick Lamar, GNX, vinyl", 45, NEW, "Malik",
+        "a hip hop head, quick, wants cash and a short chat",
+        "GNX on vinyl, sealed. Bought two by mistake.",
+        "Still sealed. Got two by mistake. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "astroworld", "Travis Scott Astroworld tour merch, hoodie, XL", 140, GOOD, "Tyrese",
+        "hyped, talks fast, firm because the merch is rare",
+        "Official Astroworld Wish You Were Here tour hoodie, XL. Washed a few times. Print is intact. Light pilling inside.",
+        "yeah still got it, official tour merch. {price}",
+    ),
+    _listing(
+        "nirvana", "Nirvana 1993 In Utero shirt, vintage", 420, GOOD, "Gene",
+        "a grunge purist, unhurried, quizzes buyers about the tour",
+        "Original 1993 In Utero shirt, single stitch, size L. Faded with some pinholes. Print shows its age but is complete.",
+        "Hello. Yes, it's available. A true original from '93. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "selena", "Selena, Amor Prohibido, original 1994 cassette, sealed", 75, NEW, "Rosalinda",
+        "a Tejano fan from Corpus Christi, warm, protective of the tape",
+        "Original 1994 EMI Latin cassette, still sealed. Cellophane has a small tear on the corner. Never played.",
+        "Hola, yes it's still available. Still sealed since 1994. {price}.",
+    ),
+    _listing(
+        "swiftvinyl", "Taylor Swift, Folklore, signed insert vinyl", 210, LIKE_NEW, "Madison",
+        "a Swiftie, organised, has the receipt from the official store",
+        "Folklore vinyl with the hand signed insert from the official store. Played once. Insert stored in a sleeve, no creases. Receipt available.",
+        "Hi! Yes, it is available, signed insert and receipt. {price}.",
+        "Pickup or shipping",
+    ),
+    _listing(
+        "drakeovo", "Drake OVO Fest 2014 shirt, large", 120, GOOD, "Marcus",
+        "a Toronto guy, nostalgic about the fest, firm on price",
+        "Official OVO Fest 2014 shirt, size large. Faded black, owl logo print intact. Small mark on the back.",
+        "Still have it. OVO Fest 2014, from the actual show. {price}.",
+    ),
+    _listing(
+        "mtvbadge", "Backstage pass collection, 12 concert laminates", 180, GOOD, "Rita",
+        "a former tour caterer, funny and full of stories",
+        "Twelve all access laminates from tours in the 2000s, with lanyards. Some have names written on them. Framed shadow box included.",
+        "Hello! Yes, all twelve. I have a story for every one. {price}.",
+    ),
+
+    # Everything else
+    "Home and collectables",
     _listing(
         "charizard", "1999 Base Set Charizard, lightly played", 420, GOOD, "Owen",
         "speaks in grades and centering, has looked up every recent sale",
@@ -669,5 +1438,13 @@ SCENARIOS = [
         "Orbital pickup",
     ),
 ]
+
+SCENARIOS = []
+_category = ""
+for _entry in _CATALOGUE:
+    if isinstance(_entry, str):
+        _category = _entry
+    else:
+        SCENARIOS.append({**_entry, "category": _category})
 
 assert len({s["id"] for s in SCENARIOS}) == len(SCENARIOS)

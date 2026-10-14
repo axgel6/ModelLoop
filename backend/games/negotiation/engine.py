@@ -253,8 +253,26 @@ def public(state: dict) -> dict:
 
 def catalogue() -> list[dict]:
     """Every listing as the start screen shows it. The seller's personality and limits stay out of it."""
-    keys = ("id", "item", "merchant", "setting", "condition", "description", "list_price")
+    keys = ("id", "item", "merchant", "setting", "condition", "description", "list_price", "category")
     return [{k: s[k] for k in keys} for s in SCENARIOS]
+
+
+def category_of(scenario_id: Optional[str]) -> Optional[str]:
+    scenario = _SCENARIOS_BY_ID.get(scenario_id or "")
+    return scenario["category"] if scenario else None
+
+
+def inventory_item(row: dict) -> dict:
+    """A purchase as the inventory shows it. Purchases recorded before the inventory
+    existed kept only the title and the price; the rest is filled in from the listing."""
+    listing = _SCENARIOS_BY_ID.get(row.get("listing") or "") or next((s for s in SCENARIOS if s["item"] == row["title"]), None)
+    if listing:
+        for key in ("condition", "description", "setting", "category"):
+            if row.get(key) is None:
+                row[key] = listing.get(key)
+    if row.get("saved") is None and row.get("paid") is not None and row.get("list_price"):
+        row["saved"] = row["list_price"] - row["paid"]
+    return row
 
 
 def summary(state: dict) -> dict:

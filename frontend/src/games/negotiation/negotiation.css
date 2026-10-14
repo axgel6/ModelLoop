@@ -105,12 +105,15 @@ html .neg .pref-confirm-no {
   margin: 0 0 8px 4px;
 }
 
-/* A section heading with an action at the far end */
+/* A section heading with its actions at the far end */
 .neg-section-row {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
+}
+
+.neg-section-row .neg-section {
+  flex: 1;
 }
 
 html .neg .neg-refresh,
@@ -554,5 +557,193 @@ html .neg .neg-pay-confirm.is-armed:hover {
     grid-column: 1 / -1;
     grid-row: 2;
     align-items: flex-start;
+  }
+}
+
+/* ---- All listings: the window opened by "Show all" ----
+   It is drawn on the page, outside .neg, so its buttons are reset here by name. */
+
+.landing-theme-modal.neg-browser {
+  max-width: 640px;
+  max-height: min(86vh, 760px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  font-family: var(--ui-font);
+}
+
+.neg-browser .landing-theme-modal-header {
+  margin-bottom: 0;
+}
+
+.neg-browser-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+html .neg-browser .neg-chip,
+html .neg-browser .neg-chip:hover {
+  padding: 5px 12px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transform: none;
+}
+
+html .neg-browser .neg-chip:hover {
+  color: var(--game-ink);
+}
+
+html .neg-browser .neg-chip.is-on,
+html .neg-browser .neg-chip.is-on:hover {
+  border-color: var(--game-accent);
+  background: color-mix(in srgb, var(--game-accent) 14%, transparent);
+  color: var(--game-ink);
+}
+
+.neg-browser-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.neg-browser-bar .pref-setting-hint {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.neg-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+.neg-select select {
+  padding: 5px 10px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.neg-select select:focus-visible {
+  border-color: var(--game-accent);
+}
+
+.neg-browser .neg-browser-list {
+  flex: 1;
+  min-height: 120px;
+  margin: 0;
+  overflow-y: auto;
+  border-radius: 16px;
+  scrollbar-width: thin;
+}
+
+.neg-browser-list .pref-list-item {
+  padding: 10px 14px;
+}
+
+.neg-browser-list .pref-content-badge {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.neg-browser-empty {
+  margin: 0;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+/* ---- Inventory ---- */
+
+.neg-inventory-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.neg-inventory-total {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+}
+
+.neg-inventory-total-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-ink);
+}
+
+.neg-browser-bar .pref-search-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.neg-inventory-list {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+}
+
+.neg-inventory-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+}
+
+.neg-inventory-item .msg-timestamp {
+  padding: 0;
+}
+
+.neg-inventory-deal {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--game-ink);
+}
+
+.neg-inventory-item p {
+  margin: 4px 0 0;
+  line-height: 1.5;
+  white-space: normal;
+  overflow: visible;
+}
+
+.neg-inventory-item .pref-item-name {
+  white-space: normal;
+}
+
+@media (max-width: 520px) {
+  .neg-inventory-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

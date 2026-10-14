@@ -49,6 +49,8 @@ export interface HaggleListing {
   condition: string | null;
   description: string;
   list_price: number;
+  /** The shelf it sits on, such as "Consoles" or "Fragrance" */
+  category: string;
 }
 
 export interface HaggleState {
@@ -84,4 +86,24 @@ export interface HaggleSummary {
   item: string;
   merchant: string;
   ask: number;
+}
+
+/** Something bought in Negotiation. Purchases from before the inventory may lack the listing's details. */
+export interface InventoryItem {
+  id: string;
+  title: string;
+  /** 0 to 100: the share of the possible discount won */
+  score: number;
+  rating: string;
+  bought_at: string;
+  paid: number | null;
+  list_price: number;
+  saved?: number | null;
+  rounds?: number | null;
+  merchant: string;
+  difficulty?: string;
+  condition?: string | null;
+  category?: string | null;
+  description?: string | null;
+  setting?: string | null;
 }
