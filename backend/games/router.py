@@ -1043,7 +1043,7 @@ async def research_listing(game_id: uuid.UUID, user: User = Depends(get_user), d
             run_game.state = hustle.charge(run_game.state, hustle.RESEARCH_FEE, state["scenario"]["item"], "Checked sold listings")
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
-    game.state = {**state, "research": extras.flaw_hint(state.get("flaw"))}
+    game.state = {**state, "research": extras.sold_listings(state)}
     await db.commit()
     await db.refresh(game)
     return _serialize(game)

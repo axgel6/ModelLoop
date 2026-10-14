@@ -104,6 +104,8 @@ export interface HaggleState {
   status: HaggleStatus;
   /** Missing on haggles from before selling existed; those are buying */
   mode?: HaggleMode;
+  /** Selling: what it resells for, which the buyers' limits come from */
+  worth?: number;
   /** Selling: what the player paid for it, if it came from the inventory */
   cost?: number | null;
   /** Selling: the buyer's first offer */

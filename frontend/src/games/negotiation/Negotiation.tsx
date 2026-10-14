@@ -1164,7 +1164,15 @@ function Play({
               <span className="pref-content-badge">{money(state.list_price)}</span>
             </div>
             <span className="msg-timestamp">
-              {[selling ? "Your listing" : "", scenario.condition, scenario.setting].filter(Boolean).join(" · ")}
+              {[
+                selling ? "Your listing" : "",
+                // Selling something real: what buyers pay for these, about. A listing of your own has no market to go by.
+                selling && state.worth != null && scenario.id !== "custom" ? `Resells for about ${money(state.worth)}` : "",
+                scenario.condition,
+                scenario.setting,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </span>
             {scenario.description && <p className="pref-item-desc">{scenario.description}</p>}
             {scenario.notes && <p className="pref-item-desc neg-notes">Seller's notes: {scenario.notes}</p>}
@@ -1668,8 +1676,9 @@ function Inbox({
               </button>
             </div>
             <p className="pref-setting-hint">
-              Your listing for {state.scenario.item} at {money(state.list_price)} got some messages. Pick who to
-              answer; the others move on. Their first offer is not their last.
+              Your listing for {state.scenario.item} at {money(state.list_price)} got some messages.
+              {state.worth != null && state.scenario.id !== "custom" && ` It resells for about ${money(state.worth)}.`} Pick
+              who to answer; the others move on. Their first offer is not their last.
             </p>
             <div className="pref-account-card neg-browser-list">
               {prospects.map((p, i) => (

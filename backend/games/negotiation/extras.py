@@ -111,6 +111,17 @@ def flaw_hint(flaw: Optional[dict]) -> str:
     return f"People who bought these often bring up the {flaw['words'][0]}. Worth asking about."
 
 
+def sold_listings(state: dict) -> str:
+    """Checking sold listings: what one in good shape sells for, and what tends to go wrong."""
+    value = state.get("value")
+    flaw = state.get("flaw")
+    if value and flaw and flaw.get("revealed"):
+        # The flaw already knocked this one's worth down; sold listings show the going rate
+        value = round(value / (1 - flaw["loss"]))
+    going = f"Similar ones sell for about ${int(value):,}. " if value else ""
+    return going + flaw_hint(flaw)
+
+
 # ---- Deadlines: buying only. Some sellers have to be rid of it soon ----
 
 DEADLINE_ROUNDS = 6
