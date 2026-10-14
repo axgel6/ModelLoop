@@ -9768,8 +9768,8 @@ html[data-theme="meadow"] .chat-sidebar .sidebar-delete-btn:hover:not(:disabled)
 }
 
 /* Dune's active item is solid orange with white text */
-html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn,
-html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-btn {
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active:is(:hover, :focus-within) .sidebar-pin-btn,
+html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active:is(:hover, :focus-within) .sidebar-delete-btn {
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -9779,27 +9779,15 @@ html[data-theme="dune"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-
   color: #ffffff !important;
 }
 
-/* The active item is a raised neutral row in Ember and a solid fill in Frost */
-html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn,
-html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-btn {
-  color: #a89984;
-}
-html[data-theme="frost"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn,
-html[data-theme="frost"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-btn {
+/* Frost's active item is a solid fill, so the default muted icons vanish on it.
+   Ember's is a neutral row, where the default icon colours already work. */
+html[data-theme="frost"] .chat-sidebar .sidebar-chat-item.active:is(:hover, :focus-within) .sidebar-pin-btn,
+html[data-theme="frost"] .chat-sidebar .sidebar-chat-item.active:is(:hover, :focus-within) .sidebar-delete-btn {
   color: rgba(53, 60, 74, 0.6);
-}
-
-html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active.pinned .sidebar-pin-btn {
-  color: #fabd2f;
 }
 
 html[data-theme="frost"] .chat-sidebar .sidebar-chat-item.active.pinned .sidebar-pin-btn {
   color: #353c4a;
-}
-
-html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn:hover,
-html[data-theme="ember"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete-btn:hover:not(:disabled) {
-  color: #ebdbb2 !important;
 }
 
 html[data-theme="frost"] .chat-sidebar .sidebar-chat-item.active .sidebar-pin-btn:hover,
