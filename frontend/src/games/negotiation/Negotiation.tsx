@@ -1908,9 +1908,33 @@ function PayCard({
   status?: string;
   action?: { label: string; onClick: () => void; disabled?: boolean };
 }) {
+  // The pearl catches the light where the mouse is. Written straight to the card's style,
+  // so moving the mouse never re-renders the chat.
+  const tilt = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch") return;
+    const card = e.currentTarget;
+    const box = card.getBoundingClientRect();
+    const x = (e.clientX - box.left) / box.width;
+    const y = (e.clientY - box.top) / box.height;
+    card.style.setProperty("--mx", `${(x * 100).toFixed(1)}%`);
+    card.style.setProperty("--my", `${(y * 100).toFixed(1)}%`);
+    card.style.setProperty("--rx", `${((0.5 - y) * 10).toFixed(2)}deg`);
+    card.style.setProperty("--ry", `${((x - 0.5) * 12).toFixed(2)}deg`);
+    card.classList.add("is-lit");
+  };
+  const rest = (e: React.PointerEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    for (const name of ["--mx", "--my", "--rx", "--ry"]) card.style.removeProperty(name);
+    card.classList.remove("is-lit");
+  };
+
   return (
     <div className={`message-row ${who === "you" ? "user" : "assistant"}`}>
-      <div className={`neg-pay-card${status === "Declined" || status === "Expired" ? " is-void" : ""}`}>
+      <div
+        className={`neg-pay-card${status === "Declined" || status === "Expired" ? " is-void" : ""}`}
+        onPointerMove={tilt}
+        onPointerLeave={rest}
+      >
         <span className="neg-pay-brand">ModelLoop Pay</span>
         <span className="neg-pay-label">{label}</span>
         <span className="neg-pay-amount">{money(amount)}</span>

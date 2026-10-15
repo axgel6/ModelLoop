@@ -13,6 +13,7 @@ the buyer's offer), and an entry's `offer` is a price the player named. No I/O i
 import copy
 import math
 import random
+import re
 from typing import Optional
 
 from . import extras
@@ -21,8 +22,9 @@ from .engine import (
     DIFFICULTIES, FREE_QUESTIONS, LOG_LIMIT, MAX_REPLY, MAX_STIFFENING, MODEL_CONTEXT_ROUNDS, NEUTRAL_REPLIES,
     REPEAT_PERSUASION, RESISTANCE_PER_POINT, MAX_RESISTANCE, SHORT_MESSAGE_WORDS,
     TELL_EDGE, TELL_ROOMY, TELL_TIGHT, CONCESSION, CONCESSION_PER_POINT,
-    REPLY_SCHEMA, _AGREES, _OBJECTS, _fill, _money, _repeated, _step, _then, _typed_figure,
+    REPLY_SCHEMA, ACCEPTANCE_WORDS, _AGREES, _CONDITION, _OBJECTS, _fill, _money, _repeated, _step, _then, _typed_figure,
 )
+from .engine import is_acceptance as _buyer_acceptance
 
 MODE = "sell"
 OPENING_CAP = 0.90             # the most of their limit a buyer opens with, leaving room to talk them up
@@ -196,6 +198,7 @@ Be a tough but fair judge in this rating (your manner is set by your personality
 "reply" is the message you send back, in character, in one to three sentences.
 - Never write a price or any number yourself. Write {price} wherever you state your offer, and the game fills it in.
 - Only mention your offer when the round's instruction tells you to.
+- Never say you are paying, sending money or wiring it, and never ask for payment details, unless this round's instruction is ACCEPT. Until then nothing is agreed.
 - Follow the instruction for this round exactly.
 - Stay in character and react to what the seller actually said. No stage directions, no quotation marks around the reply.
 - Never repeat or lightly reword one of your earlier messages. Say something new each time, even when your answer is the same, unless you are told below that you have a stock line."""
@@ -361,6 +364,26 @@ def stated_price(message: str, state: dict) -> Optional[int]:
     if price is not None and price <= state["ask"]:
         return state["ask"] if _AGREES.search(message) and not _OBJECTS.search(message) else None
     return price
+
+
+# A seller says yes differently from a buyer: they tell the buyer to pay, or hand the item over
+_SELLER_ACCEPTANCE = re.compile(
+    r"^(?:(?:ok(?:ay)?|fine|alright|all right|sure|yes|yeah|yep|cool|deal|sold)\W+)*"
+    r"(?:(?:go ahead and |just |then )?(?:send|pay)(?: me)?(?: the| your| it)?(?: money| payment| cash)?(?: over)?(?: now)?"
+    r"|(?:it'?s|its) yours|you can have it|you(?:'ve)? got it|(?:that|it) works|let'?s do (?:it|that)"
+    r"|i accept(?: that| your offer)?)\W*$",
+    re.I,
+)
+
+
+def is_acceptance(message: str) -> bool:
+    """Whether the seller simply agrees to the buyer's offer on the table: "deal", or "send the money"."""
+    text = message.strip()
+    if _buyer_acceptance(text):
+        return True
+    if len(text.split()) > ACCEPTANCE_WORDS or _CONDITION.search(text):
+        return False
+    return bool(_SELLER_ACCEPTANCE.match(text))
 
 
 def _tell(s: dict) -> Optional[str]:

@@ -1332,7 +1332,7 @@ async def _play_haggle_turn(game: GameSession, body: TurnRequest, user: User, db
     message = " ".join(body.decision.split())
     # "Deal!" typed into the message box agrees to the price on the table. Paying is still the player's to do.
     rules = _haggle_rules(state)
-    agreeing = body.offer is None and not body.bluff and not body.leverage and not body.sweetener and haggle.is_acceptance(message)
+    agreeing = body.offer is None and not body.bluff and not body.leverage and not body.sweetener and rules.is_acceptance(message)
     if state.get("final"):
         raise HTTPException(status_code=409, detail="That was their final offer. Take it or leave it.")
     bluff = body.bluff

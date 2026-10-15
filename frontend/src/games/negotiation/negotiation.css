@@ -330,21 +330,115 @@ html .neg .neg-refresh:hover {
 
 /* ---- Paying: money in the chat, and the sheet that confirms it ---- */
 
-/* A payment bubble, dark on light themes and light on dark ones like a wallet card */
+/* A payment bubble in black chroma: a near-black card with the brand and the figure in
+   pastel chroma. The light follows the mouse (--mx, --my), sliding the chroma through the
+   text, and the card tilts towards it (--rx, --ry); at rest it sits up and to the left. */
 .neg-pay-card {
+  --mx: 28%;
+  --my: 18%;
+  --rx: 0deg;
+  --ry: 0deg;
+  --pay-ink: #d9d4de;
+  --chroma: linear-gradient(
+    100deg,
+    #ffc4e0 0%,
+    #d6caff 20%,
+    #bae4ff 40%,
+    #c8fae4 60%,
+    #ffeecc 80%,
+    #ffc4e0 100%
+  );
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   min-width: 190px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 12px 16px 14px;
   border-radius: 18px;
-  background: var(--game-ink);
-  color: var(--bar-tint);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(135deg, #1c1a20 0%, #131216 55%, #17181c 100%);
+  color: var(--pay-ink);
+  /* The chat clips at 4px either side, so the shadow is pulled in (negative spread) and
+     falls below the card instead of out past its sides */
+  box-shadow:
+    0 10px 18px -8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: perspective(700px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* While the mouse is on it, the tilt keeps up instead of easing */
+.neg-pay-card.is-lit {
+  transition: transform 0.08s linear;
+}
+
+.neg-pay-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* A breath of the same chroma across the black, so the card itself shifts a little too */
+.neg-pay-card::before {
+  background: var(--chroma);
+  background-size: 260% 260%;
+  background-position: var(--mx) var(--my);
+  mix-blend-mode: screen;
+  opacity: 0.07;
+  transition: background-position 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The chroma text: the gradient painted through the letters, sliding with the light */
+.neg-pay-card .neg-pay-brand,
+.neg-pay-card .neg-pay-amount {
+  background: var(--chroma);
+  background-size: 300% 100%;
+  background-position: var(--mx) 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: background-position 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.neg-pay-card.is-lit::before,
+.neg-pay-card.is-lit .neg-pay-brand,
+.neg-pay-card.is-lit .neg-pay-amount {
+  transition: none;
 }
 
 .neg-pay-card.is-void {
   opacity: 0.55;
+  filter: grayscale(0.6);
+}
+
+/* The text is see-through, so the strike has to bring its own colour */
+.neg-pay-card.is-void .neg-pay-amount {
+  text-decoration-color: var(--pay-ink);
+}
+
+/* Black stands out on the light themes by itself: just a softer shadow in the page's colour */
+html[data-theme="dune"] .neg-pay-card {
+  box-shadow:
+    0 12px 20px -10px rgba(28, 25, 23, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="meadow"] .neg-pay-card {
+  box-shadow:
+    0 12px 20px -10px rgba(41, 66, 49, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neg-pay-card,
+  .neg-pay-card.is-lit {
+    transform: none;
+  }
 }
 
 .neg-pay-card.is-void .neg-pay-amount {
@@ -390,9 +484,9 @@ html .neg .neg-pay-button:hover {
   padding: 6px 22px;
   border: none;
   border-radius: 999px;
-  background: var(--bar-tint);
+  background: var(--chroma);
   box-shadow: none;
-  color: var(--game-ink);
+  color: #131216;
   font-family: var(--ui-font);
   font-size: 0.78rem;
   font-weight: 700;
