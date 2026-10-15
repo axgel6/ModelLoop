@@ -1959,13 +1959,26 @@ html .neg .neg-extra--research:hover:not(:disabled) {
   background: color-mix(in srgb, var(--game-card) 55%, transparent);
 }
 
-/* After a scam: the report button, then what came of it */
-.neg-report {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  text-align: center;
+/* After a scam: the report card, in the verdict's column but laid out like any other card */
+.neg-report-card {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.neg-report-card .pref-item-desc {
+  white-space: normal;
+}
+
+html .neg-report-badge.is-up {
+  color: var(--neg-up);
+  background: color-mix(in srgb, var(--neg-up) 14%, transparent);
+}
+
+html .neg-report-badge.is-down {
+  color: var(--neg-down);
+  background: color-mix(in srgb, var(--neg-down) 14%, transparent);
 }
 
 .neg-pickup.is-scam {

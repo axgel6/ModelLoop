@@ -74,6 +74,8 @@ const SWEETENERS = {
     { id: "anytime", label: "Pickup any time", said: "Pick it up whenever suits you." },
   ],
 } as const;
+// What Purchase Protection gives back for a scam paid in the app, as PROTECTION_SHARE in extras.py
+const PROTECTION_PERCENT = 60;
 // Checking sold listings costs this much in a Hustle run, as RESEARCH_FEE in hustle.py
 const RESEARCH_FEE = 5;
 // How long a slow or hesitant reply keeps you waiting, so the pace itself gives something away
@@ -1555,37 +1557,37 @@ function Play({
             ) : (
               <>
                 <span className="pref-setting-hint">
-                  {result.paid != null
-                    ? `You paid ${money(result.paid)} for something listed at ${money(state.list_price)}, saving ${money(result.saved ?? 0)} in ${result.rounds} ${result.rounds === 1 ? "round" : "rounds"}.`
-                    : result.outcome === "lost"
-                      ? `${scenario.merchant} sold it to someone who turned up first. Nothing was paid.`
-                      : state.scam
-                        ? `${scenario.merchant} never had it. The listing was bait, and you kept your money.`
+                  {state.scam
+                    ? result.paid != null
+                      ? `${scenario.merchant} took your ${money(result.paid)} and vanished. The listing is gone.`
+                      : `${scenario.merchant} never had it. The listing was bait, and you kept your money.`
+                    : result.paid != null
+                      ? `You paid ${money(result.paid)} for something listed at ${money(state.list_price)}, saving ${money(result.saved ?? 0)} in ${result.rounds} ${result.rounds === 1 ? "round" : "rounds"}.`
+                      : result.outcome === "lost"
+                        ? `${scenario.merchant} sold it to someone who turned up first. Nothing was paid.`
                         : "You left without buying. No deal, no score."}
                 </span>
-                <span className="pref-setting-hint">
-                  The lowest {scenario.merchant} would have gone was {money(result.floor)}.
-                  {result.paid != null && !state.scam && ` You won ${result.score}% of the discount that was there to be had.`}
-                </span>
+                {/* A scammer had no price to hold out for */}
+                {!state.scam && (
+                  <span className="pref-setting-hint">
+                    The lowest {scenario.merchant} would have gone was {money(result.floor)}.
+                    {result.paid != null && ` You won ${result.score}% of the discount that was there to be had.`}
+                  </span>
+                )}
                 {balance != null && result.paid != null && (
                   <span className="pref-setting-hint">Your balance is now {money(balance)}.</span>
                 )}
               </>
             )}
-            {result.pickup && result.pickup.kind !== "fine" && (
+            {result.pickup && result.pickup.kind !== "fine" && result.pickup.kind !== "scam" && (
               <div className={`neg-pickup${result.pickup.kind === "flaw" ? "" : " is-scam"}`}>
                 <span className="pref-item-name">{result.pickup.issue}</span>
                 {result.pickup.loss != null && (
                   <span className="pref-setting-hint">
                     {result.pickup.kind === "fake_payment"
                       ? `You are out the item and the ${money(result.pickup.loss)}.`
-                      : result.pickup.kind === "scam"
-                        ? `You are out ${money(result.pickup.loss)}, and there is nothing to collect.`
                       : `It is worth ${money(result.pickup.loss)} less than you thought.`}
                   </span>
-                )}
-                {result.pickup.kind === "scam" && (
-                  <ScamReport result={result} merchant={scenario.merchant} busy={busy} onReport={() => edit("report")} />
                 )}
                 {result.pickup.kind === "flaw" &&
                   (result.pickup.asked ? (
@@ -1602,9 +1604,8 @@ function Play({
               </div>
             )}
             {result.pickup?.kind === "fine" && <span className="pref-setting-hint">{result.pickup.issue}</span>}
-            {/* A scam dodged has no pickup box to sit in */}
-            {state.scam && result.pickup?.kind !== "scam" && (
-              <ScamReport result={result} merchant={scenario.merchant} busy={busy} onReport={() => edit("report")} />
+            {state.scam && (
+              <ScamReport result={result} merchant={scenario.merchant} face={face} busy={busy} onReport={() => edit("report")} />
             )}
             {state.review && (
               <span className="pref-setting-hint neg-review">
@@ -2220,43 +2221,57 @@ function lastTell(log: HaggleEntry[], index: number): HaggleEntry["tell"] {
 }
 
 /** One line of the haggle as a chat bubble, with an optional note where the timestamp would go */
-/** After a scam: report the account. A payment that stayed in the app gets some of it back */
+/** After a scam: report the account, as a card in the chat's own style. A payment made in the app
+ *  gets some of it back from Purchase Protection; one made the scammer's way does not */
 function ScamReport({
   result,
   merchant,
+  face,
   busy,
   onReport,
 }: {
   result: HaggleResult;
   merchant: string;
+  face: string;
   busy: boolean;
   onReport: () => void;
 }) {
   const pickup = result.pickup?.kind === "scam" ? result.pickup : null;
-  if (!result.reported)
-    return (
-      <div className="neg-report">
-        <span className="pref-setting-hint">
-          {pickup
-            ? "Report the account. Purchase Protection covers some of a payment made in the app."
-            : `Report ${merchant} so nobody else gets caught.`}
-        </span>
-        <button type="button" className="toolbar-chip-btn" onClick={onReport} disabled={busy}>
-          Report seller
-        </button>
-      </div>
-    );
+  const refunded = pickup?.refunded ?? 0;
+  const desc = !result.reported
+    ? pickup
+      ? `Purchase Protection refunds ${PROTECTION_PERCENT}% of a payment made in the app.`
+      : "Get the account removed before someone else falls for it."
+    : !pickup
+      ? "Thanks for reporting it before anyone else got caught."
+      : pickup.off_app
+        ? `You agreed to pay by ${pickup.off_app}, which Purchase Protection does not cover.`
+        : pickup.due_day != null
+          ? `Purchase Protection is refunding ${money(refunded)}. It arrives on day ${pickup.due_day}.`
+          : `Purchase Protection refunded ${money(refunded)} of the ${money(pickup.loss ?? 0)}.`;
   return (
-    <span className="pref-setting-hint neg-report">
-      {`${merchant}'s account has been removed. `}
-      {!pickup
-        ? "Thanks for reporting it before anyone else got caught."
-        : pickup.off_app
-          ? `You agreed to pay by ${pickup.off_app}, which Purchase Protection doesn't cover. No refund.`
-          : pickup.due_day != null
-            ? `Purchase Protection is refunding ${money(pickup.refunded ?? 0)}, which arrives on day ${pickup.due_day}.`
-            : `Purchase Protection refunded ${money(pickup.refunded ?? 0)} of the ${money(pickup.loss ?? 0)}.`}
-    </span>
+    <div className="pref-account-card neg-card neg-report-card">
+      <div className="pref-list-item neg-row--static">
+        <div className="pref-item-icon neg-face">
+          <Avatar seed={face} />
+        </div>
+        <div className="pref-item-info">
+          <div className="pref-item-name">{result.reported ? "Account removed" : `Report ${merchant}`}</div>
+          <div className="pref-item-desc">{desc}</div>
+        </div>
+        {!result.reported ? (
+          <button type="button" className="start-button" onClick={onReport} disabled={busy}>
+            Report
+          </button>
+        ) : (
+          pickup && (
+            <span className={`pref-content-badge neg-report-badge${refunded ? " is-up" : " is-down"}`}>
+              {refunded ? `+${money(refunded)}` : "Not covered"}
+            </span>
+          )
+        )}
+      </div>
+    </div>
   );
 }
 
