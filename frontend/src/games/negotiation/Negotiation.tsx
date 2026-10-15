@@ -55,6 +55,8 @@ const SELL_BLUFF_MESSAGE = "Just a heads up, someone else is coming to look at i
 // The faster the answer, the more room is left in the price.
 // How long the payment button stays armed after the first tap
 const DOUBLE_TAP_MS = 1200;
+// How long a payment the account cannot cover seems to go through before it is declined
+const FAKE_PAYING_MS = 1400;
 // Terms other than money, each offered once per chat. Mirrors SWEETENERS in backend/games/negotiation/extras.py
 const SWEETENERS = {
   buy: [
@@ -999,7 +1001,8 @@ function Play({
   const sold = result?.outcome === "deal" || result?.outcome === "sold";
   const [draft, setDraft] = useState("");
   const [offerDraft, setOfferDraft] = useState("");
-  const [pending, setPending] = useState<{ text: string; offer?: number } | null>(null);
+  // `bounced`: not a message but a payment that just failed, shown as its declined card
+  const [pending, setPending] = useState<{ text: string; offer?: number; bounced?: number } | null>(null);
   // While a reply is on its way: typing, or a hesitant stop part way
   const [typing, setTyping] = useState<"typing" | "stopped">("typing");
   const [closing, setClosing] = useState(false);
@@ -1041,6 +1044,8 @@ function Play({
   }, [state.log.length, pending, error, state.status, paying, state.after?.length, chatPending]);
 
   const offerValue = Math.round(Number(offerDraft));
+  // The offer is kept as bare digits and shown with commas
+  const offerShown = offerDraft ? Number(offerDraft).toLocaleString("en-US") : "";
   const offer = offerValue > 0 ? offerValue : undefined;
   const busy = !!pending || closing;
 
@@ -1147,6 +1152,28 @@ function Play({
       setClosing(false);
       setPaying(false);
       refreshRun();
+    }
+  };
+
+  // The first payment that bounces in a chat reaches the seller, who reacts to it. After that the
+  // sheet still refuses, but the seller is not told again.
+  const bouncing = useRef(false);
+  const bounce = async () => {
+    if (selling || state.bounced || bouncing.current) return;
+    bouncing.current = true;
+    // Let the refusal play out on the sheet first
+    await wait(DOUBLE_TAP_MS);
+    setPaying(false);
+    setPending({ text: "", bounced: state.ask });
+    setTyping("typing");
+    setError("");
+    try {
+      onSave(await apiEditGame<HaggleState>(save.id, "bounce", { model, clean }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setPending(null);
+      bouncing.current = false;
     }
   };
 
@@ -1307,8 +1334,10 @@ function Play({
             {gap(entry.at, i > 0 ? state.log[i - 1].at : state.started_at) && (
               <p className="neg-time">{gap(entry.at, i > 0 ? state.log[i - 1].at : state.started_at)}</p>
             )}
+            {/* A payment that bounced is its declined card, not a message */}
+            {entry.bounced && <PayCard who="you" label="Your payment" amount={entry.ask} status="Declined" />}
             {/* An offer sent with nothing typed is just the card */}
-            {(entry.offer == null || entry.you !== bare(entry.offer)) && (
+            {!entry.bounced && (entry.offer == null || entry.you !== bare(entry.offer)) && (
               <Line
                 who="you"
                 text={entry.you}
@@ -1339,7 +1368,9 @@ function Play({
               note={
                 [
                   entry.flaw ? `Not in the listing: ${entry.flaw}. A fair reason to pay less.` : "",
-                  entry.insulted
+                  entry.bounced
+                    ? "They saw your payment bounce. It cost patience."
+                    : entry.insulted
                     ? "That number offended them. It cost extra patience."
                     : entry.bluff
                       ? "They did not like that. It cost extra patience."
@@ -1406,7 +1437,11 @@ function Play({
 
         {pending && (
           <>
-            {(pending.offer === undefined || pending.text !== bare(pending.offer)) && <Line who="you" text={pending.text} />}
+            {pending.bounced !== undefined ? (
+              <PayCard who="you" label="Your payment" amount={pending.bounced} status="Declined" />
+            ) : (
+              (pending.offer === undefined || pending.text !== bare(pending.offer)) && <Line who="you" text={pending.text} />
+            )}
             {pending.offer !== undefined && (
               <PayCard who="you" label={selling ? "Your price" : "Your offer"} amount={pending.offer} status="Sent" />
             )}
@@ -1601,6 +1636,7 @@ function Play({
           amount={state.ask}
           busy={closing}
           onConfirm={() => close("accept")}
+          onDecline={bounce}
           onCancel={() => setPaying(false)}
         />
       ) : state.final ? (
@@ -1669,16 +1705,21 @@ function Play({
           />
           <div className="input-toolbar">
             <div className="toolbar-left">
-              <label className="neg-offer">
-                <span>{selling ? "Your price $" : "Offer $"}</span>
-                <input
-                  value={offerDraft}
-                  onChange={(e) => setOfferDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 8))}
-                  inputMode="numeric"
-                  placeholder="none"
-                  disabled={busy}
-                  aria-label={selling ? "Your price in dollars" : "Your offer in dollars"}
-                />
+              <label className={`neg-offer${offerDraft ? " has-value" : ""}`}>
+                <span>{selling ? "Your price" : "Offer"}</span>
+                {/* The field grows to fit the figure */}
+                <span className="neg-offer-field">
+                  <span className="neg-offer-sign" aria-hidden="true">$</span>
+                  <input
+                    value={offerShown}
+                    style={{ width: `${Math.max(4, offerShown.length) + 0.5}ch` }}
+                    onChange={(e) => setOfferDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 8))}
+                    inputMode="numeric"
+                    placeholder="none"
+                    disabled={busy}
+                    aria-label={selling ? "Your price in dollars" : "Your offer in dollars"}
+                  />
+                </span>
               </label>
             </div>
             <div className="toolbar-right">
@@ -1700,8 +1741,8 @@ function Play({
               <button type="button" className="toolbar-chip-btn" onClick={() => close("walk")} disabled={busy}>
                 {selling ? "Keep it" : "Walk away"}
               </button>
-              <button type="button" className="toolbar-chip-btn" onClick={() => setPaying(true)} disabled={busy}>
-                {selling ? "Sell" : "Take it"} at {money(state.ask)}
+              <button type="button" className="neg-take" onClick={() => setPaying(true)} disabled={busy}>
+                {selling ? "Sell" : "Take it"} at <strong>{money(state.ask)}</strong>
               </button>
               <button
                 type="submit"
@@ -1965,6 +2006,7 @@ function PaySheet({
   amount,
   busy,
   onConfirm,
+  onDecline,
   onCancel,
 }: {
   /** Selling: the money is coming to you */
@@ -1976,6 +2018,8 @@ function PaySheet({
   amount: number;
   busy: boolean;
   onConfirm: () => void;
+  /** A payment the account cannot cover has just been turned down */
+  onDecline?: () => void;
   onCancel: () => void;
 }) {
   // The first tap arms the button; a second one soon after pays.
@@ -1983,7 +2027,22 @@ function PaySheet({
   const [armed, setArmed] = useState(false);
   const isArmed = useRef(false);
   const disarm = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(disarm.current), []);
+  // Paying more than the account holds goes through the whole double tap, and is turned down
+  const [declined, setDeclined] = useState(false);
+  const undecline = useRef<number | undefined>(undefined);
+  // ...after looking, for a moment, exactly like a payment going through
+  const [stalling, setStalling] = useState(false);
+  const stall = useRef<number | undefined>(undefined);
+  const sheet = useRef<HTMLDivElement>(null);
+  useEffect(
+    () => () => {
+      window.clearTimeout(disarm.current);
+      window.clearTimeout(undecline.current);
+      window.clearTimeout(stall.current);
+    },
+    [],
+  );
+  const working = busy || stalling;
 
   const arm = (on: boolean) => {
     isArmed.current = on;
@@ -1992,23 +2051,47 @@ function PaySheet({
 
   const short = !receiving && balance != null && balance < amount;
 
+  const decline = () => {
+    sounds.play("declined");
+    setDeclined(true);
+    onDecline?.();
+    window.clearTimeout(undecline.current);
+    undecline.current = window.setTimeout(() => setDeclined(false), DOUBLE_TAP_MS);
+    // The sheet shakes its head
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      sheet.current?.animate(
+        [0, -10, 9, -7, 5, -3, 0].map((x) => ({ transform: `translateX(${x}px)` })),
+        { duration: 420, easing: "ease-out" },
+      );
+    }
+  };
+
   const tap = () => {
-    if (busy || short) return;
+    if (working) return;
     window.clearTimeout(disarm.current);
     if (isArmed.current) {
       arm(false);
-      onConfirm();
+      if (short) {
+        setStalling(true);
+        stall.current = window.setTimeout(() => {
+          setStalling(false);
+          decline();
+        }, FAKE_PAYING_MS);
+      } else onConfirm();
       return;
     }
+    // A fresh try clears the last refusal
+    window.clearTimeout(undecline.current);
+    setDeclined(false);
     arm(true);
     disarm.current = window.setTimeout(() => arm(false), DOUBLE_TAP_MS);
   };
 
   return (
-    <div className="neg-pay-sheet" role="dialog" aria-label={receiving ? "Accept payment" : "Confirm payment"}>
+    <div ref={sheet} className="neg-pay-sheet" role="dialog" aria-label={receiving ? "Accept payment" : "Confirm payment"}>
       <div className="neg-pay-sheet-head">
         <span className="neg-pay-brand">ModelLoop Pay</span>
-        <button type="button" className="neg-link neg-link--quiet" onClick={onCancel} disabled={busy}>
+        <button type="button" className="neg-link neg-link--quiet" onClick={onCancel} disabled={working}>
           Cancel
         </button>
       </div>
@@ -2032,12 +2115,11 @@ function PaySheet({
           </div>
         )}
       </dl>
-      {short && <p className="neg-error">Not enough in your account. Talk them down, or walk away.</p>}
       <button
         type="button"
-        className={`neg-pay-confirm${armed ? " is-armed" : ""}`}
+        className={`neg-pay-confirm${armed ? " is-armed" : ""}${declined ? " is-declined" : ""}`}
         onClick={tap}
-        disabled={busy || short}
+        disabled={working}
         aria-live="polite"
       >
         <span className="neg-pay-confirm-mark" aria-hidden="true" />
@@ -2047,11 +2129,13 @@ function PaySheet({
             : armed
               ? "Tap again to accept"
               : "Double tap to accept"
-          : busy
+          : working
             ? "Paying"
-            : armed
-              ? "Tap again to pay"
-              : "Double tap to pay"}
+            : declined
+              ? "Declined"
+              : armed
+                ? "Tap again to pay"
+                : "Double tap to pay"}
       </button>
     </div>
   );

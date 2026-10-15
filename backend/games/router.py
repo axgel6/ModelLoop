@@ -1096,6 +1096,60 @@ async def ask_for_refund(game_id: uuid.UUID, user: User = Depends(get_user), db:
     return _serialize(game)
 
 
+class BounceRequest(BaseModel):
+    model: Optional[str] = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+    clean: bool          = False
+
+
+@router.patch("/{game_id}/bounce")
+@limiter.limit(CHAT_RATE_LIMIT)
+async def payment_bounced(
+    request: Request,
+    game_id: uuid.UUID,
+    body: BounceRequest,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Buying: the player tried to pay more than they have. The seller hears about it, once per chat."""
+    game = await _haggle_in_play(game_id, user, db)
+    state = game.state
+    if _haggle_rules(state) is not haggle or not haggle.can_bounce(state):
+        raise HTTPException(status_code=409, detail="Nothing to tell them")
+    # Only a payment that really could not go through bounces
+    run_game = state.get("run_id") and await _hustle_run(user, db, state["run_id"])
+    if run_game:
+        covered = hustle.can_pay(run_game.state, state["ask"])
+    elif state.get("run_id"):
+        covered = True
+    else:
+        covered = bank.can_pay((await _free_bank(user, db)).state, state["ask"] or 0)
+    if covered:
+        raise HTTPException(status_code=409, detail="That payment would go through")
+    turn_before = state["turn"]
+    base_url = await effective_ollama_url(user)
+    # The model can take a while; do not hold a pooled connection for it.
+    await db.close()
+
+    reply = await _ask_with_retry(
+        game_id, base_url, body.model, haggle.SYSTEM_PROMPT,
+        haggle.describe_bounce_for_model(state, clean=body.clean), haggle.REPLY_SCHEMA,
+    )
+    new_state = haggle.apply_bounce(state, reply)
+
+    async with AsyncSessionLocal() as write_db:
+        current = (await write_db.execute(
+            select(GameSession).where(GameSession.id == game_id, GameSession.user_id == user.id)
+        )).scalar_one_or_none()
+        if not current:
+            raise HTTPException(status_code=404, detail="Game not found")
+        if current.state.get("turn") != turn_before or current.state.get("status") != "active":
+            raise HTTPException(status_code=409, detail="This turn was already played. Reload the game.")
+        await write_db.execute(update(GameSession).where(GameSession.id == game_id).values(state=new_state))
+        await write_db.commit()
+        await write_db.refresh(current)
+        return _serialize(current)
+
+
 @router.patch("/{game_id}/switch")
 async def switch_buyer(game_id: uuid.UUID, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
     """Selling: drop this buyer for the one who just messaged with a better offer."""

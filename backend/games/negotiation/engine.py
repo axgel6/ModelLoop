@@ -661,6 +661,74 @@ def apply_turn(
     return s
 
 
+# The buyer's payment bounced: they tried to pay more than their account holds. The seller
+# hears about it once per chat, and it costs patience like any other message.
+BOUNCE_PATIENCE = 1
+
+
+def can_bounce(state: dict) -> bool:
+    return state.get("status") == "active" and not state.get("bounced")
+
+
+def bounce_note(state: dict) -> str:
+    """The bounced payment as a line in the chat, which is also how the model sees it later."""
+    return f"[Tried to pay {_money(state['ask'])} through ModelLoop Pay. Declined: not enough in the account.]"
+
+
+def describe_bounce_for_model(state: dict, clean: bool = False) -> str:
+    scenario = state["scenario"]
+    lines = [
+        f"You are {scenario['merchant']}, the seller. Personality: {scenario['persona']}.",
+        *extras.swearing(scenario, clean),
+        *extras.manner(scenario),
+        f"{scenario['merchant']} is your own name. The buyer is someone else: never call them {scenario['merchant']}.",
+        "",
+        f"You are selling: {scenario['item']}, listed at {_money(state['list_price'])}.",
+        f"Your price now stands at {_money(state['ask'])}.",
+        "",
+        "The chat so far:",
+        "Buyer: Hi, is this still available?",
+        f"You: {state['opening']}",
+    ]
+    for entry in state["log"][-MODEL_CONTEXT_ROUNDS:]:
+        lines.append(f"Buyer: {entry['you']}")
+        lines.append(f"You: {entry['reply']}")
+    lines += [
+        "",
+        f"What just happened: the buyer tried to pay you {_money(state['ask'])} through the app, and the payment was "
+        "declined. They do not have the money.",
+        f"Remember: you are {scenario['merchant']}, the SELLER. You own it; they want to buy it from you.",
+        "",
+        "Instruction for this round: REACT. Tell them the payment did not go through, in your own way and in a sentence "
+        "or two: surprised, unimpressed, sympathetic or annoyed, as your personality would be. Do not lower or change "
+        "your price, and do not write {price} or any number. Rate this -1 with move haggle.",
+    ]
+    return "\n".join(lines)
+
+
+def apply_bounce(state: dict, reply: dict) -> dict:
+    """The seller reacts to the bounced payment. Nothing about the price changes."""
+    if not can_bounce(state):
+        raise ValueError("They already know your payment bounced")
+    s = copy.deepcopy(state)
+    text = " ".join(str(reply.get("reply") or "").split())[:MAX_REPLY]
+    text = extras.tidy_reply(text, [s.get("opening") or ""] + [e.get("reply") or "" for e in s["log"]], NEUTRAL_REPLIES, s["scenario"])
+    said = _fill(text, s["ask"], (s["list_price"],)) or "Your payment didn't go through."
+    s["bounced"] = True
+    s["turn"] += 1
+    s["patience"] = max(0, s["patience"] - BOUNCE_PATIENCE)
+    s["final"] = s["final"] or s["patience"] <= 0
+    previous = s["log"][-1] if s["log"] else None
+    entry = {
+        "turn": s["turn"], "you": bounce_note(s), "offer": None, "persuasion": 0, "insulted": False,
+        "bounced": True, "reply": said, "ask": s["ask"], "final": s["final"], "at": now(),
+        # A price they had agreed still stands: they still want the money
+        "agreed": bool(previous and previous.get("agreed") and previous.get("ask") == s["ask"]),
+    }
+    s["log"] = (s["log"] + [entry])[-LOG_LIMIT:]
+    return s
+
+
 def accept(state: dict, scams: bool = False, rng: Optional[random.Random] = None) -> dict:
     """Buy at the price on the table, then collect it. A flaw nobody owned up to shows up at
     pickup; in Hustle (`scams`), a pricey item is now and then a fake."""

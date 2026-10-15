@@ -47,6 +47,8 @@ export interface HaggleEntry {
   flaw?: string;
   /** Buying: someone else bought it first */
   lost?: boolean;
+  /** Buying: not a message but a payment that bounced, which the seller reacted to */
+  bounced?: boolean;
   /** Selling: one of the other buyers messaged with a better offer after this round */
   ping?: { merchant: string; offer: number };
   /** When the round was played */
@@ -152,6 +154,8 @@ export interface HaggleState {
   final: boolean;
   /** The one bluff has been used */
   bluffed?: boolean;
+  /** Buying: the seller has already seen a payment of the player's bounce */
+  bounced?: boolean;
   log: HaggleEntry[];
   result: HaggleResult | null;
   /** Selling, before a buyer is picked: everyone who messaged */

@@ -649,6 +649,22 @@ html .neg .neg-pay-confirm.is-armed:hover {
   color: var(--game-accent-ink);
 }
 
+/* Turned down for want of funds: red for a moment, then back to waiting for a tap */
+html .neg .neg-pay-confirm.is-declined,
+html .neg .neg-pay-confirm.is-declined:hover {
+  background: var(--neg-down);
+  color: #fff;
+  /* The word on its own, in the brand's wide face */
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.neg-pay-confirm.is-declined .neg-pay-confirm-mark {
+  display: none;
+}
+
 .neg-controls {
   flex-shrink: 0;
   display: flex;
@@ -663,6 +679,139 @@ html .neg .neg-pay-confirm.is-armed:hover {
 .neg-composer {
   flex-shrink: 0;
   margin-top: 10px;
+}
+
+/* The offer is its own little field in the composer, so a number is the obvious thing to add */
+.neg-composer .neg-offer {
+  height: 32px;
+  padding: 0 4px;
+  margin-left: 4px;
+  gap: 8px;
+  cursor: text;
+}
+
+.neg-composer .neg-offer-field {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.neg-composer .neg-offer-sign,
+.neg-composer .neg-offer input {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--game-ink);
+}
+
+/* The dollar sign carries the accent, so the field stands out without a box or a line */
+.neg-composer .neg-offer-sign {
+  color: var(--game-accent);
+}
+
+.neg-composer .neg-offer input {
+  /* Its width is set inline from the figure's length */
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.neg-composer .neg-offer input::placeholder {
+  font-family: var(--ui-font);
+  font-stretch: 100%;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+/* Send: the chat's own send colour (not the game's accent), on a filled circle. The toolbar
+   strips button backgrounds with !important, so this has to answer in kind. */
+.neg-composer {
+  --send: #b8bb26;
+  --send-hover: #fabd2f;
+  --send-ink: #282828;
+  --send-off: #504945;
+}
+
+html[data-theme="dune"] .neg-composer {
+  --send: #d97757;
+  --send-hover: #c5623e;
+  --send-ink: #ffffff;
+  --send-off: #e7e0d8;
+}
+
+html[data-theme="frost"] .neg-composer {
+  --send: #9bcad8;
+  --send-hover: #84bece;
+  --send-ink: #2e3440;
+  --send-off: #434c5e;
+}
+
+html[data-theme="meadow"] .neg-composer {
+  --send: #46a177;
+  --send-hover: #428365;
+  --send-ink: #ffffff;
+  --send-off: #d5e3d9;
+}
+
+html .neg .neg-composer .input-toolbar .ask-button {
+  background: var(--send) !important;
+  color: var(--send-ink);
+}
+
+html .neg .neg-composer .input-toolbar .ask-button:hover:not(:disabled) {
+  background: var(--send-hover) !important;
+  color: var(--send-ink);
+  transform: scale(1.06);
+}
+
+html .neg .neg-composer .input-toolbar .ask-button:disabled {
+  background: var(--send-off) !important;
+  color: color-mix(in srgb, var(--send-ink) 45%, transparent);
+  opacity: 1;
+}
+
+/* The arrow is drawn leaning right; nudged back to sit in the middle of the circle */
+.neg-composer .ask-button svg {
+  transform: translate(-1px, 1px);
+}
+
+/* Taking the price on the table is the move that ends the chat: the one filled button.
+   Not a toolbar chip: those are stripped of any background with !important. html prefix:
+   the themes style every <button>, and this has to outrank that. */
+html .neg .neg-take,
+html .neg .neg-take:hover {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--game-accent);
+  color: var(--game-accent-ink);
+  font-family: var(--ui-font);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--game-accent) 35%, transparent);
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.12s;
+}
+
+html .neg .neg-take:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+html .neg .neg-take:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.neg-take strong {
+  margin-left: 2px;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .neg-offer {
