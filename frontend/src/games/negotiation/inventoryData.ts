@@ -10,3 +10,6 @@ export function inventoryTotals(items: InventoryItem[]) {
   const profit = soldItems.reduce((sum, i) => sum + (i.sold?.profit ?? 0), 0);
   return { spent, saved, share: listed > 0 ? Math.round((100 * saved) / listed) : 0, sold: soldItems.length, profit };
 }
+
+// The conditions a listing can state. Mirrors CONDITIONS in backend/games/negotiation/engine.py
+export const CONDITIONS = ["New", "Used - Like New", "Used - Good", "Used - Fair", "For parts"];

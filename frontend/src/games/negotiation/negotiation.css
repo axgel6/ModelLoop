@@ -590,6 +590,157 @@ html .neg .neg-pay-confirm.is-armed:hover {
   font-family: var(--ui-font);
 }
 
+/* ---- One listing, opened from All listings ---- */
+
+/* The app's round back button, with the header's title beside it */
+.neg-detail-back {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.neg-detail {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 2px 2px 4px;
+  scrollbar-width: thin;
+}
+
+.neg-detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.neg-detail-title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--game-ink);
+}
+
+.neg-detail-price {
+  flex-shrink: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--game-accent);
+}
+
+.neg-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.neg-detail-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+}
+
+.neg-detail-fact dt {
+  margin: 0;
+  font-size: 0.7rem;
+}
+
+.neg-detail-fact dd {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--game-ink);
+}
+
+.neg-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neg-detail-section .pref-field-label {
+  margin: 0 0 0 4px;
+}
+
+.neg-detail-description {
+  margin: 0 4px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--game-ink);
+  white-space: pre-line;
+}
+
+html .neg-browser .neg-detail-seller {
+  margin: 0;
+}
+
+.neg-detail-seller {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+}
+
+.neg-detail-seller .pref-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.neg-detail-stars {
+  letter-spacing: 1px;
+  color: var(--game-accent);
+}
+
+.neg-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+/* The quieter of the two: the same size as the start button, outlined instead of filled */
+html .neg-browser .neg-detail-save,
+html .neg-browser .neg-detail-save:hover {
+  padding: 8px 24px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 25px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transform: none;
+}
+
+html .neg-browser .neg-detail-save:hover {
+  border-color: var(--game-accent);
+  color: var(--game-ink);
+}
+
+html .neg-browser .neg-detail-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.neg-detail-note {
+  margin: -6px 0 0 4px;
+}
+
 .neg-browser .landing-theme-modal-header {
   margin-bottom: 0;
 }
@@ -642,6 +793,46 @@ html .neg-browser .neg-chip.is-on:hover {
 .neg-browser-bar .pref-setting-hint {
   flex: 1;
   white-space: nowrap;
+}
+
+/* All listings: condition, price and sort, side by side in even columns */
+.neg-browser-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 14px;
+}
+
+/* Each label over its select, so the select has the whole column */
+.neg-browser-filters .neg-select {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+.neg-browser-filters .neg-select span {
+  padding-left: 10px;
+}
+
+.neg-browser-filters .neg-select select {
+  width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 380px) {
+  .neg-browser-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Sort takes the second row to itself rather than sitting alone in half of it */
+  .neg-browser-filters .neg-select:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+html .neg-browser .neg-browser-count {
+  margin: -2px 0 -4px 10px;
 }
 
 .neg-select {
@@ -825,25 +1016,80 @@ html .neg .neg-modes .neg-chip.is-on:hover {
   color: var(--game-accent-ink);
 }
 
-/* The asking price, under the item picked to sell */
-.neg-asking {
+/* The listing for the item picked to sell: every field labelled the same way */
+.neg .neg-relist {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.neg-relist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.neg-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: -6px 4px 18px;
+  min-width: 0;
 }
 
-.neg-asking .neg-offer {
-  align-self: flex-start;
+.neg-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--game-muted);
+}
+
+.neg-field-input {
+  width: 100%;
   height: 36px;
   padding: 0 14px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--game-card-border);
   border-radius: 999px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+  color: var(--game-ink);
+  font-family: var(--ui-font);
   font-size: 0.8rem;
+  outline: none;
+}
+
+select.neg-field-input {
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.neg-field-input:focus,
+.neg-field-input:focus-within,
+.neg-relist .neg-custom-description:focus {
+  border-color: var(--game-accent);
+}
+
+.neg-field-money {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--game-muted);
+}
+
+.neg-field-money input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.neg-relist .pref-setting-hint {
+  margin: -6px 0 0 4px;
 }
 
 .neg-listing .neg-notes {

@@ -29,6 +29,7 @@ import {
   type HustleView,
 } from "./hustleData";
 import { Inventory } from "./Inventory";
+import { CONDITIONS } from "./inventoryData";
 import { ListingBrowser } from "./ListingBrowser";
 import { apiListings, apiOverview, cachedListings, cachedOverview } from "./menuData";
 import { cleanText, isCleanLanguage } from "./settings";
@@ -198,6 +199,10 @@ function Menu({
   const [asking, setAsking] = useState("");
   // Free play: the listing's description, rewritten as the player likes. Hustle: notes added under it
   const [listingText, setListingText] = useState("");
+  // Free play: the rest of the listing, also the player's to change
+  const [listingTitle, setListingTitle] = useState("");
+  const [listingCondition, setListingCondition] = useState("");
+  const [listingCategory, setListingCategory] = useState("");
   const [saleScores, setSaleScores] = useState<GameScoreRow[]>(cached?.scores.sell ?? []);
   const [unfinished, setUnfinished] = useState<GameSaveSummary<HaggleSummary> | null>(cached?.unfinished ?? null);
   const [scores, setScores] = useState<GameScoreRow[]>(cached?.scores.buy ?? []);
@@ -276,7 +281,22 @@ function Menu({
     setMode("sell");
     setSellPick(item.id);
     setAsking(String(item.value ?? item.list_price));
-    setListingText(live ? lockedText(item) : (item.description ?? ""));
+    // Whatever the player changed the last time it went up for sale, for this item alone
+    setListingText(live ? lockedText(item) + (item.notes ?? "") : (item.description ?? ""));
+    setListingTitle(item.title);
+    setListingCondition(item.condition ?? "");
+    setListingCategory(item.category ?? "");
+  };
+
+  // Free play: only what the player changed goes with the listing
+  const listingEdits = (item: InventoryItem) => {
+    const edits: Record<string, string> = {};
+    const title = listingTitle.trim().replace(/\s+/g, " ");
+    if (title !== item.title) edits.title = title;
+    if (listingCondition !== (item.condition ?? "")) edits.condition = listingCondition;
+    if (listingCategory !== (item.category ?? "")) edits.category = listingCategory;
+    if (listingText.trim() !== (item.description ?? "").trim()) edits.description = listingText.trim();
+    return edits;
   };
 
   const run = async (load: () => Promise<HaggleSave>) => {
@@ -532,6 +552,14 @@ function Menu({
           <ListingBrowser
             listings={browsable}
             selected={scenario}
+            busy={busy}
+            error={error}
+            note={
+              [live ? "Starting a chat uses a day." : "", unfinished ? "It drops the chat still on the table." : ""]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
+            onMessage={(listing) => run(() => apiCreateGame<HaggleState>(GAME_TYPE, { scenario: listing.id, hustle: !!live }))}
             onClose={() => setBrowsing(false)}
             onPick={(listing) => {
               // The pick joins the handful on the start screen, at the top, if it was not there already
@@ -582,45 +610,102 @@ function Menu({
             </div>
 
             {picked && (
-              <div className="neg-asking">
-                <label className="neg-offer">
-                  <span>Asking price $</span>
-                  <input
-                    value={asking}
-                    onChange={(e) => setAsking(e.target.value.replace(/[^\d]/g, "").slice(0, 7))}
-                    inputMode="numeric"
-                    aria-label="Your asking price in dollars"
-                  />
-                </label>
-                <span className="pref-setting-hint">
-                  Resells for about {money(picked.value ?? picked.list_price)}
-                  {picked.paid != null && ` · you paid ${money(picked.paid)}`}
-                </span>
-                {live ? (
-                  <>
-                    <textarea
-                      className="neg-custom-description"
-                      value={listingText}
-                      onChange={(e) => e.target.value.startsWith(locked) && setListingText(e.target.value)}
-                      maxLength={locked.length + 300}
-                      rows={4}
-                      aria-label="The listing's description, with your notes added at the end"
-                      placeholder="Add your own notes: what is included, why it is a good deal."
-                    />
-                    <span className="pref-setting-hint">Add your notes at the end. Buyers will not believe claims that contradict the listing.</span>
-                  </>
-                ) : (
-                  <textarea
-                    className="neg-custom-description"
-                    value={listingText}
-                    onChange={(e) => setListingText(e.target.value)}
-                    maxLength={600}
-                    rows={3}
-                    aria-label="The listing's description"
-                    placeholder="Condition, what is included, any flaws. The buyer only knows what is written here."
-                  />
-                )}
-              </div>
+              <>
+                <h3 className="pref-field-label neg-section">Your listing</h3>
+                <div className="pref-account-card neg-card neg-relist">
+                  {!live && (
+                    <label className="neg-field">
+                      <span className="neg-field-label">Title</span>
+                      <input
+                        className="neg-field-input"
+                        value={listingTitle}
+                        onChange={(e) => setListingTitle(e.target.value)}
+                        maxLength={80}
+                        placeholder={picked.title}
+                      />
+                    </label>
+                  )}
+                  <div className="neg-relist-grid">
+                    <label className="neg-field">
+                      <span className="neg-field-label">Asking price</span>
+                      <span className="neg-field-input neg-field-money">
+                        $
+                        <input
+                          value={asking}
+                          onChange={(e) => setAsking(e.target.value.replace(/[^\d]/g, "").slice(0, 7))}
+                          inputMode="numeric"
+                          aria-label="Your asking price in dollars"
+                        />
+                      </span>
+                    </label>
+                    {!live && (
+                      <>
+                        <label className="neg-field">
+                          <span className="neg-field-label">Condition</span>
+                          <select
+                            className="neg-field-input"
+                            value={listingCondition}
+                            onChange={(e) => setListingCondition(e.target.value)}
+                          >
+                            <option value="">Not stated</option>
+                            {CONDITIONS.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="neg-field">
+                          <span className="neg-field-label">Category</span>
+                          <select
+                            className="neg-field-input"
+                            value={listingCategory}
+                            onChange={(e) => setListingCategory(e.target.value)}
+                          >
+                            <option value="">Custom</option>
+                            {[...new Set([...(picked.category ? [picked.category] : []), ...categories])].map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </>
+                    )}
+                  </div>
+                  <span className="pref-setting-hint">
+                    Resells for about {money(picked.value ?? picked.list_price)}
+                    {picked.paid != null && `. You paid ${money(picked.paid)}`}.
+                  </span>
+                  <label className="neg-field">
+                    <span className="neg-field-label">{live ? "Description and your notes" : "Description"}</span>
+                    {live ? (
+                      <textarea
+                        className="neg-custom-description"
+                        value={listingText}
+                        onChange={(e) => e.target.value.startsWith(locked) && setListingText(e.target.value)}
+                        maxLength={locked.length + 300}
+                        rows={4}
+                        placeholder="Add your own notes: what is included, why it is a good deal."
+                      />
+                    ) : (
+                      <textarea
+                        className="neg-custom-description"
+                        value={listingText}
+                        onChange={(e) => setListingText(e.target.value)}
+                        maxLength={600}
+                        rows={3}
+                        placeholder="Condition, what is included, any flaws. The buyer only knows what is written here."
+                      />
+                    )}
+                  </label>
+                  {live && (
+                    <span className="pref-setting-hint">
+                      Add your notes at the end. Buyers will not believe claims that contradict the listing.
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </>
         )}
@@ -652,14 +737,12 @@ function Menu({
                     asking: askingValue > 0 ? askingValue : undefined,
                     ...(live
                       ? { notes: listingText.slice(locked.length).trim() || undefined }
-                      : listingText.trim() !== (picked.description ?? "").trim()
-                        ? { description: listingText.trim() }
-                        : {}),
+                      : listingEdits(picked)),
                     hustle: !!live,
                   }),
                 )
               }
-              disabled={busy || !picked || !(askingValue > 0)}
+              disabled={busy || !picked || !(askingValue > 0) || (!live && listingTitle.trim().length < 3)}
             >
               {busy ? "Posting" : "List it"}
             </button>

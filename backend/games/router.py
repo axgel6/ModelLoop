@@ -96,8 +96,11 @@ class NewNegotiation(BaseModel):
     custom:       Optional[CustomListing] = None
     inventory_id: Optional[uuid.UUID]     = None
     asking:       Optional[int]           = Field(default=None, gt=0, le=1_000_000)
-    # Selling from the inventory. Free play may rewrite the description; a Hustle run keeps the
-    # item's real description and condition, and the player adds notes the buyer takes as claims
+    # Selling from the inventory. Free play may rewrite the title, condition, category and description;
+    # a Hustle run keeps the item's real listing, and the player adds notes the buyer takes as claims
+    title:        Optional[str]           = Field(default=None, min_length=3, max_length=80)
+    condition:    Optional[str]           = Field(default=None, max_length=20)
+    category:     Optional[str]           = Field(default=None, max_length=30)
     description:  Optional[str]           = Field(default=None, max_length=600)
     notes:        Optional[str]           = Field(default=None, max_length=300)
     # Part of the player's Hustle run: real money, and it uses a day
@@ -507,8 +510,20 @@ async def create_negotiation(
                 "value": item.get("value") or item["list_price"],
                 **{k: item.get(k) for k in ("condition", "description", "category", "setting")},
             }
+            edits = {}
+            if body.title is not None:
+                edits["title"] = listing["item"] = " ".join(body.title.split())
+            if body.condition is not None:
+                # Blank is "Not stated"
+                edits["condition"] = listing["condition"] = body.condition if body.condition in haggle.CONDITIONS else None
+            if body.category is not None:
+                edits["category"] = listing["category"] = " ".join(body.category.split()) or "Custom"
             if body.description is not None:
-                listing["description"] = " ".join(body.description.split())
+                edits["description"] = listing["description"] = " ".join(body.description.split())
+            if edits:
+                # Kept with this purchase alone, apart from what the seller's listing said, so the
+                # next time it goes up for sale it starts from the player's own version
+                row.detail = {**row.detail, "edits": {**(row.detail.get("edits") or {}), **edits}}
             state = selling.new_game(
                 listing, body.asking or item["list_price"], item.get("paid"), str(row.id), body.difficulty, patience_bonus=trust,
             )
@@ -538,8 +553,8 @@ async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession
     run = run_game.state
     if body.custom:
         raise HTTPException(status_code=422, detail="Listings of your own are for free play")
-    if body.description is not None:
-        raise HTTPException(status_code=422, detail="A Hustle item keeps its description; add notes instead")
+    if any(v is not None for v in (body.title, body.condition, body.category, body.description)):
+        raise HTTPException(status_code=422, detail="A Hustle item keeps its listing; add notes instead")
     if body.mode == selling.MODE:
         item = body.inventory_id and hustle.holding(run, str(body.inventory_id))
         if not item or item.get("sold"):
@@ -573,9 +588,13 @@ async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession
             patience_bonus=trust,
         )
     try:
-        run_game.state = hustle.start_chat(run)
+        started = hustle.start_chat(run)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    if body.mode == selling.MODE:
+        # The notes stay with this holding, to start from the next time it goes up for sale
+        hustle.holding(started, str(body.inventory_id))["notes"] = state["scenario"]["notes"]
+    run_game.state = started
     state["run_id"] = str(run_game.id)
     await db.execute(
         delete(GameSession).where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)

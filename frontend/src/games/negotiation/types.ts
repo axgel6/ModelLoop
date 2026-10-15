@@ -98,6 +98,18 @@ export interface HaggleListing {
   value: number;
   /** The shelf it sits on, such as "Consoles" or "Fragrance" */
   category: string;
+  /** The seller's public profile. Flavour only: it says nothing of how low they will go */
+  seller?: SellerProfile;
+}
+
+export interface SellerProfile {
+  /** The year they joined the Marketplace */
+  joined: number;
+  /** Out of 5, from `ratings` buyers */
+  rating: number;
+  ratings: number;
+  /** "within minutes", "within an hour" or "within a few hours" */
+  replies: string;
 }
 
 export interface HaggleState {
@@ -199,6 +211,8 @@ export interface InventoryItem {
   category?: string | null;
   description?: string | null;
   setting?: string | null;
+  /** Hustle: the seller's notes the player added the last time it went up for sale */
+  notes?: string | null;
   /** Hustle: it turned out to be a fake at pickup */
   fake?: boolean;
   /** A flaw found while buying it, or at pickup */

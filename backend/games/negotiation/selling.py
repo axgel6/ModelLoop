@@ -40,11 +40,11 @@ RATINGS = [
 ]
 
 # Who turns up shapes the sale: how high they will go (a share of what the item is worth),
-# where they open (a share of that ceiling, or of the asking price if that is more), and how
-# long they will put up with you.
+# where they open (a share of that ceiling, or of the asking price if that is more), how
+# slowly they come up (added to the usual resistance), and how long they will put up with you.
 BUYERS = [
     {
-        "kind": "Lowballer", "ceiling": (0.80, 1.00), "opening": 0.55, "anchor": 0.50, "patience": 0,
+        "kind": "Lowballer", "resistance": 0.10, "ceiling": (0.80, 1.00), "opening": 0.55, "anchor": 0.50, "patience": 0,
         "persona": "opens absurdly low and acts like they are doing you a favour, types fast, loves the word firm",
         "openings": [
             "is this available? i can do {price} cash today",
@@ -52,7 +52,7 @@ BUYERS = [
         ],
     },
     {
-        "kind": "Reseller", "ceiling": (0.75, 0.95), "opening": 0.65, "anchor": 0.60, "patience": 0,
+        "kind": "Reseller", "resistance": 0.10, "ceiling": (0.75, 0.95), "opening": 0.65, "anchor": 0.60, "patience": 0,
         "persona": "flips things for a living, knows exactly what it sells for, needs margin and says so plainly",
         "openings": [
             "Hi, still available? I could do {price}, I know what these go for.",
@@ -60,7 +60,7 @@ BUYERS = [
         ],
     },
     {
-        "kind": "Collector", "ceiling": (1.05, 1.30), "opening": 0.75, "anchor": 0.85, "patience": 1,
+        "kind": "Collector", "resistance": -0.10, "ceiling": (1.05, 1.30), "opening": 0.75, "anchor": 0.85, "patience": 1,
         "persona": "has wanted this exact item for ages and is trying hard not to show it, asks detailed questions",
         "openings": [
             "Hi! Is this still available? I've been looking for one of these. Would you take {price}?",
@@ -68,7 +68,7 @@ BUYERS = [
         ],
     },
     {
-        "kind": "Regular buyer", "ceiling": (0.90, 1.10), "opening": 0.75, "anchor": 0.75, "patience": 0,
+        "kind": "Regular buyer", "resistance": 0.0, "ceiling": (0.90, 1.10), "opening": 0.75, "anchor": 0.75, "patience": 0,
         "persona": "a normal person on a budget, polite, wants a fair price and a smooth pickup",
         "openings": [
             "Hi, is this still available? Would you consider {price}?",
@@ -76,7 +76,7 @@ BUYERS = [
         ],
     },
     {
-        "kind": "Flaky buyer", "ceiling": (0.85, 1.05), "opening": 0.70, "anchor": 0.70, "patience": -2,
+        "kind": "Flaky buyer", "resistance": -0.05, "ceiling": (0.85, 1.05), "opening": 0.70, "anchor": 0.70, "patience": -2,
         "persona": "easily distracted, replies in fragments, loses interest quickly if the chat drags",
         "openings": [
             "is this still available",
@@ -86,7 +86,7 @@ BUYERS = [
 ]
 BUYERS += [
     {
-        "kind": "Student", "ceiling": (0.70, 0.90), "opening": 0.60, "anchor": 0.55, "patience": 0,
+        "kind": "Student", "resistance": 0.05, "ceiling": (0.70, 0.90), "opening": 0.60, "anchor": 0.55, "patience": 0,
         "persona": "a broke college student, polite, counts every dollar, sometimes asks if they can pay half now",
         "openings": [
             "Hi! Is this still available? I'm a student, could you do {price}?",
@@ -94,7 +94,7 @@ BUYERS += [
         ],
     },
     {
-        "kind": "Gift shopper", "ceiling": (0.95, 1.20), "opening": 0.70, "anchor": 0.80, "patience": 1,
+        "kind": "Gift shopper", "resistance": -0.10, "ceiling": (0.95, 1.20), "opening": 0.70, "anchor": 0.80, "patience": 1,
         "persona": "buying a birthday present at the last minute, anxious about timing, will pay a little more to get it today",
         "openings": [
             "Hi! Is this available? It's for a birthday this weekend. Could you do {price}?",
@@ -102,7 +102,7 @@ BUYERS += [
         ],
     },
     {
-        "kind": "Scalper", "ceiling": (0.60, 0.80), "opening": 0.50, "anchor": 0.45, "patience": -1,
+        "kind": "Scalper", "resistance": 0.15, "ceiling": (0.60, 0.80), "opening": 0.50, "anchor": 0.45, "patience": -1,
         "persona": "flips everything for profit, blunt, pushes hard and threatens to walk constantly",
         "openings": [
             "{price}. cash. today. yes or no",
@@ -110,7 +110,7 @@ BUYERS += [
         ],
     },
     {
-        "kind": "Parent", "ceiling": (0.85, 1.05), "opening": 0.70, "anchor": 0.75, "patience": 1,
+        "kind": "Parent", "resistance": -0.05, "ceiling": (0.85, 1.05), "opening": 0.70, "anchor": 0.75, "patience": 1,
         "persona": "a parent shopping for their kid, friendly, asks practical questions about condition and pickup",
         "openings": [
             "Hi there! Is this still available? My son would love it. Would you take {price}?",
@@ -118,7 +118,7 @@ BUYERS += [
         ],
     },
     {
-        "kind": "Millionaire", "ceiling": (1.50, 3.00), "opening": 0.55, "anchor": 0.95, "patience": 2, "weight": 0.35,
+        "kind": "Millionaire", "resistance": -0.15, "ceiling": (1.50, 3.00), "opening": 0.55, "anchor": 0.95, "patience": 2, "weight": 0.35,
         "persona": "made a fortune young, money means nothing to them, buys on a whim, bored by haggling but pays extra for a good story or a little flattery",
         "names": ["Sterling", "Valentina", "Maximilian", "Aurelia", "Cassius", "Genevieve"],
         "openings": [
@@ -127,7 +127,7 @@ BUYERS += [
         ],
     },
     {
-        "kind": "Tech founder", "ceiling": (1.30, 2.40), "opening": 0.60, "anchor": 0.90, "patience": 1, "weight": 0.35,
+        "kind": "Tech founder", "resistance": -0.10, "ceiling": (1.30, 2.40), "opening": 0.60, "anchor": 0.90, "patience": 1, "weight": 0.35,
         "persona": "just sold their startup, talks fast, values speed over price, pays more to skip the back and forth",
         "names": ["Arjun", "Skye", "Elon", "Priya", "Devin", "Margo"],
         "openings": [
@@ -138,7 +138,7 @@ BUYERS += [
 ]
 BUYERS += [
     {
-        "kind": "Unhinged", "ceiling": (0.85, 1.30), "opening": 0.60, "anchor": 0.70, "patience": 0, "weight": 0.5,
+        "kind": "Unhinged", "resistance": 0.0, "ceiling": (0.85, 1.30), "opening": 0.60, "anchor": 0.70, "patience": 0, "weight": 0.5,
         "swears": True,
         "persona": "loud, chaotic and funny, wildly hyped or wildly dramatic about the item, harmless and friendly underneath",
         "names": ["Rocco", "Tiff", "Dez", "Bones", "Mags", "Vinnie"],
@@ -275,6 +275,10 @@ def new_game(
     }
 
 
+BUYER_RESISTANCE = (0.25, 0.80)  # how slowly any buyer comes up, at the least and the most
+RESISTANCE_JITTER = 0.04         # two buyers of the same kind still differ a little
+
+
 def _prospect(rng: random.Random, worth: int, asking: int, level: dict, taken: set[str], patience_bonus: int = 0) -> dict:
     """One buyer who messaged about the listing: who they are, their first offer, and their hidden limit."""
     buyer = rng.choices(BUYERS, weights=[b.get("weight", 1.0) for b in BUYERS])[0]
@@ -289,10 +293,13 @@ def _prospect(rng: random.Random, worth: int, asking: int, level: dict, taken: s
     name = rng.choice(names)
     taken.add(name)
     patience = max(3, level["patience"] + buyer["patience"] + patience_bonus)
+    # How hard this one haggles is theirs: a scalper barely moves, a millionaire comes up fast
+    resistance = round(min(BUYER_RESISTANCE[1], max(BUYER_RESISTANCE[0],
+        level["resistance"] + buyer.get("resistance", 0.0) + rng.uniform(-RESISTANCE_JITTER, RESISTANCE_JITTER))), 3)
     return {
         "merchant": name, "kind": buyer["kind"], "persona": buyer["persona"], "swears": bool(buyer.get("swears")),
         "opening": _fill(opening, opening_bid), "opening_bid": opening_bid, "ceiling": ceiling,
-        "patience": patience, "opening_agreed": opening_bid >= asking,
+        "patience": patience, "resistance": resistance, "opening_agreed": opening_bid >= asking,
     }
 
 
@@ -312,18 +319,22 @@ def choose(state: dict, index: int) -> dict:
     s.update(
         opening=p["opening"], ask=p["opening_bid"], opening_bid=p["opening_bid"], ceiling=p["ceiling"],
         patience=p["patience"], patience_max=p["patience"], opening_agreed=p["opening_agreed"],
+        # Buyers from before each had their own keep the listing's
+        resistance=p.get("resistance", s["resistance"]), resistance_base=p.get("resistance", s["resistance"]),
     )
     return s
 
 
 def public(state: dict) -> dict:
     """The buyer's limit stays hidden until the sale is over, and so do the limits of the buyers in the inbox."""
-    hidden = ("resistance", "others") if state.get("status") not in ("active", "choosing") else ("resistance", "ceiling", "others")
+    hidden = ("resistance", "resistance_base", "others")
+    if state.get("status") in ("active", "choosing"):
+        hidden += ("ceiling",)
     out = {k: v for k, v in state.items() if k not in hidden}
     if out.get("ping"):
         out["ping"] = {k: out["ping"][k] for k in ("merchant", "offer")}
     if "prospects" in out:
-        out["prospects"] = [{k: v for k, v in p.items() if k != "ceiling"} for p in out["prospects"]]
+        out["prospects"] = [{k: v for k, v in p.items() if k not in ("ceiling", "resistance")} for p in out["prospects"]]
     return out
 
 
@@ -397,6 +408,7 @@ def switch(state: dict) -> dict:
         opening=f"Hey, still available? I can do {_money(ping['offer'])}.", ask=ping["offer"], opening_bid=ping["offer"],
         ceiling=p["ceiling"], patience=p["patience"], patience_max=p["patience"], final=False, bluffed=False,
         sweeteners=[], log=[], opening_agreed=ping["offer"] >= s["list_price"],
+        resistance=p.get("resistance", s["resistance"]), resistance_base=p.get("resistance", s["resistance"]),
     )
     # The turn moves on, so a reply still on its way for the old buyer is not saved over this
     s["turn"] += 1
@@ -550,7 +562,8 @@ def apply_turn(
             entry["insulted"] = True
             persuasion = entry["persuasion"] = min(persuasion, 0)
         s["patience"] = max(0, s["patience"] - (BLUFF_PATIENCE if bluff else 2 if entry["insulted"] else 1))
-        stiffest = min(MAX_RESISTANCE, DIFFICULTIES[s["difficulty"]]["resistance"] + MAX_STIFFENING)
+        base = s.get("resistance_base") or DIFFICULTIES[s["difficulty"]]["resistance"]
+        stiffest = min(MAX_RESISTANCE, base + MAX_STIFFENING)
         s["resistance"] = max(0.0, min(stiffest, s["resistance"] - RESISTANCE_PER_POINT * persuasion))
         reserve = _reserve(s)
         if price is not None and price <= reserve:

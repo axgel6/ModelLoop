@@ -351,10 +351,34 @@ def public(state: dict) -> dict:
     return out
 
 
+# How quickly a seller replies, as their profile puts it, where their persona says
+_FAST_REPLIES = re.compile(r"\b(quickly|within seconds|fast|instantly|immediately|eager)\b")
+_SLOW_REPLIES = re.compile(r"\b(unhurried|slow to reply|late at night|between other things|takes (his|her|their) time)\b")
+REPLY_TIMES = ("within minutes", "within an hour", "within a few hours")
+
+
+def seller_profile(scenario: dict) -> dict:
+    """What the seller's public profile shows, the same every time for the same listing.
+    Flavour only: nothing in it gives away their personality or how low they will go."""
+    rng = random.Random(f"seller:{scenario['id']}")
+    persona = scenario.get("persona") or ""
+    replies = rng.choice(REPLY_TIMES)
+    if _FAST_REPLIES.search(persona):
+        replies = REPLY_TIMES[0]
+    elif _SLOW_REPLIES.search(persona):
+        replies = REPLY_TIMES[2]
+    return {
+        "joined": rng.randint(2011, 2025),
+        "rating": round(rng.uniform(4.2, 5.0), 1),
+        "ratings": rng.randint(3, 180),
+        "replies": replies,
+    }
+
+
 def catalogue() -> list[dict]:
     """Every listing as the start screen shows it. The seller's personality and limits stay out of it."""
     keys = ("id", "item", "merchant", "setting", "condition", "description", "list_price", "category")
-    return [{**{k: s[k] for k in keys}, "value": market_value(s)} for s in SCENARIOS]
+    return [{**{k: s[k] for k in keys}, "value": market_value(s), "seller": seller_profile(s)} for s in SCENARIOS]
 
 
 def category_of(scenario_id: Optional[str]) -> Optional[str]:
@@ -374,6 +398,8 @@ def inventory_item(row: dict) -> dict:
         row["value"] = market_value(listing) if listing else row["list_price"]
     if row.get("saved") is None and row.get("paid") is not None and row.get("list_price"):
         row["saved"] = row["list_price"] - row["paid"]
+    # What the player changed when they put it up for sale, for this purchase alone
+    row.update(row.pop("edits", None) or {})
     return row
 
 

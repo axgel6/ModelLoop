@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeKey } from "../../components/useEscapeKey";
+import { CONDITIONS } from "./inventoryData";
 import type { CustomListing } from "./types";
-
-const CONDITIONS = ["New", "Used - Like New", "Used - Good", "Used - Fair", "For parts"];
 
 /** List something of your own to sell. A model buyer messages about it. */
 export function CustomListingForm({
