@@ -23,6 +23,7 @@ import {
   apiGetGuestFeatures,
   apiGetLimits,
   apiGuestChatStream,
+  apiPrivateChatStream,
   apiListDocuments,
   apiUploadDocument,
   apiDeleteDocument,
@@ -247,6 +248,12 @@ function Chat({
   const [showGames, setShowGames] = useState(() => inGamesPath());
   // Bumped on every click of the sidebar's Games entry, which remounts the hub
   const [gamesVisit, setGamesVisit] = useState(0);
+  // A private chat is never saved: it lives only on screen, and a refresh ends it
+  const [privateMode, setPrivateMode] = useState(false);
+  // Opening a saved chat leaves private mode
+  useEffect(() => {
+    if (activeChatId) setPrivateMode(false);
+  }, [activeChatId]);
 
   // The address bar follows what is on screen, so a refresh lands back here. Inside the games,
   // the hub and each game keep their own deeper part of the path.
@@ -336,6 +343,8 @@ function Chat({
       if (key !== "h" && key !== "p" && key !== "k") return;
       e.preventDefault();
       if (isTyping && key !== "k") return;
+      // The sidebar and chat search stay out of a private chat
+      if (privateMode && (key === "h" || key === "k")) return;
       if (key === "k") {
         if (!isGuest) { setShowSearch(true); setSidebarOpen(true); }
         return;
@@ -347,7 +356,7 @@ function Chat({
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [showPreferences, isGuest]);
+  }, [showPreferences, isGuest, privateMode]);
 
   useEffect(() => {
     if (!activeChatId || isGuest) {
@@ -512,7 +521,9 @@ function Chat({
     }
 
     const userMessage = rawInput;
-    const historyForGuest = isGuest ? (historyOverride ?? [...messages]) : null;
+    // Guests and private chats have no saved history, so it is sent with the message
+    const unsaved = isGuest || privateMode;
+    const historyForGuest = unsaved ? (historyOverride ?? [...messages]) : null;
 
     setLoading(true);
     setMessages((prev) => [
@@ -528,7 +539,7 @@ function Chat({
     setIsThinking(true);
 
     let chatId: string | null = null;
-    if (!isGuest) {
+    if (!unsaved) {
       chatId = await ensureChatId(userMessage);
       if (!chatId) {
         setMessages((prev) => prev.slice(0, -2));
@@ -556,6 +567,24 @@ function Chat({
               num_predict: numPredict,
               images,
               think: thinking && canThink,
+            },
+            ctrl.signal,
+          )
+        : privateMode
+        ? await apiPrivateChatStream(
+            {
+              prompt: userMessage,
+              messages: historyForGuest!,
+              model: selectedModel || undefined,
+              system_prompt: systemPrompt.trim()
+                ? withMandatoryPromptRules(systemPrompt)
+                : undefined,
+              temperature,
+              top_p: topP,
+              num_predict: numPredict,
+              images,
+              think: thinking && canThink,
+              force_search: options?.forceSearch,
             },
             ctrl.signal,
           )
@@ -687,7 +716,7 @@ function Chat({
               setLoading(false);
               // No tone here: a chime after every reply wears thin quickly.
               haptics.trigger("medium", { silent: true });
-              if (!isGuest) onChatsChanged();
+              if (!unsaved) onChatsChanged();
             } else if (data.type === "error") {
               flushAndCancelPendingFrame();
               haptics.trigger("warning");
@@ -916,6 +945,13 @@ function Chat({
     onChatCreated("");
   };
 
+  // Either way the conversation on screen is left behind: a private one is gone for good
+  const handleTogglePrivate = () => {
+    handleNewChat();
+    if (!privateMode) sounds.play("lock");
+    setPrivateMode(!privateMode);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     onLogout();
@@ -980,7 +1016,9 @@ function Chat({
   }, [chats, historySearch, deletingIds]);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
-  const chatTitle = activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
+  const chatTitle = privateMode
+    ? "Private Chat"
+    : activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
 
   const estimatedTokens = useMemo(
     () =>
@@ -1001,13 +1039,14 @@ function Chat({
 
       <div className="chat-layout">
         {/* ---- Sidebar ---- */}
-        {!isGuest && (sidebarOpen || sidebarClosing || isMobileViewport) && (
+        {/* Hidden in a private chat, along with the history it lists */}
+        {!isGuest && !privateMode && (sidebarOpen || sidebarClosing || isMobileViewport) && (
           <div
             className={`sidebar-backdrop${sidebarOpen ? " open" : ""}`}
             onClick={closeSidebar}
           />
         )}
-        {!isGuest && (sidebarOpen || sidebarClosing || isMobileViewport) && (
+        {!isGuest && !privateMode && (sidebarOpen || sidebarClosing || isMobileViewport) && (
           <aside
             className={`chat-sidebar${sidebarOpen ? " open" : ""}${sidebarClosing ? " closing" : ""}`}
           >
@@ -1255,11 +1294,11 @@ function Chat({
         )}
 
         {/* ---- Main area ---- */}
-        <div className={`chat-main${showGames ? " games-open" : ""}`}>
+        <div className={`chat-main${showGames ? " games-open" : privateMode ? " is-private" : ""}`}>
           {/* Topbar */}
           <div className="chat-topbar">
             <div className="topbar-left">
-              {!isGuest && !sidebarOpen && (
+              {!isGuest && !privateMode && !sidebarOpen && (
                 <button
                   className="topbar-icon-btn"
                   onClick={() => setSidebarOpen((v) => !v)}
@@ -1436,6 +1475,33 @@ function Chat({
               )}
               {!isGuest && (
                 <button
+                  className={`topbar-icon-btn private-toggle${privateMode ? " is-private" : ""}`}
+                  onClick={handleTogglePrivate}
+                  disabled={loading}
+                  title=""
+                  aria-pressed={privateMode}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 21V10a7 7 0 0 1 14 0v11l-2.33-2-2.34 2L12 19l-2.33 2-2.34-2z" />
+                    <line x1="9.5" y1="10" x2="9.51" y2="10" />
+                    <line x1="14.5" y1="10" x2="14.51" y2="10" />
+                  </svg>
+                  <span className="topbar-dock-label">
+                    {privateMode ? "Leave private" : "Private chat"}
+                  </span>
+                </button>
+              )}
+              {!isGuest && (
+                <button
                   className="topbar-icon-btn"
                   onClick={() => setShowPreferences(true)}
                   title=""
@@ -1500,8 +1566,14 @@ function Chat({
 
             {!messagesLoading && messages.length === 0 && (
               <div className="empty-state">
-                <h2 className="empty-title">{timeGreeting(userName)}</h2>
-                <p className="empty-subline">{chatSubline}</p>
+                <h2 className="empty-title">
+                  {privateMode ? "Off the record." : timeGreeting(userName)}
+                </h2>
+                <p className="empty-subline">
+                  {privateMode
+                    ? "This chat is private. It won't be saved to your history, and it's gone once you leave or refresh."
+                    : chatSubline}
+                </p>
                 <div className="suggestion-chips">
                   {chatSuggestions.map((s) => (
                     <button

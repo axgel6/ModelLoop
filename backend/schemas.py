@@ -60,6 +60,21 @@ class GuestChatRequest(BaseModel):
     think:         Optional[bool]       = Field(default=False)
 
 
+# A signed-in user's private chat: nothing is stored, so the browser sends the
+# history like a guest does, and only the latest messages are kept.
+class PrivateChatRequest(BaseModel):
+    prompt:        str                  = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH)
+    messages:      list[GuestMessage]   = Field(default=[], max_length=MAX_GUEST_HISTORY)
+    model:         Optional[str]        = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+    system_prompt: Optional[str]        = Field(default=None, max_length=MAX_SYSTEM_PROMPT_LENGTH)
+    temperature:   Optional[float]      = Field(default=0.7, ge=0.0, le=2.0)
+    top_p:         Optional[float]      = Field(default=0.9, ge=0.0, le=1.0)
+    num_predict:   Optional[int]        = Field(default=-1, ge=-1, le=32768)
+    images:        Optional[list[str]]  = Field(default=None, max_length=4)
+    force_search:  Optional[bool]       = Field(default=False)
+    think:         Optional[bool]       = Field(default=False)
+
+
 class RenameChatRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=MAX_TITLE_LENGTH)
 

@@ -12,7 +12,7 @@ from typing import Optional
 
 from database import get_db, AsyncSessionLocal
 from models import User, Chat, Message
-from schemas import ChatRequest, GuestChatRequest
+from schemas import ChatRequest, GuestChatRequest, PrivateChatRequest
 from dependencies import get_user
 from rag import retrieve_rag_context
 from features import get_features
@@ -197,7 +197,8 @@ async def _ollama_stream(messages: list, model: str, temperature: float, base_ur
 # differences are carried by `user` and `chat`: when they are None the caller is
 # a guest, which means history comes from the request body instead of the
 # database, RAG is unavailable, operator instructions are not appended, and
-# nothing is persisted when the stream finishes.
+# nothing is persisted when the stream finishes. A private chat passes the user
+# but no chat: it keeps the account's features and nothing is persisted.
 # ---------------------------------------------------------------------------
 async def _chat_stream_response(
     *,
@@ -224,7 +225,8 @@ async def _chat_stream_response(
 
     actions_enabled = features["actions"]
     photo_enabled   = features["photo_upload"]
-    rag_enabled     = features["rag"] and not is_guest
+    # Documents belong to a saved chat, so a private chat has none
+    rag_enabled     = features["rag"] and chat is not None
 
     if images and not photo_enabled:
         raise HTTPException(status_code=403, detail="Image upload is disabled")
@@ -710,5 +712,32 @@ async def guest_chat_stream(
         search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
         base_url=await effective_ollama_url(None),
         db=db,
+        think=bool(body.think),
+    )
+
+
+@router.post("/api/v1/chat/private/stream")
+@limiter.limit(CHAT_RATE_LIMIT)
+async def private_chat_stream(
+    request: Request,
+    body: PrivateChatRequest,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _chat_stream_response(
+        prompt=body.prompt.strip(),
+        model=(body.model or _config.DEFAULT_MODEL).strip(),
+        history=[{"role": m.role, "content": m.content} for m in body.messages],
+        system_prompt=body.system_prompt,
+        temperature=body.temperature if body.temperature is not None else 0.7,
+        top_p=body.top_p if body.top_p is not None else 0.9,
+        num_predict=body.num_predict if body.num_predict is not None else -1,
+        images=body.images or [],
+        features=get_features(guest=False),
+        force_search=bool(body.force_search),
+        search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
+        base_url=await effective_ollama_url(user),
+        db=db,
+        user=user,
         think=bool(body.think),
     )

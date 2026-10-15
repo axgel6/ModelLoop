@@ -559,6 +559,44 @@ export async function apiGuestChatStream(
   return res;
 }
 
+// Send a private chat message: signed in, but nothing is saved, so the caller passes the history
+// Returns the raw Response so the caller can read the SSE stream directly
+export async function apiPrivateChatStream(
+  payload: {
+    prompt: string;
+    messages: Message[];
+    model?: string;
+    system_prompt?: string;
+    temperature?: number;
+    top_p?: number;
+    num_predict?: number;
+    images?: string[];
+    force_search?: boolean;
+    /** Reason before answering, for models that can */
+    think?: boolean;
+  },
+  signal?: AbortSignal,
+): Promise<Response> {
+  // The server loads the last 20 messages of a saved chat; a private one sends the same,
+  // each within the prompt limit
+  const messages = payload.messages
+    .slice(-20)
+    .map((m) => ({ role: m.role, content: m.content.slice(0, 10000) }));
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chat/private/stream`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ ...payload, messages }),
+      signal,
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "I couldn't get a reply. Want to try again?");
+  }
+  return res;
+}
+
 // Send an authenticated chat message, history is loaded from the DB by the server
 // Returns the raw Response so the caller can read the SSE stream directly
 export async function apiChatStream(

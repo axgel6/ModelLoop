@@ -13290,3 +13290,37 @@ html[data-theme] .sidebar-brand-btn.is-held {
   margin-top: 10px;
   cursor: pointer;
 }
+
+/* Private chat: the theme's background shows through at half brightness,
+   with the messages and controls painted on top at full strength. No fade:
+   the topbar's blur layers resample the background on every frame of one
+   and flicker. Each --bar-tint matches the darkened page, so the wash at the
+   top of the bar blends in instead of showing as a band. */
+.chat-main.is-private {
+  background-color: rgba(0, 0, 0, 0.5);
+  --bar-tint: color-mix(in srgb, #1d2021 50%, #000);
+}
+
+html[data-theme="frost"] .chat-main.is-private {
+  --bar-tint: color-mix(in srgb, #2e3440 50%, #000);
+}
+
+/* Half black turns the light themes muddy and buries their dark text, so they
+   take a light shade of their own text colour instead */
+html[data-theme="dune"] .chat-main.is-private {
+  background-color: rgba(28, 25, 23, 0.1);
+  --bar-tint: color-mix(in srgb, #faf8f5 90%, #1c1917);
+}
+
+html[data-theme="meadow"] .chat-main.is-private {
+  background-color: rgba(41, 66, 49, 0.1);
+  --bar-tint: color-mix(in srgb, #f0f8f2 90%, #294231);
+}
+
+/* Private chat: the toggle stays lit in the theme's accent while it is on */
+.chat-topbar .topbar-icon-btn.is-private,
+html[data-theme] .chat-topbar .topbar-icon-btn.is-private,
+html[data-theme] .chat-topbar .topbar-icon-btn.is-private:hover:not(:disabled) {
+  color: var(--leaf-accent);
+  border-color: var(--leaf-accent);
+}

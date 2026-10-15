@@ -2,7 +2,7 @@
 // no audio files to load. Every note comes from one pentatonic scale, which is why
 // any two sounds overlapping still sound pleasant together.
 
-export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle" | "pay";
+export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle" | "pay" | "lock";
 
 const STORAGE_KEY = "sound_fx";
 const VOLUME_KEY = "sound_volume";
@@ -31,6 +31,18 @@ const SOUNDS: Record<SoundName, Note[]> = {
     [C6, 0, 0.07, 0.05], [E6, 0.06, 0.07, 0.05],
     [G5, 0.15, 0.6, 0.05], [C6, 0.15, 0.7, 0.05], [E6, 0.15, 0.8, 0.045],
   ],
+  // Only the low body of the bolt landing; the clicks themselves are in CLICKS
+  lock: [[C4, 0.075, 0.07, 0.035]],
+};
+
+// [centre frequency, delay in seconds, length in seconds, volume]
+type Click = [number, number, number, number];
+
+// Mechanical sounds are not notes: each click is a burst of noise narrowed to a pitch
+// and cut off almost at once.
+const CLICKS: Partial<Record<SoundName, Click[]>> = {
+  // A lock turning shut: the latch snaps, then the heavier bolt drops into place
+  lock: [[2600, 0, 0.022, 0.45], [1300, 0.075, 0.04, 0.6]],
 };
 
 // The "voice" a reply is spoken in while it streams: low notes, picked at random.
@@ -41,6 +53,7 @@ class SoundManager {
   private ctx: AudioContext | null = null;
   private out: AudioNode | null = null;
   private master: GainNode | null = null;
+  private noise: AudioBuffer | null = null;
   private lastName: SoundName | null = null;
   private lastAt = 0;
   private lastBabble = 0;
@@ -77,6 +90,7 @@ class SoundManager {
     try {
       this.ready();
       for (const note of SOUNDS[name]) this.note(...note);
+      for (const click of CLICKS[name] ?? []) this.click(...click);
     } catch {
       // No audio available (or blocked before a user gesture): stay silent.
     }
@@ -111,6 +125,30 @@ class SoundManager {
       this.out = filter;
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
+  }
+
+  // White noise through a narrow band-pass, snapping on and dying away within a few ms.
+  private click(freq: number, delay: number, length: number, volume: number) {
+    const ctx = this.ctx!;
+    if (!this.noise) {
+      // A tenth of a second covers any click, and the buffer is reused for all of them
+      this.noise = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.1), ctx.sampleRate);
+      const data = this.noise.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    const start = ctx.currentTime + delay;
+    const source = ctx.createBufferSource();
+    source.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = "bandpass";
+    band.frequency.value = freq;
+    band.Q.value = 3;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(volume, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
+    source.connect(band).connect(gain).connect(this.out!);
+    source.start(start);
+    source.stop(start + length + 0.01);
   }
 
   // A sine with a quiet octave above it, struck quickly and left to ring out.
