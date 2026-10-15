@@ -620,6 +620,8 @@ html .neg .neg-pay-sheet-head .neg-link {
 .neg-pay-rows > div {
   display: flex;
   justify-content: space-between;
+  /* Level with the figure, however big it is: the total, or a face beside the name */
+  align-items: center;
   gap: 16px;
   padding: 8px 0;
   border-top: 1px solid var(--game-card-border);
