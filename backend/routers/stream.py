@@ -315,7 +315,14 @@ async def _chat_stream_response(
 
     full_name = user.full_name if user else None
     if full_name:
-        effective_system += f"\n\nThe user's name is {full_name}. Address them as {full_name.split()[0]}, and only when it feels natural."
+        # Phrased as background, not an instruction: told to "address them as X",
+        # small models put the name in nearly every reply.
+        first_name = full_name.split()[0]
+        effective_system += (
+            f"\n\nFor reference, the user's name is {full_name}. Do not use their name in your replies. "
+            f"The only exceptions are when they ask what their name is, or a greeting at the very start of a conversation, "
+            f"where \"{first_name}\" is fine once."
+        )
 
     messages = []
     if not _skip_system_prompt(model):
