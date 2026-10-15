@@ -23,7 +23,10 @@ const PRICES = [
   { label: "$250 to $500", min: 250, max: 500 },
   { label: "$500 to $1,000", min: 500, max: 1000 },
   { label: "$1,000 to $5,000", min: 1000, max: 5000 },
-  { label: "$5,000 and up", min: 5000, max: Infinity },
+  { label: "$5,000 to $100,000", min: 5000, max: 100_000 },
+  { label: "$100,000 to $1M", min: 100_000, max: 1_000_000 },
+  { label: "$1M to $25M", min: 1_000_000, max: 25_000_000 },
+  { label: "$25M and up", min: 25_000_000, max: Infinity },
 ];
 
 function money(amount: number): string {

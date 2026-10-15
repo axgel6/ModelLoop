@@ -137,7 +137,14 @@ def _money(amount: float) -> str:
 
 def _step(list_price: int) -> int:
     """The smallest amount a price moves by."""
-    return 1 if list_price < 200 else 5 if list_price < 1000 else 25 if list_price < 5000 else 50
+    for under, step in _STEPS:
+        if list_price < under:
+            return step
+    return 100_000
+
+
+# (prices under this, move by this): a house goes up by the thousand, a jet by the hundred thousand
+_STEPS = ((200, 1), (1000, 5), (5000, 25), (50_000, 50), (250_000, 500), (2_000_000, 1000), (20_000_000, 10_000))
 
 
 def _nice(value: float, list_price: int) -> int:
@@ -157,13 +164,15 @@ def _rating(score: int) -> str:
 # Where the model marked the price. Small models often put a number of their own
 # inside the braces, double them, or use square brackets; all of it is replaced by the real figure.
 _PLACEHOLDER = re.compile(r"\$?(?:\{+[^{}]{0,24}\}+|\[\s*\$?\s*price\s*\])", re.I)
-_TYPED_OFFER = re.compile(r"\$\s?(\d[\d,]*(?:\.\d+)?)(\s?k\b)?", re.I)
+# "$450k", "$2.5M", "1.2 million": a figure, then how many thousands, millions or billions it counts
+_SCALE = r"\s?(?:k|thousand|mm?|mil|million|bn?|billion)\b"
+_TYPED_OFFER = re.compile(rf"\$\s?(\d[\d,]*(?:\.\d+)?)({_SCALE})?", re.I)
 # A figure the model wrote in spite of being told not to: "$420", "420 dollars"
 _NUMBER = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
-_FIGURE = re.compile(rf"\$\s?{_NUMBER}(?:\s?k\b)?|\b{_NUMBER}\s?(?:dollars|bucks|dirhams|credits|quid)\b", re.I)
+_FIGURE = re.compile(rf"\$\s?({_NUMBER})({_SCALE})?|\b({_NUMBER})({_SCALE})?\s?(?:dollars|bucks|dirhams|credits|quid)\b", re.I)
 # "260 and I'll take it": a number with no dollar sign, as long as it is not counting something else
 _BARE_NUMBER = re.compile(
-    rf"(?<![\w.,$])({_NUMBER})(\s?k\b)?(?![A-Za-z-]|\s?(?:%|percent|gb|tb|inch|miles?|km|years?|months?|weeks?|days?|hours?|minutes?|mins?|tickets?|people|am\b|pm\b|st\b|nd\b|rd\b|th\b)|[\w.,]*\d)",
+    rf"(?<![\w.,$])({_NUMBER})({_SCALE})?(?![A-Za-z-]|\s?(?:%|percent|gb|tb|inch|miles?|km|years?|months?|weeks?|days?|hours?|minutes?|mins?|tickets?|people|am\b|pm\b|st\b|nd\b|rd\b|th\b)|[\w.,]*\d)",
     re.I,
 )
 BARE_OFFER_RANGE = (0.2, 1.5)  # ...and it is this share of the list price, so "1978" is not an offer on a guitar
@@ -191,15 +200,26 @@ def _fill(text: str, price: float, keep: tuple = ()) -> str:
     without. Figures in `keep` (the list price, the other side's own offer) may be quoted as they are."""
     allowed = {_money(price), *(_money(k) for k in keep if k)}
     filled = _PLACEHOLDER.sub(_money(price), text)
-    filled = _FIGURE.sub(lambda m: m.group(0) if m.group(0).replace(" ", "") in allowed else _money(price), filled)
+
+    def figure(m: re.Match) -> str:
+        number, scale = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+        return m.group(0) if _money(_amount(number, scale)) in allowed else _money(price)
+    filled = _FIGURE.sub(figure, filled)
 
     def bare(m: re.Match) -> str:
-        amount = float(m.group(1).replace(",", "")) * (1000 if m.group(2) else 1)
+        amount = _amount(m.group(1), m.group(2))
         year = not m.group(2) and m.group(1).isdigit() and 1950 <= amount <= 2039
         if year or _money(amount) in allowed or not (price * BARE_PRICE_RANGE[0] <= amount <= price * BARE_PRICE_RANGE[1]):
             return m.group(0)
         return _money(price)
     return _BARE_NUMBER.sub(bare, filled)
+
+
+def _amount(number: str, scale: Optional[str]) -> float:
+    """A figure as dollars: "2.5" and "M" is 2,500,000."""
+    unit = (scale or "").strip().lower()
+    times = 1e9 if unit.startswith("b") else 1e6 if unit.startswith("m") else 1e3 if unit else 1
+    return float(number.replace(",", "")) * times
 
 
 def _then(said: str, more: str) -> str:
@@ -237,14 +257,13 @@ def _typed_figure(message: str, list_price: Optional[int], item: str) -> Optiona
     # With several figures, the one marked as the offer wins; otherwise the first
     found = next((f for f in figures if _MOVED_TO.search(message[:f.start()])), figures[0] if figures else None)
     if found:
-        amount = float(found.group(1).replace(",", ""))
-        return int(round(amount * 1000 if found.group(2) else amount)) or None
+        return int(round(_amount(found.group(1), found.group(2)))) or None
     if list_price:
         named = {n.replace(",", "") for n in re.findall(_NUMBER, item)}
         for bare in _BARE_NUMBER.finditer(message):
             if bare.group(1).replace(",", "") in named:
                 continue
-            amount = float(bare.group(1).replace(",", "")) * (1000 if bare.group(2) else 1)
+            amount = _amount(bare.group(1), bare.group(2))
             if list_price * BARE_OFFER_RANGE[0] <= amount <= list_price * BARE_OFFER_RANGE[1]:
                 return int(round(amount))
     return None
@@ -530,6 +549,8 @@ def _finish(s: dict, outcome: str, paid: Optional[int]) -> None:
 
 def can_sweeten(state: dict, key: Optional[str]) -> bool:
     if key == "shipping" and not extras.ships(state["scenario"]):
+        return False
+    if key == "pickup" and not extras.collects(state["scenario"]):
         return False
     return bool(extras.sweetener(state.get("mode", "buy"), key)) and key not in (state.get("sweeteners") or [])
 

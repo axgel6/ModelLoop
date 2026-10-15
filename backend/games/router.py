@@ -81,7 +81,7 @@ class TurnAction(BaseModel):
 class CustomListing(BaseModel):
     """Something the player lists themselves, to sell to a model buyer."""
     item:        str           = Field(..., min_length=3, max_length=80)
-    price:       int           = Field(..., gt=0, le=1_000_000)
+    price:       int           = Field(..., gt=0, le=10_000_000_000)
     condition:   Optional[str] = Field(default=None, max_length=20)
     category:    Optional[str] = Field(default=None, max_length=30)
     description: str           = Field(default="", max_length=600)
@@ -95,7 +95,7 @@ class NewNegotiation(BaseModel):
     difficulty:   str                     = Field(default="normal", pattern="^(easy|normal|hard)$")
     custom:       Optional[CustomListing] = None
     inventory_id: Optional[uuid.UUID]     = None
-    asking:       Optional[int]           = Field(default=None, gt=0, le=1_000_000)
+    asking:       Optional[int]           = Field(default=None, gt=0, le=10_000_000_000)
     # Selling from the inventory. Free play may rewrite the title, condition, category and description;
     # a Hustle run keeps the item's real listing, and the player adds notes the buyer takes as claims
     title:        Optional[str]           = Field(default=None, min_length=3, max_length=80)
@@ -154,7 +154,7 @@ class TurnRequest(BaseModel):
     decision: str                  = Field(default="", max_length=400)
     action:   Optional[TurnAction] = None
     # Negotiation only: the price the player puts on the table with their message
-    offer:    Optional[int]        = Field(default=None, gt=0, le=10_000_000)
+    offer:    Optional[int]        = Field(default=None, gt=0, le=10_000_000_000)
     # Negotiation only: the player says they are leaving, to see if the price moves. Works once.
     bluff:    bool                 = False
     # Negotiation only: a term other than money, such as cash today. Each works once per chat.

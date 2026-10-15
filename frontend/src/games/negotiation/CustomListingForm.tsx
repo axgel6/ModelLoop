@@ -75,7 +75,7 @@ export function CustomListingForm({
             <input
               id="neg-custom-price"
               value={price}
-              onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, "").slice(0, 7))}
+              onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
               inputMode="numeric"
               placeholder="85"
             />

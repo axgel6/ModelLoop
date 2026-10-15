@@ -636,7 +636,7 @@ function Menu({
                         $
                         <input
                           value={asking}
-                          onChange={(e) => setAsking(e.target.value.replace(/[^\d]/g, "").slice(0, 7))}
+                          onChange={(e) => setAsking(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
                           inputMode="numeric"
                           aria-label="Your asking price in dollars"
                         />
@@ -1677,6 +1677,8 @@ function Play({
             .filter((x) => !(state.sweeteners ?? []).includes(x.id))
             // Covering shipping only means something on a listing that ships
             .filter((x) => x.id !== "shipping" || /shipping/i.test(scenario.setting))
+            // ...and coming to collect it, only on one that is picked up: not a house, a ticket or a jet
+            .filter((x) => x.id !== "pickup" || /pickup/i.test(scenario.setting))
             .map((x) => (
               <button
                 key={x.id}
@@ -1734,7 +1736,7 @@ function Play({
                   <input
                     value={offerShown}
                     style={{ width: `${Math.max(5, offerShown.length) + 0.5}ch` }}
-                    onChange={(e) => setOfferDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 8))}
+                    onChange={(e) => setOfferDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
                     inputMode="numeric"
                     placeholder="none"
                     disabled={busy}

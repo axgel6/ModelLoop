@@ -28,6 +28,11 @@ def sweetener(mode: str, key: Optional[str]) -> Optional[tuple]:
     return SWEETENERS["sell" if mode == "sell" else "buy"].get(key or "")
 
 
+def collects(scenario: dict) -> bool:
+    """Whether the buyer comes and takes it away, as against a house, a ticket or a jet."""
+    return "pickup" in str(scenario.get("setting") or "").lower()
+
+
 def ships(scenario: dict) -> bool:
     """Whether the listing offers shipping at all, as against local pickup only."""
     return "shipping" in str(scenario.get("setting") or "").lower()
@@ -129,6 +134,8 @@ _FLAWS = {
          _CAR, ("air conditioning", "project", "miata")),
         ("it has a salvage title", ("title", "accident", "salvage", "crash", "history"), 0.30,
          ("miles", "waverunner"), ("clean title", "salvage", "project")),
+        ("the engine is not the one it left the factory with", ("numbers", "matching", "engine", "original", "block", "history"), 0.30,
+         ("ferrari 250", "gullwing", "mclaren f1", "boss 429"), ()),
         ("the rear derailleur skips gears", ("gears", "gear", "shifting", "derailleur", "chain", "service"), 0.12,
          ("mountain bike", "radrunner"), ()),
         ("the battery only holds about half its range", ("battery", "range", "charge", "miles"), 0.25,
@@ -149,7 +156,9 @@ _FLAWS = {
         ("the plating is wearing through in places", ("plating", "plated", "solid", "wear", "tarnish", "karat", "gold"), 0.35,
          ("gold",), ("rolex", "cartier", "van cleef")),
         ("it runs a few minutes fast every day", ("accuracy", "accurate", "time", "keeps", "service", "serviced"), 0.15,
-         ("seiko", "rolex", "automatic"), ()),
+         ("seiko", "rolex", "automatic", "patek", "nautilus"), ()),
+        ("the certificate belongs to a different stone", ("certificate", "gia", "report", "inscription", "grading"), 0.50,
+         ("gia",), ()),
         ("one of the stones is loose in its setting", ("stones", "stone", "setting", "diamond", "loose", "prongs"), 0.20,
          ("diamond", "ring", "tennis"), ()),
     ],
@@ -220,6 +229,90 @@ _FLAWS = {
         ("the paint is chipped on the back", ("paint", "chip", "chips", "finish", "back"), 0.15, ("shield",), ()),
         ("the tag is a reproduction", ("tag", "tags", "real", "fake", "authentic", "original"), 0.60, ("beanie",), ()),
     ],
+    "property": [
+        ("the roof is at the end of its life and leaks in heavy rain", ("roof", "leak", "leaks", "inspection", "water"), 0.04,
+         (), ("condo", "penthouse", "silo", "rebuilt", "roof restored")),
+        ("there are foundation cracks in the basement", ("foundation", "cracks", "crack", "basement", "settling", "structural", "inspection"), 0.08,
+         (), ("condo", "penthouse", "silo")),
+        ("the sewer line is cracked and needs replacing", ("sewer", "plumbing", "pipes", "drain", "septic", "inspection"), 0.03,
+         (), ("condo", "penthouse", "silo")),
+        ("there is mould behind the bathroom walls", ("mould", "mold", "damp", "moisture", "water", "inspection"), 0.05, (), ()),
+        ("the addition was built without permits", ("permits", "permit", "addition", "legal", "city", "code"), 0.06,
+         (), ("condo", "penthouse", "silo", "château")),
+        ("the building has a large special assessment coming", ("assessment", "hoa", "fees", "building", "association", "dues"), 0.05,
+         ("condo", "penthouse"), ()),
+        ("the air filtration and blast doors need a full rebuild", ("filtration", "air", "doors", "systems", "maintenance", "inspection"), 0.15,
+         ("silo",), ()),
+    ],
+    "mobile": [
+        ("the subfloor is soft near the bathroom", ("subfloor", "floor", "soft", "water", "leak", "bathroom"), 0.15,
+         ("mobile home", "double-wide", "single-wide", "tiny house", "trailer"), ()),
+        ("the park is raising lot rent by 40 percent next year", ("rent", "lot", "park", "fees", "increase"), 0.20, ("park",), ()),
+        ("there is water damage behind the walls from a roof leak", ("roof", "leak", "leaks", "water", "damage", "seals"), 0.15,
+         ("airstream", "motorhome", "westfalia", "bus", "trailer", "camper"), ()),
+        ("the generator needs a full rebuild", ("generator", "power", "hours", "service"), 0.08, ("motorhome", "bus"), ()),
+    ],
+    "land": [
+        ("there is no legal road access, only an informal easement", ("access", "road", "easement", "legal", "driveway"), 0.30,
+         ("acres", "acre", "lot"), ("island", "moon", "downtown", "parking", "ranch", "vineyard")),
+        ("the well test came back dry", ("well", "water", "drill", "drilling", "rights"), 0.25,
+         ("acres", "homestead", "desert"), ("water rights", "well drilled", "vineyard", "island")),
+        ("the perc test failed, so no septic can go in", ("perc", "percolation", "septic", "buildable", "build", "permit"), 0.30,
+         ("homestead", "wooded", "desert"), ()),
+        ("part of it sits in a flood zone", ("flood", "flooding", "zone", "insurance", "creek", "river"), 0.20,
+         (), ("desert", "moon", "ridge")),
+        ("the city just capped building height on the block", ("zoning", "zoned", "height", "tower", "city", "permits"), 0.35,
+         ("zoned",), ()),
+        ("the deed has no legal standing anywhere on Earth or off it", ("deed", "legal", "real", "ownership", "title"), 0.90,
+         ("moon",), ()),
+    ],
+    "vessel": [
+        ("the engines are overdue for a major overhaul", ("engines", "engine", "hours", "overhaul", "service", "survey"), 0.15,
+         ("yacht", "superyacht", "sundancer", "cruiser"), ("submarine",)),
+        ("there is osmosis blistering below the waterline", ("hull", "blisters", "osmosis", "survey", "waterline"), 0.15,
+         ("yacht", "superyacht", "sundancer", "cruiser", "sailboat"), ("submarine",)),
+        ("the logbooks have a two-year gap", ("logbooks", "logs", "logbook", "records", "history", "maintenance"), 0.20,
+         ("cessna", "cirrus", "helicopter", "jet"), ()),
+        ("it is due a heavy inspection that costs a fortune", ("inspection", "check", "heavy", "maintenance", "due", "hours"), 0.12,
+         ("cessna", "cirrus", "helicopter", "jet"), ()),
+        ("the pressure hull is overdue for recertification", ("certification", "certified", "hull", "rated", "depth", "inspection"), 0.30,
+         ("submarine",), ()),
+    ],
+    "art": [
+        ("there is a gap in its provenance during the war years", ("provenance", "history", "ownership", "records", "papers"), 0.40,
+         ("painting", "violin", "egg", "gutenberg", "screenprint"), ()),
+        ("it has had far more restoration than the listing says", ("restoration", "restored", "condition", "repairs", "report"), 0.30,
+         ("painting", "violin", "egg", "screenprint", "gutenberg"), ()),
+        ("the coin has been cleaned, which hurts its value", ("cleaned", "cleaning", "condition", "graded", "grade", "toning"), 0.40,
+         ("coin",), ()),
+        ("the stamp has a thin spot on the back", ("thin", "back", "condition", "certificate", "gum"), 0.35, ("stamp",), ()),
+        ("a lot of the bones are casts, not real fossil", ("bones", "casts", "cast", "real", "original", "complete"), 0.40,
+         ("skeleton",), ()),
+        ("the classification paperwork is missing", ("classification", "paperwork", "certificate", "authentic", "lab"), 0.40,
+         ("meteorite",), ()),
+        ("one of the original chips was swapped for a modern part", ("chips", "original", "parts", "replaced", "authentic"), 0.30,
+         ("apple-1",), ()),
+        ("the photo match is disputed by the leading authenticator", ("photo", "match", "matched", "authentic", "letter", "loa", "worn"), 0.50,
+         ("game-worn",), ()),
+        ("it is not the first printing, just a first edition", ("printing", "printings", "first", "edition", "print", "line"), 0.60,
+         ("first edition",), ()),
+    ],
+    "business": [
+        ("the books overstate how much cash it takes in", ("books", "revenue", "profit", "financials", "taxes", "numbers", "income"), 0.30,
+         (), ("team", "franchise")),
+        ("the lease runs out next year with no renewal", ("lease", "landlord", "rent", "renewal", "term"), 0.30,
+         ("laundromat", "bar"), ()),
+        ("the underground tanks need replacing", ("tanks", "tank", "environmental", "inspection", "leak", "epa"), 0.25,
+         ("gas station",), ()),
+        ("the permits do not transfer to a new owner", ("permits", "permit", "licence", "license", "health", "city"), 0.25,
+         ("taco truck", "bar"), ()),
+        ("the ballpark lease is up and the city wants it rebuilt", ("lease", "stadium", "ballpark", "arena", "city", "venue"), 0.15,
+         ("team",), ()),
+        ("the arena lease is up and the city wants a new one built", ("lease", "stadium", "arena", "city", "venue"), 0.10,
+         ("franchise",), ()),
+        ("the snowmaking system is failing", ("snowmaking", "snow", "lifts", "lift", "equipment", "maintenance"), 0.15,
+         ("ski resort",), ()),
+    ],
     "general": [
         ("there is a scuff the photos do not show", ("scuff", "scratch", "marks", "dent", "photos"), 0.10, (), ("cards",)),
         ("it smells strongly of smoke", ("smoke", "smell", "smoker", "pets", "pet"), 0.20, (), ()),
@@ -236,9 +329,12 @@ _FLAW_GROUP = {
     "TV and audio": "tech", "Home and appliances": "tech", "Camping and outdoors": "outdoor",
     "Flowers and ramos": "flowers", "Matcha and tea": "food", "Music and merch": "music",
     "Marvel and comics": "collectible", "Home and collectables": "collectible", "Fun stuff": "collectible",
+    "Homes": "property", "Mobile homes and RVs": "mobile", "Land": "land", "Yachts and aircraft": "vessel",
+    "Art and rare finds": "art", "Businesses": "business",
 }
 # Where to look when nothing in the item's own group fits. A ticket has nothing else to hide.
-_FLAW_FALLBACK = {"console": ("tech", "general"), "accessory": ("tech", "general"), "tickets": (), "flowers": (), "food": ()}
+_FLAW_FALLBACK = {"console": ("tech", "general"), "accessory": ("tech", "general"), "tickets": (), "flowers": (), "food": (),
+                  "property": (), "land": (), "mobile": ("vehicle", "general"), "art": ("collectible",), "business": ()}
 # Asking straight out whether anything is wrong finds any flaw
 _ANY_FLAW = ("problem", "issue", "wrong", "flaw", "defect", "damage", "damaged", "catch", "honest", "broken", "faults", "fault")
 
