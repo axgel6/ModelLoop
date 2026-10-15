@@ -1,6 +1,6 @@
 // The Hustle run: loading it, starting a new one, and the money words shared by its screens.
 import { apiFetch } from "../../components/api";
-import type { FreeBank, HustleRun, MarketProfile } from "./types";
+import type { FreeBank, GivenReview, HustleRun, MarketProfile } from "./types";
 
 export interface HustleView {
   run: HustleRun | null;
@@ -34,6 +34,16 @@ export async function apiProfile(): Promise<MarketProfile> {
   const res = await apiFetch("/api/v1/games/negotiation/profile");
   if (!res.ok) throw new Error("I couldn't load your profile.");
   return res.json();
+}
+
+/** Take back a review you left. Returns the reviews you have left, newest first */
+export async function apiDeleteReview(key: string): Promise<GivenReview[]> {
+  const res = await apiFetch(`/api/v1/games/negotiation/reviews/${encodeURIComponent(key)}`, { method: "DELETE" });
+  if (!res.ok) {
+    const detail = await res.json().then((b) => b?.detail).catch(() => null);
+    throw new Error(typeof detail === "string" ? detail : "I couldn't delete that review.");
+  }
+  return (await res.json()).given;
 }
 
 /** Free play: money in from nowhere, or out to it */

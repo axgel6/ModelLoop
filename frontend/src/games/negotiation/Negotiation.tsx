@@ -448,7 +448,19 @@ function Menu({
             />
           )
         )}
-        {profileOpen && <Profile initial={profile} onClose={() => setProfileOpen(false)} />}
+        {profileOpen && (
+          <Profile
+            initial={profile}
+            onGiven={(given) => {
+              // Sellers' stars stop counting the review straight away
+              setFreeBank((b) => (b ? { ...b, given } : b));
+              const rated = withYourStars(cachedListings() ?? [], given);
+              setListings(rated);
+              setOffered((shown) => shown.map((s) => rated.find((l) => l.id === s.id) ?? s));
+            }}
+            onClose={() => setProfileOpen(false)}
+          />
+        )}
         {live && (live.callbacks ?? []).length > 0 && (
           <>
             <h3 className="pref-field-label neg-section">Messages</h3>

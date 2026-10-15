@@ -6,6 +6,7 @@ shows on that seller's profile from then on. No I/O in this file.
 """
 import copy
 import re
+import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Optional
@@ -144,7 +145,7 @@ def rate(state: dict, stars: int, text: str) -> tuple[dict, dict]:
     mine = {"stars": stars, "text": " ".join(text.split())[:MAX_YOUR_TEXT], "at": _now()}
     s["your_review"] = mine
     given = {
-        **mine, "to": scenario.get("merchant") or "Someone", "item": scenario.get("item"),
+        **mine, "id": uuid.uuid4().hex, "to": scenario.get("merchant") or "Someone", "item": scenario.get("item"),
         "listing": scenario.get("id"), "role": "sell" if s.get("mode") == "sell" else "buy",
     }
     return s, given
@@ -154,6 +155,21 @@ def add_given(account: dict, given: dict) -> dict:
     a = copy.deepcopy(account)
     a["given"] = ((a.get("given") or []) + [given])[-GIVEN_KEPT:]
     return a
+
+
+def given_key(given: dict) -> str:
+    """What picks out one of your reviews: its id, or for one left before reviews had ids, when it was left."""
+    return given.get("id") or given["at"]
+
+
+def remove_given(account: dict, key: str) -> tuple[dict, dict]:
+    """The account without one of your reviews, and the review taken off."""
+    gone = next((g for g in account.get("given") or [] if given_key(g) == key), None)
+    if not gone:
+        raise ValueError("That review is not there any more.")
+    a = copy.deepcopy(account)
+    a["given"] = [g for g in a["given"] if given_key(g) != key]
+    return a, gone
 
 
 def with_yours(seller: dict, given: list, listing: Optional[str]) -> dict:

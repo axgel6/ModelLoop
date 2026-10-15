@@ -216,6 +216,8 @@ export interface Review {
 
 /** A review you left someone else */
 export interface GivenReview {
+  /** Missing on reviews left before they had ids; those are picked out by `at` */
+  id?: string;
   stars: number;
   text: string;
   to: string;

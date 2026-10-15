@@ -1377,6 +1377,24 @@ async def write_review(
         return _serialize(current)
 
 
+@router.delete("/negotiation/reviews/{key}")
+async def delete_review(key: str, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)) -> dict:
+    """Take back a review you left. The seller's rating stops counting it, and if the chat is
+    still open, you can rate them again."""
+    account = await _free_bank(user, db)
+    try:
+        account.state, gone = reviews.remove_given(account.state, key)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    chat = (await db.execute(
+        select(GameSession).where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)
+    )).scalars().first()
+    if chat and (chat.state.get("your_review") or {}).get("at") == gone["at"]:
+        chat.state = {**chat.state, "your_review": None}
+    await db.commit()
+    return {"given": (account.state.get("given") or [])[::-1]}
+
+
 class RateBack(BaseModel):
     """Your stars for the person you just dealt with, and a line if you like."""
     stars: int = Field(..., ge=1, le=5)
