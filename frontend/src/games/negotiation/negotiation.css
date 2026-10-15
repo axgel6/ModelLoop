@@ -716,11 +716,10 @@ html .neg .neg-pay-confirm.is-declined:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* The placeholder takes the figure's own bold wide face, only faded */
 .neg-composer .neg-offer input::placeholder {
-  font-family: var(--ui-font);
-  font-stretch: 100%;
-  font-size: 0.85rem;
-  font-weight: 400;
+  font: inherit;
+  color: color-mix(in srgb, var(--game-muted) 60%, transparent);
 }
 
 /* Send: the chat's own send colour (not the game's accent), on a filled circle. The toolbar

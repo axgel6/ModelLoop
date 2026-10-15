@@ -1712,7 +1712,7 @@ function Play({
                   <span className="neg-offer-sign" aria-hidden="true">$</span>
                   <input
                     value={offerShown}
-                    style={{ width: `${Math.max(4, offerShown.length) + 0.5}ch` }}
+                    style={{ width: `${Math.max(5, offerShown.length) + 0.5}ch` }}
                     onChange={(e) => setOfferDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 8))}
                     inputMode="numeric"
                     placeholder="none"
