@@ -258,6 +258,23 @@ function Menu({
   const browsable = live
     ? listings.map((l) => ({ ...l, list_price: priceOf(l), value: hustle?.values?.[l.id] ?? l.value }))
     : listings;
+  // The handful on the start screen is only what the balance covers. Show all still lists everything.
+  const cash = live ? live.cash : (freeBank?.cash ?? null);
+  const affordable = cash == null ? listings : listings.filter((l) => priceOf(l) <= cash);
+  const affordableIds = affordable.map((l) => l.id).join(",");
+  useEffect(() => {
+    const ok = new Set(affordableIds ? affordableIds.split(",") : []);
+    setOffered((current) => {
+      // Keep what is still affordable, and top up from the rest
+      const kept = current.filter((s) => ok.has(s.id));
+      const want = Math.min(LISTINGS_SHOWN, ok.size);
+      if (kept.length === current.length && kept.length >= want) return current;
+      const more = dealListings(affordable, kept.map((s) => s.id)).filter((s) => !kept.some((k) => k.id === s.id));
+      return [...kept, ...more].slice(0, LISTINGS_SHOWN);
+    });
+    setScenario((id) => (id && !ok.has(id) ? null : id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [affordableIds]);
   const unsold = items.filter((i) => !i.sold);
   const picked = unsold.find((i) => i.id === sellPick) ?? null;
   const askingValue = Math.round(Number(asking));
@@ -517,11 +534,11 @@ function Menu({
           <button
             type="button"
             className="neg-link neg-refresh"
-            disabled={listings.length === 0}
+            disabled={affordable.length === 0}
             title="Show me others"
             aria-label="Show me others"
             onClick={() => {
-              setOffered((current) => dealListings(listings, current.map((s) => s.id)));
+              setOffered((current) => dealListings(affordable, current.map((s) => s.id)));
               setScenario(null); // the one that was picked may no longer be on the list
             }}
           >
@@ -532,6 +549,16 @@ function Menu({
           </button>
         </div>
         <div className="pref-account-card neg-card">
+          {offered.length === 0 && listings.length > 0 && (
+            <div className="pref-list-item neg-row--static">
+              <div className="pref-item-info">
+                <div className="pref-item-name">Nothing you can afford right now</div>
+                <div className="pref-item-desc">
+                  {live ? "Sell something to raise cash." : "Add money in the Bank, or sell something first."}
+                </div>
+              </div>
+            </div>
+          )}
           {offered.map((s) => (
             <Option
               key={s.id}
@@ -723,9 +750,15 @@ function Menu({
               type="button"
               className="start-button"
               onClick={() =>
-                run(() => apiCreateGame<HaggleState>(GAME_TYPE, { scenario, hustle: !!live }))
+                run(() =>
+                  apiCreateGame<HaggleState>(GAME_TYPE, {
+                    // A random seller is one whose price the balance covers
+                    scenario: scenario ?? affordable[Math.floor(Math.random() * affordable.length)]?.id ?? null,
+                    hustle: !!live,
+                  }),
+                )
               }
-              disabled={busy}
+              disabled={busy || (!scenario && affordable.length === 0)}
             >
               {busy ? "Opening the chat" : scenario ? "Message the seller" : "Message a random seller"}
             </button>

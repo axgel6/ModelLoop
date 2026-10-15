@@ -1061,12 +1061,6 @@ html .neg-browser .neg-detail-save:disabled {
   margin-bottom: 0;
 }
 
-.neg-browser-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 html .neg .neg-chip,
 html .neg .neg-chip:hover,
 html .neg-browser .neg-chip,
@@ -1111,11 +1105,17 @@ html .neg-browser .neg-chip.is-on:hover {
   white-space: nowrap;
 }
 
-/* All listings: condition, price and sort, side by side in even columns */
+/* All listings: category, condition, price and sort, side by side in even columns; two by two on a phone */
 .neg-browser-filters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px 14px;
+}
+
+@media (max-width: 640px) {
+  .neg-browser-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Each label over its select, so the select has the whole column */
@@ -1134,17 +1134,6 @@ html .neg-browser .neg-chip.is-on:hover {
   width: 100%;
   min-width: 0;
   text-overflow: ellipsis;
-}
-
-@media (max-width: 380px) {
-  .neg-browser-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  /* Sort takes the second row to itself rather than sitting alone in half of it */
-  .neg-browser-filters .neg-select:last-child {
-    grid-column: 1 / -1;
-  }
 }
 
 html .neg-browser .neg-browser-count {

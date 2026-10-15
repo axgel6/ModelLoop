@@ -69,8 +69,12 @@ export function ListingBrowser({
   const back = useCallback(() => setViewing(null), []);
   useEscapeKey(viewing ? back : onClose);
 
-  // In the order the server lists them, which is also the order of the chips
-  const categories = useMemo(() => [...new Set(listings.map((l) => l.category).filter(Boolean))], [listings]);
+  // Alphabetical, each with how many listings it holds
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const l of listings) if (l.category) counts.set(l.category, (counts.get(l.category) ?? 0) + 1);
+    return [...counts].sort(([a], [b]) => a.localeCompare(b));
+  }, [listings]);
   const conditions = useMemo(
     () => [...new Set(listings.map((l) => l.condition).filter((c): c is string => !!c))].sort(),
     [listings],
@@ -134,22 +138,18 @@ export function ListingBrowser({
               autoFocus
             />
 
-            <div className="neg-browser-chips" role="radiogroup" aria-label="Category">
-              {[ALL, ...categories].map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  role="radio"
-                  aria-checked={c === category}
-                  className={`neg-chip${c === category ? " is-on" : ""}`}
-                  onClick={() => setCategory(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-
             <div className="neg-browser-filters">
+              <label className="neg-select">
+                <span>Category</span>
+                <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                  <option value={ALL}>All ({listings.length})</option>
+                  {categories.map(([c, n]) => (
+                    <option key={c} value={c}>
+                      {c} ({n})
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="neg-select">
                 <span>Condition</span>
                 <select value={condition} onChange={(e) => setCondition(e.target.value)}>
