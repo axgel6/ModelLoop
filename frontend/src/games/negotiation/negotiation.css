@@ -140,10 +140,25 @@ html .neg .neg-refresh:hover {
   flex-shrink: 0;
 }
 
-/* On the selected row the badge has to read against the accent fill */
-.neg-card .pref-list-item.active .pref-content-badge {
-  background: color-mix(in srgb, var(--game-accent-ink) 18%, transparent);
-  color: var(--game-accent-ink);
+/* On the selected row the price badge takes the row's own text colour: some themes fill the row
+   with the accent, others only darken it, so one ink cannot suit them all */
+html {
+  --neg-active-ink: #fbf1c7;
+}
+
+html[data-theme="dune"],
+html[data-theme="meadow"] {
+  --neg-active-ink: #ffffff;
+}
+
+html[data-theme="frost"] {
+  --neg-active-ink: #353c4a;
+}
+
+html .neg-card .pref-list-item.active .pref-content-badge,
+html .neg-browser-list .pref-list-item.active .pref-content-badge {
+  background: color-mix(in srgb, var(--neg-active-ink) 16%, transparent);
+  color: var(--neg-active-ink);
 }
 
 .neg-start {
