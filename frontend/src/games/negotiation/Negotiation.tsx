@@ -33,7 +33,7 @@ import { CONDITIONS } from "./inventoryData";
 import { ListingBrowser } from "./ListingBrowser";
 import { apiListings, apiOverview, cachedListings, cachedOverview } from "./menuData";
 import { cleanText, isCleanLanguage } from "./settings";
-import { LISTINGS_SHOWN, dealListings } from "./setup";
+import { LISTINGS_SHOWN, dealListings, sellerLine } from "./setup";
 import type {
   CustomListing,
   FreeBank,
@@ -568,7 +568,7 @@ function Menu({
                 live && priceOf(s) > live.cash ? "Over budget" : "",
                 `Resells for ${money(valueOf(s))}`,
                 s.condition,
-                s.merchant,
+                sellerLine(s.merchant, s.seller),
               ]
                 .filter(Boolean)
                 .join(" · ")}

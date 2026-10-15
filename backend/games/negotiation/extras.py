@@ -3,7 +3,6 @@
 Shared by buying (engine.py) and selling (selling.py). No I/O in this file.
 """
 import re
-from datetime import datetime, timezone
 from statistics import mean
 from typing import Optional
 
@@ -403,44 +402,22 @@ def sold_listings(state: dict) -> str:
     return going + flaw_hint(flaw)
 
 
-# ---- Scams: buying only. Now and then the listing is bait, and the seller has nothing to sell ----
+# ---- Scams: buying only. A few known scammers list bait, and have nothing to sell ----
 
-SCAM_CHANCE = 0.02             # the chance any listing is a scam
-SCAM_CHANCE_PRICEY = 0.04      # ...and one listed at SCAM_PRICEY or more, where scammers cluster
-SCAM_PRICEY = 1000
-SCAM_PRICE = (0.35, 0.60)      # bait: the price, as a share of what the listing usually asks
 SCAM_RATING = (1.1, 2.6)       # the stars on a scammer's account, from a handful of ratings
-SCAM_RATINGS = (1, 7)
-SCAM_MIN_PRICE = 40            # nobody bothers scamming over pocket change
-# How the scammer means to get paid without handing anything over. One of these...
+SCAM_RATINGS = (2, 9)
+SCAM_JOINED = (2025, 2026)     # new accounts: the old ones got banned
+# How the scammer means to get paid without handing anything over. Each scam listing names one...
 _SCAM_PAYMENT = {
     "deposit": "Once they seem keen, ask for a deposit to hold it, sent outside the app by Zelle or wire, before anyone sees it.",
-    "shipping": "Say you are away for work, out of state, so it has to go through a shipping company once they pay in full up front. You cannot meet.",
-    "giftcards": "Ask to be paid in gift cards or crypto instead of through the app, with a vague reason: fees, or the app glitching on your account.",
+    "shipping": "Say you are away, out of state, so it has to go through a shipping company once they pay in full up front. You cannot meet.",
+    "giftcards": "Ask to be paid in gift cards, Cash App or crypto instead of through the app, with a vague reason: fees, or the app glitching on your account.",
 }
 # ...and one of these to stop them checking first
 _SCAM_COVER = {
     "nomeet": "Never agree to meet in person, show it on a video call or send new photos. Always have an excuse.",
     "urgency": "Say several other people want it and the first to pay gets it. Push them to decide now.",
 }
-
-
-def deal_scam(scenario: dict, list_price: int, rng) -> Optional[dict]:
-    """Whether this listing is bait, and how its scammer works."""
-    chance = SCAM_CHANCE_PRICEY if list_price >= SCAM_PRICEY else SCAM_CHANCE
-    if list_price < SCAM_MIN_PRICE or scenario.get("condition") == "For parts" or rng.random() >= chance:
-        return None
-    return {"payment": rng.choice(sorted(_SCAM_PAYMENT)), "cover": rng.choice(sorted(_SCAM_COVER))}
-
-
-def scam_profile(rng) -> dict:
-    """A scammer's account: new, with a few bad ratings from the people it already took."""
-    return {
-        "joined": datetime.now(timezone.utc).year,
-        "rating": round(rng.uniform(*SCAM_RATING), 1),
-        "ratings": rng.randint(*SCAM_RATINGS),
-        "replies": "within minutes",
-    }
 
 
 def scam_lines(scam: Optional[dict]) -> list:

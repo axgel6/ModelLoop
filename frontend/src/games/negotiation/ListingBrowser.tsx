@@ -4,6 +4,7 @@ import { useEscapeKey } from "../../components/useEscapeKey";
 import { BackButton } from "../BackButton";
 import { Avatar } from "./Avatar";
 import { avatarSeed } from "./avatarSeed";
+import { sellerLine } from "./setup";
 import type { HaggleListing } from "./types";
 
 const SORTS = {
@@ -212,7 +213,7 @@ export function ListingBrowser({
                   <div className="pref-item-info">
                     <div className="pref-item-name">{l.item}</div>
                     <div className="pref-item-desc">
-                      {[`Resells for about ${money(l.value)}`, l.condition, l.category, l.merchant, l.setting.split("·").pop()?.trim()]
+                      {[`Resells for about ${money(l.value)}`, l.condition, l.category, sellerLine(l.merchant, l.seller), l.setting.split("·").pop()?.trim()]
                         .filter(Boolean)
                         .join(" · ")}
                     </div>

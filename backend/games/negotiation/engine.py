@@ -312,8 +312,10 @@ def custom_listing(item: str, price: int, condition: Optional[str], category: Op
 
 def market_value(scenario: dict, salt: str = "") -> int:
     """What the item really sells for, the same every time for the same listing (and run, given its salt)."""
+    # A scammer's bait goes by what the real thing sells for
+    base = scenario.get("real_price") or scenario["list_price"]
     share = random.Random(f"value:{salt}:{scenario['id']}").uniform(*VALUE_SHARE)
-    return max(1, _nice(scenario["list_price"] * share, scenario["list_price"]))
+    return max(1, _nice(base * share, base))
 
 
 def scenario_for(scenario_id: Optional[str], rng: Optional[random.Random] = None) -> dict:
@@ -330,10 +332,8 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
     patience = max(3, level["patience"] + patience_bonus)
     list_price = list_price or scenario["list_price"]
-    scam = extras.deal_scam(scenario, list_price, rng)
-    if scam:
-        # Bait: priced to make people hurry
-        list_price = max(1, _nice(list_price * rng.uniform(*extras.SCAM_PRICE), list_price))
+    # A known scammer's listing: bait, with nothing behind it
+    scam = copy.deepcopy(scenario.get("scam"))
     floor = min(_nice(list_price * rng.uniform(*(scenario.get("floor_share") or FLOOR_SHARE)), list_price), list_price - 1)
     return {
         "status": "active",          # active | deal | walked | lost
@@ -358,7 +358,7 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
         # Bait: the seller has nothing to sell, and the money is gone once paid. Hidden until the end.
         "scam": scam,
         # Their account as the chat shows it. A scammer's is new, with a few bad ratings.
-        "seller": extras.scam_profile(rng) if scam else seller_profile(scenario),
+        "seller": seller_profile(scenario),
         "research": None,            # what checking sold listings turned up
         # A seller who has to be rid of it soon: rounds left before it goes to someone else
         "deadline": {"rounds": extras.DEADLINE_ROUNDS} if extras.has_deadline(scenario) and not scam else None,
@@ -391,6 +391,14 @@ def seller_profile(scenario: dict) -> dict:
     """What the seller's public profile shows, the same every time for the same listing.
     Flavour only: nothing in it gives away their personality or how low they will go."""
     rng = random.Random(f"seller:{scenario['id']}")
+    if scenario.get("scam"):
+        # A known scammer: a new account, with bad reviews from the people it already took
+        return {
+            "joined": rng.choice(extras.SCAM_JOINED),
+            "rating": round(rng.uniform(*extras.SCAM_RATING), 1),
+            "ratings": rng.randint(*extras.SCAM_RATINGS),
+            "replies": REPLY_TIMES[0],
+        }
     persona = scenario.get("persona") or ""
     replies = rng.choice(REPLY_TIMES)
     if _FAST_REPLIES.search(persona):
