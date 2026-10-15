@@ -40,22 +40,27 @@ FLAW_CHANCE = 0.35
 #  what the item's title must mention for the flaw to fit, what in the title or description rules it out).
 # An empty `fits` fits anything in the group. The first word names the flaw in the sold-listings hint ("bring up the battery").
 _PHONE = ("iphone", "ipad", "macbook", "galaxy", "phone", "laptop")
-_SCREEN = _PHONE + ("imac", "monitor", "ultrawide", "watch", "switch", "steam deck", "3ds", "vita", "psp", "ally")
+_SCREEN = _PHONE + ("tv", "imac", "monitor", "ultrawide", "watch", "switch", "steam deck", "3ds", "vita", "psp", "ally")
 _PAD = ("controller", "controllers", "dualsense", "joy-con", "gamepad", "remotes", "dualshock")
 _DISC = ("ps1", "ps2", "ps3", "ps4", "ps5", "playstation", "gamecube", "xbox", "saturn", "dreamcast", "wii", "disc", "discs")
 _CAR = ("honda", "ford", "toyota", "bmw", "jeep", "mazda", "lamborghini", "tesla", "cybertruck")
 _CLOTHES = ("jacket", "jeans", "hoodie", "leggings", "fleece", "tote", "bag", "satchel", "boots", "slippers", "nuptse")
-_SHOES = ("boots", "yeezy", "jordan", "new balance", "ugg", "dr. martens", "slippers")
+_SHOES = ("slides", "air max", "boots", "yeezy", "jordan", "new balance", "ugg", "dr. martens", "slippers")
 _DRIFT = ("the left stick drifts", ("drift", "stick", "sticks", "controller", "joystick"), 0.15,
           _PAD + ("switch", "steam deck", "ally", "portal", "nintendo 64", "vr2"), ("drift", "microsd"))
 _PAD_BATTERY = ("the battery barely holds a charge", ("battery", "charge", "charging", "hours"), 0.20,
                 _PAD + ("switch lite", "3ds", "psp", "vita", "steam deck", "ally", "portal", "quest", "headset", "game boy"),
                 ("battery",))
 _BUTTONS = ("a couple of the buttons stick", ("buttons", "button", "sticky", "triggers", "trigger", "press"), 0.15, _PAD, ())
+_SIGNED = ("the signature has no certificate and does not match their usual one",
+           ("signature", "certificate", "coa", "authentic", "proof", "signed", "psa", "jsa", "autograph"), 0.50,
+           ("signed",), ("coa",))
+_FAKE_COA = ("the certificate is from a company known for selling fakes",
+             ("certificate", "coa", "authentic", "authenticated", "signature", "proof", "psa", "jsa"), 0.50, ("coa",), ())
 _FLAWS = {
     "tech": [
         ("the battery health is down to 76 percent", ("battery", "charge", "health"), 0.20,
-         _PHONE + ("airpods", "watch", "vision", "quest", "glasses"), ("battery",)),
+         _PHONE + ("airpods", "watch", "vision", "quest", "glasses", "headphones"), ("battery", "hd 650", "open back")),
         ("there is a dead pixel near the top corner", ("screen", "pixel", "display"), 0.15, _SCREEN, ("crt",)),
         ("the charging port only works if you wiggle the cable", ("port", "charging", "usb", "cable"), 0.15,
          _PHONE + ("airpods", "wireless", "steam deck", "switch", "portal"), ("lightning",)),
@@ -72,6 +77,22 @@ _FLAWS = {
         ("the gas lift slowly sinks", ("lift", "height", "sink", "sinks", "piston", "cylinder"), 0.15, ("chair",), ()),
         ("the force feedback rattles", ("feedback", "force", "rattle", "motor", "wheel"), 0.15, ("racing wheel",), ()),
         ("a couple of the pins are bent", ("pins", "pin", "socket", "tested", "boots", "post"), 0.30, ("processor",), ()),
+        ("there is faint burn-in from a news channel logo", ("burn", "burn-in", "panel", "oled", "hours", "screen"), 0.25,
+         ("oled",), ()),
+        ("the backlight has a dark patch in one corner", ("backlight", "panel", "screen", "patches", "uniformity"), 0.20,
+         ("tv",), ("oled", "crt")),
+        ("the woofer buzzes once you turn it up", ("bass", "woofer", "buzz", "volume", "sound", "loud"), 0.20,
+         ("speaker", "speakers", "soundbar", "boombox", "soundlink"), ()),
+        ("the tonearm will not return and the motor hums", ("tonearm", "arm", "motor", "speed", "hum", "play"), 0.20,
+         ("turntable",), ()),
+        ("the left channel cuts out until you tap it", ("channel", "left", "stereo", "sound", "audio", "crackle"), 0.25,
+         ("walkman", "receiver"), ()),
+        ("the fan rattles on the top setting", ("fan", "noise", "rattle", "loud", "settings"), 0.15, ("purifier", "purifiers"), ()),
+        ("the filters are long overdue and it smells musty", ("filters", "filter", "smell", "replaced", "changed"), 0.15,
+         ("purifier", "purifiers"), ("replaced",)),
+        ("the battery only lasts about ten minutes", ("battery", "runtime", "charge", "minutes"), 0.25, ("vacuum",), ()),
+        ("the steam wand sputters and the grinder jams", ("steam", "wand", "grinder", "descale", "descaled", "pressure"), 0.20,
+         ("espresso",), ()),
         ("the picture has a pink tint in one corner", ("picture", "tint", "colour", "color", "convergence", "screen"), 0.20,
          ("crt", "trinitron"), ()),
     ],
@@ -139,7 +160,65 @@ _FLAWS = {
     ],
     "tickets": [
         ("the seats are partial view behind a speaker stack", ("view", "seats", "see", "stage", "obstructed"), 0.30,
-         (), ("floor",)),
+         (), ("floor", "pit", "ga", "general admission", "lakers")),
+    ],
+    "outdoor": [
+        ("one of the tent poles is cracked and taped up", ("poles", "pole", "tent", "setup", "pitched", "broken"), 0.20,
+         ("tent",), ("rooftop",)),
+        ("the rainfly leaks at the seams in a downpour", ("rain", "waterproof", "leak", "leaks", "seams", "fly", "rainfly"), 0.20,
+         ("tent",), ()),
+        ("the lid gasket is torn, so ice melts in a day", ("ice", "gasket", "seal", "lid", "cold"), 0.20, ("cooler",), ()),
+        ("the burner only lights with a lighter", ("igniter", "ignite", "light", "lights", "burner", "flame"), 0.10,
+         ("stove", "jetboil"), ("solo stove",)),
+        ("the base has rusted through in one spot", ("rust", "rusted", "base", "condition"), 0.15, ("solo stove",), ()),
+        ("the hip belt buckle is cracked", ("buckle", "belt", "straps", "strap", "hip"), 0.12, ("backpack",), ()),
+        ("the down has clumped and it no longer keeps you warm", ("down", "warm", "loft", "clumped", "rating", "washed"), 0.30,
+         ("sleeping bag",), ()),
+        ("there is a slow leak somewhere in the seams", ("leak", "air", "pressure", "inflate", "holds", "pump"), 0.30,
+         ("paddle board", "inflatable"), ()),
+        ("the battery has lost about half its capacity", ("battery", "capacity", "charge", "cycles", "hours"), 0.25,
+         ("power station", "inreach"), ()),
+        ("one of the chairs has a torn seat", ("seat", "torn", "tear", "fabric", "chairs"), 0.15, ("chairs",), ()),
+        ("the cover zipper is broken and the hinge is stiff", ("zipper", "zip", "hinge", "cover", "open", "opens"), 0.15,
+         ("rooftop tent",), ()),
+    ],
+    "flowers": [
+        ("a third of the roses are already wilting at the edges", ("freshness", "fresh", "wilting", "wilt", "cut", "picked", "today"), 0.35,
+         ("roses", "ramo", "ramo buchón", "peonies", "sunflower"), ("preserved", "eternal", "dinero")),
+        ("several of the preserved roses have faded to brown", ("colour", "color", "faded", "fade", "preserved", "last"), 0.30,
+         ("preserved", "eternal"), ()),
+        ("a few of the bills are prop money", ("bills", "real", "fake", "money", "prop", "cash"), 0.50, ("dinero",), ()),
+    ],
+    "food": [
+        ("the tins are past their best-by date", ("date", "dates", "expiry", "expires", "best", "fresh", "harvest"), 0.30,
+         ("tin", "tins"), ()),
+        ("the bamboo whisk has a few snapped tines", ("whisk", "chasen", "tines", "broken", "kit"), 0.15, ("kit",), ()),
+        ("there is a hairline crack in the glaze", ("crack", "cracks", "chip", "glaze", "hairline", "condition"), 0.30,
+         ("chawan", "bowl"), ("kit",)),
+    ],
+    "music": [
+        ("the record is warped and skips on one track", ("warp", "warped", "skip", "skips", "play", "plays", "graded"), 0.30,
+         ("vinyl", "lp", "pressing", "45", "record"), ()),
+        _SIGNED,
+        _FAKE_COA,
+        ("the print is cracked far worse than the photos show", ("print", "cracking", "cracked", "crack", "photos"), 0.20,
+         ("shirt", "tee", "hoodie", "jersey", "jacket"), ("cracked", "cracking", "embroidered", "no jacket required")),
+        ("it is a modern reprint, not an original", ("tag", "tags", "reprint", "original", "stitch", "real", "vintage"), 0.50,
+         ("vintage",), ()),
+    ],
+    "collectible": [
+        ("the box has a crushed corner the photos hide", ("box", "corner", "condition", "photos", "mint"), 0.15,
+         ("boxed", "box", "carded"), ()),
+        ("two of the accessory hands and a head are missing", ("accessories", "accessory", "complete", "hands", "heads", "pieces"), 0.25,
+         ("hot toys",), ()),
+        ("the slab is cracked and the label looks tampered with", ("slab", "case", "label", "cert", "graded", "cgc", "psa"), 0.40,
+         ("cgc", "psa"), ()),
+        _SIGNED,
+        _FAKE_COA,
+        ("the lights and sounds stopped working", ("lights", "sounds", "electronics", "batteries", "works", "work"), 0.25,
+         ("electronic", "with lights"), ()),
+        ("the paint is chipped on the back", ("paint", "chip", "chips", "finish", "back"), 0.15, ("shield",), ()),
+        ("the tag is a reproduction", ("tag", "tags", "real", "fake", "authentic", "original"), 0.60, ("beanie",), ()),
     ],
     "general": [
         ("there is a scuff the photos do not show", ("scuff", "scratch", "marks", "dent", "photos"), 0.10, (), ("cards",)),
@@ -149,14 +228,17 @@ _FLAWS = {
     ],
 }
 # A sealed box can only hide one thing: it is not as sealed as it looks
-_SEALED_FLAW = ("it was opened, used and shrink-wrapped again", ("seal", "sealed", "resealed", "opened", "unopened", "wrap"), 0.20)
+_SEALED_FLAW = ("it was opened and resealed", ("seal", "sealed", "resealed", "opened", "unopened", "wrap"), 0.20)
 _FLAW_GROUP = {
     "PC and gear": "tech", "Apple and phones": "tech", "Consoles": "console", "Controllers and accessories": "accessory",
     "Bundles": "games", "Games": "games", "Vehicles": "vehicle", "Bags": "fashion", "Clothing and shoes": "fashion",
     "Dupes": "fashion", "Jewelry": "jewelry", "Fragrance": "fragrance", "Tickets": "tickets",
+    "TV and audio": "tech", "Home and appliances": "tech", "Camping and outdoors": "outdoor",
+    "Flowers and ramos": "flowers", "Matcha and tea": "food", "Music and merch": "music",
+    "Marvel and comics": "collectible", "Home and collectables": "collectible", "Fun stuff": "collectible",
 }
 # Where to look when nothing in the item's own group fits. A ticket has nothing else to hide.
-_FLAW_FALLBACK = {"console": ("tech", "general"), "accessory": ("tech", "general"), "tickets": ()}
+_FLAW_FALLBACK = {"console": ("tech", "general"), "accessory": ("tech", "general"), "tickets": (), "flowers": (), "food": ()}
 # Asking straight out whether anything is wrong finds any flaw
 _ANY_FLAW = ("problem", "issue", "wrong", "flaw", "defect", "damage", "damaged", "catch", "honest", "broken", "faults", "fault")
 
@@ -172,9 +254,9 @@ def _fitting_flaws(scenario: dict) -> list:
     text = f"{item} {scenario.get('description') or ''}".lower()
     if scenario.get("condition") == "For parts":
         return []           # already sold as broken: nothing left to hide
-    if scenario.get("condition") == "New" or _mentions(item, ("sealed",)):
-        return [_SEALED_FLAW]
     group = _FLAW_GROUP.get(scenario.get("category") or "", "general")
+    if group != "food" and (scenario.get("condition") == "New" or _mentions(item, ("sealed",))):
+        return [_SEALED_FLAW]
     for name in (group, *_FLAW_FALLBACK.get(group, ("general",))):
         fitting = [f[:3] for f in _FLAWS[name] if (not f[3] or _mentions(item, f[3])) and not _mentions(text, f[4])]
         if fitting:
