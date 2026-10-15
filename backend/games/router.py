@@ -1207,6 +1207,49 @@ async def keep_chatting(
         return _serialize(current)
 
 
+class LastWordRequest(BaseModel):
+    model: Optional[str] = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+    clean: bool          = False
+
+
+@router.patch("/{game_id}/last-word")
+@limiter.limit(CHAT_RATE_LIMIT)
+async def last_word(
+    request: Request,
+    game_id: uuid.UUID,
+    body: LastWordRequest,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Selling: a buyer of the sore-loser kind has something to say about the item being kept. Once."""
+    game = await _haggle_in_play(game_id, user, db)
+    state = game.state
+    if not aftertalk.wants_last_word(state):
+        raise HTTPException(status_code=409, detail="Nothing more to say")
+    base_url = await effective_ollama_url(user)
+    # The model can take a while; do not hold a pooled connection for it.
+    await db.close()
+
+    reply = await _ask_with_retry(
+        game_id, base_url, body.model, aftertalk.SYSTEM_PROMPT,
+        aftertalk.describe_last_word(state, clean=body.clean), aftertalk.REPLY_SCHEMA,
+    )
+    new_state = aftertalk.apply_last_word(state, reply)
+
+    async with AsyncSessionLocal() as write_db:
+        current = (await write_db.execute(
+            select(GameSession).where(GameSession.id == game_id, GameSession.user_id == user.id)
+        )).scalar_one_or_none()
+        if not current:
+            raise HTTPException(status_code=404, detail="Game not found")
+        if current.state.get("after"):
+            raise HTTPException(status_code=409, detail="That message was already sent. Reload the chat.")
+        await write_db.execute(update(GameSession).where(GameSession.id == game_id).values(state=new_state))
+        await write_db.commit()
+        await write_db.refresh(current)
+        return _serialize(current)
+
+
 @router.patch("/{game_id}/accept")
 async def accept_price(
     game_id: uuid.UUID,

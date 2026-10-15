@@ -57,6 +57,7 @@ def describe_for_model(state: dict, message: str, clean: bool = False) -> str:
         *extras.swearing(scenario, clean),
         f"{scenario['merchant']} is your own name. The person you are talking to is someone else: never call them {scenario['merchant']}.",
         f"How it went: {_outcome(state, selling)}",
+        *_unleashed(state),
         "",
         "The last messages before the deal was settled:",
     ]
@@ -70,10 +71,79 @@ def describe_for_model(state: dict, message: str, clean: bool = False) -> str:
     if after:
         lines += ["", "Since then:"]
         for entry in after:
-            lines.append(f"Them: {entry['you']}")
+            # A message of yours sent unprompted has nothing of theirs before it
+            if entry["you"]:
+                lines.append(f"Them: {entry['you']}")
             lines.append(f"You: {entry['reply']}")
     lines += ["", f"Their latest message: {message}"]
     return "\n".join(lines)
+
+
+# Buyers who will not take no quietly: turned down, they send a parting shot unprompted
+SORE_LOSERS = ("Unhinged", "Lowballer", "Scalper")
+
+
+def _unleashed(state: dict) -> list[str]:
+    """An unhinged buyer the seller turned away may get personal about it, for as long as the chat goes on."""
+    if not (
+        state.get("mode") == "sell"
+        and (state.get("result") or {}).get("outcome") == "kept"
+        and state["scenario"].get("kind") == "Unhinged"
+    ):
+        return []
+    return [
+        "Being turned down has set you off. You may insult the seller personally: their judgement, their "
+        "haggling, their life choices, whatever is funniest. You may make wild, theatrical threats that "
+        "nobody could take seriously (haunting their garage sales, telling your mom, leaving a one-star review "
+        "of them as a person). Never threaten real violence, and never use slurs or attack anyone for their "
+        "race, religion, gender, sexuality, disability or any other part of who they are.",
+    ]
+
+
+def wants_last_word(state: dict) -> bool:
+    """Selling, the player kept the item, and this buyer is the kind to have something to say about it."""
+    return (
+        state.get("mode") == "sell"
+        and (state.get("result") or {}).get("outcome") == "kept"
+        and state["scenario"].get("kind") in SORE_LOSERS
+        and not state.get("after")
+    )
+
+
+def describe_last_word(state: dict, clean: bool = False) -> str:
+    """The buyer's unprompted reaction to the seller keeping the item."""
+    scenario = state["scenario"]
+    lines = [
+        f"You are {scenario['merchant']}, the buyer. Personality: {scenario['persona']}.",
+        *extras.swearing(scenario, clean),
+        f"{scenario['merchant']} is your own name. The seller is someone else: never call them {scenario['merchant']}.",
+        f"You wanted their {scenario['item']} and offered {_money(state['ask'])}. They turned you down and decided to keep it.",
+        "",
+        "The last messages before they said no:",
+    ]
+    for entry in (state.get("log") or [])[-2:]:
+        lines.append(f"Them: {entry['you']}")
+        lines.append(f"You: {entry['reply']}")
+    lines += [
+        "",
+        "They have not written anything since. Send them one message, unprompted, about being turned down: "
+        "dramatic and sore about it, roasting their decision and the item, in your own voice. Mean but funny. "
+        "Do not offer more money or ask them to reconsider.",
+    ]
+    unleashed = _unleashed(state)
+    lines += unleashed or [
+        "No threats, no slurs, and nothing about who they are or how they look: only the deal, the item and their taste.",
+    ]
+    return "\n".join(lines)
+
+
+def apply_last_word(state: dict, reply: dict) -> dict:
+    if not wants_last_word(state):
+        raise ValueError("Nothing more to say")
+    s = copy.deepcopy(state)
+    text = " ".join(str(reply.get("reply") or "").split())[:MAX_REPLY] or "Wow. Enjoy your junk, then."
+    s["after"] = [{"you": "", "reply": text, "at": now()}]
+    return s
 
 
 def apply_reply(state: dict, message: str, reply: dict) -> dict:

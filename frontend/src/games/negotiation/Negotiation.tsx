@@ -53,6 +53,8 @@ const BLUFF_MESSAGE = "I think I'll leave it. Thanks anyway.";
 const SELL_BLUFF_MESSAGE = "Just a heads up, someone else is coming to look at it later today.";
 // The haggle happens in the marketplace chat, so what gives the seller away is how they reply, not how they look.
 // The faster the answer, the more room is left in the price.
+// Buyers who send a parting shot when the player keeps the item. The server has the same list.
+const SORE_LOSERS = ["Unhinged", "Lowballer", "Scalper"];
 // How long the payment button stays armed after the first tap
 const DOUBLE_TAP_MS = 1200;
 // How long a payment the account cannot cover seems to go through before it is declined
@@ -1022,6 +1024,8 @@ function Play({
   const balance = run ? run.cash : freeBank?.cash;
   // Talking on once the haggle is over
   const [chatting, setChatting] = useState(false);
+  // A sore loser turned down is typing their parting shot
+  const [ranting, setRanting] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
   const [chatPending, setChatPending] = useState<string | null>(null);
 
@@ -1146,12 +1150,26 @@ function Play({
       const pickup = next.state.result?.pickup?.kind;
       if (pickup === "counterfeit" || pickup === "fake_payment") window.setTimeout(() => sounds.play("warn"), 700);
       onSave(next);
+      if (selling && next.state.result?.outcome === "kept" && SORE_LOSERS.includes(scenario.kind ?? "")) void lastWord();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setClosing(false);
       setPaying(false);
       refreshRun();
+    }
+  };
+
+  // Kept the item from a sore loser: they say their piece unprompted, and the chat stays open to answer
+  const lastWord = async () => {
+    setRanting(true);
+    try {
+      onSave(await apiEditGame<HaggleState>(save.id, "last-word", { model, clean }));
+      setChatting(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setRanting(false);
     }
   };
 
@@ -1558,13 +1576,14 @@ function Play({
             {gap(a.at, i > 0 ? all[i - 1].at : (state.log.at(-1)?.at ?? state.started_at)) && (
               <p className="neg-time">{gap(a.at, i > 0 ? all[i - 1].at : (state.log.at(-1)?.at ?? state.started_at))}</p>
             )}
-            <Line who="you" text={a.you} />
+            {/* Nothing of yours before a message they sent unprompted */}
+            {a.you && <Line who="you" text={a.you} />}
             <Line face={face} who="them" text={say(a.reply)} />
           </Fragment>
         ))}
-        {chatPending && (
+        {(chatPending || ranting) && (
           <>
-            <Line who="you" text={chatPending} />
+            {chatPending && <Line who="you" text={chatPending} />}
             <div className="message-row assistant neg-waiting">
               <span className="waiting" role="status">
                 <span className="waiting-leaves" aria-hidden="true">
@@ -1599,7 +1618,9 @@ function Play({
           />
           <div className="input-toolbar">
             <div className="toolbar-left">
-              <span className="pref-setting-hint">The deal is done. This is just talk.</span>
+              <span className="pref-setting-hint">
+                {result.paid == null ? "No sale." : "The deal is done."} This is just talk.
+              </span>
             </div>
             <div className="toolbar-right">
               <button type="button" className="toolbar-chip-btn" onClick={() => setChatting(false)}>
@@ -1646,7 +1667,7 @@ function Play({
             {selling ? "Accept" : "Pay"} {money(state.ask)}
           </button>
           <button type="button" className="pref-confirm-no" onClick={() => close("walk")} disabled={busy}>
-            {selling ? "Keep it" : "Walk away"}
+            {selling ? "Reject buyer" : "Walk away"}
           </button>
         </div>
       ) : (
@@ -1739,7 +1760,7 @@ function Play({
                 </button>
               )}
               <button type="button" className="toolbar-chip-btn" onClick={() => close("walk")} disabled={busy}>
-                {selling ? "Keep it" : "Walk away"}
+                {selling ? "Reject buyer" : "Walk away"}
               </button>
               <button type="button" className="neg-take" onClick={() => setPaying(true)} disabled={busy}>
                 {selling ? "Sell" : "Take it"} at <strong>{money(state.ask)}</strong>
