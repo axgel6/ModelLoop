@@ -659,14 +659,13 @@ html .neg .neg-pay-sheet-head .neg-link {
   color: var(--neg-down);
 }
 
-.neg-pay-protection {
+/* Under the pay button: one quiet line, with the details on hover */
+.neg-pay-note {
+  margin: -4px 0 0;
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--game-muted);
   cursor: help;
-}
-
-/* The total opens the money part of the sheet */
-.neg-pay-rows > .neg-pay-total {
-  margin-top: 6px;
-  border-top-color: var(--glass-border);
 }
 
 .neg-pay-rows dd {
