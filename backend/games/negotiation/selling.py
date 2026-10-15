@@ -18,7 +18,7 @@ from typing import Optional
 from . import extras
 from .engine import now
 from .engine import (
-    DIFFICULTIES, FREE_QUESTIONS, LOG_LIMIT, MAX_REPLY, MAX_STIFFENING, MODEL_CONTEXT_ROUNDS,
+    DIFFICULTIES, FREE_QUESTIONS, LOG_LIMIT, MAX_REPLY, MAX_STIFFENING, MODEL_CONTEXT_ROUNDS, NEUTRAL_REPLIES,
     REPEAT_PERSUASION, RESISTANCE_PER_POINT, MAX_RESISTANCE, SHORT_MESSAGE_WORDS,
     TELL_EDGE, TELL_ROOMY, TELL_TIGHT, CONCESSION, CONCESSION_PER_POINT,
     REPLY_SCHEMA, _AGREES, _OBJECTS, _fill, _money, _repeated, _step, _then, _typed_figure,
@@ -44,7 +44,7 @@ RATINGS = [
 # slowly they come up (added to the usual resistance), and how long they will put up with you.
 BUYERS = [
     {
-        "kind": "Lowballer", "resistance": 0.10, "ceiling": (0.80, 1.00), "opening": 0.55, "anchor": 0.50, "patience": 0,
+        "kind": "Lowballer", "rude": True, "repeats": True, "resistance": 0.10, "ceiling": (0.80, 1.00), "opening": 0.55, "anchor": 0.50, "patience": 0,
         "persona": "opens absurdly low and acts like they are doing you a favour, types fast, loves the word firm",
         "openings": [
             "is this available? i can do {price} cash today",
@@ -102,7 +102,7 @@ BUYERS += [
         ],
     },
     {
-        "kind": "Scalper", "resistance": 0.15, "ceiling": (0.60, 0.80), "opening": 0.50, "anchor": 0.45, "patience": -1,
+        "kind": "Scalper", "rude": True, "repeats": True, "resistance": 0.15, "ceiling": (0.60, 0.80), "opening": 0.50, "anchor": 0.45, "patience": -1,
         "persona": "flips everything for profit, blunt, pushes hard and threatens to walk constantly",
         "openings": [
             "{price}. cash. today. yes or no",
@@ -163,7 +163,7 @@ SYSTEM_PROMPT = """You play a buyer on an online marketplace, like Facebook Mark
 Your tone:
 - Be a normal person messaging on Marketplace. Your personality below decides how warm, chatty, blunt or prickly you are; nothing else does.
 - Saying no to a price is ordinary haggling, not a reason to be rude. A friendly character stays friendly while turning an offer down.
-- Get short with them only if they were rude, insulting or wasted your time. Never insult them yourself.
+- Get short with them only if they were rude, insulting or wasted your time. Never insult them yourself: never call them whiny, greedy, annoying or anything like it, however much they push, unless you are told below that your personality is cutting.
 - Keep your language clean unless you are told below that you swear.
 
 Who is who, and never mix it up:
@@ -198,7 +198,7 @@ Be a tough but fair judge in this rating (your manner is set by your personality
 - Only mention your offer when the round's instruction tells you to.
 - Follow the instruction for this round exactly.
 - Stay in character and react to what the seller actually said. No stage directions, no quotation marks around the reply.
-- Never repeat or lightly reword one of your earlier messages. Say something new each time, even when your answer is the same."""
+- Never repeat or lightly reword one of your earlier messages. Say something new each time, even when your answer is the same, unless you are told below that you have a stock line."""
 
 __all__ = ["REPLY_SCHEMA", "SYSTEM_PROMPT"]
 
@@ -298,6 +298,7 @@ def _prospect(rng: random.Random, worth: int, asking: int, level: dict, taken: s
         level["resistance"] + buyer.get("resistance", 0.0) + rng.uniform(-RESISTANCE_JITTER, RESISTANCE_JITTER))), 3)
     return {
         "merchant": name, "kind": buyer["kind"], "persona": buyer["persona"], "swears": bool(buyer.get("swears")),
+        "rude": bool(buyer.get("rude")), "repeats": bool(buyer.get("repeats")),
         "opening": _fill(opening, opening_bid), "opening_bid": opening_bid, "ceiling": ceiling,
         "patience": patience, "resistance": resistance, "opening_agreed": opening_bid >= asking,
     }
@@ -315,7 +316,8 @@ def choose(state: dict, index: int) -> dict:
     s.pop("prospects")
     s["others"] = [q for j, q in enumerate(prospects) if j != index]
     s["status"] = "active"
-    s["scenario"].update(merchant=p["merchant"], persona=p["persona"], kind=p["kind"], swears=p.get("swears", False))
+    s["scenario"].update(merchant=p["merchant"], persona=p["persona"], kind=p["kind"], swears=p.get("swears", False),
+        rude=p.get("rude", False), repeats=p.get("repeats", False))
     s.update(
         opening=p["opening"], ask=p["opening_bid"], opening_bid=p["opening_bid"], ceiling=p["ceiling"],
         patience=p["patience"], patience_max=p["patience"], opening_agreed=p["opening_agreed"],
@@ -403,7 +405,8 @@ def switch(state: dict) -> dict:
     ping = s.pop("ping")
     p = s["others"].pop(ping["index"])
     s["ping"] = None
-    s["scenario"].update(merchant=p["merchant"], persona=p["persona"], kind=p["kind"], swears=p.get("swears", False))
+    s["scenario"].update(merchant=p["merchant"], persona=p["persona"], kind=p["kind"], swears=p.get("swears", False),
+        rude=p.get("rude", False), repeats=p.get("repeats", False))
     s.update(
         opening=f"Hey, still available? I can do {_money(ping['offer'])}.", ask=ping["offer"], opening_bid=ping["offer"],
         ceiling=p["ceiling"], patience=p["patience"], patience_max=p["patience"], final=False, bluffed=False,
@@ -425,6 +428,7 @@ def describe_for_model(
     lines = [
         f"You are {scenario['merchant']}, the buyer. Personality: {scenario['persona']}.",
         *extras.swearing(scenario, clean),
+        *extras.manner(scenario),
         f"{scenario['merchant']} is your own name. The seller is someone else: never call them {scenario['merchant']}.",
         "",
         "The listing you messaged about:",
@@ -515,6 +519,8 @@ def apply_turn(
     repeated = _repeated(s, message)
     if repeated:
         persuasion = min(persuasion, REPEAT_PERSUASION)
+    # No insults, and nothing the buyer has already said in this chat
+    text = extras.tidy_reply(text, [s.get("opening") or ""] + [e.get("reply") or "" for e in s["log"]], NEUTRAL_REPLIES, s["scenario"])
     if bluff or leverage:
         persuasion = 0
     if bluff:

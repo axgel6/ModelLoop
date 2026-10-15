@@ -13,9 +13,11 @@ NEW = "New"
 PARTS = "For parts"
 
 
-def _listing(id, item, price, condition, seller, persona, description, opening, delivery="Local pickup", floor=None, swears=False):
+def _listing(id, item, price, condition, seller, persona, description, opening, delivery="Local pickup", floor=None, swears=False,
+             rude=False, repeats=False):
     """`floor` overrides how low the seller will go, as shares of the price: a rich seller who
-    does not need the money takes far less than most."""
+    does not need the money takes far less than most. `rude`: their persona lets them take a jab
+    at the buyer. `repeats`: they have a stock line or two and keep coming back to it."""
     return {
         "id": id, "item": item, "list_price": price, "condition": condition,
         "merchant": seller, "persona": persona, "description": description, "opening": opening,
@@ -23,6 +25,9 @@ def _listing(id, item, price, condition, seller, persona, description, opening, 
         **({"floor_share": floor} if floor else {}),
         # An Unhinged seller: swears like a sailor, friendly underneath (see extras.SWEARING)
         **({"swears": True} if swears else {}),
+        # Characters written to be cutting, or to say the same thing again (see extras.manner)
+        **({"rude": True} if rude else {}),
+        **({"repeats": True} if repeats else {}),
     }
 
 
@@ -35,6 +40,7 @@ _CATALOGUE = [
         "knows exactly how scarce these are, slightly smug, ignores anyone who opens with a lowball",
         "Bought at launch, used for three months in a smoke-free build. Never mined on, never overclocked. Comes with the original box, the power adapter and the receipt. Selling because I went back to a smaller case.",
         "Yes it's available. Three months old, box and receipt included. {price}, and I know what these go for.",
+        rude=True,
     ),
     _listing(
         "rtx4070s", "ASUS Dual RTX 4070 Super 12GB", 560, LIKE_NEW, "Nina",
@@ -72,6 +78,7 @@ _CATALOGUE = [
         "an engineer who over-researched every part, firm, mildly insulted by offers that ignore the parts list",
         "Intel i9-13900K, RTX 4080 16GB, 64GB DDR5, 2TB NVMe, 360mm liquid cooler, 1000W Platinum power supply in a Lian Li O11. Built last year, used for work and some gaming. All boxes included.",
         "It's available. Full parts list is in the description and I have every box. {price} is already below what the parts cost.",
+        rude=True,
     ),
     _listing(
         "monitor1440", "LG UltraGear 27-inch 1440p 165Hz monitor", 200, GOOD, "Hannah",
@@ -110,6 +117,7 @@ _CATALOGUE = [
         "blunt and a bit lazy, replies in fragments, wants it gone by the weekend",
         "Works fine. The spacebar is shiny and the W key lighting is dim. No wrist rest. Loud clicky switches, my roommate hated it.",
         "still have it. works, bit worn. {price}",
+        rude=True,
     ),
     _listing(
         "cloud2", "HyperX Cloud II gaming headset", 40, GOOD, "Aaliyah",
@@ -371,6 +379,7 @@ _CATALOGUE = [
         "a football dad, talks in sports cliches, firm because he knows everyone wants it",
         "Disc, case and cover art. Light scratches, plays fine. Last one they made before the long gap, which is why it holds value.",
         "Still available. Plays great. You know why these cost what they do. {price}.",
+        repeats=True,
     ),
     _listing(
         "heartgold", "Pokemon HeartGold with the Pokewalker, boxed", 280, GOOD, "Liam",
@@ -400,6 +409,7 @@ _CATALOGUE = [
         "blunt, used to compete, has no patience for people who say it is just an old game",
         "Disc, case and manual. Disc is scratched but loads every time. Player's Choice version.",
         "Still have it. Scratched but it works every time. {price}.",
+        rude=True,
     ),
     _listing(
         "doubledash", "Mario Kart: Double Dash, GameCube", 70, GOOD, "Katie",
@@ -502,6 +512,7 @@ _CATALOGUE = [
         "types in lowercase, swears it works perfectly, keeps saying he has other people asking",
         "Black, 64GB, unlocked. Back glass is cracked across the bottom corner. Screen has no cracks. Battery health 79 percent. No charger.",
         "hey yeah still available. works perfect, the crack is just cosmetic. {price}",
+        repeats=True,
     ),
     _listing(
         "iphone13", "iPhone 13 Pro, 128GB, Sierra Blue", 360, GOOD, "Mei",
@@ -1012,6 +1023,7 @@ _CATALOGUE = [
         "gruff, upgrading to a bigger bike, does not haggle by text for long",
         "Black, Vance and Hines pipes, new battery. Small dent in the tank. Clean title. Two keys.",
         "Still for sale. New battery, loud pipes. {price}.",
+        rude=True,
     ),
     _listing(
         "golfcart", "Club Car golf cart, gas, lifted", 5200, GOOD, "Darlene",
@@ -1198,7 +1210,7 @@ _CATALOGUE = [
     _listing(
         "trilogy", "The Weeknd, Trilogy box set, 2012 vinyl", 320, GOOD, "Andre",
         "knows the early mixtapes by heart, tells you which songs were changed for the box set",
-        "Original 2012 Trilogy box, six LPs. Box has light shelf wear on the corners. All discs play clean. Insert poster included.",
+        "Original 2012 Trilogy box, three mixtapes. Box has light shelf wear on the corners. All discs play clean. Insert poster included.",
         "Still available. Original 2012 box, all six discs play clean. {price}.",
         "Pickup or shipping",
     ),
@@ -1377,6 +1389,7 @@ _CATALOGUE = [
         "gruff, knows exactly what things are worth, respects people who know their stuff",
         "Natural finish, maple neck. The headstock was cracked and professionally repaired years ago and has been stable since. Original pickups. Frets have life left. Hard case included.",
         "Still available. The repair is solid and it plays better than new. {price}.",
+        rude=True,
     ),
     _listing(
         "camera", "Canon AE-1 film camera with a 50mm lens", 280, GOOD, "Nora",
@@ -1462,6 +1475,7 @@ _CATALOGUE = [
         "switched to the iPhone Duo after two weeks, decisive, a little smug about it",
         "Two weeks old. Lived in a case with a screen protector, battery health 100 percent. Unlocked. Box, cable and receipt included.",
         "Hi, yes. Two weeks old, I went for the Duo instead. {price}.",
+        rude=True,
     ),
     _listing(
         "mbpm5", "MacBook Pro 14-inch M5, 16GB, 1TB, space black", 1750, LIKE_NEW, "Owen",
@@ -1797,6 +1811,7 @@ _CATALOGUE = [
         "a Valorant player who changes mice every month, short and blunt",
         "Under a month of use. Feet are smooth, clicks are crisp. Dongle and cable in the box.",
         "Still here. Under a month old. {price}.",
+        rude=True,
     ),
     # Rich sellers: they do not need the money, and the right message gets a huge discount
     "Vehicles",
@@ -1877,6 +1892,7 @@ _CATALOGUE = [
         "1998 Civic hatch, 212,000 miles. Aftermarket exhaust, loud as hell, neighbours hate it. Runs strong, AC is dead, passenger window is slow. Clean title.",
         "Still available! She's loud as fuck and the AC is dead, but she runs like a damn champ. {price}.",
         swears=True,
+        rude=True,
     ),
     "Fun stuff",
     _listing(

@@ -40,6 +40,8 @@ CONCESSION_PER_POINT = 0.10    # ...moved by each point of persuasion
 INSULT_SHARE = 0.6             # an offer below this share of the floor costs extra patience
 SHORT_MESSAGE_WORDS = 5        # fewer words than this cannot count as persuasive
 FREE_QUESTIONS = 4             # questions about the item cost nothing, up to this many; then the seller tires of them
+# What the merchant says when everything the model wrote was an insult or said before; the price is added after
+NEUTRAL_REPLIES = ("I hear you.", "Fair enough, let me think.", "Ok, got it.", "Alright, noted.", "Mm, I see what you mean.")
 REPEAT_PERSUASION = -1         # saying the same thing again is pushy, however good it was the first time
 # Once per haggle the player can say they are leaving. The merchant comes back with
 # one bigger cut, and is shorter with them afterwards.
@@ -94,10 +96,11 @@ SYSTEM_PROMPT = """You play a seller on an online marketplace, like Facebook Mar
 Your tone:
 - Be a normal person messaging on Marketplace. Your personality below decides how warm, chatty, blunt or prickly you are; nothing else does.
 - Saying no to a price is ordinary haggling, not a reason to be rude. A friendly character stays friendly while turning an offer down.
-- Get short with them only if they were rude, insulting or wasted your time. Never insult them yourself.
+- Get short with them only if they were rude, insulting or wasted your time. Never insult them yourself: never call them whiny, cheap, annoying or anything like it, however much they push, unless you are told below that your personality is cutting.
 - Keep your language clean unless you are told below that you swear.
 
 The setting:
+- The downsides your listing admits to (no box, wear, drift, its age and so on) are the buyer's reasons for a lower price. Never use them to defend your price.
 - This is a text chat inside the marketplace app. You and the buyer have never met and cannot see or hear each other. Nobody is standing in a shop or at a stall.
 - Write the way people message about a listing: short and casual, no speeches. You may mention other people messaging you, when you are free for pickup, or what is in the listing.
 - The item is as your listing describes it, unless you are told below about a flaw the listing left out: then that flaw is real too. Do not invent any other flaws, extras or history, and do not offer to throw anything in.
@@ -120,7 +123,7 @@ Be a tough but fair judge in this rating (your manner is set by your personality
 - Only mention your price when the round's instruction tells you to. Sellers do not repeat their price in every message.
 - Follow the instruction for this round exactly: it says whether you are making a counter-offer, giving a final price, or accepting.
 - Stay in character and react to what the buyer actually said. No stage directions, no quotation marks around the reply.
-- Never repeat or lightly reword one of your earlier messages. Say something new each time, even when your answer is the same."""
+- Never repeat or lightly reword one of your earlier messages. Say something new each time, even when your answer is the same, unless you are told below that you have a stock line."""
 
 
 def now() -> str:
@@ -314,7 +317,7 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
         "started_at": now(),
         "turn": 0,
         "difficulty": difficulty if difficulty in DIFFICULTIES else "normal",
-        "scenario": {k: scenario.get(k) for k in ("id", "item", "merchant", "setting", "persona", "condition", "description", "category", "swears")},
+        "scenario": {k: scenario.get(k) for k in ("id", "item", "merchant", "setting", "persona", "condition", "description", "category", "swears", "rude", "repeats")},
         "opening": _fill(scenario["opening"], list_price),
         "list_price": list_price,
         # What it resells for, kept with the purchase for when the player sells it on
@@ -437,6 +440,7 @@ def describe_for_model(
     lines = [
         f"You are {scenario['merchant']}, the seller. Personality: {scenario['persona']}.",
         *extras.swearing(scenario, clean),
+        *extras.manner(scenario),
         f"{scenario['merchant']} is your own name. The buyer is someone else: never call them {scenario['merchant']}.",
         "",
         "Your marketplace listing:",
@@ -451,6 +455,12 @@ def describe_for_model(
     flaw = state.get("flaw")
     if flaw and flaw.get("revealed"):
         lines.append(f"Known flaw, which the buyer knows about: {flaw['text']}. It is a fair reason for a lower price.")
+    cited = [] if bluff or _repeated(state, message) else extras.cited_downsides(scenario, flaw, message, state.get("cited") or [])
+    if cited:
+        lines.append(
+            f"The buyer points to {' and '.join(cited)}, which your own listing admits to. That is a fair point "
+            "against your price: rate it at least 1, and do not use it to defend your price."
+        )
     if state.get("deadline"):
         lines.append(f"You need it gone soon: {state['deadline']['rounds']} more messages before you sell to whoever turns up first.")
     lines += [
@@ -546,6 +556,15 @@ def apply_turn(
     repeated = _repeated(s, message)
     if repeated:
         persuasion = min(persuasion, REPEAT_PERSUASION)
+    # A downside the listing itself admits to is a fair point, whatever the model made of it. Once each.
+    cited = [] if bluff or repeated else extras.cited_downsides(s["scenario"], s.get("flaw"), message, s.get("cited") or [])
+    # The model meant to hold its price, and was overruled: what it wrote says the price stays put
+    overruled = bool(cited) and persuasion < 1
+    if cited:
+        persuasion = max(persuasion, 1)
+        s["cited"] = (s.get("cited") or []) + cited
+    # No insults, and nothing it has already said in this chat
+    text = extras.tidy_reply(text, [s.get("opening") or ""] + [e.get("reply") or "" for e in s["log"]], NEUTRAL_REPLIES, s["scenario"])
     if bluff:
         persuasion = 0               # the bluff does its own work; it is not an argument
         s["bluffed"] = True
@@ -606,6 +625,9 @@ def apply_turn(
                     lowered = min(lowered, s["ask"] - _step(s["list_price"]))
                 s["ask"] = min(s["ask"], max(_nice(reserve, s["list_price"]), lowered))
             s["final"] = s["patience"] <= 0
+            if overruled and s["ask"] < before:
+                # Keep only what does not hold the line, own the point, and the new price follows
+                text = _then(f"Fair point about {cited[0]}.", extras.without_holding(text, NEUTRAL_REPLIES))
             said = _fill(text, s["ask"], quotable)
             if _money(s["ask"]) not in said:
                 # The seller has to say a price that changed, or one that is now final. Otherwise it goes unsaid.

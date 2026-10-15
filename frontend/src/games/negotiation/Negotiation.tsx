@@ -1007,6 +1007,9 @@ function Play({
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
   const feedEnd = useRef<HTMLDivElement>(null);
+  // The message boxes, focused again once a reply lands so the next message can be typed straight away
+  const draftInput = useRef<HTMLInputElement>(null);
+  const chatInput = useRef<HTMLInputElement>(null);
   // A Hustle chat: the run's balance, shown in the header and checked before paying
   const [run, setRun] = useState<HustleRun | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
@@ -1040,6 +1043,15 @@ function Play({
   const offerValue = Math.round(Number(offerDraft));
   const offer = offerValue > 0 ? offerValue : undefined;
   const busy = !!pending || closing;
+
+  // The box is disabled while a reply is on its way, which drops focus; give it back when the reply lands.
+  // Only on that change, so opening a chat does not pull up the keyboard on a phone.
+  const waited = useRef(false);
+  useEffect(() => {
+    const waiting = busy || !!chatPending;
+    if (waited.current && !waiting && !paying) (chatInput.current ?? draftInput.current)?.focus();
+    waited.current = waiting;
+  }, [busy, chatPending, paying]);
 
   const sweeteners = SWEETENERS[selling ? "sell" : "buy"];
   // Clean language (Marketplace settings): characters are told not to swear, and anything they still say is softened
@@ -1540,6 +1552,7 @@ function Play({
       {result && chatting ? (
         <form className="input-wrapper neg-composer" onSubmit={talk}>
           <input
+            ref={chatInput}
             className="chat-textarea"
             value={chatDraft}
             onChange={(e) => setChatDraft(e.target.value)}
@@ -1645,6 +1658,7 @@ function Play({
         </div>
         <form className="input-wrapper neg-composer" onSubmit={send}>
           <input
+            ref={draftInput}
             className="chat-textarea"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

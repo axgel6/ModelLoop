@@ -1579,8 +1579,10 @@ html .neg .neg-extra--research:disabled {
   color: var(--game-muted);
 }
 
+/* Flat, with no shadow under it, a lift only reads as being out of line with the chips beside it */
 html .neg .neg-extra--research:hover:not(:disabled) {
   color: var(--game-ink);
+  transform: none;
 }
 
 .neg-extra-cost {
