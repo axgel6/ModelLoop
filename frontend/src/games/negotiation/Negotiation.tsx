@@ -44,6 +44,7 @@ import type {
   HaggleSummary,
   HustleRun,
   InventoryItem,
+  SellerProfile,
 } from "./types";
 import "./negotiation.css";
 
@@ -1148,7 +1149,7 @@ function Play({
       const next = await apiEditGame<HaggleState>(save.id, path, {});
       if (next.state.result?.paid != null) sounds.play("pay");
       const pickup = next.state.result?.pickup?.kind;
-      if (pickup === "counterfeit" || pickup === "fake_payment") window.setTimeout(() => sounds.play("warn"), 700);
+      if (pickup === "counterfeit" || pickup === "fake_payment" || pickup === "scam") window.setTimeout(() => sounds.play("warn"), 700);
       onSave(next);
       if (selling && next.state.result?.outcome === "kept" && SORE_LOSERS.includes(scenario.kind ?? "")) void lastWord();
     } catch (err) {
@@ -1255,7 +1256,10 @@ function Play({
             <Avatar seed={face} size={44} />
           </div>
           <div className="pref-item-info">
-            <div className="pref-item-name">{scenario.merchant}</div>
+            <div className="pref-item-name neg-merchant-name">
+              {scenario.merchant}
+              {!selling && state.seller && <SellerStars seller={state.seller} />}
+            </div>
             <div className="pref-item-desc">
               <span className={`neg-presence${!result ? " is-on" : ""}`}>{presence(lastAt, !result)}</span>
               {" · "}
@@ -1521,11 +1525,13 @@ function Play({
                     ? `You paid ${money(result.paid)} for something listed at ${money(state.list_price)}, saving ${money(result.saved ?? 0)} in ${result.rounds} ${result.rounds === 1 ? "round" : "rounds"}.`
                     : result.outcome === "lost"
                       ? `${scenario.merchant} sold it to someone who turned up first. Nothing was paid.`
-                      : "You left without buying. No deal, no score."}
+                      : state.scam
+                        ? `${scenario.merchant} never had it. The listing was bait, and you kept your money.`
+                        : "You left without buying. No deal, no score."}
                 </span>
                 <span className="pref-setting-hint">
                   The lowest {scenario.merchant} would have gone was {money(result.floor)}.
-                  {result.paid != null && ` You won ${result.score}% of the discount that was there to be had.`}
+                  {result.paid != null && !state.scam && ` You won ${result.score}% of the discount that was there to be had.`}
                 </span>
                 {balance != null && result.paid != null && (
                   <span className="pref-setting-hint">Your balance is now {money(balance)}.</span>
@@ -1539,6 +1545,8 @@ function Play({
                   <span className="pref-setting-hint">
                     {result.pickup.kind === "fake_payment"
                       ? `You are out the item and the ${money(result.pickup.loss)}.`
+                      : result.pickup.kind === "scam"
+                        ? `You are out ${money(result.pickup.loss)}, and there is nothing to collect.`
                       : `It is worth ${money(result.pickup.loss)} less than you thought.`}
                   </span>
                 )}
@@ -2171,6 +2179,25 @@ function lastTell(log: HaggleEntry[], index: number): HaggleEntry["tell"] {
 }
 
 /** One line of the haggle as a chat bubble, with an optional note where the timestamp would go */
+/** The seller's stars beside their name in the chat. Few ratings and a low score is a warning sign */
+function SellerStars({ seller }: { seller: SellerProfile }) {
+  const low = seller.rating < 3.5;
+  return (
+    <span
+      className={`neg-seller-stars${low ? " is-low" : ""}`}
+      title={`${seller.rating.toFixed(1)} from ${seller.ratings} ${seller.ratings === 1 ? "rating" : "ratings"} · Joined in ${seller.joined} · Usually replies ${seller.replies}`}
+    >
+      <span aria-hidden="true">
+        {"★".repeat(Math.round(seller.rating))}
+        {"☆".repeat(5 - Math.round(seller.rating))}
+      </span>
+      <span className="neg-seller-score">
+        {seller.rating.toFixed(1)} ({seller.ratings})
+      </span>
+    </span>
+  );
+}
+
 function Line({ who, text, note, face }: { who: "you" | "them"; text: string; note?: string; face?: string }) {
   const role = who === "you" ? "user" : "assistant";
   const bubble = (

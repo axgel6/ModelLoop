@@ -123,6 +123,13 @@ def record_purchase(run: dict, chat: dict) -> dict:
         raise ValueError(f"You only have ${run['cash']:,} in your account.")
     r = copy.deepcopy(run)
     r["cash"] -= paid
+    if (result.get("pickup") or {}).get("kind") == "scam":
+        # The money is gone and nothing came of it
+        r["ledger"].append({
+            "day": r["day"], "kind": "buy", "item": scenario["item"], "other": scenario["merchant"],
+            "amount": -paid, "balance": r["cash"], "at": _now(), "note": "Scammed",
+        })
+        return r
     item = {
         "id": str(uuid.uuid4()),
         "listing": scenario.get("id"),
@@ -202,7 +209,7 @@ def refund(run: dict, amount: int, item: str, other: str) -> dict:
 def maybe_callback(run: dict, chat: dict, rng: Optional[random.Random] = None) -> dict:
     """After walking away from a seller, they may message again in a few days with a lower price."""
     rng = rng or random.Random()
-    if rng.random() >= CALLBACK_CHANCE or not chat.get("scenario", {}).get("id"):
+    if chat.get("scam") or rng.random() >= CALLBACK_CHANCE or not chat.get("scenario", {}).get("id"):
         return run
     r = copy.deepcopy(run)
     price = max(chat["floor"], _nice(chat["ask"] * CALLBACK_CUT, chat["list_price"]))

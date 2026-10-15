@@ -330,6 +330,10 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
     patience = max(3, level["patience"] + patience_bonus)
     list_price = list_price or scenario["list_price"]
+    scam = extras.deal_scam(scenario, list_price, rng)
+    if scam:
+        # Bait: priced to make people hurry
+        list_price = max(1, _nice(list_price * rng.uniform(*extras.SCAM_PRICE), list_price))
     floor = min(_nice(list_price * rng.uniform(*(scenario.get("floor_share") or FLOOR_SHARE)), list_price), list_price - 1)
     return {
         "status": "active",          # active | deal | walked | lost
@@ -350,10 +354,14 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
         "bluffed": False,            # the player has used their one bluff
         "sweeteners": [],            # the terms other than money already offered
         # Something wrong the listing does not say. Found by asking, or found at pickup.
-        "flaw": extras.deal_flaw(scenario, rng),
+        "flaw": None if scam else extras.deal_flaw(scenario, rng),
+        # Bait: the seller has nothing to sell, and the money is gone once paid. Hidden until the end.
+        "scam": scam,
+        # Their account as the chat shows it. A scammer's is new, with a few bad ratings.
+        "seller": extras.scam_profile(rng) if scam else seller_profile(scenario),
         "research": None,            # what checking sold listings turned up
         # A seller who has to be rid of it soon: rounds left before it goes to someone else
-        "deadline": {"rounds": extras.DEADLINE_ROUNDS} if extras.has_deadline(scenario) else None,
+        "deadline": {"rounds": extras.DEADLINE_ROUNDS} if extras.has_deadline(scenario) and not scam else None,
         # The price only becomes a purchase when the player pays it (accept)
         "log": [],
         "result": None,
@@ -363,7 +371,7 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
 def public(state: dict) -> dict:
     """The state as the player may see it: the merchant's limits, and any flaw nobody has owned up to,
     stay hidden until the haggle ends."""
-    hidden = ("resistance",) if state.get("status") != "active" else ("resistance", "floor")
+    hidden = ("resistance",) if state.get("status") != "active" else ("resistance", "floor", "scam")
     out = {k: v for k, v in state.items() if k not in hidden}
     flaw = out.get("flaw")
     if flaw and not flaw.get("revealed") and state.get("status") == "active":
@@ -461,6 +469,7 @@ def describe_for_model(
         *extras.swearing(scenario, clean),
         *extras.manner(scenario),
         f"{scenario['merchant']} is your own name. The buyer is someone else: never call them {scenario['merchant']}.",
+        *extras.scam_lines(state.get("scam")),
         "",
         "Your marketplace listing:",
         f"Title: {scenario['item']}",
@@ -512,7 +521,8 @@ def describe_for_model(
     lines.append("")
     if kind == "deal":
         agreed = _money(min(offer, state["ask"]))
-        lines.append(f"Instruction for this round: ACCEPT. You agree to sell at {agreed}. Say yes in character and tell them to send the payment through the app. Do not write {{price}} or any number.")
+        pay = "send it right now, before anyone else does" if state.get("scam") else "send the payment through the app"
+        lines.append(f"Instruction for this round: ACCEPT. You agree to sell at {agreed}. Say yes in character and tell them to {pay}. Do not write {{price}} or any number.")
     elif kind == "final":
         lines.append("Instruction for this round: FINAL PRICE. You have gone as far as you will. Decline the offer if there was one, in your own way, and say {price} is your last price.")
     elif bluff:
@@ -759,7 +769,16 @@ def accept(state: dict, scams: bool = False, rng: Optional[random.Random] = None
     s = copy.deepcopy(state)
     _finish(s, "deal", s["ask"])
     flaw = s.get("flaw")
-    if (
+    if s.get("scam"):
+        # There was never anything to collect
+        s["result"]["rating"] = "Scammed"
+        s["result"]["score"] = 0
+        s["result"]["pickup"] = {
+            "kind": "scam", "loss": s["ask"], "refund": 0,
+            "issue": f"You sent {_money(s['ask'])} and {s['scenario']['merchant']} vanished. The listing is gone and the account is deleted. It was a scam.",
+        }
+        s["value"] = 0
+    elif (
         scams and s["scenario"].get("category") in _COUNTERFEIT_CATEGORIES
         and s["value"] >= COUNTERFEIT_MIN_VALUE and rng.random() < COUNTERFEIT_CHANCE
     ):
@@ -801,4 +820,6 @@ def walk_away(state: dict) -> dict:
         raise ValueError("This haggle is over")
     s = copy.deepcopy(state)
     _finish(s, "walked", None)
+    if s.get("scam"):
+        s["result"]["rating"] = "Dodged a scam"
     return s

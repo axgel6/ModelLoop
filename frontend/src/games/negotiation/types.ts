@@ -57,7 +57,7 @@ export interface HaggleEntry {
 
 /** What happened when the item changed hands */
 export interface Pickup {
-  kind: "fine" | "flaw" | "counterfeit" | "fake_payment";
+  kind: "fine" | "flaw" | "counterfeit" | "fake_payment" | "scam";
   issue: string;
   loss?: number;
   /** A flaw: what the seller might give back, if asked */
@@ -170,6 +170,10 @@ export interface HaggleState {
   flaw?: { text: string; revealed: boolean } | null;
   /** Buying: what checking sold listings turned up */
   research?: string | null;
+  /** Buying: the seller's account as the chat shows it. A scammer's is new, with a few bad ratings */
+  seller?: SellerProfile | null;
+  /** Buying: the listing was bait. Only sent once the chat is over */
+  scam?: { payment: string; cover: string } | null;
   /** Buying: messages left before the seller sells to whoever turns up first */
   deadline?: { rounds: number } | null;
   /** Selling: a better offer from another buyer, standing until used */

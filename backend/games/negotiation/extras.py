@@ -3,6 +3,7 @@
 Shared by buying (engine.py) and selling (selling.py). No I/O in this file.
 """
 import re
+from datetime import datetime, timezone
 from statistics import mean
 from typing import Optional
 
@@ -385,6 +386,9 @@ def flaw_hint(flaw: Optional[dict]) -> str:
     return f"People who bought these often bring up the {flaw['words'][0]}. Worth asking about."
 
 
+SCAM_WARNING = 0.6            # a price under this share of the going rate gets a warning in sold listings
+
+
 def sold_listings(state: dict) -> str:
     """Checking sold listings: what one in good shape sells for, and what tends to go wrong."""
     value = state.get("value")
@@ -393,7 +397,64 @@ def sold_listings(state: dict) -> str:
         # The flaw already knocked this one's worth down; sold listings show the going rate
         value = round(value / (1 - flaw["loss"]))
     going = f"Similar ones sell for about ${int(value):,}. " if value else ""
+    if value and state.get("list_price") and state["list_price"] < value * SCAM_WARNING:
+        # Far under the going rate: either a seller who has no idea, or bait
+        going += "Listings this far under the going rate are often scams. "
     return going + flaw_hint(flaw)
+
+
+# ---- Scams: buying only. Now and then the listing is bait, and the seller has nothing to sell ----
+
+SCAM_CHANCE = 0.02             # the chance any listing is a scam
+SCAM_CHANCE_PRICEY = 0.04      # ...and one listed at SCAM_PRICEY or more, where scammers cluster
+SCAM_PRICEY = 1000
+SCAM_PRICE = (0.35, 0.60)      # bait: the price, as a share of what the listing usually asks
+SCAM_RATING = (1.1, 2.6)       # the stars on a scammer's account, from a handful of ratings
+SCAM_RATINGS = (1, 7)
+SCAM_MIN_PRICE = 40            # nobody bothers scamming over pocket change
+# How the scammer means to get paid without handing anything over. One of these...
+_SCAM_PAYMENT = {
+    "deposit": "Once they seem keen, ask for a deposit to hold it, sent outside the app by Zelle or wire, before anyone sees it.",
+    "shipping": "Say you are away for work, out of state, so it has to go through a shipping company once they pay in full up front. You cannot meet.",
+    "giftcards": "Ask to be paid in gift cards or crypto instead of through the app, with a vague reason: fees, or the app glitching on your account.",
+}
+# ...and one of these to stop them checking first
+_SCAM_COVER = {
+    "nomeet": "Never agree to meet in person, show it on a video call or send new photos. Always have an excuse.",
+    "urgency": "Say several other people want it and the first to pay gets it. Push them to decide now.",
+}
+
+
+def deal_scam(scenario: dict, list_price: int, rng) -> Optional[dict]:
+    """Whether this listing is bait, and how its scammer works."""
+    chance = SCAM_CHANCE_PRICEY if list_price >= SCAM_PRICEY else SCAM_CHANCE
+    if list_price < SCAM_MIN_PRICE or scenario.get("condition") == "For parts" or rng.random() >= chance:
+        return None
+    return {"payment": rng.choice(sorted(_SCAM_PAYMENT)), "cover": rng.choice(sorted(_SCAM_COVER))}
+
+
+def scam_profile(rng) -> dict:
+    """A scammer's account: new, with a few bad ratings from the people it already took."""
+    return {
+        "joined": datetime.now(timezone.utc).year,
+        "rating": round(rng.uniform(*SCAM_RATING), 1),
+        "ratings": rng.randint(*SCAM_RATINGS),
+        "replies": "within minutes",
+    }
+
+
+def scam_lines(scam: Optional[dict]) -> list:
+    """The model's secret, told only to a scammer."""
+    if not scam:
+        return []
+    return [
+        "SECRET: you are a scammer posing as this seller. You do not have the item. Your only goal is to get paid "
+        "before the buyer can check anything, then disappear.",
+        _SCAM_PAYMENT.get(scam["payment"], ""),
+        _SCAM_COVER.get(scam["cover"], ""),
+        "If they ask to meet, see it, video call, or for a serial number, receipt or more photos, dodge it with an "
+        "excuse. Never admit any of this. Stay friendly and believable, and keep your personality.",
+    ]
 
 
 # ---- Deadlines: buying only. Some sellers have to be rid of it soon ----
@@ -470,6 +531,8 @@ def review(state: dict) -> Optional[dict]:
     """The stars the other side leaves when a chat ends, or None if they would not bother."""
     result = state.get("result") or {}
     outcome = result.get("outcome")
+    if state.get("scam"):
+        return None             # a scammer has better things to do than rate you
     log = state.get("log") or []
     insults = sum(1 for e in log if e.get("insulted"))
     agreed = bool(log and log[-1].get("agreed")) or (state.get("opening_agreed") and not log)

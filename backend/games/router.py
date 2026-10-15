@@ -950,8 +950,8 @@ def _haggle_score(user: User, state: dict) -> Optional[GameScore]:
     if state.get("mode") == selling.MODE:
         return _sale_score(user, state)
     result = state.get("result") or {}
-    if result.get("outcome") != "deal":
-        return None
+    if result.get("outcome") != "deal" or (result.get("pickup") or {}).get("kind") == "scam":
+        return None             # a scam leaves nothing to put in the inventory
     return GameScore(
         user_id=user.id, game_type=haggle.GAME_TYPE, title=state["scenario"]["item"][:80], score=int(result["score"]),
         # Everything the inventory shows, kept with the purchase so it outlives the listing

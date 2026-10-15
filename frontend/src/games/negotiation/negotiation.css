@@ -193,6 +193,33 @@ html .neg .neg-refresh:hover {
   gap: 12px;
 }
 
+.neg-merchant-name {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+/* The seller's rating beside their name: a low one is the first sign of a scam */
+.neg-seller-stars {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.8em;
+  letter-spacing: 1px;
+  color: var(--game-accent);
+  cursor: help;
+}
+
+.neg-seller-score {
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
+.neg-seller-stars.is-low {
+  color: var(--neg-down);
+}
+
 .neg-patience,
 .neg-price {
   display: flex;
