@@ -631,13 +631,42 @@ html .neg .neg-pay-sheet-head .neg-link {
   color: var(--game-muted);
 }
 
-/* Under the pay button: what Purchase Protection covers, small and quiet */
-.neg-pay-note {
-  margin: 0;
+/* Who the money goes to: their face, their name, and a seller's stars */
+.neg-pay-rows dd.neg-pay-who {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.neg-pay-who .neg-avatar {
+  flex-shrink: 0;
+}
+
+.neg-pay-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neg-pay-stars {
+  flex-shrink: 0;
   font-size: 0.72rem;
-  line-height: 1.45;
-  text-align: center;
   color: var(--game-muted);
+}
+
+.neg-pay-stars.is-low {
+  color: var(--neg-down);
+}
+
+.neg-pay-protection {
+  cursor: help;
+}
+
+/* The total opens the money part of the sheet */
+.neg-pay-rows > .neg-pay-total {
+  margin-top: 6px;
+  border-top-color: var(--glass-border);
 }
 
 .neg-pay-rows dd {

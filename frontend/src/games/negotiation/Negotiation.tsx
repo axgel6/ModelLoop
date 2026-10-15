@@ -1703,6 +1703,8 @@ function Play({
           receiving={selling}
           balance={balance}
           to={scenario.merchant}
+          face={face}
+          seller={selling ? null : state.seller}
           item={scenario.item}
           amount={state.ask}
           busy={closing}
@@ -2075,6 +2077,8 @@ function PaySheet({
   receiving = false,
   balance,
   to,
+  face,
+  seller,
   item,
   amount,
   busy,
@@ -2086,7 +2090,10 @@ function PaySheet({
   receiving?: boolean;
   /** Hustle: what is in the account, to show what is left after and to refuse what it cannot cover */
   balance?: number;
+  /** The other side: their name, face and, for a seller, their stars */
   to: string;
+  face: string;
+  seller?: SellerProfile | null;
   item: string;
   amount: number;
   busy: boolean;
@@ -2170,13 +2177,31 @@ function PaySheet({
       </div>
       <dl className="neg-pay-rows">
         <div>
-          <dt>{receiving ? "From" : "Pay"}</dt>
-          <dd>{to}</dd>
+          <dt>{receiving ? "From" : "To"}</dt>
+          <dd className="neg-pay-who">
+            <Avatar seed={face} size={22} />
+            <span className="neg-pay-name">{to}</span>
+            {seller && (
+              <span className={`neg-pay-stars${seller.rating < 3.5 ? " is-low" : ""}`}>★ {seller.rating.toFixed(1)}</span>
+            )}
+          </dd>
         </div>
         <div>
           <dt>For</dt>
           <dd>{item}</dd>
         </div>
+        <div>
+          <dt>{receiving ? "To" : "From"}</dt>
+          <dd>ModelLoop Balance</dd>
+        </div>
+        {!receiving && (
+          <div>
+            <dt>Protection</dt>
+            <dd className="neg-pay-protection" title="Payments made outside the app aren't covered.">
+              Included · {PROTECTION_PERCENT}% back on scams
+            </dd>
+          </div>
+        )}
         <div className="neg-pay-total">
           <dt>Total</dt>
           <dd>{money(amount)}</dd>
@@ -2210,12 +2235,6 @@ function PaySheet({
                 ? "Tap again to pay"
                 : "Double tap to pay"}
       </button>
-      {!receiving && (
-        <p className="neg-pay-note">
-          Includes Purchase Protection: {PROTECTION_PERCENT}% back if this seller turns out to be a scam. Payments made
-          outside the app aren't covered.
-        </p>
-      )}
     </div>
   );
 }
