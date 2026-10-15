@@ -1584,6 +1584,9 @@ function Play({
                       : `It is worth ${money(result.pickup.loss)} less than you thought.`}
                   </span>
                 )}
+                {result.pickup.kind === "scam" && (
+                  <ScamReport result={result} merchant={scenario.merchant} busy={busy} onReport={() => edit("report")} />
+                )}
                 {result.pickup.kind === "flaw" &&
                   (result.pickup.asked ? (
                     <span className="pref-setting-hint">
@@ -1599,7 +1602,10 @@ function Play({
               </div>
             )}
             {result.pickup?.kind === "fine" && <span className="pref-setting-hint">{result.pickup.issue}</span>}
-            {state.scam && <ScamReport result={result} merchant={scenario.merchant} busy={busy} onReport={() => edit("report")} />}
+            {/* A scam dodged has no pickup box to sit in */}
+            {state.scam && result.pickup?.kind !== "scam" && (
+              <ScamReport result={result} merchant={scenario.merchant} busy={busy} onReport={() => edit("report")} />
+            )}
             {state.review && (
               <span className="pref-setting-hint neg-review">
                 {state.review.by} left you {state.review.stars} {state.review.stars === 1 ? "star" : "stars"}: "{state.review.text}"

@@ -1962,9 +1962,10 @@ html .neg .neg-extra--research:hover:not(:disabled) {
 /* After a scam: the report button, then what came of it */
 .neg-report {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
-  gap: 8px 12px;
+  gap: 6px;
+  text-align: center;
 }
 
 .neg-pickup.is-scam {
