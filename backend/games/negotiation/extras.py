@@ -36,63 +36,159 @@ def ships(scenario: dict) -> bool:
 # ---- Hidden flaws: buying only. Found by asking, or found at pickup ----
 
 FLAW_CHANCE = 0.35
-# (the flaw, words that show the buyer asked about it, share of the resale value it costs)
+# (the flaw, words that show the buyer asked about it, share of the resale value it costs,
+#  what the item's title must mention for the flaw to fit, what in the title or description rules it out).
+# An empty `fits` fits anything in the group. The first word names the flaw in the sold-listings hint ("bring up the battery").
+_PHONE = ("iphone", "ipad", "macbook", "galaxy", "phone", "laptop")
+_SCREEN = _PHONE + ("imac", "monitor", "ultrawide", "watch", "switch", "steam deck", "3ds", "vita", "psp", "ally")
+_PAD = ("controller", "controllers", "dualsense", "joy-con", "gamepad", "remotes", "dualshock")
+_DISC = ("ps1", "ps2", "ps3", "ps4", "ps5", "playstation", "gamecube", "xbox", "saturn", "dreamcast", "wii", "disc", "discs")
+_CAR = ("honda", "ford", "toyota", "bmw", "jeep", "mazda", "lamborghini", "tesla", "cybertruck")
+_CLOTHES = ("jacket", "jeans", "hoodie", "leggings", "fleece", "tote", "bag", "satchel", "boots", "slippers", "nuptse")
+_SHOES = ("boots", "yeezy", "jordan", "new balance", "ugg", "dr. martens", "slippers")
+_DRIFT = ("the left stick drifts", ("drift", "stick", "sticks", "controller", "joystick"), 0.15,
+          _PAD + ("switch", "steam deck", "ally", "portal", "nintendo 64", "vr2"), ("drift", "microsd"))
+_PAD_BATTERY = ("the battery barely holds a charge", ("battery", "charge", "charging", "hours"), 0.20,
+                _PAD + ("switch lite", "3ds", "psp", "vita", "steam deck", "ally", "portal", "quest", "headset", "game boy"),
+                ("battery",))
+_BUTTONS = ("a couple of the buttons stick", ("buttons", "button", "sticky", "triggers", "trigger", "press"), 0.15, _PAD, ())
 _FLAWS = {
     "tech": [
-        ("the battery health is down to 76 percent", ("battery", "charge", "health"), 0.20),
-        ("there is a dead pixel near the top corner", ("screen", "pixel", "display"), 0.15),
-        ("the charging port only works if you wiggle the cable", ("port", "charging", "usb", "cable"), 0.15),
-        ("it runs hot and the fan gets loud", ("fan", "noise", "hot", "temperature", "temps", "loud"), 0.15),
+        ("the battery health is down to 76 percent", ("battery", "charge", "health"), 0.20,
+         _PHONE + ("airpods", "watch", "vision", "quest", "glasses"), ("battery",)),
+        ("there is a dead pixel near the top corner", ("screen", "pixel", "display"), 0.15, _SCREEN, ("crt",)),
+        ("the charging port only works if you wiggle the cable", ("port", "charging", "usb", "cable"), 0.15,
+         _PHONE + ("airpods", "wireless", "steam deck", "switch", "portal"), ("lightning",)),
+        ("it runs hot and the fan gets loud", ("fan", "noise", "hot", "temperature", "temps", "loud"), 0.15,
+         ("gaming pc", "rtx", "rx 580", "macbook", "i9", "steam deck", "ally"), ()),
+        ("the left click sometimes double clicks", ("click", "clicks", "double", "button", "buttons", "switches"), 0.20,
+         ("mouse",), ()),
+        ("a couple of keys chatter and type twice", ("keys", "key", "switches", "chatter", "typing"), 0.15,
+         ("keyboard", "stream deck"), ()),
+        ("the left ear cup crackles at higher volume", ("sound", "audio", "crackle", "speaker", "volume", "ear"), 0.20,
+         ("headset", "airpods max", "headphones"), ()),
+        ("the lenses have fine scratches you see in bright scenes", ("lenses", "lens", "scratch", "scratches", "display"), 0.20,
+         ("quest", "vr2", "index", "vision"), ()),
+        ("the gas lift slowly sinks", ("lift", "height", "sink", "sinks", "piston", "cylinder"), 0.15, ("chair",), ()),
+        ("the force feedback rattles", ("feedback", "force", "rattle", "motor", "wheel"), 0.15, ("racing wheel",), ()),
+        ("a couple of the pins are bent", ("pins", "pin", "socket", "tested", "boots", "post"), 0.30, ("processor",), ()),
+        ("the picture has a pink tint in one corner", ("picture", "tint", "colour", "color", "convergence", "screen"), 0.20,
+         ("crt", "trinitron"), ()),
     ],
     "console": [
-        ("the left stick drifts", ("drift", "stick", "controller", "joystick"), 0.15),
-        ("the disc drive is loud and sometimes will not read", ("disc", "drive", "read", "noise", "loud"), 0.20),
-        ("it was banned from online play", ("online", "ban", "banned", "account", "network"), 0.25),
+        _DRIFT,
+        ("the disc drive is loud and sometimes will not read", ("disc", "drive", "read", "noise", "loud"), 0.20,
+         _DISC, ("digital", "no disc drive", "series s", "reads discs", "vita", "psp", "ally", "portal")),
+        ("it was banned from online play", ("online", "ban", "banned", "account", "network"), 0.25,
+         ("ps4", "ps5", "playstation 5", "xbox series", "xbox 360", "switch"), ()),
+        _PAD_BATTERY,
+        _BUTTONS,
+        ("the controller ports are loose and drop the connection", ("ports", "port", "controller", "connection", "plug"), 0.15,
+         ("nintendo 64", "gamecube", "super nintendo", "dreamcast"), ()),
+    ],
+    "accessory": [
+        _DRIFT,
+        _PAD_BATTERY,
+        _BUTTONS,
+        ("it throws read errors once it is about half full", ("errors", "error", "speed", "tested", "health", "full"), 0.30,
+         ("ssd", "microsd", "expansion card"), ()),
     ],
     "games": [
-        ("the disc has a deep scratch and freezes in one spot", ("scratch", "disc", "freeze", "play", "work", "tested"), 0.40),
-        ("the manual is a photocopy", ("manual", "complete", "original", "insert"), 0.25),
+        ("the disc has a deep scratch and freezes in one spot", ("disc", "scratch", "freeze", "play", "work", "tested"), 0.40,
+         _DISC, ("cartridge", "code", "switch", "snes", "n64", "ds", "cards")),
+        ("the save battery is dead, so it will not keep a save", ("save", "saves", "saving", "battery", "tested", "work"), 0.30,
+         ("snes", "n64", "cartridge"), ()),
+        ("the manual is a photocopy", ("manual", "complete", "original", "insert"), 0.25,
+         ("complete", "manual", "boxed"), ("no manual", "cartridge only")),
     ],
     "vehicle": [
-        ("the check engine light comes on now and then", ("engine", "light", "warning", "mechanic", "service"), 0.12),
-        ("the AC blows warm", ("ac", "air", "aircon", "cool", "cold", "a/c"), 0.06),
-        ("it has a salvage title", ("title", "accident", "salvage", "crash", "history"), 0.30),
+        ("the check engine light comes on now and then", ("engine", "light", "warning", "mechanic", "service"), 0.12,
+         ("miles",), ("tesla", "cybertruck", "electric", "project")),
+        ("the AC blows warm", ("aircon", "ac", "air", "cool", "cold", "a/c"), 0.06,
+         _CAR, ("air conditioning", "project", "miata")),
+        ("it has a salvage title", ("title", "accident", "salvage", "crash", "history"), 0.30,
+         ("miles", "waverunner"), ("clean title", "salvage", "project")),
+        ("the rear derailleur skips gears", ("gears", "gear", "shifting", "derailleur", "chain", "service"), 0.12,
+         ("mountain bike", "radrunner"), ()),
+        ("the battery only holds about half its range", ("battery", "range", "charge", "miles"), 0.25,
+         ("electric bike", "radrunner"), ()),
     ],
     "fashion": [
-        ("there is a small stain inside that will not come out", ("stain", "mark", "clean", "wash"), 0.20),
-        ("the zipper sticks", ("zip", "zipper", "zips"), 0.12),
-        ("the authenticity card and receipt are missing", ("authentic", "receipt", "card", "real", "fake", "legit"), 0.25),
+        ("there is a small stain inside that will not come out", ("stain", "mark", "clean", "wash"), 0.20, _CLOTHES, ()),
+        ("the zipper sticks", ("zip", "zipper", "zips"), 0.12,
+         ("jacket", "jeans", "fleece", "nuptse", "satchel", "tote"), ()),
+        ("the authenticity card and receipt are missing", ("receipt", "authentic", "card", "real", "fake", "legit"), 0.25,
+         ("louis vuitton", "hermès", "hermes", "coach", "supreme", "yeezy", "jordan", "kate spade", "michael kors"),
+         ("dupe", "inspired")),
+        ("the soles are worn far more than the photos show", ("soles", "sole", "wear", "worn", "tread"), 0.20, _SHOES, ()),
     ],
     "jewelry": [
-        ("the clasp is loose", ("clasp", "lock", "loose", "secure"), 0.15),
-        ("the plating is wearing through in places", ("plating", "plated", "solid", "wear", "tarnish", "karat", "gold"), 0.35),
+        ("the clasp is loose", ("clasp", "lock", "loose", "secure"), 0.15,
+         ("chain", "bracelet", "necklace", "pearls"), ("love bracelet",)),
+        ("the plating is wearing through in places", ("plating", "plated", "solid", "wear", "tarnish", "karat", "gold"), 0.35,
+         ("gold",), ("rolex", "cartier", "van cleef")),
+        ("it runs a few minutes fast every day", ("accuracy", "accurate", "time", "keeps", "service", "serviced"), 0.15,
+         ("seiko", "rolex", "automatic"), ()),
+        ("one of the stones is loose in its setting", ("stones", "stone", "setting", "diamond", "loose", "prongs"), 0.20,
+         ("diamond", "ring", "tennis"), ()),
     ],
     "fragrance": [
-        ("it was stored in a hot car and smells off", ("stored", "smell", "heat", "batch", "fresh", "old"), 0.40),
-        ("the bottle is about a third emptier than it looks", ("full", "left", "level", "much", "used", "ml"), 0.30),
+        ("it was stored in a hot car and smells off", ("smell", "stored", "heat", "batch", "fresh", "old"), 0.40, (), ()),
+        ("the bottle is about a third emptier than it looks", ("level", "full", "left", "much", "used", "ml"), 0.30,
+         (), ("half full", "partials")),
     ],
     "tickets": [
-        ("the seats are partial view behind a speaker stack", ("view", "seats", "see", "stage", "obstructed"), 0.30),
+        ("the seats are partial view behind a speaker stack", ("view", "seats", "see", "stage", "obstructed"), 0.30,
+         (), ("floor",)),
     ],
     "general": [
-        ("there is a scuff the photos do not show", ("scuff", "scratch", "marks", "dent", "photos"), 0.10),
-        ("it smells strongly of smoke", ("smoke", "smell", "smoker", "pets", "pet"), 0.20),
-        ("one piece is missing", ("missing", "complete", "included", "everything", "pieces", "parts"), 0.15),
+        ("there is a scuff the photos do not show", ("scuff", "scratch", "marks", "dent", "photos"), 0.10, (), ("cards",)),
+        ("it smells strongly of smoke", ("smoke", "smell", "smoker", "pets", "pet"), 0.20, (), ()),
+        ("one piece is missing", ("pieces", "missing", "complete", "included", "everything", "parts"), 0.15,
+         ("lot", "set", "kit", "complete", "collection", "pair", "pack", "bundle", "with"), ()),
     ],
 }
+# A sealed box can only hide one thing: it is not as sealed as it looks
+_SEALED_FLAW = ("it was opened, used and shrink-wrapped again", ("seal", "sealed", "resealed", "opened", "unopened", "wrap"), 0.20)
 _FLAW_GROUP = {
-    "PC and gear": "tech", "Apple and phones": "tech", "Consoles": "console", "Controllers and accessories": "console",
-    "Bundles": "console", "Games": "games", "Vehicles": "vehicle", "Bags": "fashion", "Clothing and shoes": "fashion",
+    "PC and gear": "tech", "Apple and phones": "tech", "Consoles": "console", "Controllers and accessories": "accessory",
+    "Bundles": "games", "Games": "games", "Vehicles": "vehicle", "Bags": "fashion", "Clothing and shoes": "fashion",
     "Dupes": "fashion", "Jewelry": "jewelry", "Fragrance": "fragrance", "Tickets": "tickets",
 }
+# Where to look when nothing in the item's own group fits. A ticket has nothing else to hide.
+_FLAW_FALLBACK = {"console": ("tech", "general"), "accessory": ("tech", "general"), "tickets": ()}
 # Asking straight out whether anything is wrong finds any flaw
 _ANY_FLAW = ("problem", "issue", "wrong", "flaw", "defect", "damage", "damaged", "catch", "honest", "broken", "faults", "fault")
 
 
-def deal_flaw(category: Optional[str], rng) -> Optional[dict]:
+def _mentions(text: str, phrases) -> bool:
+    return any(re.search(rf"(?<![a-z0-9]){re.escape(p)}(?![a-z0-9])", text) for p in phrases)
+
+
+def _fitting_flaws(scenario: dict) -> list:
+    """The flaws that could be true of this listing: none of a disc drive on a controller,
+    or a salvage title on a bike."""
+    item = str(scenario.get("item") or "").lower()
+    text = f"{item} {scenario.get('description') or ''}".lower()
+    if scenario.get("condition") == "For parts":
+        return []           # already sold as broken: nothing left to hide
+    if scenario.get("condition") == "New" or _mentions(item, ("sealed",)):
+        return [_SEALED_FLAW]
+    group = _FLAW_GROUP.get(scenario.get("category") or "", "general")
+    for name in (group, *_FLAW_FALLBACK.get(group, ("general",))):
+        fitting = [f[:3] for f in _FLAWS[name] if (not f[3] or _mentions(item, f[3])) and not _mentions(text, f[4])]
+        if fitting:
+            return fitting
+    return []
+
+
+def deal_flaw(scenario: dict, rng) -> Optional[dict]:
     if rng.random() >= FLAW_CHANCE:
         return None
-    text, words, loss = rng.choice(_FLAWS.get(_FLAW_GROUP.get(category or "", "general"), _FLAWS["general"]))
+    fitting = _fitting_flaws(scenario)
+    if not fitting:
+        return None
+    text, words, loss = rng.choice(fitting)
     return {"text": text, "words": list(words), "loss": loss, "revealed": False}
 
 

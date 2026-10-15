@@ -331,7 +331,7 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
         "bluffed": False,            # the player has used their one bluff
         "sweeteners": [],            # the terms other than money already offered
         # Something wrong the listing does not say. Found by asking, or found at pickup.
-        "flaw": extras.deal_flaw(scenario.get("category"), rng),
+        "flaw": extras.deal_flaw(scenario, rng),
         "research": None,            # what checking sold listings turned up
         # A seller who has to be rid of it soon: rounds left before it goes to someone else
         "deadline": {"rounds": extras.DEADLINE_ROUNDS} if extras.has_deadline(scenario) else None,
