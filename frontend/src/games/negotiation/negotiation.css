@@ -338,6 +338,9 @@ html .neg .neg-refresh:hover {
   --my: 18%;
   --rx: 0deg;
   --ry: 0deg;
+  /* Which way the raised price's depth falls: away from the light */
+  --sx: 1.2px;
+  --sy: 1.4px;
   --pay-ink: #d9d4de;
   --chroma: linear-gradient(
     100deg,
@@ -394,8 +397,7 @@ html .neg .neg-refresh:hover {
 }
 
 /* The chroma text: the gradient painted through the letters, sliding with the light */
-.neg-pay-card .neg-pay-brand,
-.neg-pay-card .neg-pay-amount {
+.neg-pay-card .neg-pay-brand {
   background: var(--chroma);
   background-size: 300% 100%;
   background-position: var(--mx) 0;
@@ -405,9 +407,53 @@ html .neg .neg-refresh:hover {
   transition: background-position 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* The price raised out of the card like Apple Pay's: the text itself is the dark body, its
+   shadows step out as the depth plus a lit edge, and ::after lays the face on top */
+.neg-pay-card .neg-pay-amount {
+  position: relative;
+  align-self: flex-start;
+  font-size: 2rem;
+  color: #4b4654;
+  /* Half steps, so a deep edge reads as one solid side rather than stacked copies */
+  text-shadow:
+    calc(var(--sx) * -0.4) calc(var(--sy) * -0.4) 0 rgba(255, 255, 255, 0.4),
+    calc(var(--sx) * 0.5) calc(var(--sy) * 0.5) 0 #403c47,
+    var(--sx) var(--sy) 0 #37343e,
+    calc(var(--sx) * 1.5) calc(var(--sy) * 1.5) 0 #2f2c35,
+    calc(var(--sx) * 2) calc(var(--sy) * 2) 0 #27252c,
+    calc(var(--sx) * 2.5) calc(var(--sy) * 2.5) 0 #201e24,
+    calc(var(--sx) * 3.5) calc(var(--sy) * 4) 8px rgba(0, 0, 0, 0.55);
+  transition: text-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The face: chroma metal, chiselled level across the middle into a lit half and a shaded half */
+.neg-pay-card .neg-pay-amount::after {
+  content: attr(data-amount);
+  content: attr(data-amount) / "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 255, 255, 0.12) 49%,
+      rgba(0, 0, 0, 0.22) 51%,
+      rgba(0, 0, 0, 0.08) 100%
+    ),
+    var(--chroma);
+  background-size: 100% 100%, 300% 100%;
+  background-position: 0 0, var(--mx) 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  transition: background-position 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .neg-pay-card.is-lit::before,
 .neg-pay-card.is-lit .neg-pay-brand,
-.neg-pay-card.is-lit .neg-pay-amount {
+.neg-pay-card.is-lit .neg-pay-amount,
+.neg-pay-card.is-lit .neg-pay-amount::after {
   transition: none;
 }
 
@@ -416,8 +462,9 @@ html .neg .neg-refresh:hover {
   filter: grayscale(0.6);
 }
 
-/* The text is see-through, so the strike has to bring its own colour */
-.neg-pay-card.is-void .neg-pay-amount {
+/* The face is see-through and sits over the body, so it carries its own strike */
+.neg-pay-card.is-void .neg-pay-amount::after {
+  text-decoration: line-through;
   text-decoration-color: var(--pay-ink);
 }
 

@@ -1918,13 +1918,16 @@ function PayCard({
     const y = (e.clientY - box.top) / box.height;
     card.style.setProperty("--mx", `${(x * 100).toFixed(1)}%`);
     card.style.setProperty("--my", `${(y * 100).toFixed(1)}%`);
-    card.style.setProperty("--rx", `${((0.5 - y) * 10).toFixed(2)}deg`);
-    card.style.setProperty("--ry", `${((x - 0.5) * 12).toFixed(2)}deg`);
+    card.style.setProperty("--rx", `${((0.5 - y) * 14).toFixed(2)}deg`);
+    card.style.setProperty("--ry", `${((x - 0.5) * 16).toFixed(2)}deg`);
+    // The raised price's depth falls away from the light, and deepens towards the edges
+    card.style.setProperty("--sx", `${((0.5 - x) * 6).toFixed(2)}px`);
+    card.style.setProperty("--sy", `${((0.5 - y) * 6).toFixed(2)}px`);
     card.classList.add("is-lit");
   };
   const rest = (e: React.PointerEvent<HTMLDivElement>) => {
     const card = e.currentTarget;
-    for (const name of ["--mx", "--my", "--rx", "--ry"]) card.style.removeProperty(name);
+    for (const name of ["--mx", "--my", "--rx", "--ry", "--sx", "--sy"]) card.style.removeProperty(name);
     card.classList.remove("is-lit");
   };
 
@@ -1937,7 +1940,10 @@ function PayCard({
       >
         <span className="neg-pay-brand">ModelLoop Pay</span>
         <span className="neg-pay-label">{label}</span>
-        <span className="neg-pay-amount">{money(amount)}</span>
+        {/* The figure again in data-amount: CSS lays its metal face over the raised body */}
+        <span className="neg-pay-amount" data-amount={money(amount)}>
+          {money(amount)}
+        </span>
         {action ? (
           <button type="button" className="neg-pay-button" onClick={action.onClick} disabled={action.disabled}>
             {action.label}
