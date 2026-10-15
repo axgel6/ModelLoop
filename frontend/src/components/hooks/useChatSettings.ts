@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiGetModels, apiHealth } from "../api";
 import { DEFAULT_MODEL } from "../ChatInput";
+import { sounds } from "../../sounds";
 
 const DEFAULT_SYSTEM_PROMPT = "";
 const GAME_MODEL_KEY = "game_model";
@@ -38,6 +39,8 @@ export function useChatSettings() {
     }
   });
   const setThinking = (on: boolean) => {
+    // Every way of turning it on comes through here: the toolbar button, /think and /math
+    if (on && !thinking) sounds.play("think");
     setThinkingState(on);
     try {
       localStorage.setItem(THINK_KEY, on ? "on" : "off");

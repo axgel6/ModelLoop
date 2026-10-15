@@ -2,7 +2,7 @@
 // no audio files to load. Every note comes from one pentatonic scale, which is why
 // any two sounds overlapping still sound pleasant together.
 
-export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle" | "pay" | "lock";
+export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle" | "pay" | "lock" | "think";
 
 const STORAGE_KEY = "sound_fx";
 const VOLUME_KEY = "sound_volume";
@@ -31,6 +31,8 @@ const SOUNDS: Record<SoundName, Note[]> = {
     [C6, 0, 0.07, 0.05], [E6, 0.06, 0.07, 0.05],
     [G5, 0.15, 0.6, 0.05], [C6, 0.15, 0.7, 0.05], [E6, 0.15, 0.8, 0.045],
   ],
+  // Switching on: an unhurried low note, then a fifth up left to ring
+  think: [[C5, 0, 0.22, 0.07], [G5, 0.24, 0.4, 0.07]],
   // Only the low body of the bolt landing; the clicks themselves are in CLICKS
   lock: [[C4, 0.075, 0.07, 0.035]],
 };
