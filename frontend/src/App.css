@@ -77,6 +77,24 @@ body {
   color: #ebdbb2;
 }
 
+/* Tell the browser which themes are dark, so what it draws itself matches: above all the open
+   list of a <select>, which Chrome on Windows otherwise draws white under the theme's light text */
+html {
+  color-scheme: dark;
+}
+
+html[data-theme="dune"],
+html[data-theme="meadow"] {
+  color-scheme: light;
+}
+
+/* ...and the options take the browser's colours for that scheme, whatever the select itself is set to */
+select option,
+select optgroup {
+  background-color: Canvas;
+  color: CanvasText;
+}
+
 /* Frost is Ember's layout in the Nord palette. Its rules sit beside Ember's; where
    Ember leans on an unthemed rule instead, a :where() rule like this one
    recolours it without changing the selector's weight. */
