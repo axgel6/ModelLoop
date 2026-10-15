@@ -25,10 +25,10 @@ function feedback(e: MouseEvent) {
       haptics.trigger("rigid");          // stop generation
     } else if (btn.classList.contains("ask-button")) {
       haptics.trigger("medium", { silent: true }); // send message (ChatInput plays the send tone)
-    } else if (btn.classList.contains("private-toggle") && !btn.classList.contains("is-private")) {
-      haptics.trigger("selection", { silent: true }); // enter private chat (Chat plays the lock tone)
-    } else if (btn.classList.contains("toolbar-think-btn") && !btn.classList.contains("is-on")) {
-      haptics.trigger("selection", { silent: true }); // turn thinking on (its own tone plays)
+    } else if (btn.classList.contains("private-toggle")) {
+      haptics.trigger("selection", { silent: true }); // private chat on or off (Chat plays the lock tones)
+    } else if (btn.classList.contains("toolbar-think-btn")) {
+      haptics.trigger("selection", { silent: true }); // thinking on or off (its own tones play)
     } else if (btn.classList.contains("edit-save-btn")) {
       haptics.trigger("medium");         // save edit
     } else {

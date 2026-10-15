@@ -39,8 +39,8 @@ export function useChatSettings() {
     }
   });
   const setThinking = (on: boolean) => {
-    // Every way of turning it on comes through here: the toolbar button, /think and /math
-    if (on && !thinking) sounds.play("think");
+    // Every way of switching it comes through here: the toolbar button, /think, /math and /fast
+    if (on !== thinking) sounds.play(on ? "think" : "unthink");
     setThinkingState(on);
     try {
       localStorage.setItem(THINK_KEY, on ? "on" : "off");

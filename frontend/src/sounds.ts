@@ -2,7 +2,7 @@
 // no audio files to load. Every note comes from one pentatonic scale, which is why
 // any two sounds overlapping still sound pleasant together.
 
-export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle" | "pay" | "lock" | "think";
+export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sparkle" | "pay" | "lock" | "think" | "unthink" | "unlock";
 
 const STORAGE_KEY = "sound_fx";
 const VOLUME_KEY = "sound_volume";
@@ -33,8 +33,11 @@ const SOUNDS: Record<SoundName, Note[]> = {
   ],
   // Switching on: an unhurried low note, then a fifth up left to ring
   think: [[C5, 0, 0.22, 0.07], [G5, 0.24, 0.4, 0.07]],
+  // Switching off: the same two notes the other way round, settling down
+  unthink: [[G5, 0, 0.22, 0.07], [C5, 0.24, 0.4, 0.07]],
   // Only the low body of the bolt landing; the clicks themselves are in CLICKS
   lock: [[C4, 0.075, 0.07, 0.035]],
+  unlock: [[C4, 0, 0.07, 0.035]],
 };
 
 // [centre frequency, delay in seconds, length in seconds, volume]
@@ -45,6 +48,8 @@ type Click = [number, number, number, number];
 const CLICKS: Partial<Record<SoundName, Click[]>> = {
   // A lock turning shut: the latch snaps, then the heavier bolt drops into place
   lock: [[2600, 0, 0.022, 0.45], [1300, 0.075, 0.04, 0.6]],
+  // The same lock opening: the bolt draws back first, then the latch springs free
+  unlock: [[1300, 0, 0.04, 0.6], [2600, 0.075, 0.022, 0.45]],
 };
 
 // The "voice" a reply is spoken in while it streams: low notes, picked at random.

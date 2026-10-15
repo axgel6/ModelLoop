@@ -948,7 +948,7 @@ function Chat({
   // Either way the conversation on screen is left behind: a private one is gone for good
   const handleTogglePrivate = () => {
     handleNewChat();
-    if (!privateMode) sounds.play("lock");
+    sounds.play(privateMode ? "unlock" : "lock");
     setPrivateMode(!privateMode);
   };
 
