@@ -783,7 +783,7 @@ def accept(state: dict, scams: bool = False, rng: Optional[random.Random] = None
         s["result"]["score"] = 0
         s["result"]["pickup"] = {
             "kind": "scam", "loss": s["ask"], "refund": 0,
-            "issue": f"You sent {_money(s['ask'])} and {s['scenario']['merchant']} vanished. The listing is gone and the account is deleted. It was a scam.",
+            "issue": f"You sent {_money(s['ask'])} and {s['scenario']['merchant']} vanished. The listing is gone. It was a scam.",
         }
         s["value"] = 0
     elif (
@@ -820,6 +820,22 @@ def ask_refund(state: dict, rng: Optional[random.Random] = None) -> dict:
     pickup["asked"] = True
     willing = 0.35 + 0.5 * s["patience"] / max(1, s["patience_max"])
     pickup["refunded"] = pickup["refund"] if rng.random() < willing else 0
+    return s
+
+
+def report(state: dict) -> dict:
+    """Report a scammer once the chat is over. Their account is removed, and a payment made in the
+    app gets some of the money back from Purchase Protection. One made their way is not covered."""
+    result = state.get("result") or {}
+    if not state.get("scam") or state.get("status") == "active" or result.get("reported"):
+        raise ValueError("There is nothing to report")
+    s = copy.deepcopy(state)
+    s["result"]["reported"] = True
+    pickup = s["result"].get("pickup") or {}
+    if pickup.get("kind") == "scam":
+        how = extras.off_app(s["log"])
+        pickup["off_app"] = how
+        pickup["refunded"] = 0 if how else max(1, round(pickup["loss"] * extras.PROTECTION_SHARE))
     return s
 
 

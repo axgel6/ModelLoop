@@ -64,6 +64,10 @@ export interface Pickup {
   refund?: number;
   asked?: boolean;
   refunded?: number | null;
+  /** A scam, once reported: how the buyer agreed to pay outside the app, which Purchase Protection does not cover */
+  off_app?: string | null;
+  /** Hustle: the day a covered refund arrives */
+  due_day?: number;
 }
 
 export interface HaggleResult {
@@ -81,6 +85,8 @@ export interface HaggleResult {
   /** Selling something from the inventory: the sale price less what was paid for it */
   profit?: number | null;
   pickup?: Pickup;
+  /** The scammer was reported, after paying them or after walking away */
+  reported?: boolean;
   /** Selling in Hustle: the payment bounced */
   scammed?: boolean;
 }

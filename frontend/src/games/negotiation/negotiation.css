@@ -1944,6 +1944,14 @@ html .neg .neg-extra--research:hover:not(:disabled) {
   background: color-mix(in srgb, var(--game-card) 55%, transparent);
 }
 
+/* After a scam: the report button, then what came of it */
+.neg-report {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
 .neg-pickup.is-scam {
   border-color: var(--neg-down);
 }

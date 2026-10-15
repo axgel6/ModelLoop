@@ -420,6 +420,27 @@ _SCAM_COVER = {
 }
 
 
+# Reporting a scammer: Purchase Protection gives some of the money back, but only for a payment
+# that stayed in the app. Going along with Zelle, a wire, gift cards and the like is not covered.
+PROTECTION_SHARE = 0.6
+PROTECTION_DAYS = 2            # Hustle: days until a covered refund arrives
+_OFF_APP = re.compile(
+    r"\b(zelle|venmo|cash ?app|cashapp|paypal|wire|wiring|western union|gift ?cards?|crypto|bitcoin|btc|usdt|"
+    r"deposit|apple pay)\b", re.I)
+# ...unless the buyer was turning it down
+_REFUSES = re.compile(r"\b(no|not|won'?t|wont|never|don'?t|dont|only (?:through|in|on) the app|scam\w*|rather not)\b", re.I)
+
+
+def off_app(log: list) -> Optional[str]:
+    """How the buyer agreed to pay outside the app, in their own words, if they did."""
+    for entry in log:
+        said = entry.get("you") or ""
+        found = _OFF_APP.search(said)
+        if found and not _REFUSES.search(said):
+            return found.group(1).title() if found.group(1).lower() not in ("btc", "usdt") else found.group(1).upper()
+    return None
+
+
 def scam_lines(scam: Optional[dict]) -> list:
     """The model's secret, told only to a scammer."""
     if not scam:

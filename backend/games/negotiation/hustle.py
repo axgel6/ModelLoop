@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from .engine import market_value
+from .extras import PROTECTION_DAYS
 
 GAME_TYPE = "marketplace-hustle"
 START_CASH = 1000
@@ -108,7 +109,30 @@ def start_chat(run: dict) -> dict:
         raise ValueError(f"Your {run['days']} days are up.")
     r = copy.deepcopy(run)
     r["day"] += 1
+    _pay_claims(r)
     return r
+
+
+def file_claim(run: dict, amount: int, item: str) -> tuple[dict, int]:
+    """A Purchase Protection refund, paid a few days from now. Returns the run and the day it arrives."""
+    r = copy.deepcopy(run)
+    due = r["day"] + PROTECTION_DAYS
+    r["claims"] = (r.get("claims") or []) + [{"amount": amount, "item": item, "due": due}]
+    return r, due
+
+
+def _pay_claims(r: dict, everything: bool = False) -> None:
+    """Pay out the claims whose day has come, or all of them when the run ends."""
+    due = [c for c in r.get("claims") or [] if everything or c["due"] <= r["day"]]
+    for claim in due:
+        r["cash"] += claim["amount"]
+        r["ledger"].append({
+            "day": r["day"], "kind": "refund", "item": claim["item"], "other": "Purchase Protection",
+            "amount": claim["amount"], "balance": r["cash"], "at": _now(),
+        })
+    r["claims"] = [c for c in r.get("claims") or [] if c not in due]
+    if due:
+        _reach_milestones(r)
 
 
 def can_pay(run: dict, amount: int) -> bool:
@@ -254,10 +278,12 @@ def settle(run: dict, cheapest: int) -> dict:
     `cheapest` is the lowest price anything is listed at, below which cash buys nothing."""
     if run["status"] != "active":
         return run
-    broke = run["cash"] < max(BROKE_BELOW, math.floor(cheapest * 0.45)) and not unsold(run)
+    pending = sum(c["amount"] for c in run.get("claims") or [])
+    broke = run["cash"] + pending < max(BROKE_BELOW, math.floor(cheapest * 0.45)) and not unsold(run)
     if run["day"] < run["days"] and not broke:
         return run
     r = copy.deepcopy(run)
+    _pay_claims(r, everything=True)     # the run is over: whatever is owed arrives now
     worth = net_worth(r)
     flips = [h["sold"]["profit"] for h in r["holdings"] if h.get("sold")]
     r["status"] = "broke" if broke else "finished"

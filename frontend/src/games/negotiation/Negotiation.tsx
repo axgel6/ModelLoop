@@ -40,6 +40,7 @@ import type {
   HaggleEntry,
   HaggleListing,
   HaggleMode,
+  HaggleResult,
   HaggleState,
   HaggleSummary,
   HustleRun,
@@ -1598,6 +1599,7 @@ function Play({
               </div>
             )}
             {result.pickup?.kind === "fine" && <span className="pref-setting-hint">{result.pickup.issue}</span>}
+            {state.scam && <ScamReport result={result} merchant={scenario.merchant} busy={busy} onReport={() => edit("report")} />}
             {state.review && (
               <span className="pref-setting-hint neg-review">
                 {state.review.by} left you {state.review.stars} {state.review.stars === 1 ? "star" : "stars"}: "{state.review.text}"
@@ -2212,6 +2214,46 @@ function lastTell(log: HaggleEntry[], index: number): HaggleEntry["tell"] {
 }
 
 /** One line of the haggle as a chat bubble, with an optional note where the timestamp would go */
+/** After a scam: report the account. A payment that stayed in the app gets some of it back */
+function ScamReport({
+  result,
+  merchant,
+  busy,
+  onReport,
+}: {
+  result: HaggleResult;
+  merchant: string;
+  busy: boolean;
+  onReport: () => void;
+}) {
+  const pickup = result.pickup?.kind === "scam" ? result.pickup : null;
+  if (!result.reported)
+    return (
+      <div className="neg-report">
+        <span className="pref-setting-hint">
+          {pickup
+            ? "Report the account. Purchase Protection covers some of a payment made in the app."
+            : `Report ${merchant} so nobody else gets caught.`}
+        </span>
+        <button type="button" className="toolbar-chip-btn" onClick={onReport} disabled={busy}>
+          Report seller
+        </button>
+      </div>
+    );
+  return (
+    <span className="pref-setting-hint neg-report">
+      {`${merchant}'s account has been removed. `}
+      {!pickup
+        ? "Thanks for reporting it before anyone else got caught."
+        : pickup.off_app
+          ? `You agreed to pay by ${pickup.off_app}, which Purchase Protection doesn't cover. No refund.`
+          : pickup.due_day != null
+            ? `Purchase Protection is refunding ${money(pickup.refunded ?? 0)}, which arrives on day ${pickup.due_day}.`
+            : `Purchase Protection refunded ${money(pickup.refunded ?? 0)} of the ${money(pickup.loss ?? 0)}.`}
+    </span>
+  );
+}
+
 /** The seller's stars beside their name in the chat. Few ratings and a low score is a warning sign */
 function SellerStars({ seller }: { seller: SellerProfile }) {
   const low = seller.rating < 3.5;

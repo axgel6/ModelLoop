@@ -1096,6 +1096,34 @@ async def ask_for_refund(game_id: uuid.UUID, user: User = Depends(get_user), db:
     return _serialize(game)
 
 
+@router.patch("/{game_id}/report")
+async def report_seller(game_id: uuid.UUID, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+    """Report a scammer after the chat. A payment made in the app gets some of it back from Purchase
+    Protection: at once in free play, a couple of days later in a Hustle run."""
+    game = await _haggle_in_play(game_id, user, db)
+    try:
+        game.state = haggle.report(game.state)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    pickup = game.state["result"].get("pickup") or {}
+    amount = pickup.get("refunded")
+    if amount:
+        item = game.state["scenario"]["item"]
+        run_game = game.state.get("run_id") and await _hustle_run(user, db, game.state["run_id"])
+        if run_game and run_game.state["status"] == "active":
+            run_game.state, pickup["due_day"] = hustle.file_claim(run_game.state, amount, item)
+        elif run_game:
+            run_game.state = hustle.refund(run_game.state, amount, item, "Purchase Protection")
+        elif not game.state.get("run_id"):
+            account = await _free_bank(user, db)
+            account.state = bank.record(account.state, "refund", amount, item, "Purchase Protection")
+        # A new dict, so the change to the JSON column is noticed
+        game.state = {**game.state}
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
 class BounceRequest(BaseModel):
     model: Optional[str] = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
     clean: bool          = False
