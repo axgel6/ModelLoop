@@ -631,6 +631,15 @@ html .neg .neg-pay-sheet-head .neg-link {
   color: var(--game-muted);
 }
 
+/* Under the pay button: what Purchase Protection covers, small and quiet */
+.neg-pay-note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--game-muted);
+}
+
 .neg-pay-rows dd {
   margin: 0;
   min-width: 0;

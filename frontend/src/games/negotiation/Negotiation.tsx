@@ -2210,6 +2210,12 @@ function PaySheet({
                 ? "Tap again to pay"
                 : "Double tap to pay"}
       </button>
+      {!receiving && (
+        <p className="neg-pay-note">
+          Includes Purchase Protection: {PROTECTION_PERCENT}% back if this seller turns out to be a scam. Payments made
+          outside the app aren't covered.
+        </p>
+      )}
     </div>
   );
 }
@@ -2220,7 +2226,6 @@ function lastTell(log: HaggleEntry[], index: number): HaggleEntry["tell"] {
   return null;
 }
 
-/** One line of the haggle as a chat bubble, with an optional note where the timestamp would go */
 /** After a scam: report the account, as a card in the chat's own style. A payment made in the app
  *  gets some of it back from Purchase Protection; one made the scammer's way does not */
 function ScamReport({
@@ -2294,6 +2299,7 @@ function SellerStars({ seller }: { seller: SellerProfile }) {
   );
 }
 
+/** One line of the haggle as a chat bubble, with an optional note where the timestamp would go */
 function Line({ who, text, note, face }: { who: "you" | "them"; text: string; note?: string; face?: string }) {
   const role = who === "you" ? "user" : "assistant";
   const bubble = (
