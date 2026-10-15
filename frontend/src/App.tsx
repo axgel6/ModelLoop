@@ -132,11 +132,38 @@ function App() {
     localStorage.getItem("avatar_color"),
   );
 
-  const handleSetAvatarColor = (color: string | null) => {
+  const applyAvatarColor = (color: string | null) => {
     setAvatarColorState(color);
     if (color) localStorage.setItem("avatar_color", color);
     else localStorage.removeItem("avatar_color");
   };
+
+  // Saved to the account, so the icon is the same on every device
+  const handleSetAvatarColor = (color: string | null) => {
+    applyAvatarColor(color);
+    if (localStorage.getItem("token")) {
+      apiUpdatePreferences({ avatar_color: color ?? "" }).catch(() => {});
+    }
+  };
+
+  // The account's color wins. An account without one takes the color this browser already had,
+  // which is how a color picked before it was saved to the account carries over.
+  const syncAvatarColor = (saved: string | null) => {
+    if (saved) {
+      applyAvatarColor(saved);
+      return;
+    }
+    const local = localStorage.getItem("avatar_color");
+    if (local) apiUpdatePreferences({ avatar_color: local }).catch(() => {});
+  };
+
+  // Already signed in from an earlier visit: pick up a color changed on another device
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return;
+    apiGetMe()
+      .then((me) => syncAvatarColor(me.avatar_color))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (font !== "mono") {
@@ -170,6 +197,8 @@ function App() {
     apiLogout();
     localStorage.removeItem("theme_user_set");
     localStorage.removeItem("font_user_set");
+    // It lives on the account now; left here, the next account to sign in would take it
+    applyAvatarColor(null);
     setActiveChatId(null);
     const wasGuest = isGuest;
     setIsGuest(false);
@@ -193,6 +222,7 @@ function App() {
     scheduleProactiveRefresh();
     try {
       const me = await apiGetMe();
+      syncAvatarColor(me.avatar_color);
       const themeUserSet = localStorage.getItem("theme_user_set") === "true";
       const fontUserSet = localStorage.getItem("font_user_set") === "true";
 

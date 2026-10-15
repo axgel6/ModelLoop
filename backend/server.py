@@ -64,6 +64,7 @@ async def lifespan(_: FastAPI):
             "CREATE INDEX IF NOT EXISTS ix_document_chunks_chat_id ON document_chunks (chat_id)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'meadow'",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'rounded'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_color VARCHAR(7)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_context TEXT",
             "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_url VARCHAR(300)",

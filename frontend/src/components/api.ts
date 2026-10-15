@@ -249,13 +249,15 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("I couldn't rename that chat.");
 }
 
-// Fetch the current user's id, email, full_name, theme, font, and personal_context
+// Fetch the current user's id, email, full_name, theme, font, avatar_color, and personal_context
 export async function apiGetMe(): Promise<{
   id: string;
   email: string;
   full_name: string | null;
   theme: string;
   font: string;
+  /** The sidebar icon's color as #rrggbb, or null for the theme's own */
+  avatar_color: string | null;
   personal_context: string | null;
   ollama_url: string | null;
 }> {
@@ -266,7 +268,8 @@ export async function apiGetMe(): Promise<{
   return res.json();
 }
 
-export async function apiUpdatePreferences(prefs: { theme?: string; font?: string }): Promise<void> {
+// `avatar_color` "" goes back to the theme's own color
+export async function apiUpdatePreferences(prefs: { theme?: string; font?: string; avatar_color?: string }): Promise<void> {
   const res = await withRefresh(() =>
     fetch(`${API_URL}/api/v1/auth/preferences`, {
       method: "PATCH",

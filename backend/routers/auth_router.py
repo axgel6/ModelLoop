@@ -115,7 +115,7 @@ async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)
 
 @router.get("/me")
 async def get_me(user: User = Depends(get_user)):
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "theme": user.theme, "font": user.font, "personal_context": user.personal_context, "ollama_url": user.ollama_url}
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "theme": user.theme, "font": user.font, "avatar_color": user.avatar_color, "personal_context": user.personal_context, "ollama_url": user.ollama_url}
 
 
 @router.patch("/me")
@@ -126,7 +126,7 @@ async def update_profile(
 ):
     user.full_name = body.full_name.strip()
     await db.commit()
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "theme": user.theme, "font": user.font, "personal_context": user.personal_context, "ollama_url": user.ollama_url}
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "theme": user.theme, "font": user.font, "avatar_color": user.avatar_color, "personal_context": user.personal_context, "ollama_url": user.ollama_url}
 
 
 @router.patch("/me/context")
@@ -150,8 +150,10 @@ async def update_preferences(
         user.theme = body.theme
     if body.font is not None:
         user.font = body.font
+    if body.avatar_color is not None:
+        user.avatar_color = body.avatar_color.lower() or None
     await db.commit()
-    return {"theme": user.theme, "font": user.font}
+    return {"theme": user.theme, "font": user.font, "avatar_color": user.avatar_color}
 
 
 @router.patch("/me/ollama")

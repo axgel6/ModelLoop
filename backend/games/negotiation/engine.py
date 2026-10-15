@@ -454,12 +454,13 @@ def summary(state: dict) -> dict:
     }
 
 
-def _round_kind(state: dict, offer: Optional[int], bluff: bool = False) -> str:
+def _round_kind(state: dict, offer: Optional[int], bluff: bool = False, sweetener: Optional[str] = None) -> str:
     """What the merchant does this round, as far as it can be known before the model answers."""
     if offer is not None and offer >= min(state["ask"], _reserve(state)):
         return "deal"
     cost = BLUFF_PATIENCE if bluff else 2 if offer is not None and offer < state["floor"] * INSULT_SHARE else 1
-    return "final" if state["patience"] - cost <= 0 else "counter"
+    back = 0 if bluff else extras.CALMING.get(sweetener or "", 0)
+    return "final" if min(state["patience_max"], state["patience"] - cost + back) <= 0 else "counter"
 
 
 def can_bluff(state: dict) -> bool:
@@ -471,7 +472,7 @@ def describe_for_model(
     clean: bool = False,
 ) -> str:
     scenario = state["scenario"]
-    kind = _round_kind(state, offer, bluff)
+    kind = _round_kind(state, offer, bluff, sweetener if can_sweeten(state, sweetener) else None)
     lines = [
         f"You are {scenario['merchant']}, the seller. Personality: {scenario['persona']}.",
         *extras.swearing(scenario, clean),
@@ -520,7 +521,7 @@ def describe_for_model(
         lines.append("The buyer says they are leaving. You do not want to lose the sale: call them back.")
     sweet = extras.sweetener("buy", sweetener)
     if sweet:
-        lines.append(f"{sweet[2]} That is worth something to you.")
+        lines.append(extras.told(sweet, sweetener))
     if extras.asks_about(flaw, message):
         lines.append(
             f"The buyer is asking about something you left out of the listing: {flaw['text']}. "
@@ -584,7 +585,7 @@ def apply_turn(
     s = copy.deepcopy(state)
     bluff = bluff and can_bluff(s)
     sweet = None if bluff or not can_sweeten(s, sweetener) else sweetener
-    kind = _round_kind(s, offer, bluff)
+    kind = _round_kind(s, offer, bluff, sweet)
     text = " ".join(str(reply.get("reply") or "").split())[:MAX_REPLY]
     try:
         persuasion = max(-2, min(2, int(reply.get("persuasion", 0))))
@@ -608,8 +609,11 @@ def apply_turn(
         persuasion = 0               # the bluff does its own work; it is not an argument
         s["bluffed"] = True
     if sweet:
-        # Better terms count however briefly they are put
-        persuasion = min(2, max(persuasion, 0) + extras.SWEETENER_BONUS)
+        # Better terms count however briefly they are put; kind words only lift the mood
+        if extras.moves_price(sweet):
+            persuasion = min(2, max(persuasion, 0) + extras.SWEETENER_BONUS)
+        else:
+            persuasion = 0           # however much they liked hearing it
         s["sweeteners"] = (s.get("sweeteners") or []) + [sweet]
     quotable = (s["list_price"], offer)
 
@@ -644,6 +648,9 @@ def apply_turn(
             entry["insulted"] = True
             persuasion = entry["persuasion"] = min(persuasion, 0)  # no argument survives an insulting number
         s["patience"] = max(0, s["patience"] - (BLUFF_PATIENCE if bluff else 2 if entry["insulted"] else 1))
+        # A better mood wins some of it back
+        entry["calmed"] = extras.calmed(s, sweet) - s["patience"]
+        s["patience"] += entry["calmed"]
         stiffest = min(MAX_RESISTANCE, DIFFICULTIES[s["difficulty"]]["resistance"] + MAX_STIFFENING)
         s["resistance"] = max(0.0, min(stiffest, s["resistance"] - RESISTANCE_PER_POINT * persuasion))
         reserve = _reserve(s)

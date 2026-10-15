@@ -396,11 +396,12 @@ def _tell(s: dict) -> Optional[str]:
     return "slow" if room < TELL_TIGHT else None
 
 
-def _round_kind(state: dict, price: Optional[int], bluff: bool = False) -> str:
+def _round_kind(state: dict, price: Optional[int], bluff: bool = False, sweetener: Optional[str] = None) -> str:
     if price is not None and price <= max(state["ask"], _reserve(state)):
         return "deal"
     cost = BLUFF_PATIENCE if bluff else 2 if price is not None and price > state["ceiling"] * INSULT_SHARE else 1
-    return "final" if state["patience"] - cost <= 0 else "counter"
+    back = 0 if bluff else extras.CALMING.get(sweetener or "", 0)
+    return "final" if min(state["patience_max"], state["patience"] - cost + back) <= 0 else "counter"
 
 
 def can_bluff(state: dict) -> bool:
@@ -447,7 +448,7 @@ def describe_for_model(
     sweetener: Optional[str] = None, leverage: bool = False, clean: bool = False,
 ) -> str:
     scenario = state["scenario"]
-    kind = _round_kind(state, price, bluff)
+    kind = _round_kind(state, price, bluff, sweetener if can_sweeten(state, sweetener) else None)
     lines = [
         f"You are {scenario['merchant']}, the buyer. Personality: {scenario['persona']}.",
         *extras.swearing(scenario, clean),
@@ -487,7 +488,7 @@ def describe_for_model(
         lines.append("The seller says someone else is interested. You do not want to lose it.")
     sweet = extras.sweetener(MODE, sweetener)
     if sweet:
-        lines.append(f"{sweet[2]} That is worth something to you.")
+        lines.append(extras.told(sweet, sweetener))
     if leverage and can_leverage(state):
         ping = state["ping"]
         lines.append(f"The seller says another buyer, {ping['merchant']}, has offered {_money(ping['offer'])}.")
@@ -531,7 +532,7 @@ def apply_turn(
     leverage = leverage and can_leverage(s)
     bluff = bluff and not leverage and can_bluff(s)
     sweet = None if bluff or leverage or not can_sweeten(s, sweetener) else sweetener
-    kind = "counter" if leverage else _round_kind(s, price, bluff)
+    kind = "counter" if leverage else _round_kind(s, price, bluff, sweet)
     text = " ".join(str(reply.get("reply") or "").split())[:MAX_REPLY]
     try:
         persuasion = max(-2, min(2, int(reply.get("persuasion", 0))))
@@ -549,7 +550,8 @@ def apply_turn(
     if bluff:
         s["bluffed"] = True
     if sweet:
-        persuasion = min(2, max(persuasion, 0) + extras.SWEETENER_BONUS)
+        if extras.moves_price(sweet):
+            persuasion = min(2, max(persuasion, 0) + extras.SWEETENER_BONUS)
         s["sweeteners"] = (s.get("sweeteners") or []) + [sweet]
     quotable = (s["list_price"], price, s["ping"]["offer"] if leverage else None)
 
@@ -591,6 +593,9 @@ def apply_turn(
             entry["insulted"] = True
             persuasion = entry["persuasion"] = min(persuasion, 0)
         s["patience"] = max(0, s["patience"] - (BLUFF_PATIENCE if bluff else 2 if entry["insulted"] else 1))
+        # A better mood wins some of it back
+        entry["calmed"] = extras.calmed(s, sweet) - s["patience"]
+        s["patience"] += entry["calmed"]
         base = s.get("resistance_base") or DIFFICULTIES[s["difficulty"]]["resistance"]
         stiffest = min(MAX_RESISTANCE, base + MAX_STIFFENING)
         s["resistance"] = max(0.0, min(stiffest, s["resistance"] - RESISTANCE_PER_POINT * persuasion))

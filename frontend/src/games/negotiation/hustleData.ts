@@ -1,6 +1,6 @@
 // The Hustle run: loading it, starting a new one, and the money words shared by its screens.
 import { apiFetch } from "../../components/api";
-import type { FreeBank, HustleRun } from "./types";
+import type { FreeBank, HustleRun, MarketProfile } from "./types";
 
 export interface HustleView {
   run: HustleRun | null;
@@ -26,6 +26,13 @@ export async function apiStartHustle(): Promise<HustleView> {
 export async function apiBank(): Promise<FreeBank> {
   const res = await apiFetch("/api/v1/games/negotiation/bank");
   if (!res.ok) throw new Error("I couldn't load your bank account.");
+  return res.json();
+}
+
+/** Your marketplace profile: rating, trades, and reviews both ways */
+export async function apiProfile(): Promise<MarketProfile> {
+  const res = await apiFetch("/api/v1/games/negotiation/profile");
+  if (!res.ok) throw new Error("I couldn't load your profile.");
   return res.json();
 }
 

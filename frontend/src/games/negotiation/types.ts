@@ -41,6 +41,8 @@ export interface HaggleEntry {
   final: boolean;
   /** A term other than money offered with this message, by id */
   sweetener?: string | null;
+  /** Patience a better mood won back this round */
+  calmed?: number;
   /** Selling: another buyer's real offer was held up against this one */
   leverage?: boolean;
   /** Buying: the seller owned up to a flaw the listing left out */
@@ -189,7 +191,58 @@ export interface HaggleState {
   /** Hustle: a seller who messaged again, and their price before */
   callback?: { was: number } | null;
   /** The stars the other side left once it was over */
-  review?: { stars: number; text: string; by: string } | null;
+  review?: Review | null;
+  /** Your stars for the other side, once you have rated them */
+  your_review?: { stars: number; text: string; at: string } | null;
+}
+
+/** A review someone left you. Mirrors extras.review in backend/games/negotiation/extras.py */
+export interface Review {
+  id?: string;
+  stars: number;
+  /** Empty when they left stars alone */
+  text: string;
+  by: string;
+  /** What you were doing: buying from them, or selling to them. Missing on older reviews */
+  role?: HaggleMode;
+  item?: string | null;
+  listing?: string | null;
+  /** written: in their own words; stars: no comment; auto: the marketplace's, after a smooth deal */
+  kind?: "written" | "stars" | "auto";
+  /** Still being written by the model */
+  pending?: boolean;
+  at?: string;
+}
+
+/** A review you left someone else */
+export interface GivenReview {
+  stars: number;
+  text: string;
+  to: string;
+  item?: string | null;
+  listing?: string | null;
+  role: HaggleMode;
+  at: string;
+}
+
+/** Your marketplace profile. Mirrors profile in backend/games/negotiation/reviews.py */
+export interface MarketProfile {
+  name: string;
+  joined: string | null;
+  rating: number | null;
+  review_count: number;
+  /** How many reviews gave each number of stars, 5 down to 1 */
+  split: Record<string, number>;
+  /** What your rating does to people's patience: one more, none, or one less */
+  trust: number;
+  bought: number;
+  sold: number;
+  spent: number;
+  earned: number;
+  best_flip: { profit: number; item: string } | null;
+  /** Newest first */
+  reviews: Review[];
+  given: GivenReview[];
 }
 
 export interface HaggleSummary {
@@ -277,7 +330,9 @@ export interface FreeBank {
   /** Your marketplace rating out of 5, once someone has reviewed you */
   rating: number | null;
   /** The latest reviews, newest first */
-  reviews: { stars: number; text: string; by: string; at: string }[];
+  reviews: Review[];
+  /** The reviews you left others, oldest first */
+  given?: GivenReview[];
   review_count: number;
   /** How many purchases are still held */
   held: number;

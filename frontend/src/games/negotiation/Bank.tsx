@@ -185,7 +185,7 @@ export function Bank({
   );
 }
 
-function Tile({ label, value, tone }: { label: string; value: string; tone?: "up" | "down" }) {
+export function Tile({ label, value, tone }: { label: string; value: string; tone?: "up" | "down" }) {
   return (
     <div className="neg-inventory-total">
       <span className={`neg-inventory-total-value${tone ? ` is-${tone}` : ""}`}>{value}</span>

@@ -1,6 +1,7 @@
 """HTTP API for chat games: saved sessions, and playing a turn."""
 import json
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -20,7 +21,7 @@ from dependencies import get_user
 from games.ceo_simulator import engine as ceo
 from games.model_arena import engine as arena
 from games.negotiation import engine as haggle
-from games.negotiation import aftertalk, bank, extras, hustle, selling
+from games.negotiation import aftertalk, bank, extras, hustle, reviews, selling
 from models import GameScore, GameSession, User
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
@@ -271,8 +272,28 @@ async def best_scores(
 
 @router.get("/negotiation/listings")
 async def negotiation_listings(user: User = Depends(get_user)) -> dict:
-    """Everything that can be haggled over, for the start screen to deal from."""
+    """Everything that can be haggled over, for the start screen to deal from. The same for everyone,
+    so it needs no database: the stars you gave sellers are counted in on the page, from the bank's `given`."""
     return {"listings": haggle.catalogue()}
+
+
+@router.get("/negotiation/profile")
+async def negotiation_profile(user: User = Depends(get_user), db: AsyncSession = Depends(get_db)) -> dict:
+    """Your marketplace profile: your rating, what you have traded, and the reviews both ways."""
+    account = await _free_bank(user, db)
+    await db.commit()
+    rows = (await db.execute(
+        select(GameScore.title, GameScore.detail)
+        .where(GameScore.user_id == user.id, GameScore.game_type == haggle.GAME_TYPE)
+    )).all()
+    run_game = await _hustle_run(user, db)
+    return _profile_view(user, account, [{"title": title, **detail} for title, detail in rows], run_game.state if run_game else None)
+
+
+def _profile_view(user: User, account: GameSession, rows: list[dict], run: Optional[dict]) -> dict:
+    return reviews.profile(
+        account.state, user.full_name or "You", user.created_at.isoformat() if user.created_at else None, rows, run,
+    )
 
 
 async def _hustle_run(user: User, db: AsyncSession, run_id: Optional[str] = None) -> Optional[GameSession]:
@@ -335,6 +356,11 @@ async def _current_hustle(user: User, db: AsyncSession) -> dict:
 @router.post("/negotiation/hustle", status_code=201)
 async def start_hustle(user: User = Depends(get_user), db: AsyncSession = Depends(get_db)) -> dict:
     """Start a fresh Hustle run. A run still going is given up, unscored."""
+    # Its trades stay on your profile
+    old = await _hustle_run(user, db)
+    if old:
+        account = await _free_bank(user, db)
+        account.state = reviews.fold_run(account.state, old.state)
     await db.execute(
         delete(GameSession).where(
             GameSession.user_id == user.id, GameSession.game_type.in_([hustle.GAME_TYPE, haggle.GAME_TYPE]),
@@ -438,10 +464,13 @@ async def negotiation_overview(user: User = Depends(get_user), db: AsyncSession 
     hustle_view = await _current_hustle(user, db)
     account = await _free_bank(user, db)
     await db.commit()
+    inventory = await _inventory(user, db)
     return {
         "unfinished": _serialize(unfinished, with_state=False) if unfinished else None,
         "hustle": hustle_view,
-        "inventory": await _inventory(user, db),
+        "inventory": inventory,
+        # Ready before it is opened, from what is loaded here anyway
+        "profile": _profile_view(user, account, inventory, hustle_view["run"]),
         "bank": await _bank_view(account, user, db),
         "scores": {
             "buy": await _best(user, db, haggle.GAME_TYPE),
@@ -493,8 +522,9 @@ async def create_negotiation(
     """Start a haggle, buying or selling. Only one is kept at a time: a new one replaces the last."""
     profile = await _free_bank(user, db)
     trust = extras.trust_bonus(profile.state.get("reviews") or [])
+    given = profile.state.get("given") or []
     if body.hustle:
-        return await _create_hustle_chat(body, user, db, trust)
+        return await _create_hustle_chat(body, user, db, trust, given)
     custom = body.custom and haggle.custom_listing(
         " ".join(body.custom.item.split()), body.custom.price, body.custom.condition,
         body.custom.category and " ".join(body.custom.category.split()), " ".join(body.custom.description.split()),
@@ -535,6 +565,7 @@ async def create_negotiation(
         raise HTTPException(status_code=422, detail="Listings of your own are for selling")
     else:
         state = haggle.new_game(body.scenario, body.difficulty, patience_bonus=trust)
+        state["seller"] = reviews.with_yours(state.get("seller"), given, state["scenario"]["id"])
     await db.execute(
         delete(GameSession).where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)
     )
@@ -545,7 +576,9 @@ async def create_negotiation(
     return _serialize(game)
 
 
-async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession, trust: int = 0) -> dict:
+async def _create_hustle_chat(
+    body: NewNegotiation, user: User, db: AsyncSession, trust: int = 0, given: Optional[list] = None,
+) -> dict:
     """A chat inside the Hustle run, at the run's prices. Starting it uses a day."""
     run_game = await _hustle_run(user, db)
     if not run_game or run_game.state["status"] != "active":
@@ -587,6 +620,8 @@ async def _create_hustle_chat(body: NewNegotiation, user: User, db: AsyncSession
             scenario["id"], body.difficulty, list_price=hustle.price_of(run, scenario), value=hustle.value_of(run, scenario),
             patience_bonus=trust,
         )
+    if body.mode != selling.MODE:
+        state["seller"] = reviews.with_yours(state.get("seller"), given or [], state["scenario"]["id"])
     try:
         started = hustle.start_chat(run)
     except ValueError as e:
@@ -1298,19 +1333,100 @@ async def walk_away(
     return await _end_haggle(game_id, user, db, "walk_away")
 
 
+@router.patch("/{game_id}/review-text")
+@limiter.limit(CHAT_RATE_LIMIT)
+async def write_review(
+    request: Request,
+    game_id: uuid.UUID,
+    body: LastWordRequest,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The review the other side left you, written in their voice. Asked for once the chat closes,
+    so taking the price stays instant; the stock text stands if the model cannot be reached."""
+    game = await _haggle_in_play(game_id, user, db)
+    state = game.state
+    if not (state.get("review") or {}).get("pending"):
+        raise HTTPException(status_code=409, detail="Nothing to write")
+    base_url = await effective_ollama_url(user)
+    # The model can take a while; do not hold a pooled connection for it.
+    await db.close()
+
+    try:
+        reply = await _ask_with_retry(
+            game_id, base_url, body.model, reviews.SYSTEM_PROMPT,
+            reviews.describe_review(state, clean=body.clean), reviews.REPLY_SCHEMA, reviews.MAX_TOKENS,
+        )
+    except HTTPException:
+        reply = {}
+    new_state = reviews.apply_text(state, reply)
+
+    async with AsyncSessionLocal() as write_db:
+        current = (await write_db.execute(
+            select(GameSession).where(GameSession.id == game_id, GameSession.user_id == user.id)
+        )).scalar_one_or_none()
+        if not current:
+            raise HTTPException(status_code=404, detail="Game not found")
+        if not (current.state.get("review") or {}).get("pending"):
+            raise HTTPException(status_code=409, detail="That review was already written. Reload the chat.")
+        account = await _free_bank(user, write_db)
+        account.state = reviews.with_text(account.state, new_state["review"])
+        current.state = {**current.state, "review": new_state["review"]}
+        await write_db.commit()
+        await write_db.refresh(current)
+        return _serialize(current)
+
+
+class RateBack(BaseModel):
+    """Your stars for the person you just dealt with, and a line if you like."""
+    stars: int = Field(..., ge=1, le=5)
+    text:  str = Field(default="", max_length=reviews.MAX_YOUR_TEXT)
+
+
+@router.patch("/{game_id}/rate")
+async def rate_back(
+    game_id: uuid.UUID,
+    body: RateBack,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rate the seller or buyer you made a deal with. It shows on your profile, and a seller's
+    rating counts it from then on."""
+    game = await _haggle_in_play(game_id, user, db)
+    try:
+        game.state, given = reviews.rate(game.state, body.stars, body.text)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    account = await _free_bank(user, db)
+    account.state = reviews.add_given(account.state, given)
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+# What each model server has installed, asked once a minute rather than before every turn
+MODEL_LIST_SECONDS = 60
+_MODEL_LISTS: dict[str, tuple[float, list[str]]] = {}
+
+
 async def _pick_model(base_url: str, wanted: str) -> str:
     """The model to narrate with: the one asked for if the server has it, else one it does have.
 
     The model picker can hold a name the current Ollama server does not carry (a
     preset, or a choice made against another server), and Ollama answers that with a 404.
     """
-    try:
-        resp = await ollama_http.client().get(f"{base_url}/api/tags", headers=NGROK_HEADERS, timeout=10)
-        resp.raise_for_status()
-        available = [m.get("name") for m in resp.json().get("models", []) if m.get("name")]
-    except Exception as e:
-        logger.warning("game_model_list_failed error=%s", str(e))
-        return wanted  # cannot check: try what was asked for
+    seen = _MODEL_LISTS.get(base_url)
+    if seen and time.monotonic() - seen[0] < MODEL_LIST_SECONDS:
+        available = seen[1]
+    else:
+        try:
+            resp = await ollama_http.client().get(f"{base_url}/api/tags", headers=NGROK_HEADERS, timeout=10)
+            resp.raise_for_status()
+            available = [m.get("name") for m in resp.json().get("models", []) if m.get("name")]
+        except Exception as e:
+            logger.warning("game_model_list_failed error=%s", str(e))
+            return wanted  # cannot check: try what was asked for
+        _MODEL_LISTS[base_url] = (time.monotonic(), available)
     if not available:
         raise HTTPException(status_code=502, detail="The model server has no models installed.")
     if wanted in available:
@@ -1323,8 +1439,10 @@ async def _pick_model(base_url: str, wanted: str) -> str:
     return (plain or available)[0]
 
 
-async def _ask_json(base_url: str, model: str, system: str, prompt: str, schema: dict) -> dict:
-    """One model call that must come back as a JSON object matching `schema`."""
+async def _ask_json(
+    base_url: str, model: str, system: str, prompt: str, schema: dict, max_tokens: Optional[int] = None,
+) -> dict:
+    """One model call that must come back as a JSON object matching `schema`. `max_tokens` caps a short answer."""
     payload: dict = {
         "model": model,
         "messages": [
@@ -1334,7 +1452,7 @@ async def _ask_json(base_url: str, model: str, system: str, prompt: str, schema:
         "stream": False,
         "keep_alive": -1,
         "format": schema,
-        "options": {"temperature": JSON_TURN_TEMPERATURE},
+        "options": {"temperature": JSON_TURN_TEMPERATURE, **({"num_predict": max_tokens} if max_tokens else {})},
     }
     if await ollama_caps.can_think(base_url, model):
         payload["think"] = False
@@ -1407,10 +1525,11 @@ async def _retrying(game_id: uuid.UUID, model: str, ask):
 
 async def _ask_with_retry(
     game_id: uuid.UUID, base_url: str, wanted: Optional[str], system: str, prompt: str, schema: dict,
+    max_tokens: Optional[int] = None,
 ) -> dict:
     """The model's JSON reply to a turn, from the model asked for or the nearest one the server has."""
     model = await _pick_model(base_url, (wanted or _config.GAME_MODEL).strip())
-    return await _retrying(game_id, model, lambda: _ask_json(base_url, model, system, prompt, schema))
+    return await _retrying(game_id, model, lambda: _ask_json(base_url, model, system, prompt, schema, max_tokens))
 
 
 async def _play_arena_turn(game: GameSession, user: User, db: AsyncSession) -> dict:

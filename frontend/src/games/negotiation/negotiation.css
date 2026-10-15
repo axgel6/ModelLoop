@@ -1819,7 +1819,7 @@ html .neg .neg-balance:hover {
 
 .neg-account {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin: 4px 0 16px;
 }
@@ -2028,10 +2028,6 @@ html .neg-report-badge.is-down {
   white-space: normal;
 }
 
-.neg-review {
-  font-style: italic;
-}
-
 .neg-inventory-deal.is-down {
   color: var(--neg-down);
 }
@@ -2145,6 +2141,29 @@ html .neg .neg-account-part--stuff:disabled {
   background: linear-gradient(135deg, color-mix(in srgb, var(--pastel-lavender) 16%, transparent), transparent 70%), var(--glass-bg);
 }
 
+html .neg .neg-account-part--profile,
+html .neg .neg-account-part--profile:hover {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--game-accent) 14%, transparent), transparent 70%), var(--glass-bg);
+}
+
+.neg-account-part--profile .neg-account-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* On a phone the profile takes the row under the money and the stuff */
+@media (max-width: 520px) {
+  .neg-account {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  html .neg .neg-account-part--profile {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ---- Marketplace settings ---- */
 
 .neg-settings {
@@ -2204,4 +2223,207 @@ html .neg-browser .neg-switch.is-on {
 
 .neg-switch.is-on .neg-switch-knob {
   transform: translateX(18px);
+}
+
+/* ---- Reviews: your profile, the review left for you, and rating them back ---- */
+
+.neg-profile-stars {
+  font-size: 0.85em;
+  letter-spacing: 1px;
+  color: var(--game-accent);
+  white-space: nowrap;
+}
+
+.neg-profile-stars-off {
+  color: var(--game-muted);
+  opacity: 0.4;
+}
+
+.neg-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px;
+}
+
+.neg-profile-photo.sidebar-user-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 1.4rem;
+}
+
+.neg-profile-who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.neg-profile-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--game-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neg-profile-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.neg-profile-score .neg-profile-stars {
+  font-size: 1rem;
+}
+
+.neg-profile-split {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neg-profile-bar {
+  display: grid;
+  grid-template-columns: 2.4em 1fr 2em;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.neg-profile-bar .pref-setting-hint:last-child {
+  text-align: right;
+}
+
+.neg-profile-track {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--game-muted) 20%, transparent);
+  overflow: hidden;
+}
+
+.neg-profile-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--game-accent);
+}
+
+.neg-profile-trust {
+  margin: 4px 0 0;
+}
+
+.neg-profile-review {
+  align-items: flex-start;
+}
+
+.neg-profile-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.neg-profile-text {
+  font-size: 0.85rem;
+  color: var(--game-ink);
+}
+
+.neg-profile-text.is-quiet,
+.neg-review-quiet {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.neg-profile-tag {
+  padding: 1px 8px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+.neg-profile-date {
+  flex-shrink: 0;
+}
+
+.neg-profile-empty {
+  margin: 0;
+  padding: 18px 16px;
+  text-align: center;
+}
+
+.neg-review-card {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.neg-review-card .pref-item-desc {
+  white-space: normal;
+}
+
+.neg-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.neg-review-badge {
+  flex-shrink: 0;
+}
+
+.neg-rate {
+  align-items: flex-start;
+}
+
+.neg-rate-stars {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+html .neg .neg-rate-star,
+html .neg .neg-rate-star:hover {
+  padding: 0 2px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--game-muted);
+  opacity: 0.45;
+  cursor: pointer;
+  transition: color 0.12s, opacity 0.12s, transform 0.12s;
+}
+
+html .neg .neg-rate-star.is-on {
+  color: var(--game-accent);
+  opacity: 1;
+}
+
+html .neg .neg-rate-star:hover {
+  transform: scale(1.12);
+}
+
+.neg-rate-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+html .neg .neg-rate-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  font-size: 0.85rem;
 }

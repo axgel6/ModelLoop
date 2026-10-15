@@ -18,6 +18,7 @@ import type { GameProps } from "../types";
 import { Avatar } from "./Avatar";
 import { avatarSeed } from "./avatarSeed";
 import { Bank } from "./Bank";
+import { Profile, Stars } from "./Profile";
 import { CustomListingForm } from "./CustomListingForm";
 import {
   apiBank,
@@ -33,7 +34,7 @@ import { CONDITIONS } from "./inventoryData";
 import { ListingBrowser } from "./ListingBrowser";
 import { apiListings, apiOverview, cachedListings, cachedOverview } from "./menuData";
 import { cleanText, isCleanLanguage } from "./settings";
-import { LISTINGS_SHOWN, dealListings, sellerLine } from "./setup";
+import { LISTINGS_SHOWN, dealListings, sellerLine, withYourStars } from "./setup";
 import type {
   CustomListing,
   FreeBank,
@@ -45,6 +46,8 @@ import type {
   HaggleSummary,
   HustleRun,
   InventoryItem,
+  MarketProfile,
+  Review,
   SellerProfile,
 } from "./types";
 import "./negotiation.css";
@@ -61,19 +64,47 @@ const SORE_LOSERS = ["Unhinged", "Lowballer", "Scalper"];
 const DOUBLE_TAP_MS = 1200;
 // How long a payment the account cannot cover seems to go through before it is declined
 const FAKE_PAYING_MS = 1400;
-// Terms other than money, each offered once per chat. Mirrors SWEETENERS in backend/games/negotiation/extras.py
-const SWEETENERS = {
+// Terms other than money, each offered once per chat. Mirrors SWEETENERS in backend/games/negotiation/extras.py.
+// `calms`: it puts them in a better mood and wins back patience (CALMING); `words`: kind words only, the price stays (WORDS_ONLY)
+const SWEETENERS: Record<"buy" | "sell", { id: string; label: string; said: string; calms?: boolean; words?: boolean }[]> = {
   buy: [
     { id: "cash", label: "Cash, today", said: "I can pay cash, today." },
     { id: "pickup", label: "Pick up now", said: "I can come pick it up right now." },
     { id: "shipping", label: "Cover shipping", said: "I'll cover the shipping." },
+    // What is said comes from COMPLIMENTS, to suit what is being sold
+    { id: "compliment", label: "Compliment it", said: "", calms: true, words: true },
   ],
   sell: [
-    { id: "dropoff", label: "Drop it off", said: "I can drop it off to you." },
-    { id: "hold", label: "Hold it for you", said: "I'll hold it for you, no one else gets it." },
-    { id: "anytime", label: "Pickup any time", said: "Pick it up whenever suits you." },
+    { id: "dropoff", label: "Drop it off", said: "I can drop it off to you.", calms: true },
+    { id: "hold", label: "Hold it for you", said: "I'll hold it for you, no one else gets it.", calms: true },
+    { id: "anytime", label: "Pickup any time", said: "Pick it up whenever suits you.", calms: true },
   ],
-} as const;
+};
+// A compliment that suits the listing, by category; one is picked per listing so it stays the same
+const COMPLIMENTS: Record<string, string[]> = {
+  Homes: ["Love what you've done with the place, by the way.", "The photos honestly don't do this place justice."],
+  "Mobile homes and RVs": ["You've kept this really clean, by the way.", "Honestly one of the nicest ones I've looked at."],
+  Land: ["Beautiful piece of land, by the way. I can see why you bought it.", "That view is something else, by the way."],
+  Businesses: ["You've built something really good here, by the way.", "Honestly, I can tell how much work went into this."],
+  "Yachts and aircraft": ["She's beautiful, by the way. You've clearly looked after her."],
+  Vehicles: ["Really clean, by the way. You can tell it's been looked after.", "Love the color on this one, by the way."],
+  Tickets: ["Great seats, by the way. Good taste.", "Love that you're a fan too, by the way."],
+  "Flowers and ramos": ["These are honestly gorgeous, by the way. You've got a real eye."],
+  "Art and rare finds": ["It's a stunning piece, by the way.", "You've got a great eye, by the way."],
+  "Fun stuff": ["Gotta say, best listing I've seen all week.", "Honestly, respect for even listing this."],
+  Books: ["Nice copy, by the way. You've taken good care of it."],
+  Vintage: ["They don't make them like this anymore, by the way."],
+};
+const COMPLIMENT_DEFAULT = [
+  "Thanks for being so easy to deal with, by the way.",
+  "Great listing, by the way. Really clear photos.",
+  "It looks great, by the way. You can tell it's been looked after.",
+];
+const complimentFor = (scenario: { id: string; category?: string | null }) => {
+  const lines = COMPLIMENTS[scenario.category ?? ""] ?? COMPLIMENT_DEFAULT;
+  const pick = [...scenario.id].reduce((n, c) => n + c.charCodeAt(0), 0);
+  return lines[pick % lines.length];
+};
 // What Purchase Protection gives back for a scam paid in the app, as PROTECTION_SHARE in extras.py
 const PROTECTION_PERCENT = 60;
 // Checking sold listings costs this much in a Hustle run, as RESEARCH_FEE in hustle.py
@@ -189,7 +220,8 @@ function Menu({
 }) {
   // What this visit already loaded draws the menu at once; a fresh copy replaces it as it arrives
   const cached = cachedOverview();
-  const cachedAll = cachedListings();
+  // The stars you gave sellers count in their ratings
+  const cachedAll = cachedListings() && withYourStars(cachedListings()!, cached?.bank?.given);
   const [ready, setReady] = useState(!!cached && !!cachedAll);
   const [hustle, setHustle] = useState<HustleView | null>(cached?.hustle ?? null);
   const [hustleScores, setHustleScores] = useState<GameScoreRow[]>(cached?.scores.hustle ?? []);
@@ -197,6 +229,8 @@ function Menu({
   // Free play has its own account, apart from any Hustle run
   const [freeBank, setFreeBank] = useState<FreeBank | null>(cached?.bank ?? null);
   const [freeBankOpen, setFreeBankOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState<MarketProfile | null>(cached?.profile ?? null);
   const [showScores, setShowScores] = useState(false);
   const [mode, setMode] = useState<HaggleMode>("buy");
   const [inventory, setInventory] = useState<InventoryItem[] | null>(cached?.inventory ?? null);
@@ -234,6 +268,7 @@ function Menu({
           setHustle(fresh.hustle);
           setInventory(fresh.inventory);
           setFreeBank(fresh.bank);
+          setProfile(fresh.profile ?? null);
           setScores(fresh.scores.buy);
           setSaleScores(fresh.scores.sell);
           setHustleScores(fresh.scores.hustle);
@@ -241,9 +276,12 @@ function Menu({
           setHustle((h) => h ?? { run: null, prices: {} });
           setInventory((i) => i ?? []);
         }
-        setListings(all);
-        // Keep the handful on screen if this visit already dealt them
-        setOffered((shown) => (shown.length > 0 ? shown : dealListings(all)));
+        const rated = withYourStars(all, fresh?.bank?.given);
+        setListings(rated);
+        // Keep the handful on screen if this visit already dealt them; their stars may have changed
+        setOffered((shown) =>
+          shown.length > 0 ? shown.map((s) => rated.find((l) => l.id === s.id) ?? s) : dealListings(rated),
+        );
         setReady(true);
       },
     );
@@ -386,24 +424,31 @@ function Menu({
         {live ? (
           <AccountBar
             cash={live.cash}
-            detail={[`Day ${live.day} of ${live.days}`, stars(freeBank)].filter(Boolean).join(" · ")}
+            detail={`Day ${live.day} of ${live.days}`}
             progress={live.day / live.days}
             items={items.length}
+            rating={freeBank?.rating ?? null}
+            reviews={freeBank?.review_count ?? 0}
             onBank={() => setBankOpen(true)}
             onInventory={() => setInventoryOpen(true)}
+            onProfile={() => setProfileOpen(true)}
           />
         ) : (
           play === "free" &&
           freeBank && (
             <AccountBar
               cash={freeBank.cash}
-              detail={[`Net worth ${money(freeBank.net_worth)}`, stars(freeBank)].filter(Boolean).join(" · ")}
+              detail={`Net worth ${money(freeBank.net_worth)}`}
               items={items.length}
+              rating={freeBank.rating}
+              reviews={freeBank.review_count}
               onBank={() => setFreeBankOpen(true)}
               onInventory={() => setInventoryOpen(true)}
+              onProfile={() => setProfileOpen(true)}
             />
           )
         )}
+        {profileOpen && <Profile initial={profile} onClose={() => setProfileOpen(false)} />}
         {live && (live.callbacks ?? []).length > 0 && (
           <>
             <h3 className="pref-field-label neg-section">Messages</h3>
@@ -856,28 +901,29 @@ function Menu({
   );
 }
 
-/** Your marketplace rating, once anyone has reviewed you */
-function stars(profile: FreeBank | null): string {
-  if (!profile?.rating) return "";
-  return `${profile.rating.toFixed(1)} stars (${profile.review_count})`;
-}
-
-/** The money and the stuff: balance and inventory side by side, each opening its own window */
+/** The money, the stuff and your standing: balance, inventory and profile side by side, each opening its own window */
 function AccountBar({
   cash,
   detail,
   progress,
   items,
+  rating,
+  reviews,
   onBank,
   onInventory,
+  onProfile,
 }: {
   cash: number;
   detail: string;
   /** Hustle: the share of the run's days used */
   progress?: number;
   items: number;
+  /** Your marketplace rating, once anyone has reviewed you */
+  rating: number | null;
+  reviews: number;
   onBank: () => void;
   onInventory: () => void;
+  onProfile: () => void;
 }) {
   return (
     <div className="neg-account">
@@ -890,6 +936,20 @@ function AccountBar({
           {items} {items === 1 ? "item" : "items"}
         </span>
         <span className="pref-item-desc">{items === 0 ? "Nothing bought yet" : "Inventory"}</span>
+      </button>
+      <button type="button" className="neg-account-part neg-account-part--profile" onClick={onProfile}>
+        <span className="neg-account-value">
+          {rating != null ? (
+            <>
+              {rating.toFixed(1)} <Stars value={rating} />
+            </>
+          ) : (
+            "No reviews yet"
+          )}
+        </span>
+        <span className="pref-item-desc">
+          {reviews > 0 ? `Profile · ${reviews} ${reviews === 1 ? "review" : "reviews"}` : "Your profile"}
+        </span>
       </button>
       {progress != null && (
         <div className="neg-days neg-account-days" aria-hidden="true">
@@ -1099,6 +1159,31 @@ function Play({
     waited.current = waiting;
   }, [busy, chatPending, paying]);
 
+  // The review they left is written in their voice after the chat closes, so the result never waits for it.
+  // If it cannot be written, their stock line stands.
+  const writing = useRef(false);
+  const reviewPending = !!state.review?.pending;
+  useEffect(() => {
+    if (!reviewPending || writing.current) return;
+    writing.current = true;
+    apiEditGame<HaggleState>(save.id, "review-text", { model, clean: isCleanLanguage() })
+      .then(onSave)
+      .catch(() => {});
+  }, [reviewPending, save.id, model, onSave]);
+
+  const [rating, setRating] = useState(false);
+  const rateBack = async (stars: number, text: string) => {
+    setRating(true);
+    setError("");
+    try {
+      onSave(await apiEditGame<HaggleState>(save.id, "rate", { stars, text }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setRating(false);
+    }
+  };
+
   const sweeteners = SWEETENERS[selling ? "sell" : "buy"];
   // Clean language (Marketplace settings): characters are told not to swear, and anything they still say is softened
   const clean = isCleanLanguage();
@@ -1115,7 +1200,12 @@ function Play({
     const text = draft.trim();
     const special = move.bluff || move.leverage || !!move.sweetener;
     if ((!special && !text && offer === undefined) || busy) return;
-    const said = move.sweetener ? sweeteners.find((x) => x.id === move.sweetener)?.said : undefined;
+    const said =
+      move.sweetener === "compliment"
+        ? complimentFor(scenario)
+        : move.sweetener
+          ? sweeteners.find((x) => x.id === move.sweetener)?.said
+          : undefined;
     setPending(
       move.bluff
         ? { text: text || (selling ? SELL_BLUFF_MESSAGE : BLUFF_MESSAGE) }
@@ -1130,7 +1220,8 @@ function Play({
     try {
       const next = await apiPlayTurn<HaggleState>(
         save.id,
-        text,
+        // A compliment is worded for this listing here, not by the server
+        text || (move.sweetener === "compliment" ? (said ?? "") : ""),
         model,
         undefined,
         { clean, ...(move.bluff ? { bluff: true } : move.leverage ? { leverage: true } : { offer, sweetener: move.sweetener }) },
@@ -1403,7 +1494,9 @@ function Play({
                   [
                     entry.bluff ? "A bluff. It only works once." : "",
                     entry.leverage ? "A real offer from another buyer." : "",
-                    entry.sweetener ? `Offered: ${sweeteners.find((x) => x.id === entry.sweetener)?.label ?? entry.sweetener}.` : "",
+                    entry.sweetener && !sweeteners.find((x) => x.id === entry.sweetener)?.words
+                      ? `Offered: ${sweeteners.find((x) => x.id === entry.sweetener)?.label ?? entry.sweetener}.`
+                      : "",
                     i === state.log.length - 1 && !pending ? (entry.at ? `Seen ${clock(entry.at)}` : "Seen") : "",
                   ]
                     .filter(Boolean)
@@ -1439,6 +1532,7 @@ function Play({
                           : entry.persuasion < 0
                             ? "That did not help."
                             : "",
+                  entry.calmed ? "That put them in a better mood. They have more patience now." : "",
                   // Only when the pace changes: the same remark under every reply says nothing
                   entry.tell && entry.tell !== lastTell(state.log, i) ? TELLS[entry.tell] : "",
                 ]
@@ -1607,10 +1701,16 @@ function Play({
             {state.scam && (
               <ScamReport result={result} merchant={scenario.merchant} face={face} busy={busy} onReport={() => edit("report")} />
             )}
-            {state.review && (
-              <span className="pref-setting-hint neg-review">
-                {state.review.by} left you {state.review.stars} {state.review.stars === 1 ? "star" : "stars"}: "{state.review.text}"
-              </span>
+            {state.review && <ReviewCard review={state.review} face={face} say={say} />}
+            {result.paid != null && (
+              <RateBack
+                merchant={scenario.merchant}
+                face={face}
+                selling={selling}
+                given={state.your_review ?? null}
+                busy={rating}
+                onRate={rateBack}
+              />
             )}
             {run && run.status !== "active" && run.result && (
               <span className="pref-setting-label neg-run-over">
@@ -1738,7 +1838,13 @@ function Play({
                 className="neg-extra"
                 onClick={() => play({ sweetener: x.id })}
                 disabled={busy}
-                title="Better terms count for something. Each works once."
+                title={
+                  x.words
+                    ? "Puts them in a better mood and wins back some patience. It will not lower the price. Works once."
+                    : x.calms
+                      ? "Better terms count for something, and win back some patience. Each works once."
+                      : "Better terms count for something. Each works once."
+                }
               >
                 <ExtraIcon name={x.id} />
                 {x.label}
@@ -1981,6 +2087,11 @@ const EXTRA_ICONS: Record<string, React.ReactNode> = {
     <>
       <circle cx="12" cy="12" r="8.5" />
       <path d="M12 7.5V12l3 2" />
+    </>
+  ),
+  compliment: (
+    <>
+      <path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z" />
     </>
   ),
   research: (
@@ -2290,6 +2401,120 @@ function ScamReport({
             </span>
           )
         )}
+      </div>
+    </div>
+  );
+}
+
+/** The review the other side left you, as a card: their stars and what they said, if anything */
+function ReviewCard({ review, face, say }: { review: Review; face: string; say: (text: string) => string }) {
+  return (
+    <div className="pref-account-card neg-card neg-review-card">
+      <div className="pref-list-item neg-row--static">
+        <div className="pref-item-icon neg-face">
+          <Avatar seed={face} />
+        </div>
+        <div className="pref-item-info">
+          <div className="pref-item-name neg-review-head">
+            {review.by} rated you <Stars value={review.stars} />
+          </div>
+          <div className={`pref-item-desc${review.text && !review.pending ? "" : " neg-review-quiet"}`}>
+            {review.pending
+              ? `${review.by} is writing a review`
+              : review.text
+                ? say(review.text)
+                : "Stars only, no comment."}
+          </div>
+        </div>
+        {review.kind === "auto" && <span className="pref-content-badge neg-review-badge">Automatic</span>}
+      </div>
+    </div>
+  );
+}
+
+/** Rate the person you just dealt with: tap the stars, add a line if you like. Once per deal. */
+function RateBack({
+  merchant,
+  face,
+  selling,
+  given,
+  busy,
+  onRate,
+}: {
+  merchant: string;
+  face: string;
+  selling: boolean;
+  given: { stars: number; text: string } | null;
+  busy: boolean;
+  onRate: (stars: number, text: string) => void;
+}) {
+  const [stars, setStars] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [text, setText] = useState("");
+  const shown = hover || stars;
+  return (
+    <div className="pref-account-card neg-card neg-review-card">
+      <div className="pref-list-item neg-row--static neg-rate">
+        <div className="pref-item-icon neg-face">
+          <Avatar seed={face} />
+        </div>
+        <div className="pref-item-info">
+          {given ? (
+            <>
+              <div className="pref-item-name neg-review-head">
+                You rated {merchant} <Stars value={given.stars} />
+              </div>
+              <div className={`pref-item-desc${given.text ? "" : " neg-review-quiet"}`}>
+                {given.text || "Stars only, no comment."}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="pref-item-name">
+                Rate {merchant} as a {selling ? "buyer" : "seller"}
+              </div>
+              <div className="neg-rate-stars" role="radiogroup" aria-label="Stars" onMouseLeave={() => setHover(0)}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={stars === n}
+                    aria-label={`${n} ${n === 1 ? "star" : "stars"}`}
+                    className={`neg-rate-star${n <= shown ? " is-on" : ""}`}
+                    onMouseEnter={() => setHover(n)}
+                    onClick={() => setStars(n)}
+                    disabled={busy}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              {stars > 0 && (
+                <form
+                  className="neg-rate-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    onRate(stars, text.trim());
+                  }}
+                >
+                  <input
+                    className="chat-textarea neg-rate-input"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    maxLength={200}
+                    placeholder="Add a comment (optional)"
+                    aria-label="Your review"
+                    disabled={busy}
+                  />
+                  <button type="submit" className="start-button" disabled={busy}>
+                    {busy ? "Posting" : "Post"}
+                  </button>
+                </form>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

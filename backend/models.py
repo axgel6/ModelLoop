@@ -20,6 +20,8 @@ class User(Base):
     password_hash:    Mapped[str]            = mapped_column(Text, nullable=False)
     theme:            Mapped[str]            = mapped_column(String(20), nullable=False, default="meadow", server_default="meadow")
     font:             Mapped[str]            = mapped_column(String(20), nullable=False, default="rounded", server_default="rounded")
+    # The sidebar icon's color, as #rrggbb; NULL is the theme's own
+    avatar_color:     Mapped[Optional[str]]  = mapped_column(String(7), nullable=True)
     personal_context: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
     # Optional per-user Ollama endpoint; NULL means use the shared server default
     ollama_url:       Mapped[Optional[str]]  = mapped_column(String(300), nullable=True)

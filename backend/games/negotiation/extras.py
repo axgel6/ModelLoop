@@ -2,7 +2,9 @@
 
 Shared by buying (engine.py) and selling (selling.py). No I/O in this file.
 """
+import random
 import re
+import uuid
 from statistics import mean
 from typing import Optional
 
@@ -14,6 +16,11 @@ SWEETENERS = {
         "cash": ("Cash, today", "I can pay cash, today.", "The buyer offers to pay cash today."),
         "pickup": ("Pick up now", "I can come pick it up right now.", "The buyer offers to come and collect it right away."),
         "shipping": ("Cover shipping", "I'll cover the shipping.", "The buyer offers to pay for shipping themselves."),
+        "compliment": (
+            "Compliment it", "Honestly, it looks great. You can tell it's been looked after.",
+            "The buyer pays you a compliment. It puts you in a better mood, but it is no reason to lower the price: "
+            "take it warmly in a few words, rate it 0, and do not mention a price.",
+        ),
     },
     "sell": {
         "dropoff": ("Drop it off", "I can drop it off to you.", "The seller offers to drop it off at your place."),
@@ -22,10 +29,28 @@ SWEETENERS = {
     },
 }
 SWEETENER_BONUS = 1            # a sweetener lifts how persuasive the message was by this, up to the usual 2
+# Kind words, unlike better terms, do not move the price
+WORDS_ONLY = {"compliment"}
+# What puts the other side in a better mood wins back this much patience, never above where it started
+CALMING = {"compliment": 2, "dropoff": 2, "hold": 2, "anytime": 2}
 
 
 def sweetener(mode: str, key: Optional[str]) -> Optional[tuple]:
     return SWEETENERS["sell" if mode == "sell" else "buy"].get(key or "")
+
+
+def moves_price(key: Optional[str]) -> bool:
+    return bool(key) and key not in WORDS_ONLY
+
+
+def calmed(state: dict, key: Optional[str]) -> int:
+    """Their patience once a sweetener that calms them has landed."""
+    return min(state["patience_max"], state["patience"] + CALMING.get(key or "", 0))
+
+
+def told(sweet: tuple, key: Optional[str]) -> str:
+    """How a sweetener is put to the model."""
+    return sweet[2] if key in WORDS_ONLY else f"{sweet[2]} That is worth something to you."
 
 
 def collects(scenario: dict) -> bool:
@@ -148,6 +173,8 @@ _FLAWS = {
         ("the authenticity card and receipt are missing", ("receipt", "authentic", "card", "real", "fake", "legit"), 0.25,
          ("louis vuitton", "hermès", "hermes", "coach", "supreme", "yeezy", "jordan", "kate spade", "michael kors"),
          ("dupe", "inspired")),
+        ("the power lace motor is dead", ("laces", "lacing", "motor", "power", "charger", "works", "battery"), 0.30,
+         ("air mag",), ()),
         ("the soles are worn far more than the photos show", ("soles", "sole", "wear", "worn", "tread"), 0.20, _SHOES, ()),
     ],
     "jewelry": [
@@ -227,6 +254,35 @@ _FLAWS = {
         ("the lights and sounds stopped working", ("lights", "sounds", "electronics", "batteries", "works", "work"), 0.25,
          ("electronic", "with lights"), ()),
         ("the paint is chipped on the back", ("paint", "chip", "chips", "finish", "back"), 0.15, ("shield",), ()),
+        # Famous internet objects, and their sellers' stories
+        ("it is a regular pen from a dollar store", ("pen", "real", "authentic", "proof", "video", "original"), 0.95,
+         ("pen from the ppap",), ()),
+        ("the pineapple was bought at a grocery store last month", ("pineapple", "real", "proof", "video", "original", "old"), 0.90,
+         ("pineapple",), ()),
+        ("it is actually white and gold", ("colour", "color", "blue", "black", "white", "gold"), 0.50, ("the dress",), ()),
+        ("the banana is plastic", ("banana", "real", "plastic", "fake", "fruit"), 0.50, ("banana",), ()),
+        ("Charizard's left wing has crumbled off", ("wing", "wings", "crumbled", "intact", "broken", "condition"), 0.60,
+         ("cheeto",), ()),
+        ("it is a different rock from the parking lot", ("rock", "original", "real", "authentic", "box"), 0.50,
+         ("pet rock",), ()),
+        ("the original pet died last week and this one is two days old", ("age", "alive", "original", "died", "same", "old"), 0.80,
+         ("tamagotchi",), ()),
+        ("it only sings the first four words", ("song", "sings", "sound", "works", "batteries", "music"), 0.40,
+         ("billy bass",), ()),
+        ("eleven of the gnomes are missing", ("count", "missing", "all", "gnomes", "how many"), 0.25, ("gnome",), ()),
+        ("the 'metal' is a gum wrapper", ("metal", "real", "authentic", "tested", "foil", "proof"), 0.95, ("ufo",), ()),
+        ("Shrek's ears were glued back on", ("ears", "damage", "repairs", "broken", "condition"), 0.20, ("shrek",), ()),
+        ("the cast was made with a boot", ("cast", "real", "authentic", "boot", "proof", "fake"), 0.80, ("bigfoot",), ()),
+        ("it was never anywhere near Graceland", ("provenance", "graceland", "proof", "receipt", "real", "elvis"), 0.70,
+         ("graceland",), ()),
+        ("the lights work but the speaker is dead", ("speaker", "music", "sound", "jingle", "plays", "works"), 0.30,
+         ("sweater",), ()),
+        ("it is extremely haunted", ("haunting", "haunted", "ghost", "moves", "night", "creepy", "safe"), 0.50,
+         ("haunted",), ()),
+        ("it is a regular Beach Bomb repainted pink", ("paint", "original", "authentic", "authenticated", "repainted", "real"), 0.90,
+         ("hot wheels",), ()),
+        ("the analog board needs a recap and the screen collapses", ("screen", "board", "recap", "capacitors", "works", "boots"), 0.25,
+         ("macintosh",), ()),
         ("the tag is a reproduction", ("tag", "tags", "real", "fake", "authentic", "original"), 0.60, ("beanie",), ()),
     ],
     "property": [
@@ -313,6 +369,69 @@ _FLAWS = {
         ("the snowmaking system is failing", ("snowmaking", "snow", "lifts", "lift", "equipment", "maintenance"), 0.15,
          ("ski resort",), ()),
     ],
+    "books": [
+        ("it is a later printing, not a true first", ("printing", "first", "edition", "impression", "club", "points"), 0.60,
+         ("first edition",), ("penguin",)),
+        ("the dust jacket is a facsimile", ("jacket", "dust", "facsimile", "original", "reproduction"), 0.50,
+         ("first edition",), ("penguin", "no dust jacket")),
+        ("there is water damage to the last few pages", ("water", "damage", "pages", "stains", "condition", "mould", "mold"), 0.20,
+         (), ("folio", "mugs")),
+        ("a couple of the books are missing", ("missing", "complete", "volumes", "books", "count", "all"), 0.20,
+         ("set", "lot", "collection", "box sets", "books", "first ten"), ("folio",)),
+        _SIGNED,
+        ("pages are highlighted and written in", ("highlighted", "highlighting", "notes", "writing", "marked", "annotations"), 0.30,
+         ("hardcover", "paperback"), ()),
+        ("several leaves were supplied from another copy", ("leaves", "complete", "pages", "facsimile", "provenance", "original"), 0.30,
+         ("folio",), ()),
+    ],
+    "vintage": [
+        ("it has been repainted, which hurts the value", ("original", "paint", "repainted", "restored", "finish"), 0.30,
+         ("jukebox", "cooler", "schwinn", "sting-ray"), ()),
+        ("the wiring is original and not safe to use", ("wiring", "electrical", "plug", "cord", "safe", "works"), 0.20,
+         ("lamp", "radio", "jukebox", "mixer", "cooler"), ()),
+        ("it is a modern reproduction", ("reproduction", "repro", "authentic", "original", "real", "marked", "stamp", "labels"), 0.60,
+         ("tiffany", "eames", "levi's", "hermès"), ()),
+        ("the pattern has dishwasher fade", ("dishwasher", "fade", "faded", "pattern", "shine", "condition"), 0.30,
+         ("pyrex", "fiestaware"), ()),
+        ("the motor hums but barely turns", ("motor", "runs", "run", "sews", "sewing", "working", "tested"), 0.30,
+         ("sewing machine", "mixer", "boombox"), ()),
+        ("a few keys stick and the ribbon is dried out", ("keys", "ribbon", "types", "typing", "stick", "works"), 0.20,
+         ("typewriter",), ()),
+        ("the enamel inside is crazed", ("enamel", "crazing", "crazed", "chips", "cracks", "inside"), 0.30, ("le creuset",), ()),
+        ("a few lighters are knockoffs", ("knockoffs", "fake", "real", "authentic", "stamped", "dates", "date codes"), 0.30,
+         ("zippo",), ()),
+    ],
+    "pet": [
+        ("the door latch is broken and it does not lock", ("latch", "door", "lock", "locks", "secure", "escape"), 0.20,
+         ("crate", "cage", "coop", "playpen"), ()),
+        ("it smells strongly of pet urine", ("smell", "smells", "odor", "odour", "urine", "pee", "clean"), 0.40,
+         ("cat tree", "litter", "bed"), ()),
+        ("the tank has a slow leak at one seam", ("leak", "leaks", "seal", "seams", "water", "tested"), 0.40,
+         ("aquarium", "terrarium"), ()),
+        ("the sensor is faulty and it cycles at random", ("sensor", "cycle", "cycles", "works", "error", "faulty"), 0.30,
+         ("litter-robot", "feeders", "camera"), ()),
+        ("the battery barely lasts a day", ("battery", "charge", "lasts", "hours"), 0.25, ("collar",), ()),
+        ("the leather is cracked under the seat", ("leather", "cracked", "condition", "tree", "seat"), 0.25, ("saddle",), ()),
+        ("one wheel is broken and it pulls to the side", ("wheel", "wheels", "broken", "pulls", "rolls"), 0.20,
+         ("stroller",), ()),
+    ],
+    "camera": [
+        ("the shutter count is far higher than it looks", ("shutter", "count", "actuations", "clicks", "used", "use"), 0.20,
+         ("sony a7", "eos r5", "x100v", "x100vi", "g7 x"), ()),
+        ("there is fungus in the lens", ("fungus", "haze", "lens", "glass", "clear", "optics"), 0.35,
+         ("leica", "hasselblad", "contax", "pentax", "nikon f3", "olympus", "polaroid", "bolex", "lens"), ()),
+        ("the light meter does not work", ("meter", "metering", "light", "battery", "exposure"), 0.20,
+         ("leica m6", "pentax", "nikon f3", "contax", "sx-70", "olympus"), ()),
+        ("the sensor has a scratch", ("sensor", "scratch", "dust", "spots", "clean"), 0.30,
+         ("sony a7", "eos r5", "fx3", "6k", "komodo"), ()),
+        ("one motor stutters after a crash", ("motor", "motors", "props", "propellers", "crash", "crashed", "flight"), 0.30,
+         ("drone",), ()),
+        ("the gimbal drifts and shakes", ("gimbal", "stabilization", "shake", "drift", "shaky"), 0.20, ("osmo",), ()),
+        ("the aperture blades are oily", ("aperture", "blades", "oil", "oily"), 0.25, ("70-200", "summicron", "planar"), ()),
+        ("the tape heads are worn and playback rolls", ("tape", "heads", "playback", "plays", "picture", "tracking"), 0.25,
+         ("handycam", "hi8", "camcorder"), ()),
+        ("the spring motor runs slow", ("spring", "motor", "speed", "runs", "frames", "fps"), 0.25, ("bolex",), ()),
+    ],
     "general": [
         ("there is a scuff the photos do not show", ("scuff", "scratch", "marks", "dent", "photos"), 0.10, (), ("cards",)),
         ("it smells strongly of smoke", ("smoke", "smell", "smoker", "pets", "pet"), 0.20, (), ()),
@@ -329,12 +448,14 @@ _FLAW_GROUP = {
     "TV and audio": "tech", "Home and appliances": "tech", "Camping and outdoors": "outdoor",
     "Flowers and ramos": "flowers", "Matcha and tea": "food", "Music and merch": "music",
     "Marvel and comics": "collectible", "Home and collectables": "collectible", "Fun stuff": "collectible",
+    "Books": "books", "Vintage": "vintage", "Pet supplies": "pet", "Cameras and video": "camera",
     "Homes": "property", "Mobile homes and RVs": "mobile", "Land": "land", "Yachts and aircraft": "vessel",
     "Art and rare finds": "art", "Businesses": "business",
 }
 # Where to look when nothing in the item's own group fits. A ticket has nothing else to hide.
 _FLAW_FALLBACK = {"console": ("tech", "general"), "accessory": ("tech", "general"), "tickets": (), "flowers": (), "food": (),
-                  "property": (), "land": (), "mobile": ("vehicle", "general"), "art": ("collectible",), "business": ()}
+                  "property": (), "land": (), "mobile": ("vehicle", "general"), "art": ("collectible",), "business": (),
+                  "camera": ("tech", "general"), "books": ("general",)}
 # Asking straight out whether anything is wrong finds any flaw
 _ANY_FLAW = ("problem", "issue", "wrong", "flaw", "defect", "damage", "damaged", "catch", "honest", "broken", "faults", "fault")
 
@@ -525,8 +646,20 @@ _REVIEW_TEXT = {
 }
 
 
-def review(state: dict) -> Optional[dict]:
-    """The stars the other side leaves when a chat ends, or None if they would not bother."""
+# Not everyone writes something: some leave stars alone, and a smooth deal can get the marketplace's
+# automatic review, as on eBay, when the other side never gets round to it
+STARS_ONLY_SHARE = 0.25
+AUTO_SHARE = 0.2
+AUTO_TEXT = {
+    "buy": "Paid promptly. Automatic feedback.",
+    "sell": "Order completed with no issues. Automatic feedback.",
+}
+
+
+def review(state: dict, rng: Optional[random.Random] = None) -> Optional[dict]:
+    """The stars the other side leaves when a chat ends, or None if they would not bother.
+    A written one starts with stock text, `pending` until the model writes it in their voice."""
+    rng = rng or random.Random()
     result = state.get("result") or {}
     outcome = result.get("outcome")
     if state.get("scam"):
@@ -548,7 +681,18 @@ def review(state: dict) -> Optional[dict]:
             return None
     else:
         return None
-    return {"stars": stars, "text": _REVIEW_TEXT[stars], "by": state["scenario"].get("merchant") or "Someone"}
+    role = "sell" if state.get("mode") == "sell" else "buy"
+    scenario = state["scenario"]
+    left = {
+        "id": uuid.uuid4().hex, "stars": stars, "text": _REVIEW_TEXT[stars], "by": scenario.get("merchant") or "Someone",
+        "role": role, "item": scenario.get("item"), "listing": scenario.get("id"), "kind": "written", "pending": True,
+    }
+    roll = rng.random()
+    if stars == 5 and outcome in ("deal", "sold") and roll < AUTO_SHARE:
+        left.update(kind="auto", text=AUTO_TEXT[role], pending=False)
+    elif roll > 1 - STARS_ONLY_SHARE:
+        left.update(kind="stars", text="", pending=False)
+    return left
 
 
 def rating(reviews: list) -> Optional[float]:
