@@ -1300,14 +1300,22 @@ function Play({
   }, [busy, chatPending, paying]);
 
   // The review they left is written in their voice after the chat closes, so the result never waits for it.
-  // If it cannot be written, their stock line stands.
+  // If it cannot be written, their stock line stands. Once you have left the chat it is still saved, but it
+  // does not bring the chat back: it shows on your profile instead.
   const writing = useRef(false);
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
   const reviewPending = !!state.review?.pending;
   useEffect(() => {
     if (!reviewPending || writing.current) return;
     writing.current = true;
     apiEditGame<HaggleState>(save.id, "review-text", { model, clean: isCleanLanguage() })
-      .then(onSave)
+      .then((next) => here.current && onSave(next))
       .catch(() => {});
   }, [reviewPending, save.id, model, onSave]);
 
