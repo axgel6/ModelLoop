@@ -1,6 +1,6 @@
 // The Hustle run: loading it, starting a new one, and the money words shared by its screens.
 import { apiFetch } from "../../components/api";
-import type { FreeBank, GivenReview, HustleRun, MarketProfile } from "./types";
+import type { FreeBank, GivenReview, HustleRun, MarketProfile, SavedListing } from "./types";
 
 export interface HustleView {
   run: HustleRun | null;
@@ -44,6 +44,19 @@ export async function apiDeleteReview(key: string): Promise<GivenReview[]> {
     throw new Error(typeof detail === "string" ? detail : "I couldn't delete that review.");
   }
   return (await res.json()).given;
+}
+
+/** Save a listing to watch for price drops, or unsave it. Free play and a Hustle run keep their own. */
+export async function apiToggleSaved(listing: string, hustle: boolean): Promise<SavedListing[]> {
+  const res = await apiFetch("/api/v1/games/negotiation/saved", {
+    method: "POST",
+    body: JSON.stringify({ listing, hustle }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().then((b) => b?.detail).catch(() => null);
+    throw new Error(typeof detail === "string" ? detail : "I couldn't save that.");
+  }
+  return (await res.json()).saved;
 }
 
 /** Free play: money in from nowhere, or out to it */

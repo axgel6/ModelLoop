@@ -6,7 +6,7 @@ import { Avatar } from "./Avatar";
 import { avatarSeed } from "./avatarSeed";
 import { Tile } from "./Bank";
 import { apiDeleteReview, apiProfile, money, signedMoney } from "./hustleData";
-import type { GivenReview, MarketProfile, Review } from "./types";
+import type { Badge, GivenReview, MarketProfile, Review } from "./types";
 
 type Tab = "all" | "buy" | "sell" | "given";
 
@@ -75,6 +75,19 @@ export function Profile({
               <UserIcon name={profile.name} />
               <div className="neg-profile-who">
                 <span className="neg-profile-name">{profile.name}</span>
+                {(profile.top ?? []).length > 0 && (
+                  <span className="neg-profile-top">
+                    {profile.top.map((id) => {
+                      const b = profile.badges.find((x) => x.id === id);
+                      return b ? (
+                        <span key={id} className="neg-badge is-earned is-small" title={`${b.name}: ${b.how}`}>
+                          <BadgeMark id={id} />
+                          {b.name}
+                        </span>
+                      ) : null;
+                    })}
+                  </span>
+                )}
                 <span className="pref-setting-hint">
                   {profile.joined ? `Member since ${monthYear(profile.joined)}` : "Marketplace member"}
                 </span>
@@ -118,6 +131,8 @@ export function Profile({
                 <span>Free play and Hustle</span>
               </div>
             )}
+
+            {(profile.badges ?? []).length > 0 && <BadgeGrid badges={profile.badges} />}
 
             <div className="neg-modes" role="tablist" aria-label="Reviews">
               {TABS.map((t) => (
@@ -177,6 +192,170 @@ function UserIcon({ name }: { name: string }) {
     >
       {(name || "?")[0].toUpperCase()}
     </div>
+  );
+}
+
+/** Every badge: earned ones lit, the rest greyed. Tap one to see what it is for and how close you are. */
+function BadgeGrid({ badges }: { badges: Badge[] }) {
+  const earned = badges.filter((b) => b.at).length;
+  const [open, setOpen] = useState<string | null>(null);
+  const shown = badges.find((b) => b.id === open);
+  return (
+    <section className="neg-badges">
+      <span className="neg-field-label">
+        Badges · {earned} of {badges.length}
+      </span>
+      <div className="neg-badge-grid" role="listbox" aria-label="Badges">
+        {badges.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            role="option"
+            aria-selected={open === b.id}
+            className={`neg-badge-tile${b.at ? " is-earned" : ""}${open === b.id ? " is-open" : ""}`}
+            onClick={() => setOpen(open === b.id ? null : b.id)}
+          >
+            <span className="neg-badge-icon" aria-hidden="true">
+              <BadgeMark id={b.id} />
+            </span>
+            <span className="neg-badge-tile-name">{b.name}</span>
+          </button>
+        ))}
+      </div>
+      {shown ? <BadgeDetail badge={shown} /> : <span className="pref-setting-hint">Tap a badge to see what it is for.</span>}
+    </section>
+  );
+}
+
+/** One badge in full: how it is earned, and either when it was or how close you are */
+function BadgeDetail({ badge }: { badge: Badge }) {
+  const p = badge.progress;
+  const show = (n: number) => (p?.unit === "money" ? money(n) : p?.unit === "percent" ? `${n}%` : n.toLocaleString("en-US"));
+  return (
+    <div className={`neg-badge-detail${badge.at ? " is-earned" : ""}`}>
+      <span className="neg-badge-detail-mark" aria-hidden="true">
+        <BadgeMark id={badge.id} />
+      </span>
+      <div className="neg-badge-detail-text">
+        <span className="pref-item-name">{badge.name}</span>
+        <span className="pref-item-desc">{badge.how}</span>
+        {badge.at ? (
+          <span className="pref-setting-hint">Earned {longDate(badge.at)}</span>
+        ) : (
+          p &&
+          p.need > 1 && (
+            <span className="neg-badge-progress">
+              <span className="neg-profile-track" aria-hidden="true">
+                <span style={{ width: `${Math.min(100, (100 * p.have) / p.need)}%` }} />
+              </span>
+              <span className="pref-setting-hint">
+                {show(p.have)} of {show(p.need)}
+              </span>
+            </span>
+          )
+        )}
+        {!badge.at && (!p || p.need <= 1) && <span className="pref-setting-hint">Not earned yet</span>}
+      </div>
+    </div>
+  );
+}
+
+// A mark for each badge, drawn on a 24 by 24 grid like the chat's other icons
+const BADGE_MARKS: Record<string, React.ReactNode> = {
+  first_deal: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  first_flip: (
+    <>
+      <path d="M4 16l5-5 4 4 7-7" />
+      <path d="M15 8h5v5" />
+    </>
+  ),
+  sharp_eye: (
+    <>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  trader: (
+    <>
+      <path d="M4 8h13l-3.5-3.5" />
+      <path d="M20 16H7l3.5 3.5" />
+    </>
+  ),
+  verified: (
+    <>
+      <path d="M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6z" />
+      <path d="M8.8 12.2l2.2 2.2 4.4-4.6" />
+    </>
+  ),
+  boosted: <path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z" />,
+  scam_spotter: (
+    <>
+      <path d="M12 3l9.5 17h-19z" />
+      <path d="M12 10v4.5M12 17.5v.01" />
+    </>
+  ),
+  lowballer: (
+    <>
+      <path d="M12 4v13" />
+      <path d="M6.5 11.5L12 17l5.5-5.5" />
+      <path d="M5 20.5h14" />
+    </>
+  ),
+  haggle_hero: (
+    <>
+      <path d="M19 5L5 19" />
+      <circle cx="7" cy="7" r="2.5" />
+      <circle cx="17" cy="17" r="2.5" />
+    </>
+  ),
+  collector: (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    </>
+  ),
+  flipper: (
+    <>
+      <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+      <path d="M20 4v5h-5" />
+    </>
+  ),
+  smooth_talker: (
+    <path d="M4.5 5.5h15a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5h-1A1.5 1.5 0 0 1 3 15V7a1.5 1.5 0 0 1 1.5-1.5z" />
+  ),
+  big_spender: (
+    <>
+      <rect x="2.5" y="6" width="19" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+    </>
+  ),
+  mogul: <path d="M3.5 8l4 4 4.5-6.5 4.5 6.5 4-4-1.5 10.5h-14z" />,
+  hustle_mogul: (
+    <>
+      <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
+      <path d="M7 6H4.5a2.5 2.5 0 0 0 2.5 4M17 6h2.5a2.5 2.5 0 0 1-2.5 4M12 14v3.5M8.5 20.5h7" />
+    </>
+  ),
+};
+
+export function BadgeMark({ id }: { id: string }) {
+  return (
+    <svg
+      className="neg-badge-mark"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {BADGE_MARKS[id]}
+    </svg>
   );
 }
 
@@ -295,6 +474,10 @@ function trustLine(profile: MarketProfile): string {
 
 function monthYear(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+function longDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
 function shortDate(iso: string): string {

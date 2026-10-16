@@ -1,6 +1,7 @@
 """HTTP API for chat games: saved sessions, and playing a turn."""
 import json
 import logging
+import random
 import time
 import uuid
 from datetime import datetime, timezone
@@ -21,7 +22,7 @@ from dependencies import get_user
 from games.ceo_simulator import engine as ceo
 from games.model_arena import engine as arena
 from games.negotiation import engine as haggle
-from games.negotiation import aftertalk, bank, extras, hustle, reviews, selling
+from games.negotiation import aftertalk, badges, bank, extras, hustle, market, reviews, selling, trades
 from models import GameScore, GameSession, User
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
@@ -108,6 +109,9 @@ class NewNegotiation(BaseModel):
     hustle:       bool                    = False
     # Hustle: answer a seller who messaged again after the player walked away
     callback:     Optional[str]           = Field(default=None, max_length=20)
+    # Selling: pay to reach more buyers (1 Boost, 2 Top boost), and to have it authenticated first
+    boost:        int                     = Field(default=0, ge=0, le=2)
+    authenticate: bool                    = False
 
 
 class ArenaSide(BaseModel):
@@ -279,8 +283,8 @@ async def negotiation_listings(user: User = Depends(get_user)) -> dict:
 
 @router.get("/negotiation/profile")
 async def negotiation_profile(user: User = Depends(get_user), db: AsyncSession = Depends(get_db)) -> dict:
-    """Your marketplace profile: your rating, what you have traded, and the reviews both ways."""
-    account = await _free_bank(user, db)
+    """Your marketplace profile: your rating, what you have traded, the reviews both ways, and your badges."""
+    account = await _ready(await _free_bank(user, db), user, db)
     await db.commit()
     rows = (await db.execute(
         select(GameScore.title, GameScore.detail)
@@ -291,9 +295,41 @@ async def negotiation_profile(user: User = Depends(get_user), db: AsyncSession =
 
 
 def _profile_view(user: User, account: GameSession, rows: list[dict], run: Optional[dict]) -> dict:
-    return reviews.profile(
-        account.state, user.full_name or "You", user.created_at.isoformat() if user.created_at else None, rows, run,
-    )
+    return {
+        **reviews.profile(
+            account.state, user.full_name or "You", user.created_at.isoformat() if user.created_at else None, rows, run,
+        ),
+        **badges.view(account.state),
+    }
+
+
+def _prices(run: Optional[dict], scenario: dict) -> tuple[int, int]:
+    """A listing's price and resale value: free play's, or the run's."""
+    if run:
+        return hustle.price_of(run, scenario), hustle.value_of(run, scenario)
+    return scenario["list_price"], haggle.market_value(scenario)
+
+
+def _buzz(run: Optional[dict]) -> dict:
+    key = market.day_key(run)
+    out = {}
+    for s in haggle.SCENARIOS:
+        price, value = _prices(run, s)
+        out[s["id"]] = market.packed(market.buzz(s, price, value, key))
+    return out
+
+
+def _tick_saved(saved: list, run: Optional[dict], seed: str) -> list:
+    """Play out the days since saved listings were last looked at: free play's calendar days, or the run's."""
+    if not saved:
+        return saved
+    def busy(listing: str, day: int) -> bool:
+        s = haggle.scenario_for(listing)
+        if s["id"] != listing:
+            return False
+        price, value = _prices(run, s)
+        return market.buzz(s, price, value, market.day_key(run, day))["busy"]
+    return market.tick_saved(saved, run["day"] if run else market.today(), seed, busy)
 
 
 async def _hustle_run(user: User, db: AsyncSession, run_id: Optional[str] = None) -> Optional[GameSession]:
@@ -337,9 +373,9 @@ async def get_hustle(user: User = Depends(get_user), db: AsyncSession = Depends(
     return await _current_hustle(user, db)
 
 
-async def _current_hustle(user: User, db: AsyncSession) -> dict:
+async def _current_hustle(user: User, db: AsyncSession, run_game: Optional[GameSession] = None) -> dict:
     """The latest run, settled first if its last day went on a chat that was never finished."""
-    run_game = await _hustle_run(user, db)
+    run_game = run_game or await _hustle_run(user, db)
     if run_game and run_game.state["status"] == "active" and run_game.state["day"] >= run_game.state["days"]:
         # The last day was spent on a chat that was never finished: the run is over all the same
         open_chat = (await db.execute(
@@ -383,6 +419,37 @@ async def _free_bank(user: User, db: AsyncSession) -> GameSession:
         db.add(account)
         await db.flush()
     return account
+
+
+async def _ready(account: GameSession, user: User, db: AsyncSession) -> GameSession:
+    """The profile with its running totals for badges, worked out from the record the first time they are
+    needed, so whatever past play proves is granted at once."""
+    if "stats" not in account.state:
+        def details(game_type: str):
+            return select(GameScore.detail).where(GameScore.user_id == user.id, GameScore.game_type == game_type)
+        buys = (await db.execute(details(haggle.GAME_TYPE))).scalars().all()
+        sales = (await db.execute(details(SALE_GAME_TYPE))).scalars().all()
+        runs = (await db.execute(details(hustle.GAME_TYPE))).scalars().all()
+        run_game = await _hustle_run(user, db)
+        stats = badges.seed(
+            list(buys), list(sales), [d.get("rating") for d in runs], account.state.get("hustle_trades") or {},
+            run_game.state if run_game else None,
+        )
+        account.state, _ = badges.refresh({**account.state, "stats": stats})
+    return account
+
+
+def _after_chat(account: GameSession, chat: dict) -> list[dict]:
+    """Count a finished chat towards the badges. Returns the ones it earned."""
+    stats = badges.after_chat(account.state.get("stats") or badges.blank(), chat)
+    account.state, new = badges.refresh({**account.state, "stats": stats})
+    return badges.named(new)
+
+
+def _bump(account: GameSession, key: str) -> list[dict]:
+    stats = badges.bump(account.state.get("stats") or badges.blank(), key)
+    account.state, new = badges.refresh({**account.state, "stats": stats})
+    return badges.named(new)
 
 
 async def _bank_view(account: GameSession, user: User, db: AsyncSession) -> dict:
@@ -461,14 +528,27 @@ async def negotiation_overview(user: User = Depends(get_user), db: AsyncSession 
         .order_by(GameSession.updated_at.desc())
     )).scalars().all()
     unfinished = next((g for g in open_chat if g.state.get("status") in ("active", "choosing")), None)
-    hustle_view = await _current_hustle(user, db)
-    account = await _free_bank(user, db)
+    run_game = await _hustle_run(user, db)
+    account = await _ready(await _free_bank(user, db), user, db)
+    # Saved listings: what happened to them since they were last looked at
+    account.state = {**account.state, "saved": _tick_saved(account.state.get("saved") or [], None, str(user.id))}
+    live = run_game if run_game and run_game.state["status"] == "active" else None
+    if live and live.state.get("saved"):
+        live.state = {**live.state, "saved": _tick_saved(live.state["saved"], live.state, str(live.state["price_seed"]))}
+    hustle_view = await _current_hustle(user, db, run_game)
+    if run_game and (run_game.state.get("result") or {}).get("rating") == badges.MOGUL_RATING:
+        account.state, _ = badges.refresh({**account.state, "stats": {**account.state["stats"], "hustle_mogul": True}})
     await db.commit()
     inventory = await _inventory(user, db)
     return {
         "unfinished": _serialize(unfinished, with_state=False) if unfinished else None,
         "hustle": hustle_view,
         "inventory": inventory,
+        # How busy every listing is today, as [views, saves, just listed, busy]: free play's, and the run's
+        "buzz": {
+            "free": _buzz(None),
+            "hustle": _buzz(live.state) if live else None,
+        },
         # Ready before it is opened, from what is loaded here anyway
         "profile": _profile_view(user, account, inventory, hustle_view["run"]),
         "bank": await _bank_view(account, user, db),
@@ -554,18 +634,40 @@ async def create_negotiation(
                 # Kept with this purchase alone, apart from what the seller's listing said, so the
                 # next time it goes up for sale it starts from the player's own version
                 row.detail = {**row.detail, "edits": {**(row.detail.get("edits") or {}), **edits}}
+            asking = body.asking or item["list_price"]
+            auth, _ = _list_extras(body, profile, None, listing, asking, row.detail.get("flaw"), False)
             state = selling.new_game(
-                listing, body.asking or item["list_price"], item.get("paid"), str(row.id), body.difficulty, patience_bonus=trust,
+                listing, asking, item.get("paid"), str(row.id), body.difficulty, patience_bonus=trust,
+                boost=body.boost, authenticated=bool(auth and auth["verdict"] == "passed"),
             )
+            state["auth"] = auth
         elif custom:
-            state = selling.new_game(custom, body.asking or custom["list_price"], None, None, body.difficulty, patience_bonus=trust)
+            asking = body.asking or custom["list_price"]
+            auth, _ = _list_extras(body, profile, None, custom, asking, None, False)
+            state = selling.new_game(
+                custom, asking, None, None, body.difficulty, patience_bonus=trust,
+                boost=body.boost, authenticated=bool(auth and auth["verdict"] == "passed"),
+            )
+            state["auth"] = auth
         else:
             raise HTTPException(status_code=422, detail="Pick something from your inventory, or describe what you are selling")
     elif custom:
         raise HTTPException(status_code=422, detail="Listings of your own are for selling")
     else:
-        state = haggle.new_game(body.scenario, body.difficulty, patience_bonus=trust)
+        base = haggle.scenario_for(body.scenario)
+        # A saved listing that has dropped is messaged at its new price
+        saved = profile.state.get("saved") or []
+        cut = market.saved_cut(saved, base["id"])
+        state = haggle.new_game(
+            base["id"], body.difficulty, patience_bonus=trust,
+            list_price=haggle._nice(base["list_price"] * cut, base["list_price"]) if cut < 1 else None,
+        )
         state["seller"] = reviews.with_yours(state.get("seller"), given, state["scenario"]["id"])
+        state = market.make_busy(
+            state, market.buzz(base, base["list_price"], state["value"], market.day_key(None)),
+            haggle.MAX_RESISTANCE,
+        )
+        profile.state = {**profile.state, "saved": market.seen(saved, base["id"])}
     await db.execute(
         delete(GameSession).where(GameSession.user_id == user.id, GameSession.game_type == haggle.GAME_TYPE)
     )
@@ -574,6 +676,38 @@ async def create_negotiation(
     await db.commit()
     await db.refresh(game)
     return _serialize(game)
+
+
+def _list_extras(
+    body: NewNegotiation, account: Optional[GameSession], run: Optional[dict], listing: dict, asking: int,
+    flaw: Optional[str], fake: bool,
+) -> tuple[Optional[dict], Optional[dict]]:
+    """Selling: pay for a boost and for authentication, from the free play account or the run (`run`, when given).
+    Returns the authenticator's verdict, if one was asked for, and the run after its fees."""
+    fees = []
+    if body.boost:
+        fees.append((market.boost_fee(body.boost, asking), market.BOOSTS[body.boost]["label"]))
+    auth = None
+    if body.authenticate:
+        if not market.can_authenticate(listing):
+            raise HTTPException(status_code=422, detail="This is not something that gets authenticated")
+        failed = fake or market.catches(flaw)
+        auth = {
+            "verdict": "failed" if failed else "passed", "fee": market.auth_fee(asking),
+            "note": (f"It did not pass: {flaw if flaw and market.catches(flaw) else 'it is a counterfeit'}. "
+                     "It is listed without the badge.") if failed
+                    else "Authentic. Buyers see the badge, and trust it enough to pay more.",
+        }
+        fees.append((auth["fee"], "Authentication"))
+    try:
+        for fee, what in fees:
+            if run is not None:
+                run = hustle.charge(run, fee, listing["item"], what)
+            else:
+                account.state = bank.record(account.state, "fee", fee, listing["item"], what)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return auth, run
 
 
 async def _create_hustle_chat(
@@ -597,10 +731,14 @@ async def _create_hustle_chat(
                 "value": item.get("value") or item["list_price"],
             **{k: item.get(k) for k in ("condition", "description", "category", "setting")},
         }
+        asking = body.asking or item["list_price"]
+        auth, run = _list_extras(body, None, run, listing, asking, item.get("flaw"), bool(item.get("fake")))
         state = selling.new_game(
-            listing, body.asking or item["list_price"], item["paid"], item["id"], body.difficulty,
+            listing, asking, item["paid"], item["id"], body.difficulty,
             notes=body.notes and " ".join(body.notes.split()), patience_bonus=trust,
+            boost=body.boost, authenticated=bool(auth and auth["verdict"] == "passed"),
         )
+        state["auth"] = auth
     elif body.callback:
         # A seller who messaged again: their new price, and they open with it
         try:
@@ -616,10 +754,18 @@ async def _create_hustle_chat(
         state["callback"] = {"was": callback["was"]}
     else:
         scenario = haggle.scenario_for(body.scenario)
+        price, value = hustle.price_of(run, scenario), hustle.value_of(run, scenario)
+        # A saved listing that has dropped is messaged at its new price; a busy seller holds out
+        saved = run.get("saved") or []
+        cut = market.saved_cut(saved, scenario["id"])
         state = haggle.new_game(
-            scenario["id"], body.difficulty, list_price=hustle.price_of(run, scenario), value=hustle.value_of(run, scenario),
-            patience_bonus=trust,
+            scenario["id"], body.difficulty, list_price=haggle._nice(price * cut, price) if cut < 1 else price,
+            value=value, patience_bonus=trust,
         )
+        state = market.make_busy(
+            state, market.buzz(scenario, price, value, market.day_key(run)), haggle.MAX_RESISTANCE,
+        )
+        run = {**run, "saved": market.seen(saved, scenario["id"])}
     if body.mode != selling.MODE:
         state["seller"] = reviews.with_yours(state.get("seller"), given or [], state["scenario"]["id"])
     try:
@@ -1005,37 +1151,54 @@ def _haggle_score(user: User, state: dict) -> Optional[GameScore]:
 
 
 async def _end_haggle(game_id: uuid.UUID, user: User, db: AsyncSession, move: str) -> dict:
-    """`move` is accept (take the price on the table) or walk_away, in whichever direction the haggle runs."""
+    """`move` is accept (take the price on the table), trade (take the trade on the table) or walk_away,
+    in whichever direction the haggle runs."""
     game = await _owned_game(game_id, user, db)
     if game.game_type != haggle.GAME_TYPE:
         raise HTTPException(status_code=400, detail="Unknown game")
     rules = _haggle_rules(game.state)
+    buying = rules is haggle
+    # What leaves the account if this goes through: the price, or a trade's cash
+    if move == "trade" and buying:
+        due = int((game.state.get("trade_offer") or {}).get("cash") or 0)
+    else:
+        due = int(game.state.get("ask") or 0) if move == "accept" and buying else 0
     run_game = game.state.get("run_id") and await _hustle_run(user, db, game.state["run_id"])
-    if run_game and rules is haggle and move == "accept" and not hustle.can_pay(run_game.state, game.state["ask"]):
+    if run_game and due and not hustle.can_pay(run_game.state, due):
         raise HTTPException(status_code=409, detail=f"You only have ${run_game.state['cash']:,} in your account.")
     account = None if game.state.get("run_id") else await _free_bank(user, db)
-    if account and rules is haggle and move == "accept" and not bank.can_pay(account.state, game.state["ask"] or 0):
+    if account and due and not bank.can_pay(account.state, due):
         raise HTTPException(status_code=409, detail=f"You only have ${account.state['cash']:,} in your account.")
+    # Something offered in a trade has to still be yours
+    gave_row = None
+    if move == "trade" and buying and account:
+        gave_row = await _unsold_purchase(uuid.UUID(game.state["trade_offer"]["item_id"]), user, db)
     try:
         # Fakes and bounced payments only happen where the money is real
-        game.state = rules.accept(game.state, scams=bool(run_game)) if move == "accept" else rules.walk_away(game.state)
+        if move == "accept":
+            game.state = rules.accept(game.state, scams=bool(run_game))
+        elif move == "trade":
+            game.state = (trades.accept_trade if buying else selling.accept_trade)(game.state, scams=bool(run_game))
+        else:
+            game.state = rules.walk_away(game.state)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
-    profile = account or await _free_bank(user, db)
+    profile = await _ready(account or await _free_bank(user, db), user, db)
     left = extras.review(game.state)
     profile.state = bank.add_review(profile.state, left)
-    # Shown with the result: who rated you, and how
-    game.state = {**game.state, "review": left}
+    result = game.state.get("result") or {}
+    listing = game.state["scenario"].get("id")
     if game.state.get("run_id"):
         # A Hustle chat moves the run's money, not the free play inventory and scores
         if run_game and run_game.state["status"] == "active":
-            outcome = (game.state.get("result") or {}).get("outcome")
+            outcome = result.get("outcome")
             try:
                 if outcome == "deal":
                     run_game.state = hustle.record_purchase(run_game.state, game.state)
+                    run_game.state = {**run_game.state, "saved": market.without(run_game.state.get("saved") or [], listing)}
                 elif outcome == "sold":
                     run_game.state = hustle.record_sale(run_game.state, game.state)
-                elif outcome == "walked" and rules is haggle:
+                elif outcome == "walked" and buying:
                     run_game.state = hustle.maybe_callback(run_game.state, game.state)
             except ValueError as e:
                 raise HTTPException(status_code=409, detail=str(e))
@@ -1045,20 +1208,48 @@ async def _end_haggle(game_id: uuid.UUID, user: User, db: AsyncSession, move: st
         if score:
             db.add(score)
         await _mark_sold(user, game.state, db)
-        result = game.state.get("result") or {}
+        trade = result.get("trade")
+        if gave_row and trade:
+            # Traded away: it leaves the inventory as if sold, for what the trade counted it as
+            gave_row.detail = {**gave_row.detail, "sold": {
+                "price": trade["value"], "profit": trade["value"] - int(gave_row.detail.get("paid") or 0),
+                "buyer": game.state["scenario"]["merchant"], "rating": "Traded", "traded": True,
+                "at": datetime.now(timezone.utc).isoformat(),
+            }}
+        if trade and result.get("outcome") == "sold":
+            db.add(_trade_in_row(user, game.state))
         if account and result.get("paid") is not None:
             scenario = game.state["scenario"]
             kind = "sell" if result["outcome"] == "sold" else "buy"
             try:
                 account.state = bank.record(
-                    account.state, kind, int(result["paid"]), scenario["item"], scenario["merchant"],
+                    account.state, kind, int(result.get("paid_cash", result["paid"])), scenario["item"], scenario["merchant"],
                     result.get("profit") if kind == "sell" else None,
                 )
             except ValueError as e:
                 raise HTTPException(status_code=409, detail=str(e))
+            if kind == "buy":
+                account.state = {**account.state, "saved": market.without(account.state.get("saved") or [], listing)}
+    # Shown with the result: who rated you and how, and any badge it earned
+    game.state = {**game.state, "review": left, "badges_new": _after_chat(profile, game.state)}
     await db.commit()
     await db.refresh(game)
     return _serialize(game)
+
+
+def _trade_in_row(user: User, state: dict) -> GameScore:
+    """What a buyer traded you, joining the inventory at what the trade counted it as."""
+    trade = state["result"]["trade"]
+    return GameScore(
+        user_id=user.id, game_type=haggle.GAME_TYPE, title=trade["got"][:80], score=0,
+        detail={
+            "outcome": "deal", "rating": "Traded", "paid": trade["worth"], "rounds": 0, "saved": None,
+            "list_price": trade["worth"], "value": trade["value"], "flaw": trade.get("flaw"),
+            "merchant": state["scenario"]["merchant"], "difficulty": state.get("difficulty", "normal"),
+            "listing": trade["listing"],
+            **{k: trade.get(k) for k in ("condition", "description", "setting", "category")},
+        },
+    )
 
 
 @router.patch("/{game_id}/buyer")
@@ -1103,7 +1294,8 @@ async def research_listing(game_id: uuid.UUID, user: User = Depends(get_user), d
             run_game.state = hustle.charge(run_game.state, hustle.RESEARCH_FEE, state["scenario"]["item"], "Checked sold listings")
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
-    game.state = {**state, "research": extras.sold_listings(state)}
+    # When, so it shows in the chat where it happened
+    game.state = {**state, "research": extras.sold_listings(state), "research_turn": state.get("turn", 0)}
     await db.commit()
     await db.refresh(game)
     return _serialize(game)
@@ -1140,6 +1332,8 @@ async def report_seller(game_id: uuid.UUID, user: User = Depends(get_user), db: 
         game.state = haggle.report(game.state)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    profile = await _ready(await _free_bank(user, db), user, db)
+    game.state = {**game.state, "badges_new": _bump(profile, "scams_reported")}
     pickup = game.state["result"].get("pickup") or {}
     amount = pickup.get("refunded")
     if amount:
@@ -1331,6 +1525,144 @@ async def walk_away(
 ):
     """Leave without buying, or keep the item instead of selling. Instant: no model call."""
     return await _end_haggle(game_id, user, db, "walk_away")
+
+
+@router.patch("/{game_id}/trade")
+async def accept_trade(
+    game_id: uuid.UUID,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Take the trade on the table: the one a seller agreed to, or the one a buyer offered. Instant."""
+    return await _end_haggle(game_id, user, db, "trade")
+
+
+class TradeOffer(BaseModel):
+    """Buying: one of your things, and cash if you like, instead of paying the price."""
+    item_id: str           = Field(..., min_length=1, max_length=40)
+    cash:    int           = Field(default=0, ge=0, le=10_000_000_000)
+    message: str           = Field(default="", max_length=400)
+    model:   Optional[str] = Field(default=None, max_length=100, pattern=MODEL_NAME_PATTERN)
+    clean:   bool          = False
+
+
+async def _tradeable(user: User, db: AsyncSession, state: dict, item_id: str) -> dict:
+    """Something of yours that can go in a trade: in the run's holdings in Hustle, the inventory in free play."""
+    if state.get("run_id"):
+        run_game = await _hustle_run(user, db, state["run_id"])
+        item = run_game and hustle.holding(run_game.state, item_id)
+        if not item or item.get("sold"):
+            raise HTTPException(status_code=404, detail="That is not in this run's inventory")
+        return {"id": item["id"], "title": item["title"], "value": item.get("value") or item["list_price"],
+                "paid": item["paid"], "category": item.get("category")}
+    try:
+        row = await _unsold_purchase(uuid.UUID(item_id), user, db)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="That is not in your inventory")
+    return {"id": str(row.id), "title": row.title, "value": row.detail.get("value") or row.detail.get("list_price") or 0,
+            "paid": row.detail.get("paid"), "category": row.detail.get("category")}
+
+
+@router.patch("/{game_id}/trade-offer")
+@limiter.limit(CHAT_RATE_LIMIT)
+async def offer_trade(
+    request: Request,
+    game_id: uuid.UUID,
+    body: TradeOffer,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Buying: offer one of your things, plus cash if you like. The seller answers in character; a yes or a
+    counter stands for you to confirm. Costs patience like any message."""
+    game = await _haggle_in_play(game_id, user, db)
+    state = game.state
+    if _haggle_rules(state) is not haggle or not trades.can_trade(state):
+        raise HTTPException(status_code=409, detail="You can offer a trade while you are buying, before their final price")
+    item = await _tradeable(user, db, state, body.item_id)
+    verdict = trades.judge(state, item, body.cash)
+    message = " ".join(body.message.split()) or trades.trade_message(verdict)
+    base_url = await effective_ollama_url(user)
+    turn_before = state["turn"]
+    # The model can take a while; do not hold a pooled connection for it.
+    await db.close()
+
+    reply = await _ask_with_retry(
+        game_id, base_url, body.model, haggle.SYSTEM_PROMPT,
+        trades.describe_trade_for_model(state, message, verdict, clean=body.clean), haggle.REPLY_SCHEMA,
+    )
+    new_state = trades.apply_trade(state, message, verdict, reply)
+
+    async with AsyncSessionLocal() as write_db:
+        current = (await write_db.execute(
+            select(GameSession).where(GameSession.id == game_id, GameSession.user_id == user.id)
+        )).scalar_one_or_none()
+        if not current:
+            raise HTTPException(status_code=404, detail="Game not found")
+        if current.state.get("turn") != turn_before:
+            raise HTTPException(status_code=409, detail="That turn was already played. Reload the chat.")
+        await write_db.execute(update(GameSession).where(GameSession.id == game_id).values(state=new_state))
+        await write_db.commit()
+        await write_db.refresh(current)
+        return _serialize(current)
+
+
+@router.patch("/{game_id}/authenticate")
+async def authenticate_listing(game_id: uuid.UUID, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+    """Buying: have it checked before paying, for a fee. Catches fakes and tampering, not ordinary wear.
+    A scammer will not send it in, and that costs nothing. Once per chat."""
+    game = await _haggle_in_play(game_id, user, db)
+    state = game.state
+    if _haggle_rules(state) is not haggle or state.get("status") != "active":
+        raise HTTPException(status_code=409, detail="Only while you are buying")
+    if state.get("auth"):
+        raise HTTPException(status_code=409, detail="You already had it authenticated")
+    if not market.can_authenticate(state["scenario"]):
+        raise HTTPException(status_code=409, detail="This is not something that gets authenticated")
+    run_game = state.get("run_id") and await _hustle_run(user, db, state["run_id"])
+    checked = market.authenticate(state, fake=haggle.counterfeit_roll(state, bool(run_game), random.Random()))
+    fee, item = checked["auth"]["fee"], state["scenario"]["item"]
+    if fee:
+        try:
+            if run_game:
+                run_game.state = hustle.charge(run_game.state, fee, item, "Authentication")
+            elif not state.get("run_id"):
+                account = await _free_bank(user, db)
+                account.state = bank.record(account.state, "fee", fee, item, "Authentication")
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+    checked["auth"]["turn"] = state.get("turn", 0)
+    game.state = checked
+    await db.commit()
+    await db.refresh(game)
+    return _serialize(game)
+
+
+class SaveToggle(BaseModel):
+    listing: str  = Field(..., min_length=1, max_length=20)
+    # The Hustle run's saved listings, apart from free play's
+    hustle:  bool = False
+
+
+@router.post("/negotiation/saved")
+async def toggle_saved(body: SaveToggle, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)) -> dict:
+    """Save a listing to watch for price drops, or unsave it."""
+    if not haggle.scenario_for(body.listing) or haggle.scenario_for(body.listing)["id"] != body.listing:
+        raise HTTPException(status_code=404, detail="No such listing")
+    try:
+        if body.hustle:
+            run_game = await _hustle_run(user, db)
+            if not run_game or run_game.state["status"] != "active":
+                raise HTTPException(status_code=409, detail="Start a Hustle run first")
+            saved = market.toggle_saved(run_game.state.get("saved") or [], body.listing, run_game.state["day"])
+            run_game.state = {**run_game.state, "saved": saved}
+        else:
+            account = await _free_bank(user, db)
+            saved = market.toggle_saved(account.state.get("saved") or [], body.listing, market.today())
+            account.state = {**account.state, "saved": saved}
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    await db.commit()
+    return {"saved": saved}
 
 
 @router.patch("/{game_id}/review-text")

@@ -16,8 +16,8 @@ import random
 import re
 from typing import Optional
 
-from . import extras
-from .engine import now
+from . import extras, market
+from .engine import _then, now, patience_for
 from .engine import (
     DIFFICULTIES, FREE_QUESTIONS, LOG_LIMIT, MAX_REPLY, MAX_STIFFENING, MODEL_CONTEXT_ROUNDS, NEUTRAL_REPLIES,
     REPEAT_PERSUASION, RESISTANCE_PER_POINT, MAX_RESISTANCE, SHORT_MESSAGE_WORDS,
@@ -152,6 +152,7 @@ BUYERS += [
 ]
 PROSPECTS = (3, 5)             # how many buyers message about a new listing, at least and at most
 PING_CHANCE = 0.3              # each round, the chance one of the buyers not picked messages again with a better offer
+RICH_CEILING = 1.25            # a buyer who may pay more than this times the worth counts as a big spender for a boost
 FAKE_PAYMENT_CHANCE = 0.03     # Hustle only: the chance a sale's payment turns out fake
 
 BUYER_NAMES = [
@@ -224,7 +225,7 @@ def _rating(score: int) -> str:
 def new_game(
     listing: dict, asking: int, cost: Optional[int] = None, inventory_id: Optional[str] = None,
     difficulty: str = "normal", rng: Optional[random.Random] = None, notes: Optional[str] = None,
-    patience_bonus: int = 0,
+    patience_bonus: int = 0, boost: int = 0, authenticated: bool = False,
 ) -> dict:
     """`listing` has item, condition, description, category, list_price and value (what it
     resells for; list_price stands in without one); `asking` is the player's price; `cost` is
@@ -234,7 +235,14 @@ def new_game(
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
     worth = max(1, int(listing.get("value") or listing["list_price"]))
     names: set[str] = set()
-    prospects = [_prospect(rng, worth, asking, level, names, patience_bonus) for _ in range(rng.randint(*PROSPECTS))]
+    lift = market.BOOSTS.get(boost) or {}
+    # A boosted listing reaches more people, and more of the ones with money; an authenticated one is trusted more
+    count = rng.randint(*PROSPECTS) + lift.get("extra", 0)
+    prospects = [
+        _prospect(rng, worth, asking, level, names, patience_bonus, rich=lift.get("rich", 1.0),
+                  lift=market.AUTH_LIFT if authenticated else 0.0, category=listing.get("category"))
+        for _ in range(count)
+    ]
     # Who messaged is the player's pick; until then the chat has no buyer in it
     return {
         "mode": MODE,
@@ -254,7 +262,9 @@ def new_game(
             "description": listing.get("description") or "",
             "category": listing.get("category"),
             "notes": notes or None,
+            "authenticated": authenticated,
         },
+        "boost": boost,
         "opening": None,
         "list_price": asking,
         "worth": worth,
@@ -282,10 +292,15 @@ BUYER_RESISTANCE = (0.25, 0.80)  # how slowly any buyer comes up, at the least a
 RESISTANCE_JITTER = 0.04         # two buyers of the same kind still differ a little
 
 
-def _prospect(rng: random.Random, worth: int, asking: int, level: dict, taken: set[str], patience_bonus: int = 0) -> dict:
-    """One buyer who messaged about the listing: who they are, their first offer, and their hidden limit."""
-    buyer = rng.choices(BUYERS, weights=[b.get("weight", 1.0) for b in BUYERS])[0]
-    ceiling = max(1, _nice_down(worth * rng.uniform(*buyer["ceiling"]), worth))
+def _prospect(
+    rng: random.Random, worth: int, asking: int, level: dict, taken: set[str], patience_bonus: int = 0,
+    rich: float = 1.0, lift: float = 0.0, category: Optional[str] = None,
+) -> dict:
+    """One buyer who messaged about the listing: who they are, their first offer, and their hidden limit.
+    `rich` makes the big spenders likelier; `lift` is how much more anyone will pay for an authenticated item."""
+    weights = [b.get("weight", 1.0) * (rich if b["ceiling"][1] > RICH_CEILING else 1.0) for b in BUYERS]
+    buyer = rng.choices(BUYERS, weights=weights)[0]
+    ceiling = max(1, _nice_down(worth * rng.uniform(*buyer["ceiling"]) * (1 + lift), worth))
     # A fair asking price draws a fair first offer; an inflated one does not drag them past their limit
     opening_bid = max(ceiling * buyer["opening"], min(asking * buyer["anchor"], ceiling * OPENING_CAP))
     opening_bid = max(1, min(_nice_down(opening_bid, worth), asking))
@@ -295,14 +310,19 @@ def _prospect(rng: random.Random, worth: int, asking: int, level: dict, taken: s
     names = [n for n in buyer.get("names", BUYER_NAMES) if n not in taken] or BUYER_NAMES
     name = rng.choice(names)
     taken.add(name)
-    patience = max(3, level["patience"] + buyer["patience"] + patience_bonus)
+    # A buyer's kind sways it, and so does who they are; nobody gives up in under MIN_PATIENCE messages
+    patience = patience_for(level["patience"] + buyer["patience"], f"{name}:{rng.random()}", patience_bonus)
+    # Some would rather swap: one of theirs plus cash, offered alongside the money
+    from . import trades
+    trade = trades.trade_in(rng, worth, ceiling, category)
     # How hard this one haggles is theirs: a scalper barely moves, a millionaire comes up fast
     resistance = round(min(BUYER_RESISTANCE[1], max(BUYER_RESISTANCE[0],
         level["resistance"] + buyer.get("resistance", 0.0) + rng.uniform(-RESISTANCE_JITTER, RESISTANCE_JITTER))), 3)
     return {
         "merchant": name, "kind": buyer["kind"], "persona": buyer["persona"], "swears": bool(buyer.get("swears")),
         "rude": bool(buyer.get("rude")), "repeats": bool(buyer.get("repeats")),
-        "opening": _fill(opening, opening_bid), "opening_bid": opening_bid, "ceiling": ceiling,
+        "opening": _then(_fill(opening, opening_bid), trades.trade_in_line(trade)) if trade else _fill(opening, opening_bid),
+        "opening_bid": opening_bid, "ceiling": ceiling, "trade": trade,
         "patience": patience, "resistance": resistance, "opening_agreed": opening_bid >= asking,
     }
 
@@ -323,6 +343,7 @@ def choose(state: dict, index: int) -> dict:
         rude=p.get("rude", False), repeats=p.get("repeats", False))
     s.update(
         opening=p["opening"], ask=p["opening_bid"], opening_bid=p["opening_bid"], ceiling=p["ceiling"],
+        trade_in=p.get("trade"),
         patience=p["patience"], patience_max=p["patience"], opening_agreed=p["opening_agreed"],
         # Buyers from before each had their own keep the listing's
         resistance=p.get("resistance", s["resistance"]), resistance_base=p.get("resistance", s["resistance"]),
@@ -360,7 +381,8 @@ def summary(state: dict) -> dict:
 def stated_price(message: str, state: dict) -> Optional[int]:
     """A price the seller typed. Quoting the buyer's own offer back ("$200 is too low")
     is not a price of theirs, unless they are agreeing to it ("ok $200 works")."""
-    price = _typed_figure(message, state["worth"], state["scenario"]["item"])
+    # A bare number counts if it is near what the item is worth or what the seller is asking, whichever is higher
+    price = _typed_figure(message, max(state["worth"], state["list_price"]), state["scenario"]["item"])
     if price is not None and price <= state["ask"]:
         return state["ask"] if _AGREES.search(message) and not _OBJECTS.search(message) else None
     return price
@@ -465,9 +487,14 @@ def describe_for_model(
         lines.append(f"Description: {scenario['description']}")
     if scenario.get("notes"):
         lines.append(f"Seller's notes (their own claims): {scenario['notes']}")
+    if scenario.get("authenticated"):
+        lines.append("Authenticated by ModelLoop: checked by a third party and confirmed genuine. That is worth something to you.")
+    # Small models lose track of whose number is whose: say both, every round
+    asking = next((e["offer"] for e in reversed(state["log"]) if e.get("offer") is not None), state["list_price"])
     lines += [
         "",
-        f"Your offer now stands at {_money(state['ask'])}.",
+        f"The seller's price: {_money(asking)}. That is what THEY want to be paid.",
+        f"Your offer: {_money(state['ask'])}. That is what YOU would pay. It is lower than their price, so never call your own offer too high.",
         "",
         "The chat so far:",
         f"You: {state['opening']}",
@@ -489,6 +516,7 @@ def describe_for_model(
     sweet = extras.sweetener(MODE, sweetener)
     if sweet:
         lines.append(extras.told(sweet, sweetener))
+        lines.append("It counts as haggling (move: haggle), not just pickup talk: rate it at least 1.")
     if leverage and can_leverage(state):
         ping = state["ping"]
         lines.append(f"The seller says another buyer, {ping['merchant']}, has offered {_money(ping['offer'])}.")
@@ -514,7 +542,8 @@ def describe_for_model(
     else:
         lines.append(
             "Instruction for this round, depending on what the seller sent:\n"
-            "- Just an answer, a question or pickup talk (move: question): reply naturally without mentioning a price.\n"
+            "- Just an answer, a question or pickup talk (move: question): reply naturally without mentioning a price. "
+            "If they ask what you would pay or for your best offer, tell them {price}.\n"
             "- Haggling that you rated 1 or 2: come up a little and offer {price}.\n"
             "- Haggling that you rated 0 or lower: keep your offer where it is and say why in a few words. Do not name a new number."
         )
@@ -582,7 +611,8 @@ def apply_turn(
         entry["reply"] = _fill(text, price, quotable) or "Deal. Sending it now."
         entry["persuasion"] = 0
     elif (
-        str(reply.get("move") or "").lower() == "question" and price is None and not bluff and not repeated
+        # A sweetener is an offer of better terms, however much it sounds like pickup talk
+        str(reply.get("move") or "").lower() == "question" and price is None and not bluff and not repeated and not sweet
         and kind == "counter" and sum(1 for e in s["log"] if e.get("question")) < FREE_QUESTIONS
     ):
         entry["question"] = True
@@ -625,7 +655,8 @@ def apply_turn(
             entry["tell"] = _tell(s)
 
     others = s.get("others") or []
-    if kind != "deal" and not s["final"] and not leverage and others and rng.random() < PING_CHANCE:
+    ping_chance = PING_CHANCE + (market.BOOSTS.get(s.get("boost") or 0) or {}).get("ping", 0.0)
+    if kind != "deal" and not s["final"] and not leverage and others and rng.random() < ping_chance:
         # One of the buyers not picked comes back with a better offer
         j = rng.randrange(len(others))
         p = others[j]
@@ -681,6 +712,12 @@ def accept(state: dict, scams: bool = False, rng: Optional[random.Random] = None
     else:
         s["result"]["pickup"] = {"kind": "fine", "issue": f"{s['scenario']['merchant']} picked it up. All good."}
     return s
+
+
+def accept_trade(state: dict, scams: bool = False, rng: Optional[random.Random] = None) -> dict:
+    """Take the trade the buyer offered: their cash and their item."""
+    from . import trades
+    return trades.accept_trade_in(state, _finish, rng)
 
 
 def walk_away(state: dict) -> dict:

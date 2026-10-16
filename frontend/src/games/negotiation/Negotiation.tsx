@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   apiCreateGame,
   apiEditGame,
@@ -25,6 +25,7 @@ import {
   apiHustle,
   apiMoveMoney,
   apiStartHustle,
+  apiToggleSaved,
   money,
   signedMoney,
   type HustleView,
@@ -32,10 +33,24 @@ import {
 import { Inventory } from "./Inventory";
 import { CONDITIONS } from "./inventoryData";
 import { ListingBrowser } from "./ListingBrowser";
-import { apiListings, apiOverview, cachedListings, cachedOverview } from "./menuData";
+import { apiListings, apiOverview, cachedListings, cachedOverview, type Overview } from "./menuData";
 import { cleanText, isCleanLanguage } from "./settings";
-import { LISTINGS_SHOWN, dealListings, sellerLine, withYourStars } from "./setup";
+import { BadgeMark } from "./Profile";
+import { Promote } from "./Promote";
+import { SaveHeart } from "./SaveHeart";
+import {
+  LISTINGS_SHOWN,
+  authFee,
+  buzzLine,
+  canAuthenticate,
+  dealListings,
+  droppedPrice,
+  sellerLine,
+  withYourStars,
+} from "./setup";
 import type {
+  AuthCheck,
+  Badge,
   CustomListing,
   FreeBank,
   HaggleEntry,
@@ -48,6 +63,7 @@ import type {
   InventoryItem,
   MarketProfile,
   Review,
+  SavedListing,
   SellerProfile,
 } from "./types";
 import "./negotiation.css";
@@ -68,11 +84,11 @@ const FAKE_PAYING_MS = 1400;
 // `calms`: it puts them in a better mood and wins back patience (CALMING); `words`: kind words only, the price stays (WORDS_ONLY)
 const SWEETENERS: Record<"buy" | "sell", { id: string; label: string; said: string; calms?: boolean; words?: boolean }[]> = {
   buy: [
-    { id: "cash", label: "Cash, today", said: "I can pay cash, today." },
+    { id: "cash", label: "Cash today", said: "I can pay cash, today." },
     { id: "pickup", label: "Pick up now", said: "I can come pick it up right now." },
     { id: "shipping", label: "Cover shipping", said: "I'll cover the shipping." },
     // What is said comes from COMPLIMENTS, to suit what is being sold
-    { id: "compliment", label: "Compliment it", said: "", calms: true, words: true },
+    { id: "compliment", label: "Compliment", said: "", calms: true, words: true },
   ],
   sell: [
     { id: "dropoff", label: "Drop it off", said: "I can drop it off to you.", calms: true },
@@ -239,6 +255,10 @@ function Menu({
   // Selling: which purchase, and the price it goes up at
   const [sellPick, setSellPick] = useState<string | null>(null);
   const [asking, setAsking] = useState("");
+  // Selling: paying to reach more buyers, and to have it authenticated first
+  const [boost, setBoost] = useState(0);
+  const [authenticate, setAuthenticate] = useState(false);
+  const [buzz, setBuzz] = useState<Overview["buzz"] | null>(cached?.buzz ?? null);
   // Free play: the listing's description, rewritten as the player likes. Hustle: notes added under it
   const [listingText, setListingText] = useState("");
   // Free play: the rest of the listing, also the player's to change
@@ -269,6 +289,7 @@ function Menu({
           setInventory(fresh.inventory);
           setFreeBank(fresh.bank);
           setProfile(fresh.profile ?? null);
+          setBuzz(fresh.buzz ?? null);
           setScores(fresh.scores.buy);
           setSaleScores(fresh.scores.sell);
           setHustleScores(fresh.scores.hustle);
@@ -294,11 +315,40 @@ function Menu({
   const hustleRun: HustleRun | null = play === "hustle" ? (hustle?.run ?? null) : null;
   const live = hustleRun?.status === "active" ? hustleRun : null;
   const items = live ? live.holdings : (inventory ?? []);
-  const priceOf = (l: HaggleListing) => (live ? (hustle?.prices[l.id] ?? l.list_price) : l.list_price);
+  // Saved listings, free play's or the run's: one that has dropped is listed at its new price
+  const saved: SavedListing[] = (live ? live.saved : freeBank?.saved) ?? [];
+  const savedOf = (id: string) => saved.find((x) => x.listing === id);
+  const priceOf = (l: HaggleListing) => {
+    const base = live ? (hustle?.prices[l.id] ?? l.list_price) : l.list_price;
+    const cut = savedOf(l.id)?.gone ? 1 : (savedOf(l.id)?.cut ?? 1);
+    return cut < 1 ? droppedPrice(base, cut) : base;
+  };
+  const buzzOf = (id: string) => (live ? buzz?.hustle : buzz?.free)?.[id] ?? null;
+  // The heart fills at once; the server catches up behind it, and an error puts it back
+  const setSaved = (next: SavedListing[]) => {
+    if (live) setHustle((h) => (h?.run ? { ...h, run: { ...h.run, saved: next } } : h));
+    else setFreeBank((b) => (b ? { ...b, saved: next } : b));
+  };
+  const toggleSave = async (id: string) => {
+    setError("");
+    const before = saved;
+    setSaved(
+      saved.some((x) => x.listing === id)
+        ? saved.filter((x) => x.listing !== id)
+        : [...saved, { listing: id, cut: 1, news: null }],
+    );
+    try {
+      setSaved(await apiToggleSaved(id, !!live));
+    } catch (err) {
+      setSaved(before);
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  };
+  // One set for the browser, not a new one every render, so its filtering is not redone for nothing
+  const savedIds = useMemo(() => new Set(saved.filter((x) => !x.gone).map((x) => x.listing)), [saved]);
   const valueOf = (l: HaggleListing) => (live ? (hustle?.values?.[l.id] ?? l.value) : l.value);
-  const browsable = live
-    ? listings.map((l) => ({ ...l, list_price: priceOf(l), value: hustle?.values?.[l.id] ?? l.value }))
-    : listings;
+  // At the prices that apply: the run's, and a saved listing's after it dropped
+  const browsable = listings.map((l) => ({ ...l, list_price: priceOf(l), value: valueOf(l) }));
   // The handful on the start screen is only what the balance covers. Show all still lists everything.
   const cash = live ? live.cash : (freeBank?.cash ?? null);
   const affordable = cash == null ? listings : listings.filter((l) => priceOf(l) <= cash);
@@ -344,6 +394,8 @@ function Menu({
     setMode("sell");
     setSellPick(item.id);
     setAsking(String(item.value ?? item.list_price));
+    setBoost(0);
+    setAuthenticate(false);
     // Whatever the player changed the last time it went up for sale, for this item alone
     setListingText(live ? lockedText(item) + (item.notes ?? "") : (item.description ?? ""));
     setListingTitle(item.title);
@@ -532,9 +584,9 @@ function Menu({
             busy={busy}
             error={error}
             onClose={() => setCustomOpen(false)}
-            onSubmit={(custom: CustomListing) =>
+            onSubmit={(custom: CustomListing, promote) =>
               run(() =>
-                apiCreateGame<HaggleState>(GAME_TYPE, { mode: "sell", custom, asking: custom.price }),
+                apiCreateGame<HaggleState>(GAME_TYPE, { mode: "sell", custom, asking: custom.price, ...promote }),
               )
             }
           />
@@ -581,6 +633,42 @@ function Menu({
 
         {mode === "buy" ? (
           <>
+        {saved.length > 0 && (
+          <>
+            <h3 className="pref-field-label neg-section">Saved</h3>
+            <div className="pref-account-card neg-card">
+              {saved.map((x) => {
+                const l = listings.find((y) => y.id === x.listing);
+                if (!l) return null;
+                const was = x.news === "drop" && x.was ? droppedPrice(live ? (hustle?.prices[l.id] ?? l.list_price) : l.list_price, x.was) : null;
+                return (
+                  <Option
+                    key={x.listing}
+                    face={avatarSeed(l.merchant, l.id)}
+                    name={l.item}
+                    desc={
+                      x.gone
+                        ? `Sold to someone else. Tap the heart to clear it.`
+                        : [
+                            x.news === "drop" ? `Price dropped${was ? ` from ${money(was)}` : ""}` : "",
+                            `Resells for ${money(valueOf(l))}`,
+                            buzzLine(buzzOf(l.id)),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")
+                    }
+                    badge={x.gone ? "Sold" : money(priceOf(l))}
+                    news={x.news === "drop" || x.gone}
+                    saved
+                    onSave={() => toggleSave(l.id)}
+                    on={!x.gone && scenario === l.id}
+                    onPick={() => !x.gone && setScenario(scenario === l.id ? null : l.id)}
+                  />
+                );
+              })}
+            </div>
+          </>
+        )}
         <div className="neg-section-row">
           <h3 className="pref-field-label neg-section">Pick a listing</h3>
           <button
@@ -629,10 +717,13 @@ function Menu({
                 `Resells for ${money(valueOf(s))}`,
                 s.condition,
                 sellerLine(s.merchant, s.seller),
+                buzzLine(buzzOf(s.id)),
               ]
                 .filter(Boolean)
                 .join(" · ")}
               badge={money(priceOf(s))}
+              saved={!!savedOf(s.id)}
+              onSave={() => toggleSave(s.id)}
               on={scenario === s.id}
               // Picking it again goes back to a random listing
               onPick={() => setScenario(scenario === s.id ? null : s.id)}
@@ -653,14 +744,9 @@ function Menu({
             }
             onMessage={(listing) => run(() => apiCreateGame<HaggleState>(GAME_TYPE, { scenario: listing.id, hustle: !!live }))}
             onClose={() => setBrowsing(false)}
-            onPick={(listing) => {
-              // The pick joins the handful on the start screen, at the top, if it was not there already
-              setOffered((current) =>
-                current.some((s) => s.id === listing.id) ? current : [listing, ...current].slice(0, LISTINGS_SHOWN),
-              );
-              setScenario(listing.id);
-              setBrowsing(false);
-            }}
+            saved={savedIds}
+            onSave={(listing) => toggleSave(listing.id)}
+            buzzOf={buzzOf}
           />
         )}
 
@@ -796,6 +882,18 @@ function Menu({
                       Add your notes at the end. Buyers will not believe claims that contradict the listing.
                     </span>
                   )}
+                  <Promote
+                    asking={askingValue}
+                    boost={boost}
+                    onBoost={setBoost}
+                    authenticable={canAuthenticate({
+                      category: live ? picked.category : listingCategory || picked.category,
+                      condition: live ? picked.condition : listingCondition,
+                      title: live ? picked.title : listingTitle,
+                    })}
+                    authenticate={authenticate}
+                    onAuthenticate={setAuthenticate}
+                  />
                 </div>
               </>
             )}
@@ -833,6 +931,8 @@ function Menu({
                     mode: "sell",
                     inventory_id: picked.id,
                     asking: askingValue > 0 ? askingValue : undefined,
+                    boost,
+                    authenticate,
                     ...(live
                       ? { notes: listingText.slice(locked.length).trim() || undefined }
                       : listingEdits(picked)),
@@ -1045,6 +1145,9 @@ function Option({
   name,
   desc,
   badge,
+  saved,
+  onSave,
+  news,
   on,
   onPick,
 }: {
@@ -1054,6 +1157,11 @@ function Option({
   name: string;
   desc: string;
   badge?: string;
+  /** A listing: whether it is saved, and the heart that saves it */
+  saved?: boolean;
+  onSave?: () => void;
+  /** Something changed: a saved listing dropped or sold */
+  news?: boolean;
   on: boolean;
   onPick: () => void;
 }) {
@@ -1080,8 +1188,9 @@ function Option({
       )}
       <div className="pref-item-info">
         <div className="pref-item-name">{name}</div>
-        <div className="pref-item-desc">{desc}</div>
+        <div className={`pref-item-desc${news ? " neg-news" : ""}`}>{desc}</div>
       </div>
+      {onSave && <SaveHeart saved={!!saved} onSave={onSave} />}
       {badge && <span className="pref-content-badge">{badge}</span>}
       <div className={`pref-item-check${on ? " checked" : ""}`}>
         {on && <span className="pref-check-mark">✓</span>}
@@ -1109,7 +1218,6 @@ function Play({
   // Selling turns the screen round: they offer, you name prices, and they pay you
   const selling = state.mode === "sell";
   const bare = (amount: number) => (selling ? `I can do ${money(amount)}.` : `How about ${money(amount)}?`);
-  const sold = result?.outcome === "deal" || result?.outcome === "sold";
   const [draft, setDraft] = useState("");
   const [offerDraft, setOfferDraft] = useState("");
   // `bounced`: not a message but a payment that just failed, shown as its declined card
@@ -1154,7 +1262,27 @@ function Play({
 
   useEffect(() => {
     feedEnd.current?.scrollIntoView({ block: "end" });
-  }, [state.log.length, pending, error, state.status, paying, state.after?.length, chatPending]);
+  }, [state.log.length, pending, error, state.status, paying, state.after?.length, chatPending, state.research, state.auth]);
+
+  // Checking sold listings and authenticating show in the chat after the message they followed.
+  // Checks made before that was kept (turn unknown) go at the end.
+  const lastTurn = state.log.length ? state.log[state.log.length - 1].turn : 0;
+  const checksAt = (turn: number) => {
+    const at = (t: number | undefined) => (t ?? lastTurn) === turn;
+    return (
+      <>
+        {!selling && state.auth && at(state.auth.turn) && <AuthNote auth={state.auth} inFeed />}
+        {state.research && at(state.research_turn) && (
+          <p className="neg-feed-note" role="note">
+            <ExtraIcon name="research" />
+            <span>
+              <strong>Sold listings:</strong> {state.research}
+            </span>
+          </p>
+        )}
+      </>
+    );
+  };
 
   const offerValue = Math.round(Number(offerDraft));
   // The offer is kept as bare digits and shown with commas
@@ -1264,6 +1392,23 @@ function Play({
     play();
   };
 
+  // Buying: offer one of your things, and cash if you like. The seller answers like any other message.
+  const [trading, setTrading] = useState(false);
+  const offerTrade = async (item: { id: string; title: string }, cash: number) => {
+    if (busy) return;
+    setTrading(false);
+    setPending({ text: `Would you take my ${item.title}${cash ? ` plus ${money(cash)}` : ""} for it?` });
+    setTyping("typing");
+    setError("");
+    try {
+      onSave(await apiEditGame<HaggleState>(save.id, "trade-offer", { item_id: item.id, cash, model, clean }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setPending(null);
+    }
+  };
+
   // Instant moves outside a turn: no model call
   const edit = async (path: string) => {
     if (busy) return;
@@ -1280,7 +1425,7 @@ function Play({
   };
 
   // Taking the price or walking away: settled by the server at once, no model involved
-  const close = async (path: "accept" | "walk") => {
+  const close = async (path: "accept" | "walk" | "trade") => {
     if (busy) return;
     setClosing(true);
     setError("");
@@ -1365,10 +1510,14 @@ function Play({
             {run ? `${money(run.cash)} · Day ${run.day}/${run.days}` : money(freeBank!.cash)}
           </button>
         )}
-        {state.deadline && !result && (
-          <span className="pref-content-badge neg-deadline" title="The seller needs it gone. It may sell to someone else.">
-            {state.deadline.rounds} {state.deadline.rounds === 1 ? "message" : "messages"} left
-          </span>
+        {trading && (
+          <TradePicker
+            items={(run ? run.holdings : (cachedOverview()?.inventory ?? [])).filter((x) => !x.sold)}
+            refresh={!run}
+            balance={balance ?? null}
+            onOffer={offerTrade}
+            onClose={() => setTrading(false)}
+          />
         )}
         {bankOpen && (run || freeBank) && (
           <Bank
@@ -1378,15 +1527,16 @@ function Play({
             onClose={() => setBankOpen(false)}
           />
         )}
-        <span className="pref-content-badge">
-          {result
-            ? { deal: "Deal", walked: "Walked away", sold: "Sold", kept: "Kept it", lost: "Gone" }[result.outcome]
-            : state.final
-              ? selling
+        {/* No round count: a chat, not a game board. Only how it stands once that changes. */}
+        {(result || state.final) && (
+          <span className="pref-content-badge">
+            {result
+              ? { deal: "Deal", walked: "Walked away", sold: "Sold", kept: "Kept it", lost: "Gone" }[result.outcome]
+              : selling
                 ? "Final offer"
-                : "Final price"
-              : `Round ${state.turn + 1}`}
-        </span>
+                : "Final price"}
+          </span>
+        )}
       </div>
 
       <div className="neg-table">
@@ -1463,6 +1613,19 @@ function Play({
             </span>
             {scenario.description && <p className="pref-item-desc">{scenario.description}</p>}
             {scenario.notes && <p className="pref-item-desc neg-notes">Seller's notes: {scenario.notes}</p>}
+            {(state.buzz || state.boost || (selling && state.auth)) && (
+              <span className="neg-listing-tags">
+                {state.buzz && (
+                  <span className="msg-timestamp">
+                    {state.buzz.views} {state.buzz.views === 1 ? "view" : "views"} today
+                    {state.buzz.saves ? ` · ${state.buzz.saves} saved` : ""}
+                  </span>
+                )}
+                {!!state.boost && <span className="neg-tag">{state.boost === 2 ? "Top boost" : "Boosted"}</span>}
+                {selling && state.auth?.verdict === "passed" && <span className="neg-tag is-good">Authenticated</span>}
+              </span>
+            )}
+            {selling && state.auth && <AuthNote auth={state.auth} />}
           </div>
         )}
         <p className="msg-timestamp neg-persona">
@@ -1480,16 +1643,35 @@ function Play({
           text={say(state.opening)}
           note={state.callback ? `They were asking ${money(state.callback.was)} before.` : undefined}
         />
-        {selling && state.opening_agreed && state.log.length === 0 && (
+        {/* Selling: the buyer's opening offer comes as money you can take, as every new offer after it does */}
+        {/* Selling: some buyers offer one of theirs plus cash, which stands the whole chat */}
+        {selling && state.trade_in && (
           <PayCard
             who="them"
-            label={`${scenario.merchant} sent`}
-            amount={state.ask}
-            status={sold ? "Received" : undefined}
-            action={!result && !pending ? { label: "Accept", onClick: () => setPaying(true), disabled: busy } : undefined}
+            label={`${scenario.merchant} offered a trade`}
+            trade={state.trade_in.item}
+            amount={state.trade_in.cash}
+            status={result ? (result.trade ? "Traded" : "Expired") : undefined}
+            action={!result && !pending ? { label: "Trade", onClick: () => close("trade"), disabled: busy } : undefined}
           />
         )}
+        {selling &&
+          (() => {
+            const opening = state.opening_bid ?? state.ask;
+            // A buyer's offer only goes up, so the card for the amount on the table is the one that stands
+            const live = !result && !pending && opening === state.ask;
+            return (
+              <PayCard
+                who="them"
+                label={`${scenario.merchant} ${state.opening_agreed ? "sent" : "offered"}`}
+                amount={opening}
+                status={result?.paid === opening ? "Received" : live ? undefined : "Expired"}
+                action={live ? { label: "Accept", onClick: () => setPaying(true), disabled: busy } : undefined}
+              />
+            );
+          })()}
 
+        {checksAt(0)}
         {state.log.map((entry, i) => (
           <Fragment key={entry.turn}>
             {gap(entry.at, i > 0 ? state.log[i - 1].at : state.started_at) && (
@@ -1522,6 +1704,15 @@ function Play({
                 label={selling ? "Your price" : "Your offer"}
                 amount={entry.offer}
                 status={entry.agreed ? "Accepted" : "Declined"}
+              />
+            )}
+            {entry.trade && (
+              <PayCard
+                who="you"
+                label="Your trade"
+                trade={entry.trade.item}
+                amount={entry.trade.cash}
+                status={{ accept: "Accepted", counter: "Countered", decline: "Declined", cash_only: "Declined" }[entry.trade.verdict]}
               />
             )}
             <Line
@@ -1570,6 +1761,43 @@ function Play({
                 )}
               </div>
             )}
+            {/* Buying: a trade they said yes to, or would do for more cash, standing until the next message */}
+            {entry.trade &&
+              (entry.trade.verdict === "accept" || entry.trade.verdict === "counter") &&
+              (() => {
+                const standing = i === state.log.length - 1 && state.trade_offer;
+                const traded = result?.trade && i === state.log.length - 1;
+                return (
+                  <PayCard
+                    who="them"
+                    label={entry.trade.verdict === "accept" ? `${scenario.merchant} will trade` : `${scenario.merchant} wants`}
+                    trade={entry.trade.item}
+                    amount={entry.trade.counter ?? entry.trade.cash}
+                    status={traded ? "Traded" : standing && !result ? undefined : "Expired"}
+                    action={
+                      standing && !result && !pending
+                        ? { label: "Trade", onClick: () => close("trade"), disabled: busy }
+                        : undefined
+                    }
+                  />
+                );
+              })()}
+            {/* Selling: a new offer from the buyer, which can be taken as it stands */}
+            {selling &&
+              !entry.agreed &&
+              entry.ask !== (i > 0 ? state.log[i - 1].ask : (state.opening_bid ?? entry.ask)) &&
+              (() => {
+                const live = !result && !pending && entry.ask === state.ask;
+                return (
+                  <PayCard
+                    who="them"
+                    label={`${scenario.merchant} offered`}
+                    amount={entry.ask}
+                    status={result?.paid === entry.ask ? "Received" : live ? undefined : "Expired"}
+                    action={live ? { label: "Accept", onClick: () => setPaying(true), disabled: busy } : undefined}
+                  />
+                );
+              })()}
             {entry.agreed &&
               (() => {
                 // Only the latest request can be paid, and only while its price still stands
@@ -1596,6 +1824,7 @@ function Play({
                   />
                 );
               })()}
+            {checksAt(entry.turn)}
           </Fragment>
         ))}
 
@@ -1624,17 +1853,11 @@ function Play({
           </>
         )}
 
-        {/* Settling the standing price, with no card of theirs to mark as done */}
-        {result?.paid != null &&
-          !(state.log.at(-1)?.agreed && state.log.at(-1)?.ask === result.paid) &&
-          !(selling && state.opening_agreed && state.log.length === 0) && (
-            <PayCard
-              who={selling ? "them" : "you"}
-              label={selling ? `Received from ${scenario.merchant}` : `Paid to ${scenario.merchant}`}
-              amount={result.paid}
-              status={selling ? "Received" : "Paid"}
-            />
-          )}
+        {/* Settling the standing price, with no card of theirs to mark as done. Selling always has one:
+            every offer from the buyer is a card, and the one taken shows it was received. */}
+        {result?.paid != null && !selling && !(state.log.at(-1)?.agreed && state.log.at(-1)?.ask === result.paid) && (
+          <PayCard who="you" label={`Paid to ${scenario.merchant}`} amount={result.paid} status="Paid" />
+        )}
 
         {result && (
           <div className="neg-verdict">
@@ -1686,7 +1909,7 @@ function Play({
               </>
             )}
             {result.pickup && result.pickup.kind !== "fine" && result.pickup.kind !== "scam" && (
-              <div className={`neg-pickup${result.pickup.kind === "flaw" ? "" : " is-scam"}`}>
+              <div className={`neg-pickup${result.pickup.kind === "flaw" || result.pickup.kind === "trade_flaw" ? "" : " is-scam"}`}>
                 <span className="pref-item-name">{result.pickup.issue}</span>
                 {result.pickup.loss != null && (
                   <span className="pref-setting-hint">
@@ -1713,6 +1936,15 @@ function Play({
             {state.scam && (
               <ScamReport result={result} merchant={scenario.merchant} face={face} busy={busy} onReport={() => edit("report")} />
             )}
+            {result.trade && (
+              <span className="pref-setting-hint">
+                {result.trade.gave
+                  ? `You traded your ${result.trade.gave}${result.trade.cash ? ` and ${money(result.trade.cash)}` : ""} for it.`
+                  : `You got their ${result.trade.got}${result.trade.cash ? ` and ${money(result.trade.cash)}` : ""}. It is in your inventory.`}
+              </span>
+            )}
+            {state.auth && !selling && <AuthNote auth={state.auth} />}
+            {(state.badges_new ?? []).length > 0 && <NewBadges badges={state.badges_new!} />}
             {state.review && <ReviewCard review={state.review} face={face} say={say} />}
             {result.paid != null && (
               <RateBack
@@ -1862,6 +2094,49 @@ function Play({
                 {x.label}
               </button>
             ))}
+          {/* A tactic like the others, played once: not a way out, so not beside taking the price */}
+          {!state.bluffed && (
+            <button
+              type="button"
+              className="neg-extra"
+              onClick={() => play({ bluff: true })}
+              disabled={busy}
+              title={
+                selling
+                  ? "Mention someone else is interested and see if their offer moves. Works once, and costs patience."
+                  : "Say you are leaving and see if the price moves. Works once, and costs patience."
+              }
+            >
+              <ExtraIcon name="bluff" />
+              {selling ? "Mention another buyer" : "Bluff leaving"}
+            </button>
+          )}
+          {!selling && (
+            <button
+              type="button"
+              className="neg-extra"
+              onClick={() => setTrading(true)}
+              disabled={busy}
+              title="Offer one of your things, and cash if you like, instead of paying the price"
+            >
+              <ExtraIcon name="trade" />
+              Trade
+            </button>
+          )}
+          {/* Finding something out, not offering anything: last, and dashed */}
+          {!selling && !state.auth && canAuthenticate(scenario) && (
+            <button
+              type="button"
+              className="neg-extra neg-extra--research"
+              onClick={() => edit("authenticate")}
+              disabled={busy}
+              title="A third party checks it before you pay: fakes and tampering, not ordinary wear"
+            >
+              <ExtraIcon name="auth" />
+              Authenticate
+              <span className="neg-extra-cost">{money(authFee(state.ask))}</span>
+            </button>
+          )}
           {!selling && !state.research && (
             <button
               type="button"
@@ -1871,18 +2146,9 @@ function Play({
               title="See what tends to go wrong with these, so you know what to ask about"
             >
               <ExtraIcon name="research" />
-              Check sold listings
+              Sold listings
               {inRun && <span className="neg-extra-cost">{money(RESEARCH_FEE)}</span>}
             </button>
-          )}
-          {/* What sold listings turned up, kept in view while you type */}
-          {state.research && (
-            <p className="neg-research" role="note">
-              <ExtraIcon name="research" />
-              <span>
-                <strong>Sold listings:</strong> {state.research}
-              </span>
-            </p>
           )}
         </div>
         <form className="input-wrapper neg-composer" onSubmit={send}>
@@ -1916,22 +2182,8 @@ function Play({
               </label>
             </div>
             <div className="toolbar-right">
-              {!state.bluffed && (
-                <button
-                  type="button"
-                  className="toolbar-chip-btn"
-                  onClick={() => play({ bluff: true })}
-                  disabled={busy}
-                  title={
-                    selling
-                      ? "Mention someone else is interested and see if their offer moves. Works once, and costs patience."
-                      : "Say you are leaving and see if the price moves. Works once, and costs patience."
-                  }
-                >
-                  {selling ? "Mention another buyer" : "Bluff leaving"}
-                </button>
-              )}
-              <button type="button" className="toolbar-chip-btn" onClick={() => close("walk")} disabled={busy}>
+              {/* Walking away ends the chat, so it sits with taking the price */}
+              <button type="button" className="toolbar-chip-btn neg-walk" onClick={() => close("walk")} disabled={busy}>
                 {selling ? "Reject buyer" : "Walk away"}
               </button>
               <button type="button" className="neg-take" onClick={() => setPaying(true)} disabled={busy}>
@@ -2106,10 +2358,28 @@ const EXTRA_ICONS: Record<string, React.ReactNode> = {
       <path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z" />
     </>
   ),
+  auth: (
+    <>
+      <path d="M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6z" />
+      <path d="M8.8 12.2l2.2 2.2 4.4-4.6" />
+    </>
+  ),
+  trade: (
+    <>
+      <path d="M4 8h13l-3.5-3.5" />
+      <path d="M20 16H7l3.5 3.5" />
+    </>
+  ),
   research: (
     <>
       <circle cx="10.5" cy="10.5" r="6" />
       <path d="M15 15l5.5 5.5" />
+    </>
+  ),
+  bluff: (
+    <>
+      <path d="M14 4h5v16h-5" />
+      <path d="M10 8l4 4-4 4M14 12H4" />
     </>
   ),
 };
@@ -2140,12 +2410,15 @@ function PayCard({
   amount,
   status,
   action,
+  trade,
 }: {
   who: "you" | "them";
   label: string;
   amount: number;
   status?: string;
   action?: { label: string; onClick: () => void; disabled?: boolean };
+  /** A trade: the item that goes with the cash, and `amount` is only the cash on top */
+  trade?: string;
 }) {
   // The pearl catches the light where the mouse is. Written straight to the card's style,
   // so moving the mouse never re-renders the chat.
@@ -2177,12 +2450,16 @@ function PayCard({
         onPointerMove={tilt}
         onPointerLeave={rest}
       >
-        <span className="neg-pay-brand">ModelLoop Pay</span>
+        <span className="neg-pay-brand">{trade ? "ModelLoop Trade" : "ModelLoop Pay"}</span>
         <span className="neg-pay-label">{label}</span>
+        {trade && <span className="neg-pay-trade">{trade}</span>}
         {/* The figure again in data-amount: CSS lays its metal face over the raised body */}
-        <span className="neg-pay-amount" data-amount={money(amount)}>
-          {money(amount)}
-        </span>
+        {(!trade || amount > 0) && (
+          <span className="neg-pay-amount" data-amount={`${trade ? "+" : ""}${money(amount)}`}>
+            {trade ? "+" : ""}
+            {money(amount)}
+          </span>
+        )}
         {action ? (
           <button type="button" className="neg-pay-button" onClick={action.onClick} disabled={action.disabled}>
             {action.label}
@@ -2362,6 +2639,132 @@ function PaySheet({
 function lastTell(log: HaggleEntry[], index: number): HaggleEntry["tell"] {
   for (let i = index - 1; i >= 0; i--) if (!log[i].question) return log[i].tell ?? null;
   return null;
+}
+
+/** What the authenticator said, as a note in the chat */
+function AuthNote({ auth, inFeed }: { auth: AuthCheck; inFeed?: boolean }) {
+  const title = { passed: "Authenticated", failed: "Did not pass", fake: "Counterfeit", refused: "Refused" }[auth.verdict];
+  return (
+    <p className={`${inFeed ? "neg-feed-note" : "neg-research"} neg-auth is-${auth.verdict}`} role="note">
+      <ExtraIcon name="auth" />
+      <span>
+        <strong>{title}:</strong> {auth.note}
+        {auth.fee > 0 && ` Fee ${money(auth.fee)}.`}
+      </span>
+    </p>
+  );
+}
+
+/** Badges a chat just earned */
+function NewBadges({ badges }: { badges: Badge[] }) {
+  return (
+    <div className="neg-new-badges" role="status">
+      {badges.map((b) => (
+        <span key={b.id} className="neg-new-badge">
+          <span className="neg-badge is-earned">
+            <BadgeMark id={b.id} />
+            New badge: {b.name}
+          </span>
+          <span className="pref-setting-hint">{b.how}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Buying: pick one of your things, and cash on top if you like, to offer instead of the price */
+function TradePicker({
+  items,
+  refresh,
+  balance,
+  onOffer,
+  onClose,
+}: {
+  items: InventoryItem[];
+  /** Free play: the inventory is fetched fresh, the list given is only what was known */
+  refresh: boolean;
+  balance: number | null;
+  onOffer: (item: InventoryItem, cash: number) => void;
+  onClose: () => void;
+}) {
+  useEscapeKey(onClose);
+  const [list, setList] = useState(items);
+  const [pick, setPick] = useState<string | null>(null);
+  const [cash, setCash] = useState("");
+  useEffect(() => {
+    if (!refresh) return;
+    apiOverview()
+      .then((o) => setList(o.inventory.filter((x) => !x.sold)))
+      .catch(() => {});
+  }, [refresh]);
+  const amount = Math.round(Number(cash)) || 0;
+  const chosen = list.find((x) => x.id === pick);
+  const short = balance != null && amount > balance;
+  return createPortal(
+    <div className="chat-preferences-modal-overlay" onClick={onClose}>
+      <div className="landing-theme-modal neg-browser neg-trade" role="dialog" aria-label="Offer a trade" onClick={(e) => e.stopPropagation()}>
+        <div className="landing-theme-modal-header">
+          <span>Offer a trade</span>
+          <button type="button" className="landing-theme-modal-close" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+        <p className="pref-setting-hint">
+          Pick something of yours. Sellers value it at what it resells for, a bit more if it is their kind of thing. Some only take cash.
+        </p>
+        <div className="pref-account-card neg-browser-list">
+          {list.map((x) => (
+            <div
+              key={x.id}
+              className={`pref-list-item${pick === x.id ? " active" : ""}`}
+              role="radio"
+              aria-checked={pick === x.id}
+              tabIndex={0}
+              onClick={() => setPick(x.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setPick(x.id);
+                }
+              }}
+            >
+              <div className="pref-item-icon">{x.title.charAt(0).toUpperCase()}</div>
+              <div className="pref-item-info">
+                <div className="pref-item-name">{x.title}</div>
+                <div className="pref-item-desc">
+                  {[x.paid != null ? `You paid ${money(x.paid)}` : "", x.category, x.flaw ? `Known flaw: ${x.flaw}` : ""]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              </div>
+              <span className="pref-content-badge">{money(x.value ?? x.list_price)}</span>
+            </div>
+          ))}
+          {list.length === 0 && <p className="pref-setting-hint neg-browser-empty">Nothing to trade. Buy something first.</p>}
+        </div>
+        <div className="neg-trade-cash">
+          <label className="neg-offer">
+            <span>Plus cash</span>
+            <span className="neg-offer-field">
+              <span className="neg-offer-sign" aria-hidden="true">$</span>
+              <input
+                value={cash ? Number(cash).toLocaleString("en-US") : ""}
+                onChange={(e) => setCash(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
+                inputMode="numeric"
+                placeholder="0"
+                aria-label="Cash on top, in dollars"
+              />
+            </span>
+          </label>
+          <button type="button" className="start-button" disabled={!chosen || short} onClick={() => chosen && onOffer(chosen, amount)}>
+            Offer it
+          </button>
+        </div>
+        {short && <p className="neg-error">You only have {money(balance ?? 0)} in your account.</p>}
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
 /** After a scam: report the account, as a card in the chat's own style. A payment made in the app

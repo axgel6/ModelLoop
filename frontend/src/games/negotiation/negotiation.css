@@ -940,10 +940,21 @@ html .neg .neg-take:active:not(:disabled) {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
+  /* Patience tucks under the seller's name as one short line, the pips and their label side by side */
   .neg-patience {
     grid-column: 1 / -1;
     grid-row: 2;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: -6px;
+  }
+
+  .neg-table {
+    gap: 10px 14px;
+    padding-bottom: 12px;
+    margin-bottom: 10px;
   }
 }
 
@@ -1881,8 +1892,8 @@ html .neg .neg-scores-toggle {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin: 0 6px 10px;
+  gap: 6px;
+  margin: 0 6px 8px;
 }
 
 /* A chip that adds something to the next message: a frosted pill, like the composer below it */
@@ -1891,9 +1902,9 @@ html .neg .neg-extra:hover,
 html .neg .neg-extra:disabled {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 14px 0 11px;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px 0 9px;
   border: 1px solid var(--glass-border);
   border-radius: 999px;
   background: var(--glass-bg);
@@ -1902,7 +1913,7 @@ html .neg .neg-extra:disabled {
   -webkit-backdrop-filter: var(--glass-filter);
   color: var(--game-ink);
   font-family: var(--ui-font);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
@@ -1946,11 +1957,11 @@ html .neg .neg-extra--research:hover:not(:disabled) {
 
 .neg-extra-cost {
   margin-left: 1px;
-  padding: 2px 7px;
+  padding: 2px 6px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--game-accent) 18%, transparent);
   color: var(--game-ink);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
 }
 
 /* Something the game says, not either side: centred, like the persona line */
@@ -1979,10 +1990,6 @@ html .neg .neg-extra--research:hover:not(:disabled) {
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
-}
-
-.neg-deadline {
-  color: var(--neg-down);
 }
 
 /* What turned up when it changed hands */
@@ -2032,23 +2039,81 @@ html .neg-report-badge.is-down {
   color: var(--neg-down);
 }
 
-/* What checking sold listings found: a note above the message box, full width under the chips */
+/* What checking sold listings and the authenticator found: a line in the chat, where it happened,
+   like the game's other remarks */
+/* Block, with the icon inline, so a note that wraps keeps its icon at the start of the text */
+.neg-feed-note {
+  display: block;
+  max-width: 560px;
+  margin: 2px auto 6px;
+  padding: 0 12px;
+  color: var(--game-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.neg-feed-note .neg-extra-icon {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+
+.neg-feed-note strong {
+  font-weight: 600;
+  color: var(--game-ink);
+}
+
+/* On a phone: the chips are one row that scrolls sideways, fading out at the edge so it reads as
+   more to see. Walking away keeps to one line beside taking the price. */
+@media (max-width: 640px) {
+  .neg-extras {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 -10px 8px;
+    padding: 2px 10px 4px;
+    scroll-padding-inline: 10px;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+
+  .neg-extras::-webkit-scrollbar {
+    display: none;
+  }
+
+  html .neg .neg-extra,
+  html .neg .neg-extra:hover,
+  html .neg .neg-extra:disabled {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* No lift on a touch screen, where it would only clip against the scrolling row */
+  html .neg .neg-extra:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .neg-composer .neg-walk {
+    white-space: nowrap;
+  }
+}
+
 .neg-research {
-  flex: 1 1 100%;
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 7px;
   margin: 0;
-  padding: 8px 14px;
+  padding: 5px 11px;
   border: 1px dashed var(--glass-border);
-  border-radius: 14px;
+  border-radius: 12px;
   color: var(--game-ink);
-  font-size: 0.8rem;
-  line-height: 1.45;
+  font-size: 0.74rem;
+  line-height: 1.4;
 }
 
 .neg-research .neg-extra-icon {
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .neg-research strong {
@@ -2485,4 +2550,386 @@ html .neg-browser .neg-profile-delete.is-armed:hover {
 
 html .neg-browser .neg-profile-delete:disabled {
   cursor: default;
+}
+
+/* ---- Saved listings, buzz, promoting a listing, trades, authentication and badges ---- */
+
+/* The heart that saves a listing */
+html .neg .neg-heart,
+html .neg .neg-heart:hover,
+html .neg-browser .neg-heart,
+html .neg-browser .neg-heart:hover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  box-shadow: none;
+  color: var(--game-muted);
+  cursor: pointer;
+  transition: color 0.12s, transform 0.12s;
+}
+
+html .neg .neg-heart:hover,
+html .neg-browser .neg-heart:hover {
+  color: var(--game-ink);
+  transform: scale(1.1);
+}
+
+html .neg .neg-heart.is-on,
+html .neg-browser .neg-heart.is-on {
+  color: var(--neg-down);
+}
+
+/* A saved listing that dropped or sold */
+.neg .pref-item-desc.neg-news {
+  color: var(--game-ink);
+  font-weight: 600;
+}
+
+html .neg-browser .neg-detail-save.is-on {
+  border-color: var(--neg-down);
+  color: var(--neg-down);
+}
+
+.neg-browser-count-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+html .neg-browser .neg-saved-filter:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Selling: promoting a listing */
+.neg-promote {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--game-card-border);
+}
+
+.neg-promote .neg-promote-boosts {
+  margin: 0;
+}
+
+.neg-chip-cost {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--game-accent) 18%, transparent);
+  color: var(--game-ink);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.neg-promote-auth {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--game-ink);
+  cursor: pointer;
+}
+
+.neg-promote-auth input {
+  margin-top: 3px;
+  accent-color: var(--game-accent);
+}
+
+.neg-promote-auth > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The listing at the top of a chat: today's buzz, a boost, authenticated */
+.neg-listing-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.neg-tag {
+  padding: 1px 8px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+.neg-tag.is-good {
+  border-color: color-mix(in srgb, var(--neg-up) 50%, transparent);
+  color: var(--neg-up);
+}
+
+/* A trade card: the item, then the cash on top */
+.neg-pay-trade {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  max-width: 240px;
+}
+
+/* The authenticator's verdict */
+.neg-auth.is-passed {
+  border-color: color-mix(in srgb, var(--neg-up) 50%, transparent);
+}
+
+.neg-auth.is-failed,
+.neg-auth.is-fake,
+.neg-auth.is-refused {
+  border-color: color-mix(in srgb, var(--neg-down) 55%, transparent);
+}
+
+.neg-auth.is-passed .neg-extra-icon {
+  color: var(--neg-up);
+}
+
+.neg-auth.is-failed .neg-extra-icon,
+.neg-auth.is-fake .neg-extra-icon,
+.neg-auth.is-refused .neg-extra-icon {
+  color: var(--neg-down);
+}
+
+/* Offering a trade */
+.landing-theme-modal.neg-trade {
+  max-width: 520px;
+}
+
+.neg-trade .neg-browser-list {
+  max-height: 46vh;
+}
+
+.neg-trade-cash {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Badges */
+.neg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px dashed var(--game-card-border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--game-muted);
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.neg-badge.is-earned {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--game-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--game-accent) 12%, transparent);
+  color: var(--game-ink);
+  opacity: 1;
+}
+
+.neg-badge.is-earned .neg-badge-mark {
+  color: var(--game-accent);
+}
+
+.neg-badge.is-small {
+  padding: 1px 8px;
+  font-size: 0.66rem;
+}
+
+.neg-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neg-badge-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neg-profile-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0;
+}
+
+.neg-new-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.neg-new-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  animation: neg-badge-in 0.5s ease-out both;
+}
+
+@keyframes neg-badge-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neg-new-badge {
+    animation: none;
+  }
+}
+
+/* The profile's badges: even tiles, readable earned or not. Tap one to read it. */
+.neg-badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+html .neg-browser .neg-badge-tile,
+html .neg-browser .neg-badge-tile:hover {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: auto;
+  padding: 7px 10px 7px 7px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 12px;
+  background: none;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+html .neg-browser .neg-badge-tile:hover {
+  border-color: color-mix(in srgb, var(--game-accent) 50%, transparent);
+}
+
+html .neg-browser .neg-badge-tile.is-earned {
+  border-color: color-mix(in srgb, var(--game-accent) 40%, transparent);
+  color: var(--game-ink);
+}
+
+html .neg-browser .neg-badge-tile.is-open,
+html .neg-browser .neg-badge-tile.is-open:hover {
+  border-color: var(--game-accent);
+  background: color-mix(in srgb, var(--game-accent) 10%, transparent);
+}
+
+.neg-badge-tile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neg-badge-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--game-muted) 14%, transparent);
+  color: var(--game-muted);
+}
+
+.neg-badge-tile.is-earned .neg-badge-icon {
+  background: color-mix(in srgb, var(--game-accent) 18%, transparent);
+  color: var(--game-accent);
+}
+
+/* The review tabs, flat inside the profile rather than a floating bar */
+.neg-profile .neg-modes {
+  margin: 4px 0 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.neg-badge-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--game-card-border);
+  border-radius: 14px;
+}
+
+.neg-badge-detail.is-earned {
+  border-color: color-mix(in srgb, var(--game-accent) 55%, transparent);
+}
+
+.neg-badge-detail-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--game-muted) 15%, transparent);
+  color: var(--game-muted);
+}
+
+.neg-badge-detail.is-earned .neg-badge-detail-mark {
+  background: color-mix(in srgb, var(--game-accent) 18%, transparent);
+  color: var(--game-accent);
+}
+
+.neg-badge-detail-mark .neg-badge-mark {
+  width: 18px;
+  height: 18px;
+}
+
+.neg-badge-detail-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.neg-badge-detail-text .pref-item-desc {
+  white-space: normal;
+}
+
+.neg-badge-progress {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
 }

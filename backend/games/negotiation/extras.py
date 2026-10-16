@@ -1,4 +1,4 @@
-"""What a Marketplace chat has beyond the price: sweeteners, hidden flaws, deadlines and reviews.
+"""What a Marketplace chat has beyond the price: sweeteners, hidden flaws and reviews.
 
 Shared by buying (engine.py) and selling (selling.py). No I/O in this file.
 """
@@ -13,11 +13,11 @@ from typing import Optional
 # id: (label on the chip, what is said if nothing is typed, what the other side is told)
 SWEETENERS = {
     "buy": {
-        "cash": ("Cash, today", "I can pay cash, today.", "The buyer offers to pay cash today."),
+        "cash": ("Cash today", "I can pay cash, today.", "The buyer offers to pay cash today."),
         "pickup": ("Pick up now", "I can come pick it up right now.", "The buyer offers to come and collect it right away."),
         "shipping": ("Cover shipping", "I'll cover the shipping.", "The buyer offers to pay for shipping themselves."),
         "compliment": (
-            "Compliment it", "Honestly, it looks great. You can tell it's been looked after.",
+            "Compliment", "Honestly, it looks great. You can tell it's been looked after.",
             "The buyer pays you a compliment. It puts you in a better mood, but it is no reason to lower the price: "
             "take it warmly in a few words, rate it 0, and do not mention a price.",
         ),
@@ -575,20 +575,6 @@ def scam_lines(scam: Optional[dict]) -> list:
         "excuse. Never admit any of this. Stay friendly and believable, and keep your personality.",
     ]
 
-
-# ---- Deadlines: buying only. Some sellers have to be rid of it soon ----
-
-DEADLINE_ROUNDS = 6
-DEADLINE_SLIDE = 0.06          # each round the seller's resistance drops by this, as the clock runs down
-DEADLINE_RIVAL = 0.10          # from the third round, the chance each round that someone else buys it first
-_DEADLINE = re.compile(r"\b(tonight|today|friday|thursday|this week|moving|must go|leaving|movers|asap)\b", re.I)
-
-
-def has_deadline(scenario: dict) -> bool:
-    if scenario.get("category") == "Tickets":
-        return True
-    text = " ".join(str(scenario.get(k) or "") for k in ("item", "persona", "description", "opening"))
-    return bool(_DEADLINE.search(text))
 
 
 # ---- Unhinged characters: a friend with a sailor's mouth ----

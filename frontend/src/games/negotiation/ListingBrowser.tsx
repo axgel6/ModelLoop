@@ -4,8 +4,9 @@ import { useEscapeKey } from "../../components/useEscapeKey";
 import { BackButton } from "../BackButton";
 import { Avatar } from "./Avatar";
 import { avatarSeed } from "./avatarSeed";
-import { sellerLine } from "./setup";
-import type { HaggleListing } from "./types";
+import { SaveHeart } from "./SaveHeart";
+import { buzzLine, sellerLine } from "./setup";
+import type { Buzz, HaggleListing } from "./types";
 
 const SORTS = {
   featured: "Featured",
@@ -42,7 +43,9 @@ export function ListingBrowser({
   busy,
   error,
   note,
-  onPick,
+  saved,
+  onSave,
+  buzzOf,
   onMessage,
   onClose,
 }: {
@@ -53,8 +56,11 @@ export function ListingBrowser({
   error: string;
   /** What messaging a seller costs, such as a Hustle day or the chat still on the table */
   note?: string;
-  /** Put it on the start screen, to message later */
-  onPick: (listing: HaggleListing) => void;
+  /** The listings saved, by id, and the heart that saves one */
+  saved: Set<string>;
+  onSave: (listing: HaggleListing) => void;
+  /** How busy a listing is today */
+  buzzOf: (id: string) => Buzz | null;
   /** Message the seller now */
   onMessage: (listing: HaggleListing) => void;
   onClose: () => void;
@@ -65,6 +71,7 @@ export function ListingBrowser({
   // An index into PRICES, or null for any price
   const [price, setPrice] = useState<number | null>(null);
   const [sort, setSort] = useState<Sort>("featured");
+  const [savedOnly, setSavedOnly] = useState(false);
   // The listing open in full; the list keeps its search and filters behind it
   const [viewing, setViewing] = useState<HaggleListing | null>(null);
   const back = useCallback(() => setViewing(null), []);
@@ -84,6 +91,7 @@ export function ListingBrowser({
   const shown = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const matches = listings.filter((l) => {
+      if (savedOnly && !saved.has(l.id)) return false;
       if (category !== ALL && l.category !== category) return false;
       if (condition !== ALL && l.condition !== condition) return false;
       if (price !== null && !(l.list_price >= PRICES[price].min && l.list_price < PRICES[price].max)) return false;
@@ -94,7 +102,7 @@ export function ListingBrowser({
     if (sort === "dear") return [...matches].sort((a, b) => b.list_price - a.list_price);
     if (sort === "name") return [...matches].sort((a, b) => a.item.localeCompare(b.item));
     return matches;
-  }, [listings, query, category, condition, price, sort]);
+  }, [listings, query, category, condition, price, sort, savedOnly, saved]);
 
   // On the page itself, not inside the game: the game's panels would clip a fixed overlay
   return createPortal(
@@ -125,8 +133,10 @@ export function ListingBrowser({
             busy={busy}
             error={error}
             note={note}
+            saved={saved.has(viewing.id)}
+            buzz={buzzOf(viewing.id)}
             onMessage={() => onMessage(viewing)}
-            onPick={() => onPick(viewing)}
+            onSave={() => onSave(viewing)}
           />
         ) : (
           <>
@@ -188,9 +198,20 @@ export function ListingBrowser({
               </label>
             </div>
 
-            <span className="pref-setting-hint neg-browser-count">
-              {shown.length} {shown.length === 1 ? "listing" : "listings"}
-            </span>
+            <div className="neg-browser-count-row">
+              <span className="pref-setting-hint neg-browser-count">
+                {shown.length} {shown.length === 1 ? "listing" : "listings"}
+              </span>
+              <button
+                type="button"
+                className={`neg-chip neg-saved-filter${savedOnly ? " is-on" : ""}`}
+                aria-pressed={savedOnly}
+                onClick={() => setSavedOnly((v) => !v)}
+                disabled={saved.size === 0 && !savedOnly}
+              >
+                Saved {saved.size > 0 ? `(${saved.size})` : ""}
+              </button>
+            </div>
 
             <div className="pref-account-card neg-browser-list">
               {shown.map((l) => (
@@ -213,15 +234,20 @@ export function ListingBrowser({
                   <div className="pref-item-info">
                     <div className="pref-item-name">{l.item}</div>
                     <div className="pref-item-desc">
-                      {[`Resells for about ${money(l.value)}`, l.condition, l.category, sellerLine(l.merchant, l.seller), l.setting.split("·").pop()?.trim()]
+                      {[`Resells for about ${money(l.value)}`, l.condition, l.category, sellerLine(l.merchant, l.seller), l.setting.split("·").pop()?.trim(), buzzLine(buzzOf(l.id))]
                         .filter(Boolean)
                         .join(" · ")}
                     </div>
                   </div>
+                  <SaveHeart saved={saved.has(l.id)} onSave={() => onSave(l)} />
                   <span className="pref-content-badge">{money(l.list_price)}</span>
                 </div>
               ))}
-              {shown.length === 0 && <p className="pref-setting-hint neg-browser-empty">Nothing matches. Try a different search, category or price.</p>}
+              {shown.length === 0 && (
+                <p className="pref-setting-hint neg-browser-empty">
+                  {savedOnly ? "Nothing saved matches. Tap a heart to save a listing." : "Nothing matches. Try a different search, category or price."}
+                </p>
+              )}
             </div>
           </>
         )}
@@ -237,15 +263,19 @@ function ListingDetail({
   busy,
   error,
   note,
+  saved,
+  buzz,
   onMessage,
-  onPick,
+  onSave,
 }: {
   listing: HaggleListing;
   busy: boolean;
   error: string;
   note?: string;
+  saved: boolean;
+  buzz: Buzz | null;
   onMessage: () => void;
-  onPick: () => void;
+  onSave: () => void;
 }) {
   const delivery = l.setting.split("·").pop()?.trim();
   const seller = l.seller;
@@ -261,6 +291,7 @@ function ListingDetail({
         <Fact label="Category" value={l.category} />
         {delivery && <Fact label="Delivery" value={delivery} />}
         <Fact label="Resells for" value={`About ${money(l.value)}`} />
+        {buzz && <Fact label="Today" value={buzzLine(buzz)} />}
       </dl>
 
       <section className="neg-detail-section">
@@ -302,8 +333,8 @@ function ListingDetail({
         <button type="button" className="start-button" onClick={onMessage} disabled={busy}>
           {busy ? "Opening the chat" : `Message ${l.merchant}`}
         </button>
-        <button type="button" className="neg-detail-save" onClick={onPick} disabled={busy}>
-          Save for later
+        <button type="button" className={`neg-detail-save${saved ? " is-on" : ""}`} onClick={onSave} aria-pressed={saved}>
+          {saved ? "Saved" : "Save"}
         </button>
       </div>
       {note && <span className="pref-setting-hint neg-detail-note">{note}</span>}

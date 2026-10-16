@@ -2,6 +2,8 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeKey } from "../../components/useEscapeKey";
 import { CONDITIONS } from "./inventoryData";
+import { Promote } from "./Promote";
+import { canAuthenticate } from "./setup";
 import type { CustomListing } from "./types";
 
 /** List something of your own to sell. A model buyer messages about it. */
@@ -15,7 +17,8 @@ export function CustomListingForm({
   categories: string[];
   busy: boolean;
   error: string;
-  onSubmit: (listing: CustomListing) => void;
+  /** With how it is promoted: a boost level, and whether to authenticate it first */
+  onSubmit: (listing: CustomListing, promote: { boost: number; authenticate: boolean }) => void;
   onClose: () => void;
 }) {
   const [item, setItem] = useState("");
@@ -23,6 +26,8 @@ export function CustomListingForm({
   const [condition, setCondition] = useState("Used - Good");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
+  const [boost, setBoost] = useState(0);
+  const [authenticate, setAuthenticate] = useState(false);
   useEscapeKey(onClose);
 
   const amount = Math.round(Number(price));
@@ -31,13 +36,17 @@ export function CustomListingForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ready || busy) return;
-    onSubmit({
-      item: item.trim(),
-      price: amount,
-      condition: condition || null,
-      category: category || null,
-      description: description.trim(),
-    });
+    const authenticable = canAuthenticate({ category, condition, title: item });
+    onSubmit(
+      {
+        item: item.trim(),
+        price: amount,
+        condition: condition || null,
+        category: category || null,
+        description: description.trim(),
+      },
+      { boost, authenticate: authenticate && authenticable },
+    );
   };
 
   return createPortal(
@@ -116,6 +125,15 @@ export function CustomListingForm({
             placeholder="Condition, what is included, any flaws. The buyer only knows what is written here."
           />
         </div>
+
+        <Promote
+          asking={amount}
+          boost={boost}
+          onBoost={setBoost}
+          authenticable={canAuthenticate({ category, condition, title: item })}
+          authenticate={authenticate}
+          onAuthenticate={setAuthenticate}
+        />
 
         {error && <p className="neg-error">{error}</p>}
 

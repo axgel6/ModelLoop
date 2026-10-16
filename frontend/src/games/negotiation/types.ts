@@ -53,13 +53,16 @@ export interface HaggleEntry {
   bounced?: boolean;
   /** Selling: one of the other buyers messaged with a better offer after this round */
   ping?: { merchant: string; offer: number };
+  /** Buying: a trade offered with this message, and what the seller made of it */
+  trade?: TradeOffer;
   /** When the round was played */
   at?: string;
 }
 
 /** What happened when the item changed hands */
 export interface Pickup {
-  kind: "fine" | "flaw" | "counterfeit" | "fake_payment" | "scam";
+  /** trade_flaw: something a buyer traded you had a flaw they kept quiet about */
+  kind: "fine" | "flaw" | "counterfeit" | "fake_payment" | "scam" | "trade_flaw";
   issue: string;
   loss?: number;
   /** A flaw: what the seller might give back, if asked */
@@ -91,6 +94,58 @@ export interface HaggleResult {
   reported?: boolean;
   /** Selling in Hustle: the payment bounced */
   scammed?: boolean;
+  /** A trade: only this much was cash; `paid` counts the item too */
+  paid_cash?: number;
+  /** Buying: what you gave. Selling: what you got */
+  trade?: { gave?: string; got?: string; value: number; cash: number; flaw?: string | null };
+}
+
+/** A trade the player offered a seller. Mirrors trades.judge in backend/games/negotiation/trades.py */
+export interface TradeOffer {
+  item_id: string;
+  item: string;
+  value: number;
+  cash: number;
+  category?: string | null;
+  verdict: "accept" | "counter" | "decline" | "cash_only";
+  /** The cash they want added, on a counter */
+  counter?: number;
+}
+
+/** What an authenticator said */
+export interface AuthCheck {
+  verdict: "passed" | "failed" | "fake" | "refused";
+  fee: number;
+  note: string;
+  /** Buying: the turn it was checked after, to show it in the chat there */
+  turn?: number;
+}
+
+/** A listing the player saved. Mirrors market.toggle_saved in backend/games/negotiation/market.py */
+export interface SavedListing {
+  listing: string;
+  /** The share of its usual price it is down to */
+  cut: number;
+  /** What changed since it was last opened: a drop, or it sold to someone else */
+  news?: "drop" | "sold" | null;
+  /** Before the latest drops */
+  was?: number | null;
+  gone?: boolean;
+}
+
+/** A listing's buzz today, as [views, saves, just listed (1 or 0), busy (1 or 0)] */
+export type Buzz = [number, number, number, number];
+
+/** A badge on the profile. Mirrors badges.py */
+export interface Badge {
+  id: string;
+  name: string;
+  how: string;
+  rarity?: number;
+  /** When it was earned; null while still to earn */
+  at?: string | null;
+  /** How far along it is: what you have, what it takes, and whether that is a count, dollars or a percent */
+  progress?: { have: number; need: number; unit: "count" | "money" | "percent" };
 }
 
 /** A marketplace listing, as the start screen shows it */
@@ -178,12 +233,12 @@ export interface HaggleState {
   flaw?: { text: string; revealed: boolean } | null;
   /** Buying: what checking sold listings turned up */
   research?: string | null;
+  /** The turn sold listings were checked after, to show it in the chat there */
+  research_turn?: number;
   /** Buying: the seller's account as the chat shows it. A scammer's is new, with a few bad ratings */
   seller?: SellerProfile | null;
   /** Buying: the listing was bait. Only sent once the chat is over */
   scam?: { payment: string; cover: string } | null;
-  /** Buying: messages left before the seller sells to whoever turns up first */
-  deadline?: { rounds: number } | null;
   /** Selling: a better offer from another buyer, standing until used */
   ping?: { merchant: string; offer: number } | null;
   /** Selling: the buyer switched to after a better offer */
@@ -194,6 +249,18 @@ export interface HaggleState {
   review?: Review | null;
   /** Your stars for the other side, once you have rated them */
   your_review?: { stars: number; text: string; at: string } | null;
+  /** Buying: how many looked at and saved the listing today */
+  buzz?: { views: number; saves: number } | null;
+  /** Buying: the authenticator's verdict. Selling: the one from before listing */
+  auth?: AuthCheck | null;
+  /** Buying: a trade the seller agreed to, or countered, standing until the next message */
+  trade_offer?: TradeOffer | null;
+  /** Selling: a trade the buyer offered alongside their cash offer */
+  trade_in?: { listing: string; item: string; value: number; cash: number; category?: string | null } | null;
+  /** Selling: how far the listing was boosted, 0 for not at all */
+  boost?: number;
+  /** Badges this chat earned, shown with the result */
+  badges_new?: Badge[];
 }
 
 /** A review someone left you. Mirrors extras.review in backend/games/negotiation/extras.py */
@@ -245,6 +312,10 @@ export interface MarketProfile {
   /** Newest first */
   reviews: Review[];
   given: GivenReview[];
+  /** Every badge, earned or not */
+  badges: Badge[];
+  /** The rarest earned, by id, to show beside your name */
+  top: string[];
 }
 
 export interface HaggleSummary {
@@ -287,7 +358,7 @@ export interface InventoryItem {
   /** A flaw found while buying it, or at pickup */
   flaw?: string | null;
   /** Sold on again, and how that went */
-  sold?: { price: number; profit: number | null; buyer: string; rating: string; at: string } | null;
+  sold?: { price: number; profit: number | null; buyer: string; rating: string; at: string; traded?: boolean } | null;
 }
 
 /** A listing the player writes themselves */
@@ -335,6 +406,8 @@ export interface FreeBank {
   reviews: Review[];
   /** The reviews you left others, oldest first */
   given?: GivenReview[];
+  /** Free play's saved listings */
+  saved?: SavedListing[];
   review_count: number;
   /** How many purchases are still held */
   held: number;
@@ -354,6 +427,8 @@ export interface HustleRun {
   holdings: InventoryItem[];
   ledger: LedgerEntry[];
   milestones: number[];
+  /** Listings saved in this run */
+  saved?: SavedListing[];
   /** Sellers who messaged again after you walked away */
   callbacks?: { id: string; scenario: string; merchant: string; item: string; price: number; was: number }[];
   result: {

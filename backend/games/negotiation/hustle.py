@@ -142,11 +142,22 @@ def can_pay(run: dict, amount: int) -> bool:
 def record_purchase(run: dict, chat: dict) -> dict:
     """A purchase paid for in a chat: the money leaves the balance and the item joins the holdings."""
     result, scenario = chat["result"], chat["scenario"]
+    # What it cost, counting an item traded for it; only the cash part leaves the balance
     paid = int(result["paid"])
-    if not can_pay(run, paid):
+    cash = int(result.get("paid_cash", paid))
+    if not can_pay(run, cash):
         raise ValueError(f"You only have ${run['cash']:,} in your account.")
     r = copy.deepcopy(run)
-    r["cash"] -= paid
+    r["cash"] -= cash
+    trade = result.get("trade")
+    if trade:
+        gave = holding(r, trade["gave_id"])
+        if not gave or gave.get("sold"):
+            raise ValueError("You no longer have what you offered to trade.")
+        gave["sold"] = {
+            "price": trade["value"], "profit": trade["value"] - gave["paid"], "buyer": scenario["merchant"],
+            "rating": "Traded", "day": r["day"], "at": _now(), "traded": True,
+        }
     if (result.get("pickup") or {}).get("kind") == "scam":
         # The money is gone and nothing came of it
         r["ledger"].append({
@@ -178,7 +189,8 @@ def record_purchase(run: dict, chat: dict) -> dict:
     r["holdings"].append(item)
     r["ledger"].append({
         "day": r["day"], "kind": "buy", "item": item["title"], "other": scenario["merchant"],
-        "amount": -paid, "balance": r["cash"], "holding": item["id"], "at": item["bought_at"],
+        "amount": -cash, "balance": r["cash"], "holding": item["id"], "at": item["bought_at"],
+        **({"note": f"Traded your {trade['gave']}"} if trade else {}),
     })
     _reach_milestones(r)
     return r
@@ -191,18 +203,29 @@ def record_sale(run: dict, chat: dict) -> dict:
     item = holding(r, chat.get("inventory_id") or "")
     if not item or item.get("sold"):
         raise ValueError("That is no longer yours to sell.")
-    # A payment that bounced brings nothing in, and the item is gone all the same
+    # A payment that bounced brings nothing in, and the item is gone all the same. A trade brings in its cash, and its item.
     price = 0 if result.get("scammed") else int(result["paid"])
-    r["cash"] += price
+    cash = 0 if result.get("scammed") else int(result.get("paid_cash", price))
+    r["cash"] += cash
     item["sold"] = {
         "price": price, "profit": price - item["paid"], "buyer": scenario["merchant"],
         "rating": result.get("rating"), "day": r["day"], "at": _now(), "scammed": bool(result.get("scammed")),
     }
     r["ledger"].append({
         "day": r["day"], "kind": "sell", "item": item["title"], "other": scenario["merchant"],
-        "amount": price, "balance": r["cash"], "holding": item["id"], "profit": price - item["paid"],
+        "amount": cash, "balance": r["cash"], "holding": item["id"], "profit": price - item["paid"],
         "at": item["sold"]["at"], **({"note": "Payment bounced"} if result.get("scammed") else {}),
+        **({"note": f"Plus their {result['trade']['got']}"} if result.get("trade") else {}),
     })
+    trade = result.get("trade")
+    if trade:
+        r["holdings"].append({
+            "id": str(uuid.uuid4()), "listing": trade["listing"], "title": trade["got"],
+            "paid": trade["worth"], "list_price": trade["worth"], "value": trade["value"], "saved": None, "score": 0,
+            "rating": "Traded", "rounds": 0, "merchant": scenario["merchant"], "difficulty": chat.get("difficulty", "normal"),
+            **{k: trade.get(k) for k in ("condition", "category", "description", "setting")},
+            "day": r["day"], "bought_at": _now(), "sold": None, "fake": False, "flaw": trade.get("flaw"),
+        })
     _reach_milestones(r)
     return r
 

@@ -3,7 +3,7 @@
 import { apiFetch } from "../../components/api";
 import type { GameSaveSummary, GameScoreRow } from "../api";
 import type { HustleView } from "./hustleData";
-import type { FreeBank, HaggleListing, HaggleSummary, InventoryItem, MarketProfile } from "./types";
+import type { Buzz, FreeBank, HaggleListing, HaggleSummary, InventoryItem, MarketProfile } from "./types";
 
 export interface Overview {
   /** The chat still on the table, if any */
@@ -13,6 +13,8 @@ export interface Overview {
   bank: FreeBank;
   /** Your marketplace profile, ready before it is opened */
   profile: MarketProfile;
+  /** How busy every listing is today, by id: free play's, and the Hustle run's */
+  buzz?: { free: Record<string, Buzz>; hustle: Record<string, Buzz> | null };
   scores: { buy: GameScoreRow[]; sell: GameScoreRow[]; hustle: GameScoreRow[] };
 }
 

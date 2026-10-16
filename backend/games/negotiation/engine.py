@@ -60,8 +60,8 @@ MAX_REPLY = 600
 
 DIFFICULTIES = {
     "easy":   {"label": "Easy", "blurb": "A patient merchant who folds quickly.", "patience": 9, "resistance": 0.35},
-    "normal": {"label": "Normal", "blurb": "The standard haggle.", "patience": 7, "resistance": 0.50},
-    "hard":   {"label": "Hard", "blurb": "Short on patience and slow to budge.", "patience": 6, "resistance": 0.65},
+    "normal": {"label": "Normal", "blurb": "The standard haggle.", "patience": 8, "resistance": 0.50},
+    "hard":   {"label": "Hard", "blurb": "Short on patience and slow to budge.", "patience": 7, "resistance": 0.65},
 }
 
 # What can go wrong once the money is paid
@@ -323,6 +323,18 @@ def scenario_for(scenario_id: Optional[str], rng: Optional[random.Random] = None
     return _SCENARIOS_BY_ID.get(scenario_id or "") or (rng or random).choice(SCENARIOS)
 
 
+# Every chat gets at least this many messages, and some people are a good deal more patient than that
+MIN_PATIENCE = 7
+EXTRA_PATIENCE = (0, 0, 0, 1, 1, 2, 3, 4)   # one is drawn for each person: most have none, a few a lot
+
+
+def patience_for(base: int, who: str, bonus: int = 0) -> int:
+    """How many messages someone will put up with: the difficulty's, their own temperament (the same
+    every time for the same person), and your reviews. Never under MIN_PATIENCE."""
+    extra = random.Random(f"patience:{who}").choice(EXTRA_PATIENCE)
+    return max(MIN_PATIENCE, base + extra + bonus)
+
+
 def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Optional[random.Random] = None,
              list_price: Optional[int] = None, value: Optional[int] = None, patience_bonus: int = 0) -> dict:
     """`list_price` and `value` override the scenario's usual price and resale value, as a Hustle run does.
@@ -330,7 +342,7 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
     rng = rng or random.Random()
     scenario = scenario_for(scenario_id, rng)
     level = DIFFICULTIES.get(difficulty) or DIFFICULTIES["normal"]
-    patience = max(3, level["patience"] + patience_bonus)
+    patience = patience_for(level["patience"], scenario["id"], patience_bonus)
     list_price = list_price or scenario["list_price"]
     # A known scammer's listing: bait, with nothing behind it
     scam = copy.deepcopy(scenario.get("scam"))
@@ -360,8 +372,6 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
         # Their account as the chat shows it. A scammer's is new, with a few bad ratings.
         "seller": seller_profile(scenario),
         "research": None,            # what checking sold listings turned up
-        # A seller who has to be rid of it soon: rounds left before it goes to someone else
-        "deadline": {"rounds": extras.DEADLINE_ROUNDS} if extras.has_deadline(scenario) and not scam else None,
         # The price only becomes a purchase when the player pays it (accept)
         "log": [],
         "result": None,
@@ -371,7 +381,8 @@ def new_game(scenario_id: Optional[str], difficulty: str = "normal", rng: Option
 def public(state: dict) -> dict:
     """The state as the player may see it: the merchant's limits, and any flaw nobody has owned up to,
     stay hidden until the haggle ends."""
-    hidden = ("resistance",) if state.get("status") != "active" else ("resistance", "floor", "scam")
+    # Whether it is a fake is decided early when it is authenticated, and only told by the verdict
+    hidden = ("resistance", "fake") if state.get("status") != "active" else ("resistance", "floor", "scam", "fake")
     out = {k: v for k, v in state.items() if k not in hidden}
     flaw = out.get("flaw")
     if flaw and not flaw.get("revealed") and state.get("status") == "active":
@@ -498,8 +509,6 @@ def describe_for_model(
             f"The buyer points to {' and '.join(cited)}, which your own listing admits to. That is a fair point "
             "against your price: rate it at least 1, and do not use it to defend your price."
         )
-    if state.get("deadline"):
-        lines.append(f"You need it gone soon: {state['deadline']['rounds']} more messages before you sell to whoever turns up first.")
     lines += [
         f"Handover: {scenario['setting'].split('·')[-1].strip()}",
         "",
@@ -583,6 +592,7 @@ def apply_turn(
     term other than money (cash today, pickup now), each usable once."""
     rng = rng or random.Random()
     s = copy.deepcopy(state)
+    s["trade_offer"] = None          # a trade they agreed to stands only until the next message
     bluff = bluff and can_bluff(s)
     sweet = None if bluff or not can_sweeten(s, sweetener) else sweetener
     kind = _round_kind(s, offer, bluff, sweet)
@@ -685,19 +695,6 @@ def apply_turn(
         if kind != "deal":
             entry["tell"] = _tell(s)
 
-    deadline = s.get("deadline")
-    if deadline and kind != "deal" and s["status"] == "active":
-        # The clock runs down: the seller softens, and someone else may get there first
-        deadline["rounds"] = max(0, deadline["rounds"] - 1)
-        s["resistance"] = max(0.0, s["resistance"] - extras.DEADLINE_SLIDE)
-        if s["turn"] >= 3 and rng.random() < extras.DEADLINE_RIVAL:
-            entry["reply"] = _then(entry["reply"], "Actually, sorry, someone just turned up and paid for it. It's gone.")
-            entry["lost"] = True
-            _finish(s, "lost", None)
-        elif deadline["rounds"] == 0 and not s["final"]:
-            s["final"] = True
-            entry["reply"] = _then(entry["reply"], f"I need it gone, so {_money(s['ask'])} is my final price.")
-
     entry["ask"] = s["ask"]
     entry["final"] = s["final"]
     s["log"] = (s["log"] + [entry])[-LOG_LIMIT:]
@@ -793,10 +790,7 @@ def accept(state: dict, scams: bool = False, rng: Optional[random.Random] = None
             "issue": f"You sent {_money(s['ask'])} and {s['scenario']['merchant']} vanished. The listing is gone. It was a scam.",
         }
         s["value"] = 0
-    elif (
-        scams and s["scenario"].get("category") in _COUNTERFEIT_CATEGORIES
-        and s["value"] >= COUNTERFEIT_MIN_VALUE and rng.random() < COUNTERFEIT_CHANCE
-    ):
+    elif s.get("fake") if s.get("fake") is not None else counterfeit_roll(s, scams, rng):
         loss = s["value"] - max(1, round(s["value"] * COUNTERFEIT_WORTH))
         s["value"] -= loss
         s["result"]["pickup"] = {
@@ -814,6 +808,15 @@ def accept(state: dict, scams: bool = False, rng: Optional[random.Random] = None
     else:
         s["result"]["pickup"] = {"kind": "fine", "issue": "Picked up, all as described."}
     return s
+
+
+def counterfeit_roll(state: dict, scams: bool, rng: random.Random) -> bool:
+    """Whether a pricey bag, watch, phone or bottle turns out fake. Hustle only (`scams`). Rolled at pickup,
+    or earlier by an authenticator, whose verdict then stands."""
+    return (
+        scams and state["scenario"].get("category") in _COUNTERFEIT_CATEGORIES
+        and state["value"] >= COUNTERFEIT_MIN_VALUE and rng.random() < COUNTERFEIT_CHANCE
+    )
 
 
 def ask_refund(state: dict, rng: Optional[random.Random] = None) -> dict:
