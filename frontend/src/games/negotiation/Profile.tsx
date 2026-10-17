@@ -3,12 +3,16 @@ import { createPortal } from "react-dom";
 import { useEscapeKey } from "../../components/useEscapeKey";
 import { readableTextOn } from "../../components/utils/chatUtils";
 import { Avatar } from "./Avatar";
+import { BadgeToast } from "./BadgeToast";
 import { avatarSeed } from "./avatarSeed";
 import { Tile } from "./Bank";
 import { apiDeleteReview, apiProfile, money, signedMoney } from "./hustleData";
 import type { Badge, GivenReview, MarketProfile, Review } from "./types";
 
 type Tab = "all" | "buy" | "sell" | "given";
+
+// Reviews drawn at first; the rest wait for "Show all" so a long history stays light
+const FIRST_REVIEWS = 15;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "all", label: "All" },
@@ -33,6 +37,7 @@ export function Profile({
   const [profile, setProfile] = useState<MarketProfile | null>(initial ?? null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("all");
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     apiProfile()
@@ -50,6 +55,9 @@ export function Profile({
 
   // "As buyer" is the reviews sellers left you, for what you bought from them
   const shown = (profile?.reviews ?? []).filter((r) => tab === "all" || r.role === tab);
+  const list = tab === "given" ? (profile?.given ?? []) : shown;
+  const hidden = showAll ? 0 : Math.max(0, list.length - FIRST_REVIEWS);
+  const cut = <T,>(rows: T[]) => (showAll ? rows : rows.slice(0, FIRST_REVIEWS));
 
   return createPortal(
     <div className="chat-preferences-modal-overlay" onClick={onClose}>
@@ -142,7 +150,10 @@ export function Profile({
                   role="tab"
                   aria-selected={tab === t.id}
                   className={`neg-chip${tab === t.id ? " is-on" : ""}`}
-                  onClick={() => setTab(t.id)}
+                  onClick={() => {
+                    setTab(t.id);
+                    setShowAll(false);
+                  }}
                 >
                   {t.label}
                 </button>
@@ -152,14 +163,14 @@ export function Profile({
             <div className="neg-bank-statement">
               {tab === "given" ? (
                 profile.given.length ? (
-                  profile.given.map((g) => <GivenRow key={g.id ?? g.at} given={g} onDelete={() => remove(g.id ?? g.at)} />)
+                  cut(profile.given).map((g) => <GivenRow key={g.id ?? g.at} given={g} onDelete={() => remove(g.id ?? g.at)} />)
                 ) : (
                   <p className="pref-setting-hint neg-profile-empty">
                     After a deal, you can rate the person you dealt with. Your reviews show up here.
                   </p>
                 )
               ) : shown.length ? (
-                shown.map((r, i) => <ReviewRow key={r.id ?? `${r.at}-${i}`} review={r} />)
+                cut(shown).map((r, i) => <ReviewRow key={r.id ?? `${r.at}-${i}`} review={r} />)
               ) : (
                 <p className="pref-setting-hint neg-profile-empty">
                   {tab === "all"
@@ -168,6 +179,11 @@ export function Profile({
                 </p>
               )}
             </div>
+            {hidden > 0 && (
+              <button type="button" className="pref-confirm-no neg-profile-more" onClick={() => setShowAll(true)}>
+                Show all {list.length} reviews
+              </button>
+            )}
           </>
         )}
       </div>
@@ -195,11 +211,11 @@ function UserIcon({ name }: { name: string }) {
   );
 }
 
-/** Every badge: earned ones lit, the rest greyed. Tap one to see what it is for and how close you are. */
+/** Every badge: earned ones lit, the rest greyed. Tap one to see it in the badge popup. */
 function BadgeGrid({ badges }: { badges: Badge[] }) {
   const earned = badges.filter((b) => b.at).length;
-  const [open, setOpen] = useState<string | null>(null);
-  const shown = badges.find((b) => b.id === open);
+  // The badge shown, and a count so tapping one again plays the popup afresh
+  const [open, setOpen] = useState<{ badge: Badge; n: number } | null>(null);
   return (
     <section className="neg-badges">
       <span className="neg-field-label">
@@ -211,9 +227,9 @@ function BadgeGrid({ badges }: { badges: Badge[] }) {
             key={b.id}
             type="button"
             role="option"
-            aria-selected={open === b.id}
-            className={`neg-badge-tile${b.at ? " is-earned" : ""}${open === b.id ? " is-open" : ""}`}
-            onClick={() => setOpen(open === b.id ? null : b.id)}
+            aria-selected={open?.badge.id === b.id}
+            className={`neg-badge-tile${b.at ? " is-earned" : ""}${open?.badge.id === b.id ? " is-open" : ""}`}
+            onClick={() => setOpen((o) => ({ badge: b, n: (o?.n ?? 0) + 1 }))}
           >
             <span className="neg-badge-icon" aria-hidden="true">
               <BadgeMark id={b.id} />
@@ -222,42 +238,23 @@ function BadgeGrid({ badges }: { badges: Badge[] }) {
           </button>
         ))}
       </div>
-      {shown ? <BadgeDetail badge={shown} /> : <span className="pref-setting-hint">Tap a badge to see what it is for.</span>}
+      <span className="pref-setting-hint">Tap a badge to see what it is for.</span>
+      {open && <BadgeToast key={open.n} badges={[open.badge]} preview onDone={() => setOpen(null)} />}
     </section>
   );
 }
 
-/** One badge in full: how it is earned, and either when it was or how close you are */
-function BadgeDetail({ badge }: { badge: Badge }) {
+/** Where a badge stands: when it was earned, or that it is still to earn */
+export function badgeStatus(badge: Badge): string {
+  return badge.at ? `Earned ${longDate(badge.at)}` : "Not earned yet";
+}
+
+/** How close an unearned badge is, such as "3 of 10", or null when it is all or nothing */
+export function badgeProgress(badge: Badge): string | null {
   const p = badge.progress;
-  const show = (n: number) => (p?.unit === "money" ? money(n) : p?.unit === "percent" ? `${n}%` : n.toLocaleString("en-US"));
-  return (
-    <div className={`neg-badge-detail${badge.at ? " is-earned" : ""}`}>
-      <span className="neg-badge-detail-mark" aria-hidden="true">
-        <BadgeMark id={badge.id} />
-      </span>
-      <div className="neg-badge-detail-text">
-        <span className="pref-item-name">{badge.name}</span>
-        <span className="pref-item-desc">{badge.how}</span>
-        {badge.at ? (
-          <span className="pref-setting-hint">Earned {longDate(badge.at)}</span>
-        ) : (
-          p &&
-          p.need > 1 && (
-            <span className="neg-badge-progress">
-              <span className="neg-profile-track" aria-hidden="true">
-                <span style={{ width: `${Math.min(100, (100 * p.have) / p.need)}%` }} />
-              </span>
-              <span className="pref-setting-hint">
-                {show(p.have)} of {show(p.need)}
-              </span>
-            </span>
-          )
-        )}
-        {!badge.at && (!p || p.need <= 1) && <span className="pref-setting-hint">Not earned yet</span>}
-      </div>
-    </div>
-  );
+  if (badge.at || !p || p.need <= 1) return null;
+  const show = (n: number) => (p.unit === "money" ? money(n) : p.unit === "percent" ? `${n}%` : n.toLocaleString("en-US"));
+  return `${show(p.have)} of ${show(p.need)}`;
 }
 
 // A mark for each badge, drawn on a 24 by 24 grid like the chat's other icons

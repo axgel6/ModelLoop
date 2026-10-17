@@ -36,6 +36,7 @@ import { ListingBrowser } from "./ListingBrowser";
 import { apiListings, apiOverview, cachedListings, cachedOverview, type Overview } from "./menuData";
 import { cleanText, isCleanLanguage } from "./settings";
 import { BadgeMark } from "./Profile";
+import { useNewBadgeToast } from "./BadgeToast";
 import { Promote } from "./Promote";
 import { SaveHeart } from "./SaveHeart";
 import {
@@ -1260,6 +1261,8 @@ function Play({
 
   useEffect(refreshRun, [refreshRun]);
 
+  const badgeToast = useNewBadgeToast(state.badges_new);
+
   useEffect(() => {
     feedEnd.current?.scrollIntoView({ block: "end" });
   }, [state.log.length, pending, error, state.status, paying, state.after?.length, chatPending, state.research, state.auth]);
@@ -1510,6 +1513,7 @@ function Play({
 
   return (
     <div className="neg neg--play">
+      {badgeToast}
       <div className="neg-head">
         <BackButton label="Back to marketplace" onClick={() => onLeave(false)} />
         <h2 className="neg-title">{scenario.item}</h2>

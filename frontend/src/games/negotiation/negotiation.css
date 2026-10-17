@@ -2879,57 +2879,260 @@ html .neg-browser .neg-badge-tile.is-open:hover {
   -webkit-backdrop-filter: none;
 }
 
-.neg-badge-detail {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--game-card-border);
-  border-radius: 14px;
+/* A badge just earned: the chat search's glass pill, dropped in near the top. Clicks go through
+   everywhere but the pill, so the game stays usable while it shows. */
+.spotlight-overlay.neg-achievement-overlay {
+  padding-top: 7vh;
 }
 
-.neg-badge-detail.is-earned {
-  border-color: color-mix(in srgb, var(--game-accent) 55%, transparent);
+/* Pure black on top like macOS search, fading into a mostly see-through bottom. Black in every theme. */
+.spotlight-box.neg-achievement,
+:where(html[data-theme="frost"]) .spotlight-box.neg-achievement {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.97) 0%,
+    rgba(0, 0, 0, 0.94) 40%,
+    rgba(28, 29, 33, 0.4) 75%,
+    rgba(92, 95, 104, 0.18) 100%
+  );
 }
 
-.neg-badge-detail-mark {
+.spotlight-box.neg-achievement {
+  width: 440px;
+  cursor: pointer;
+  opacity: 0;
+  animation: none;
+  will-change: transform, opacity, filter;
+}
+
+/* Hidden but laid out, so it has its final size before it moves */
+.spotlight-box.neg-achievement.is-wait {
+  visibility: hidden;
+}
+
+.spotlight-box.neg-achievement.is-in {
+  animation: neg-achievement-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.spotlight-box.neg-achievement.is-out {
+  opacity: 1;
+  animation: neg-achievement-out 0.38s cubic-bezier(0.4, 0, 0.7, 0.2) forwards;
+}
+
+@keyframes neg-achievement-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes neg-achievement-out {
+  from {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+    filter: blur(4px);
+  }
+}
+
+.spotlight-input-row.neg-achievement-row {
+  gap: 14px;
+  padding: 14px 24px 14px 16px;
+}
+
+/* The badge sits where the search icon does */
+.neg-achievement-mark {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--game-muted) 15%, transparent);
-  color: var(--game-muted);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
-.neg-badge-detail.is-earned .neg-badge-detail-mark {
-  background: color-mix(in srgb, var(--game-accent) 18%, transparent);
-  color: var(--game-accent);
+/* A badge still to earn, opened from the profile: the mark dimmed */
+.neg-achievement.is-locked .neg-achievement-mark {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.45);
 }
 
-.neg-badge-detail-mark .neg-badge-mark {
-  width: 18px;
-  height: 18px;
+.neg-achievement-mark .neg-badge-mark {
+  width: 20px;
+  height: 20px;
 }
 
-.neg-badge-detail-text {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.neg-achievement-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--ui-font);
 }
 
-.neg-badge-detail-text .pref-item-desc {
+.neg-achievement-kicker {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.neg-achievement-name {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.94);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spotlight-result-item .neg-achievement-how {
   white-space: normal;
+  font-size: 0.88rem;
 }
 
-.neg-badge-progress {
-  display: grid;
-  grid-template-columns: 1fr auto;
+.neg-achievement .spotlight-result-item {
+  cursor: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-box.neg-achievement.is-in,
+  .spotlight-box.neg-achievement.is-out {
+    animation: none;
+  }
+
+  .spotlight-box.neg-achievement.is-in {
+    opacity: 1;
+  }
+
+  .spotlight-box.neg-achievement.is-out {
+    opacity: 0;
+  }
+}
+
+/* ---- The profile, finished in ModelLoop's glass ----
+   The sheet is the Preferences window's: the theme's panel color, a quarter see-through, over
+   a blur of what is behind it. The pieces inside are the same glass as the top bar's buttons,
+   without their own blur since the sheet already blurs what is behind it. */
+.landing-theme-modal.neg-profile,
+html[data-theme] .landing-theme-modal.neg-profile {
+  --pref-see-through: 75%;
+  background: color-mix(in srgb, #282828 var(--pref-see-through), transparent);
+  border: 1px solid rgba(80, 73, 69, 0.5);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+}
+
+html[data-theme="dune"] .landing-theme-modal.neg-profile {
+  background: color-mix(in srgb, #ffffff var(--pref-see-through), transparent);
+  border-color: #e7e0d6;
+  box-shadow: 0 8px 40px rgba(28, 25, 23, 0.12);
+}
+
+html[data-theme="ember"] .landing-theme-modal.neg-profile {
+  background: color-mix(in srgb, #32302f var(--pref-see-through), transparent);
+  border-color: #504945;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="frost"] .landing-theme-modal.neg-profile {
+  background: color-mix(in srgb, #373e4d var(--pref-see-through), transparent);
+  border-color: #495366;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="meadow"] .landing-theme-modal.neg-profile {
+  background: color-mix(in srgb, #ffffff var(--pref-see-through), transparent);
+  border-color: #d6e7db;
+  box-shadow: 0 8px 40px rgba(41, 66, 49, 0.12);
+}
+
+html[data-theme] .neg-profile .landing-theme-modal-close {
+  display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 4px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.neg-profile .neg-profile-photo.sidebar-user-avatar {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.neg-profile .neg-badge.is-earned,
+.neg-profile .neg-bank-facts span,
+.neg-profile .neg-inventory-total,
+.neg-profile .neg-bank-statement,
+html .neg-browser.neg-profile .neg-badge-tile {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.neg-profile .neg-inventory-total {
+  border-radius: 18px;
+}
+
+.neg-profile .neg-bank-statement {
+  border-radius: 20px;
+}
+
+html .neg-browser.neg-profile .neg-badge-tile {
+  border-radius: 16px;
+}
+
+/* Earned badges keep their accent edge, and the open one its tint, over the glass */
+.neg-profile .neg-badge.is-earned,
+html .neg-browser.neg-profile .neg-badge-tile.is-earned {
+  border-color: color-mix(in srgb, var(--game-accent) 40%, var(--glass-border));
+}
+
+html .neg-browser.neg-profile .neg-badge-tile:hover {
+  border-color: color-mix(in srgb, var(--game-accent) 55%, transparent);
+}
+
+html .neg-browser.neg-profile .neg-badge-tile.is-open,
+html .neg-browser.neg-profile .neg-badge-tile.is-open:hover {
+  border-color: var(--game-accent);
+  background:
+    linear-gradient(color-mix(in srgb, var(--game-accent) 12%, transparent), color-mix(in srgb, var(--game-accent) 12%, transparent)),
+    var(--glass-bg);
+}
+
+html .neg-browser.neg-profile .neg-badge-tile:active {
+  transform: scale(0.98);
+}
+
+/* The review tabs float on the sheet like the game's other mode switch */
+.neg-profile .neg-modes {
+  box-shadow: var(--glass-shadow);
+}
+
+/* "Show all" under the first reviews: the outlined button, in the Marketplace's pill shape */
+html .neg-profile .pref-confirm-no.neg-profile-more {
+  align-self: center;
+  padding: 8px 20px;
+  border-radius: 25px;
+  font-size: 0.8rem;
 }
