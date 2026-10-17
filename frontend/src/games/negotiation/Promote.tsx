@@ -40,15 +40,26 @@ export function Promote({
       </div>
       <span className="pref-setting-hint">{BOOSTS[boost].blurb}</span>
       {authenticable && (
-        <label className="neg-promote-auth">
-          <input type="checkbox" checked={authenticate} onChange={(e) => onAuthenticate(e.target.checked)} />
-          <span>
-            Authenticate it first <span className="neg-chip-cost">{money(authFee(price))}</span>
+        <div className="neg-setting neg-promote-auth">
+          <div className="neg-setting-text">
+            <span className="neg-promote-auth-name">
+              Authenticate it first <span className="neg-chip-cost">{money(authFee(price))}</span>
+            </span>
             <span className="pref-setting-hint">
               Buyers pay more for a verified item. If it does not pass, it is listed without the badge.
             </span>
-          </span>
-        </label>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={authenticate}
+            aria-label="Authenticate it first"
+            className={`neg-switch${authenticate ? " is-on" : ""}`}
+            onClick={() => onAuthenticate(!authenticate)}
+          >
+            <span className="neg-switch-knob" aria-hidden="true" />
+          </button>
+        </div>
       )}
     </div>
   );

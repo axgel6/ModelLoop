@@ -2254,7 +2254,9 @@ html .neg .neg-account-part--profile:hover {
 
 /* An on/off switch: the knob slides right and the track takes the accent when on */
 html .neg-browser .neg-switch,
-html .neg-browser .neg-switch:hover {
+html .neg-browser .neg-switch:hover,
+html .neg-promote .neg-switch,
+html .neg-promote .neg-switch:hover {
   position: relative;
   flex-shrink: 0;
   width: 44px;
@@ -2269,7 +2271,8 @@ html .neg-browser .neg-switch:hover {
   transition: background 0.2s;
 }
 
-html .neg-browser .neg-switch.is-on {
+html .neg-browser .neg-switch.is-on,
+html .neg-promote .neg-switch.is-on {
   border-color: var(--game-accent);
   background: var(--game-accent);
 }
@@ -2632,24 +2635,22 @@ html .neg-browser .neg-saved-filter:disabled {
   font-weight: 600;
 }
 
-.neg-promote-auth {
+/* Authenticating: a settings row with a switch, on the same glass as the boost picker */
+.neg-promote .neg-promote-auth {
+  margin-top: 4px;
+  padding: 12px 14px 12px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+}
+
+.neg-promote-auth-name {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
   font-size: 0.85rem;
+  font-weight: 600;
   color: var(--game-ink);
-  cursor: pointer;
-}
-
-.neg-promote-auth input {
-  margin-top: 3px;
-  accent-color: var(--game-accent);
-}
-
-.neg-promote-auth > span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 /* The listing at the top of a chat: today's buzz, a boost, authenticated */
