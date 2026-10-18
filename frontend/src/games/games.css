@@ -184,27 +184,28 @@ html[data-theme] .games-hub {
   color: var(--game-muted);
 }
 
-.games-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+.games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* A card is one big button, raised like the chat's reply bubbles and pressed like its buttons.
+/* A game is one row: icon, its name and blurb, and a play icon at the end. The whole row
+   is one flat button: hovering only shades it, nothing moves or glows.
    html prefix: each theme styles every <button>, and this has to outrank it */
 html .games-hub .game-card,
 html .games-hub .game-card:hover,
 html .games-hub .game-card:disabled {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 14px;
-  min-height: 210px;
-  padding: 18px;
-  border: 1px solid var(--game-tile-border);
+  align-items: center;
+  gap: 16px;
+  /* the right side is kept for the gear above and the play symbol below */
+  padding: 16px 56px 16px 18px;
+  border: 1px solid var(--game-card-border);
   border-radius: 22px;
-  background: var(--game-tile);
-  box-shadow: var(--game-tile-shadow);
+  background: var(--game-card);
+  box-shadow: none;
   color: var(--game-ink);
   font-family: var(--ui-font);
   font-size: 0.8rem;
@@ -214,59 +215,49 @@ html .games-hub .game-card:disabled {
   opacity: 1;
   transform: none;
   transition:
-    transform 0.15s,
     border-color 0.15s,
     box-shadow 0.15s;
 }
 
-html .games-hub .game-card:hover:not(:disabled) {
-  border-color: var(--game-accent);
-  transform: translateY(-3px);
-  box-shadow:
-    var(--game-tile-shadow),
-    0 10px 24px color-mix(in srgb, var(--game-accent) 16%, transparent);
+/* On hover a row turns into the app's glass, like the top bar's buttons. Keyed to the wrap
+   so the row stays glass while the pointer is on its gear */
+html .games-hub .game-card-wrap:hover > .game-card:not(:disabled) {
+  border-color: var(--glass-border);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   cursor: pointer;
 }
 
 html .games-hub .game-card:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: var(--game-card);
 }
 
 html .games-hub .game-card:disabled {
   cursor: default;
 }
 
-.game-card-head {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
 .game-card-badge {
+  align-self: flex-start;
   flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  border: 1px solid var(--game-press-border);
-  border-radius: 15px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--game-press);
-  box-shadow: var(--game-press-shadow);
-  color: var(--game-accent-ink);
+  /* --game-color: the game's SNES button colour, set on its row in GamesHub.tsx */
+  background: color-mix(in srgb, var(--game-color, var(--game-accent)) 16%, transparent);
+  color: var(--game-color, var(--game-heading));
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
   font-size: 0.85rem;
   font-weight: 700;
-  transition: transform 0.2s;
 }
 
-.game-card:hover:not(:disabled) .game-card-badge {
-  transform: rotate(-6deg) scale(1.06);
-}
-
-.game-card-titles {
+.game-card-text {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -290,73 +281,28 @@ html .games-hub .game-card:disabled {
 }
 
 .game-card-desc {
+  margin-top: 4px;
   color: var(--game-muted);
 }
 
-.game-card-foot {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+/* A bare play symbol in the row's bottom corner; the row around it is the real button */
+.game-card-play,
+.game-card-soon {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
 }
 
-.game-card-tags {
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.game-card-tag {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--game-accent) 12%, transparent);
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--game-muted);
-}
-
-/* Looks like the app's buttons; the card around it is the real one */
 .game-card-play {
-  flex-shrink: 0;
-  padding: 7px 20px;
-  border: 1px solid var(--game-tile-border);
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--game-muted);
-}
-
-.game-card-play.is-live {
-  border-color: var(--game-press-border);
-  background: var(--game-press);
-  box-shadow: var(--game-press-shadow);
-  color: var(--game-accent-ink);
-}
-
-/* Not a .game-card: it must not pick up the card's hover or button styling */
-.game-ghost {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 210px;
-  padding: 18px;
-  border: 1.5px dashed color-mix(in srgb, var(--game-muted) 45%, transparent);
-  border-radius: 22px;
-  text-align: center;
-  font-size: 0.8rem;
-  line-height: 1.45;
-  color: var(--game-muted);
+  color: var(--game-color, var(--game-heading));
 }
 
-.game-ghost-title {
-  font-family: "Archivo", var(--ui-font);
-  font-stretch: 125%;
-  font-size: 0.9rem;
+.game-card-soon {
+  font-size: 0.72rem;
   font-weight: 600;
+  line-height: 1;
+  color: var(--game-muted);
 }
 
 /* ---- Inside a game ---- */
@@ -391,8 +337,8 @@ html .games-hub .game-card:disabled {
   padding: 48px 16px;
 }
 
-/* A card and, beside it, its settings gear: the gear sits in the card's top corner but is not inside
-   the card's button, so it opens the settings instead of the game */
+/* A row and its settings gear: the gear sits in the row's top corner but is not inside
+   the row's button, so it opens the settings instead of the game */
 .game-card-wrap {
   position: relative;
   display: flex;
@@ -405,34 +351,27 @@ html .games-hub .game-card:disabled {
 html .games-hub .game-card-settings,
 html .games-hub .game-card-settings:hover {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 12px;
+  right: 10px;
   width: 34px;
   height: 34px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--game-tile-border);
+  border: 1px solid var(--game-card-border);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--game-tile) 80%, transparent);
+  background: transparent;
   box-shadow: none;
   color: var(--game-muted);
   cursor: pointer;
   transform: none;
   transition:
     color 0.15s,
-    border-color 0.15s,
-    transform 0.3s;
+    background-color 0.15s;
 }
 
 html .games-hub .game-card-settings:hover {
   color: var(--game-ink);
-  border-color: var(--game-accent);
-  transform: rotate(45deg);
-}
-
-/* The title keeps clear of the gear in the corner */
-.game-card-wrap:has(.game-card-settings) .game-card-head {
-  padding-right: 40px;
+  background: var(--game-nav-hover);
 }

@@ -7,10 +7,10 @@ export const ceoSimulator: GameInfo = {
   name: "Founder Mode",
   monogram: "FM",
   icon: CeoIcon,
+  button: "A",
   tagline: "Build a company one decision at a time",
   description:
     "Name your company, choose what it sells, and run it week by week. Revenue, profit, headcount and public reaction update after every call you make.",
-  tags: ["Strategy", "Business"],
   status: "available",
   component: CeoSimulator,
 };

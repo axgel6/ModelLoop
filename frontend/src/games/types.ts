@@ -18,9 +18,10 @@ export interface GameInfo {
   monogram: string;
   /** Drawn on the card's badge */
   icon?: ComponentType;
+  /** The SNES face button whose colour the game's icon and play symbol take, as in the click burst */
+  button: "A" | "B" | "X" | "Y";
   tagline: string;
   description: string;
-  tags: string[];
   status: GameStatus;
   /** The game itself. Required once status is "available". */
   component?: ComponentType<GameProps>;

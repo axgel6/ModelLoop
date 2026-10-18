@@ -1051,7 +1051,7 @@ function Chat({
             className={`chat-sidebar${sidebarOpen ? " open" : ""}${sidebarClosing ? " closing" : ""}`}
           >
             <div className="sidebar-brand">
-              <span className="sidebar-logo"><StretchyLogo /></span>
+              <span className="sidebar-logo"><StretchyLogo stacked={false} /></span>
               <div className="sidebar-brand-actions">
                 <button
                   className="sidebar-brand-btn"

@@ -13102,25 +13102,33 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
    diamond (X blue on top, A red on the right, B yellow below, Y green on the left), and each
    diagonal the colour of one of the two buttons beside it. The bits are added in the order
    right, left, down, up, then down-right, down-left, up-right, up-left (see BITS in sparkle.ts).
-   The tones are the Super Famicom's own muted ones, which sit better beside the app's soft colours. */
+   The tones are the Super Famicom's own muted ones, which sit better beside the app's soft colours.
+   Each game on the selection screen takes one of them too (see `button` in games/types.ts). */
+:root {
+  --snes-a: #c2464b; /* dusty red */
+  --snes-b: #c99a2e; /* mustard, dark enough to show on the light themes */
+  --snes-x: #5372b8; /* slate blue */
+  --snes-y: #4f9a68; /* muted green */
+}
+
 .sparkle--snes .sparkle-bit:nth-child(1),
 .sparkle--snes .sparkle-bit:nth-child(5) {
-  background: #c2464b; /* A: dusty red */
+  background: var(--snes-a);
 }
 
 .sparkle--snes .sparkle-bit:nth-child(2),
 .sparkle--snes .sparkle-bit:nth-child(8) {
-  background: #4f9a68; /* Y: muted green */
+  background: var(--snes-y);
 }
 
 .sparkle--snes .sparkle-bit:nth-child(3),
 .sparkle--snes .sparkle-bit:nth-child(6) {
-  background: #c99a2e; /* B: mustard, dark enough to show on the light themes */
+  background: var(--snes-b);
 }
 
 .sparkle--snes .sparkle-bit:nth-child(4),
 .sparkle--snes .sparkle-bit:nth-child(7) {
-  background: #5372b8; /* X: slate blue */
+  background: var(--snes-x);
 }
 
 /* --dx and --dy are -1, 0 or 1 (0.75 on the diagonals): the direction to travel */
@@ -13268,9 +13276,18 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
   font-weight: 700;
+  line-height: 0.82;
+  letter-spacing: normal;
+  /* room for the descender of the "p", which the tight line height crops */
+  padding-bottom: 0.12em;
+  text-align: left;
   cursor: grab;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.stretchy-logo-line {
+  display: block;
 }
 
 .stretchy-logo,

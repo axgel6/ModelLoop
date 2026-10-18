@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { pathParts, replacePath } from "../subroute";
 import { GAMES } from "./registry";
 import "./games.css";
@@ -35,40 +35,39 @@ export function GamesHub({ model }: GamesHubProps) {
           </p>
         </header>
 
-        <div className="games-grid">
+        <div className="games-list">
           {GAMES.map((game) => {
             const playable = game.status === "available" && !!game.component;
             const Icon = game.icon;
             return (
-              <div key={game.id} className="game-card-wrap">
+              <div
+                key={game.id}
+                className="game-card-wrap"
+                style={{ "--game-color": `var(--snes-${game.button.toLowerCase()})` } as CSSProperties}
+              >
               <button
                 type="button"
                 className="game-card"
                 disabled={!playable}
                 onClick={() => setOpenId(game.id)}
               >
-                <span className="game-card-head">
-                  <span className="game-card-badge" aria-hidden="true">
-                    {Icon ? <Icon /> : game.monogram}
-                  </span>
-                  <span className="game-card-titles">
-                    <span className="game-card-name">{game.name}</span>
-                    <span className="game-card-tagline">{game.tagline}</span>
-                  </span>
+                <span className="game-card-badge" aria-hidden="true">
+                  {Icon ? <Icon /> : game.monogram}
                 </span>
-                <span className="game-card-desc">{game.description}</span>
-                <span className="game-card-foot">
-                  <span className="game-card-tags">
-                    {game.tags.map((tag) => (
-                      <span key={tag} className="game-card-tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </span>
-                  <span className={`game-card-play${playable ? " is-live" : ""}`}>
-                    {playable ? "Play" : "Coming soon"}
-                  </span>
+                <span className="game-card-text">
+                  <span className="game-card-name">{game.name}</span>
+                  <span className="game-card-tagline">{game.tagline}</span>
+                  <span className="game-card-desc">{game.description}</span>
                 </span>
+                {playable ? (
+                  <span className="game-card-play" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                      <path d="M8 5.5v13a1 1 0 0 0 1.52.85l10.4-6.5a1 1 0 0 0 0-1.7L9.52 4.65A1 1 0 0 0 8 5.5z" />
+                    </svg>
+                  </span>
+                ) : (
+                  <span className="game-card-soon">Coming soon</span>
+                )}
               </button>
               {game.settings && playable && (
                 <button
@@ -87,11 +86,6 @@ export function GamesHub({ model }: GamesHubProps) {
               </div>
             );
           })}
-
-          <div className="game-ghost">
-            <span className="game-ghost-title">More on the way</span>
-            <span>New games will show up here as they are built.</span>
-          </div>
         </div>
       </div>
     </div>
