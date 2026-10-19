@@ -205,7 +205,7 @@ function ChatInput({
       file.name.toLowerCase().endsWith(".heif")
     ) {
       setImageError(
-        "HEIC images aren't supported. Convert to JPEG or PNG first.",
+        "I can't read HEIC photos yet. A JPEG or PNG copy will work.",
       );
       setTimeout(() => setImageError(null), 4000);
       return;
@@ -277,7 +277,7 @@ function ChatInput({
     if (file) {
       handleImageFile(file);
     } else if (e.dataTransfer.files.length > 0) {
-      setImageError("Only image files can be attached.");
+      setImageError("That one isn't an image. Try a photo or picture file.");
       setTimeout(() => setImageError(null), 4000);
     }
   };
@@ -520,13 +520,10 @@ function ChatInput({
                     {docUploadError && (
                       <div
                         className="tools-dropdown-item"
-                        style={{ cursor: "default", color: "#fb4934" }}
+                        style={{ cursor: "default" }}
                       >
                         <span className="tools-dropdown-item-text">
-                          <span
-                            className="tools-dropdown-item-label"
-                            style={{ color: "#fb4934" }}
-                          >
+                          <span className="tools-dropdown-item-label calm-note">
                             {docUploadError}
                           </span>
                         </span>

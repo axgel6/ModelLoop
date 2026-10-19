@@ -43,7 +43,7 @@ import {
 import {
   formatDate,
   pickSuggestions,
-  GREETINGS,
+  greetingLines,
   PERSONALITY_TIP,
   timeGreeting,
   friendlyError,
@@ -319,7 +319,7 @@ function Chat({
   const { deletingIds, renameState, editState } = interactionState;
 
   const chatSubline = useMemo(() => {
-    const lines = isGuest ? GREETINGS : [...GREETINGS, PERSONALITY_TIP];
+    const lines = isGuest ? greetingLines() : [...greetingLines(), PERSONALITY_TIP];
     return lines[Math.floor(Math.random() * lines.length)];
   }, [isGuest]);
 
@@ -1592,6 +1592,7 @@ function Chat({
                       activeTool={
                         idx === messages.length - 1 ? activeTool : null
                       }
+                      streaming={idx === messages.length - 1 && loading}
                       onRetry={handleRetry}
                     />
                   ) : (

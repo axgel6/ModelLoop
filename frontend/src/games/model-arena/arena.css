@@ -13,7 +13,7 @@
   padding: 16px 16px 14px;
   color: var(--game-ink);
   font-family: var(--ui-font);
-  animation: fade-in 0.2s ease-out both;
+  animation: page-rise 0.2s ease-out backwards;
 }
 
 /* Themed layouts float the top bar over the content */

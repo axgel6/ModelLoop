@@ -4,6 +4,8 @@
 
 :root {
   --ui-font: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+  /* The app's one spring: unhurried, with a small overshoot before it settles */
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
   font-family: var(--ui-font);
 
@@ -798,18 +800,45 @@ html[data-theme="meadow"] .connection-banner {
 
 /* ---- Image preview strip ---- */
 
+/* Notes for things that didn't work (an upload, the microphone, a sign-in field). They are
+   a soft amber in each theme's own palette, never red: nothing here is an emergency. Red is
+   kept for the confirmations that delete something. */
+:root {
+  --note-ink: #e3b36a;
+  --note-bg: rgba(250, 189, 47, 0.08);
+  --note-border: rgba(250, 189, 47, 0.2);
+}
+
+:root:where([data-theme="frost"]) {
+  --note-ink: #ebcb8b;
+  --note-bg: rgba(235, 203, 139, 0.08);
+  --note-border: rgba(235, 203, 139, 0.2);
+}
+
+:root:where([data-theme="dune"]) {
+  --note-ink: #9a5b2c;
+  --note-bg: rgba(217, 119, 87, 0.08);
+  --note-border: rgba(217, 119, 87, 0.22);
+}
+
+:root:where([data-theme="meadow"]) {
+  --note-ink: #7a6a2a;
+  --note-bg: rgba(196, 160, 60, 0.1);
+  --note-border: rgba(196, 160, 60, 0.26);
+}
+
 .image-error-banner {
   padding: 6px 12px;
   font-size: 0.78rem;
-  color: #fb4934;
-  background: rgba(251, 73, 52, 0.08);
-  border-radius: 6px;
+  color: var(--note-ink);
+  background: var(--note-bg);
+  border: 1px solid var(--note-border);
+  border-radius: 999px;
   margin: 6px 12px 0;
 }
 
-:where(html[data-theme="frost"]) .image-error-banner {
-  color: #bf616a;
-  background: rgba(191, 97, 106, 0.08);
+.calm-note {
+  color: var(--note-ink);
 }
 
 .image-preview-strip {
@@ -1062,7 +1091,7 @@ html[data-theme="meadow"] .connection-banner {
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  animation: dropdown-up 0.13s ease-out both;
+  animation: dropdown-up 0.26s var(--spring) both;
 }
 
 :where(html[data-theme="frost"]) .tools-dropdown-menu {
@@ -1134,24 +1163,6 @@ html[data-theme="meadow"] .connection-banner {
 
 .tools-dropdown-item.active .tools-dropdown-item-desc {
   color: #665c54;
-}
-
-.docs-item-delete {
-  background: none;
-  border: none;
-  color: #ebdbb2;
-  cursor: pointer;
-  font-size: 0.68rem;
-  padding: 2px 4px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  line-height: 1;
-  transition: background 0.1s;
-}
-
-.docs-item-delete:hover {
-  color: #ebdbb2;
-  background: rgba(235, 219, 178, 0.1);
 }
 
 /* Docs dropdown */
@@ -2075,7 +2086,7 @@ html[data-theme="meadow"] .connection-banner {
   white-space: pre-wrap;
   max-height: 300px;
   overflow-y: auto;
-  animation: dropdown-up 0.15s ease-out both;
+  animation: dropdown-up 0.26s var(--spring) both;
 }
 
 :where(html[data-theme="frost"]) .reasoning-content {
@@ -2586,6 +2597,18 @@ html[data-theme="meadow"] .tool-indicator {
   }
 }
 
+/* An entrance for pages full of glass. Fading a container's opacity stops the glass inside it
+   from blurring what is behind until the fade ends, so the blur popped in late; a short rise
+   moves it instead. Use with fill-mode backwards, so no transform is left on the page after. */
+@keyframes page-rise {
+  from {
+    transform: translateY(6px);
+  }
+  to {
+    transform: none;
+  }
+}
+
 @keyframes fade-out {
   from {
     opacity: 1;
@@ -3050,27 +3073,10 @@ html[data-theme="meadow"] .sidebar-section-divider {
 }
 
 .spotlight-box {
-  width: 500px;
-  max-width: calc(80vw / var(--ui-scale, 1));
   pointer-events: auto;
   position: relative;
   z-index: 1;
-  background: linear-gradient(
-    to bottom,
-    rgba(5, 4, 3, 0.98) 0%,
-    rgba(8, 6, 4, 0.92) 40%,
-    rgba(12, 9, 6, 0.50) 75%,
-    rgba(14, 10, 7, 0.15) 100%
-  );
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  border-radius: 100px;
-  box-shadow:
-    0 6px 28px rgba(0, 0, 0, 0.45),
-    0 1px 6px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
   overflow: hidden;
-  animation: spotlight-drop-in 0.18s cubic-bezier(0.34, 1.15, 0.64, 1);
 }
 
 :where(html[data-theme="frost"]) .spotlight-box {
@@ -3083,10 +3089,6 @@ html[data-theme="meadow"] .sidebar-section-divider {
   );
 }
 
-.spotlight-box.has-results {
-  border-radius: 20px;
-}
-
 @keyframes spotlight-drop-in {
   from { opacity: 0; transform: scale(0.97) translateY(-4px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -3095,8 +3097,6 @@ html[data-theme="meadow"] .sidebar-section-divider {
 .spotlight-input-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 20px;
 }
 
 .spotlight-input {
@@ -3116,20 +3116,16 @@ html[data-theme="meadow"] .sidebar-section-divider {
 }
 
 .spotlight-input-row .spotlight-input {
-  padding: 20px 0;
   flex: 1;
   width: auto;
   min-width: 0;
 }
 
 .spotlight-input::placeholder {
-  color: rgba(255, 255, 255, 0.30);
   font-weight: 400;
 }
 
 .spotlight-results {
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  padding: 6px;
   max-height: 340px;
   overflow-y: auto;
 }
@@ -3138,15 +3134,9 @@ html[data-theme="meadow"] .sidebar-section-divider {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 12px;
-  border-radius: 10px;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
-}
-
-.spotlight-result-item.active {
-  background: rgba(255, 255, 255, 0.08);
 }
 
 .spotlight-result-icon {
@@ -3156,9 +3146,7 @@ html[data-theme="meadow"] .sidebar-section-divider {
 
 .spotlight-result-title {
   flex: 1;
-  font-size: 0.88rem;
   font-family: var(--ui-font);
-  color: rgba(255, 255, 255, 0.78);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3168,7 +3156,6 @@ html[data-theme="meadow"] .sidebar-section-divider {
   flex-shrink: 0;
   font-size: 0.72rem;
   font-family: var(--ui-font);
-  color: rgba(255, 255, 255, 0.28);
 }
 
 .chat-topbar .topbar-icon-btn {
@@ -3360,7 +3347,7 @@ html[data-theme="meadow"] .sidebar-section-divider {
   padding: 28px 16px 80px;
   text-align: center;
   margin: auto;
-  animation: empty-state-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: empty-state-in 0.42s var(--spring) both;
 }
 
 .empty-title {
@@ -3398,7 +3385,7 @@ html[data-theme="meadow"] .sidebar-section-divider {
     border-color 0.15s,
     color 0.15s,
     background 0.15s;
-  animation: chip-in 0.2s ease-out both;
+  animation: chip-in 0.32s var(--spring) both;
 }
 
 :where(html[data-theme="frost"]) .suggestion-chip {
@@ -3778,7 +3765,7 @@ html[data-theme="meadow"] .sidebar-section-divider {
   box-shadow:
     0 -6px 24px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  animation: dropdown-up 0.13s ease-out both;
+  animation: dropdown-up 0.26s var(--spring) both;
 }
 
 :where(html[data-theme="frost"]) .slash-dropdown {
@@ -3875,7 +3862,6 @@ html[data-theme="meadow"] .sidebar-section-divider {
   width: 92%;
   max-width: 720px;
   height: 560px;
-  background: #282828;
   border: 1px solid rgba(80, 73, 69, 0.5);
   border-radius: 16px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
@@ -4759,7 +4745,6 @@ html[data-theme] .pref-info-btn.active {
 /* ---- Theme cards ---- */
 
 .pref-theme-cards {
-  display: flex;
   gap: 14px;
 }
 
@@ -5096,61 +5081,41 @@ html[data-theme] .pref-info-btn.active {
 /* ---- Dune theme overrides ---- */
 
 html[data-theme="dune"] .empty-title {
-  font-size: clamp(1.05rem, 3vw, 1.5rem);
-  font-weight: 600;
   color: #ba6444;
   margin: 0;
 }
 
 html[data-theme="ember"] .empty-title {
-  font-size: clamp(1.05rem, 3vw, 1.5rem);
-  font-weight: 600;
   color: #fbf1c7;
   margin: 0;
 }
 
 html[data-theme="frost"] .empty-title {
-  font-size: clamp(1.05rem, 3vw, 1.5rem);
-  font-weight: 600;
   color: #82bdce;
   margin: 0;
 }
 
 html[data-theme="meadow"] .empty-title {
-  font-size: clamp(1.05rem, 3vw, 1.5rem);
-  font-weight: 600;
   color: #457c62;
   margin: 0;
 }
 
 html[data-theme="dune"] .pref-modal {
-  background: #ffffff;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   border: 1px solid #e7e0d6;
   box-shadow: 0 8px 40px rgba(28, 25, 23, 0.12);
 }
 
 html[data-theme="ember"] .pref-modal {
-  background: #32302f;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   border: 1px solid #504945;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
 }
 
 html[data-theme="frost"] .pref-modal {
-  background: #373e4d;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   border: 1px solid #495366;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
 }
 
 html[data-theme="meadow"] .pref-modal {
-  background: #ffffff;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   border: 1px solid #d6e7db;
   box-shadow: 0 8px 40px rgba(41, 66, 49, 0.12);
 }
@@ -6966,10 +6931,6 @@ html[data-theme="frost"] .pref-about-link {
   color: #82bdce;
 }
 
-html[data-theme="meadow"] .pref-about-link {
-  color: #b45309;
-}
-
 html[data-theme="dune"] .pref-about-link:hover {
   color: #92400e;
 }
@@ -6980,10 +6941,6 @@ html[data-theme="ember"] .pref-about-link:hover {
 
 html[data-theme="frost"] .pref-about-link:hover {
   color: #82bdce;
-}
-
-html[data-theme="meadow"] .pref-about-link:hover {
-  color: #92400e;
 }
 
 html[data-theme="dune"] .pref-about-disclaimer {
@@ -7325,11 +7282,11 @@ html[data-theme="meadow"] .pref-close-btn:hover {
 }
 
 .login-error {
-  color: #fb4934;
+  color: var(--note-ink);
   font-size: 0.8rem;
-  background: rgba(251, 73, 52, 0.08);
-  border: 1px solid rgba(251, 73, 52, 0.25);
-  border-radius: 25px;
+  background: var(--note-bg);
+  border: 1px solid var(--note-border);
+  border-radius: 999px;
   padding: 8px 12px;
   margin: 0;
 }
@@ -9071,20 +9028,12 @@ html[data-theme="meadow"] .chat-textarea {
   color: #294231;
 }
 
-html[data-theme="dune"] .chat-textarea::placeholder {
-  color: #a8a29e;
-}
-
 html[data-theme="ember"] .chat-textarea::placeholder {
   color: #928374;
 }
 
 html[data-theme="frost"] .chat-textarea::placeholder {
   color: #8f99ad;
-}
-
-html[data-theme="meadow"] .chat-textarea::placeholder {
-  color: #68766d;
 }
 
 html[data-theme="dune"] .chat-textarea:disabled {
@@ -9117,7 +9066,6 @@ html[data-theme="meadow"] .input-toolbar {
 }
 
 html[data-theme="dune"] .toolbar-icon-btn {
-  color: #a8a29e;
   background: none !important;
   border: none;
   box-shadow: none !important;
@@ -9138,7 +9086,6 @@ html[data-theme="frost"] .toolbar-icon-btn {
 }
 
 html[data-theme="meadow"] .toolbar-icon-btn {
-  color: #68766d;
   background: none !important;
   border: none;
   box-shadow: none !important;
@@ -9169,7 +9116,6 @@ html[data-theme="meadow"] .toolbar-icon-btn:hover {
 }
 
 html[data-theme="dune"] .toolbar-chip-btn {
-  color: #a8a29e;
   background: none !important;
   border: none;
   box-shadow: none !important;
@@ -9190,7 +9136,6 @@ html[data-theme="frost"] .toolbar-chip-btn {
 }
 
 html[data-theme="meadow"] .toolbar-chip-btn {
-  color: #68766d;
   background: none !important;
   border: none;
   box-shadow: none !important;
@@ -9220,26 +9165,6 @@ html[data-theme="meadow"] .toolbar-chip-btn:hover {
   box-shadow: none !important;
 }
 
-html[data-theme="dune"] .toolbar-dock-label {
-  background: rgba(28, 25, 23, 0.88);
-  color: #fafaf9;
-}
-
-html[data-theme="ember"] .toolbar-dock-label {
-  background: rgba(235, 219, 178, 0.88);
-  color: #282828;
-}
-
-html[data-theme="frost"] .toolbar-dock-label {
-  background: rgba(225, 229, 238, 0.88);
-  color: #353c4a;
-}
-
-html[data-theme="meadow"] .toolbar-dock-label {
-  background: rgba(41, 66, 49, 0.88);
-  color: #fafaf9;
-}
-
 html[data-theme="dune"] .toolbar-dock-label::after {
   border-top-color: rgba(28, 25, 23, 0.88);
 }
@@ -9256,28 +9181,11 @@ html[data-theme="meadow"] .toolbar-dock-label::after {
   border-top-color: rgba(41, 66, 49, 0.88);
 }
 
-html[data-theme="dune"] .input-toolbar .ask-button {
-  color: #d97757;
-}
-
-html[data-theme="ember"] .input-toolbar .ask-button {
-  color: #b8bb26;
-}
-
-html[data-theme="frost"] .input-toolbar .ask-button {
-  color: #9bcad8;
-}
-
-html[data-theme="meadow"] .input-toolbar .ask-button {
-  color: #46a177;
-}
-
 /* ---- Suggestion chips ---- */
 
 html[data-theme="dune"] .suggestion-chip {
   background: #f5ede3;
   border-color: #e7e0d6;
-  color: #78716c;
   box-shadow: none;
 }
 
@@ -9298,7 +9206,6 @@ html[data-theme="frost"] .suggestion-chip {
 html[data-theme="meadow"] .suggestion-chip {
   background: #ddf3e4;
   border-color: #d6e7db;
-  color: #52635a;
   box-shadow: none;
 }
 
@@ -9362,19 +9269,6 @@ html[data-theme="meadow"] .slash-dropdown {
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
-html[data-theme="dune"] .tools-dropdown-menu {
-  border-radius: 14px;
-}
-
-html[data-theme="ember"] .tools-dropdown-menu,
-html[data-theme="frost"] .tools-dropdown-menu {
-  border-radius: 14px;
-}
-
-html[data-theme="meadow"] .tools-dropdown-menu {
-  border-radius: 14px;
-}
-
 html[data-theme="dune"] .slash-dropdown {
   border-radius: 12px;
   box-shadow:
@@ -9404,7 +9298,6 @@ html[data-theme="dune"] .slash-item {
   border: 1px solid transparent !important;
   background: transparent !important;
   box-shadow: none !important;
-  border-radius: 10px;
 }
 
 html[data-theme="ember"] .tools-dropdown-item,
@@ -9414,7 +9307,6 @@ html[data-theme="ember"] .slash-item {
   border: 1px solid transparent !important;
   background: transparent !important;
   box-shadow: none !important;
-  border-radius: 10px;
 }
 
 html[data-theme="frost"] .tools-dropdown-item,
@@ -9424,7 +9316,6 @@ html[data-theme="frost"] .slash-item {
   border: 1px solid transparent !important;
   background: transparent !important;
   box-shadow: none !important;
-  border-radius: 10px;
 }
 
 html[data-theme="meadow"] .tools-dropdown-item,
@@ -9434,7 +9325,6 @@ html[data-theme="meadow"] .slash-item {
   border: 1px solid transparent !important;
   background: transparent !important;
   box-shadow: none !important;
-  border-radius: 10px;
 }
 
 html[data-theme="dune"] .tools-dropdown-item:focus,
@@ -9772,20 +9662,12 @@ html[data-theme="meadow"] .sidebar-chat-item.active .sidebar-chat-title {
   color: #1f4a36;
 }
 
-html[data-theme="dune"] .sidebar-chat-date {
-  color: #a8a29e;
-}
-
 html[data-theme="ember"] .sidebar-chat-date {
   color: #a89984;
 }
 
 html[data-theme="frost"] .sidebar-chat-date {
   color: #a3adbf;
-}
-
-html[data-theme="meadow"] .sidebar-chat-date {
-  color: #68766d;
 }
 
 html[data-theme="dune"] .sidebar-chat-item.active .sidebar-chat-date {
@@ -10647,34 +10529,6 @@ html[data-theme="meadow"] .login-field input::placeholder {
   color: #68766d;
 }
 
-html[data-theme="dune"] .login-error {
-  color: #b91c1c;
-  background: rgba(185, 28, 28, 0.06);
-  border: 1px solid rgba(185, 28, 28, 0.18);
-  border-radius: 999px;
-}
-
-html[data-theme="ember"] .login-error {
-  color: #fb4934;
-  background: rgba(251, 73, 52, 0.06);
-  border: 1px solid rgba(251, 73, 52, 0.18);
-  border-radius: 999px;
-}
-
-html[data-theme="frost"] .login-error {
-  color: #c97880;
-  background: rgba(201, 120, 128, 0.06);
-  border: 1px solid rgba(201, 120, 128, 0.18);
-  border-radius: 999px;
-}
-
-html[data-theme="meadow"] .login-error {
-  color: #b91c1c;
-  background: rgba(185, 28, 28, 0.06);
-  border: 1px solid rgba(185, 28, 28, 0.18);
-  border-radius: 999px;
-}
-
 html[data-theme="dune"] .login-submit {
   background: linear-gradient(180deg, #e0815f 0%, #c96344 100%);
   color: #ffffff;
@@ -11114,96 +10968,19 @@ html[data-theme="meadow"] .landing-footer-link:hover {
 /* ---- Top bar ---- */
 
 html[data-theme="dune"] .chat-topbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(245, 240, 232, 0.78) 100%
-  );
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
   border-bottom: 1px solid rgba(231, 224, 214, 0.9);
-  box-shadow:
-    inset 0 -1px 0 rgba(255, 255, 255, 0.5),
-    0 2px 8px rgba(28, 25, 23, 0.06);
 }
 
 html[data-theme="ember"] .chat-topbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  background: linear-gradient(
-    180deg,
-    rgba(60, 56, 54, 0.78) 0%,
-    rgba(50, 48, 47, 0.88) 100%
-  );
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
   border-bottom: 1px solid rgba(80, 73, 69, 0.9);
-  box-shadow:
-    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
-    0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 html[data-theme="frost"] .chat-topbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  background: linear-gradient(
-    180deg,
-    rgba(62, 70, 87, 0.78) 0%,
-    rgba(55, 62, 77, 0.88) 100%
-  );
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
   border-bottom: 1px solid rgba(73, 83, 102, 0.9);
-  box-shadow:
-    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
-    0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 html[data-theme="meadow"] .chat-topbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(224, 245, 231, 0.78) 100%
-  );
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
   border-bottom: 1px solid rgba(214, 231, 219, 0.9);
-  box-shadow:
-    inset 0 -1px 0 rgba(255, 255, 255, 0.5),
-    0 2px 8px rgba(41, 66, 49, 0.06);
-}
-
-html[data-theme="dune"] .messages {
-  padding-top: 52px;
-}
-
-html[data-theme="ember"] .messages,
-html[data-theme="frost"] .messages {
-  padding-top: 52px;
-}
-
-html[data-theme="meadow"] .messages {
-  padding-top: 52px;
-}
-
-html[data-theme="dune"] .topbar-title {
-  color: #78716c;
 }
 
 html[data-theme="ember"] .topbar-title {
@@ -11214,46 +10991,22 @@ html[data-theme="frost"] .topbar-title {
   color: #b8c1cf;
 }
 
-html[data-theme="meadow"] .topbar-title {
-  color: #52635a;
-}
-
-html[data-theme="dune"] .chat-topbar .topbar-icon-btn {
-  color: #a8a29e;
-  background: transparent;
-  box-shadow: none;
-}
-
 html[data-theme="ember"] .chat-topbar .topbar-icon-btn,
 html[data-theme="frost"] .chat-topbar .topbar-icon-btn {
   color: rgba(255, 255, 255, 0.75);
-  background: transparent;
-  box-shadow: none;
-}
-
-html[data-theme="meadow"] .chat-topbar .topbar-icon-btn {
-  color: #68766d;
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="dune"] .chat-topbar .topbar-icon-btn:hover:not(:disabled) {
   color: #1c1917;
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="ember"] .chat-topbar .topbar-icon-btn:hover:not(:disabled),
 html[data-theme="frost"] .chat-topbar .topbar-icon-btn:hover:not(:disabled) {
   color: #ffffff;
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="meadow"] .chat-topbar .topbar-icon-btn:hover:not(:disabled) {
   color: #294231;
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="dune"] .topbar-dock-label {
@@ -11356,40 +11109,28 @@ html[data-theme="meadow"] .sidebar-logo {
 
 html[data-theme="dune"] .chat-sidebar .sidebar-brand-btn {
   color: #a8a29e;
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="ember"] .chat-sidebar .sidebar-brand-btn,
 html[data-theme="frost"] .chat-sidebar .sidebar-brand-btn {
   color: rgba(255, 255, 255, 0.75);
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="meadow"] .chat-sidebar .sidebar-brand-btn {
   color: #68766d;
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="dune"] .chat-sidebar .sidebar-brand-btn:hover {
   color: #1c1917;
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="ember"] .chat-sidebar .sidebar-brand-btn:hover,
 html[data-theme="frost"] .chat-sidebar .sidebar-brand-btn:hover {
   color: #ffffff;
-  background: transparent;
-  box-shadow: none;
 }
 
 html[data-theme="meadow"] .chat-sidebar .sidebar-brand-btn:hover {
   color: #294231;
-  background: transparent;
-  box-shadow: none;
 }
 
 /* ---- Send / ask button ---- */
@@ -12003,7 +11744,7 @@ html[data-theme="meadow"] .landing-theme-modal-close:hover {
 }
 
 .pref-ollama-msg--error {
-  color: #fb4934;
+  color: var(--note-ink);
 }
 
 .pref-ollama-msg--ok {
@@ -12180,22 +11921,6 @@ html[data-theme="meadow"] .pref-ollama-msg--ok {
   color: #4d7c0f;
 }
 
-html[data-theme="dune"] .pref-ollama-msg--error {
-  color: #b91c1c;
-}
-
-html[data-theme="ember"] .pref-ollama-msg--error {
-  color: #fb4934;
-}
-
-html[data-theme="frost"] .pref-ollama-msg--error {
-  color: #c97880;
-}
-
-html[data-theme="meadow"] .pref-ollama-msg--error {
-  color: #b91c1c;
-}
-
 html[data-theme="dune"] .pref-ollama-dot.online {
   background: #4d7c0f;
 }
@@ -12306,6 +12031,26 @@ html[data-font="rounded"] {
   background: #3b4252;
 }
 
+/* Halloween's card: midnight navy with the moon's amber */
+.pref-theme-preview-halloween {
+  background: #0b1024;
+}
+
+.pref-theme-preview-halloween .ptc-bar-1 {
+  width: 70%;
+  background: #e6a96b;
+}
+
+.pref-theme-preview-halloween .ptc-bar-2 {
+  width: 50%;
+  background: #2c3250;
+}
+
+.pref-theme-preview-halloween .ptc-bar-3 {
+  width: 85%;
+  background: #161b30;
+}
+
 .pref-sound-row {
   display: flex;
   align-items: center;
@@ -12382,7 +12127,7 @@ html[data-theme] .pref-font-card {
    sheet-up slide on phones), which an animation set here would replace. */
 @media (prefers-reduced-motion: no-preference) {
   html[data-theme] .tools-dropdown-menu {
-    animation: settle 0.34s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+    animation: settle 0.42s var(--spring) both;
   }
 }
 
@@ -12459,10 +12204,6 @@ html[data-theme="meadow"] {
   color: #a89984;
 }
 
-html[data-theme="dune"] .empty-subline {
-  color: #78716c;
-}
-
 html[data-theme="ember"] .empty-subline {
   color: #a89984;
 }
@@ -12471,14 +12212,10 @@ html[data-theme="frost"] .empty-subline {
   color: #a3adbf;
 }
 
-html[data-theme="meadow"] .empty-subline {
-  color: #52635a;
-}
-
 /* Messages settle into place like the menus do */
 @media (prefers-reduced-motion: no-preference) {
   html[data-theme] .message-row {
-    animation: settle 0.34s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+    animation: settle 0.42s var(--spring) both;
   }
 }
 
@@ -12790,10 +12527,6 @@ html[data-theme] .toolbar-dock-label::after {
   content: none;
 }
 
-html[data-theme="meadow"] .msg-timestamp {
-  color: #68766d;
-}
-
 /* The default dim greys nearly disappear on Ember's dark canvas */
 html[data-theme="ember"] .msg-timestamp,
 html[data-theme="frost"] .msg-timestamp {
@@ -12918,20 +12651,12 @@ html[data-theme="frost"] .sidebar-section-label {
   margin-bottom: 6px;
 }
 
-html[data-theme="dune"] .empty-hint {
-  color: #a8a29e;
-}
-
 html[data-theme="ember"] .empty-hint {
   color: #928374;
 }
 
 html[data-theme="frost"] .empty-hint {
   color: #8f99ad;
-}
-
-html[data-theme="meadow"] .empty-hint {
-  color: #7f8e85;
 }
 
 /* ============================================================
@@ -12960,7 +12685,7 @@ html[data-theme="meadow"] .empty-hint {
     0 2px 8px rgba(0, 0, 0, 0.2),
     inset 0 0 0 1px rgba(255, 255, 255, 0.06),
     inset 0 -1px 0 rgba(255, 255, 255, 0.1);
-  animation: spotlight-drop-in 0.32s cubic-bezier(0.3, 0.7, 0.3, 1);
+  animation: spotlight-drop-in 0.36s var(--spring);
 }
 
 .spotlight-box.has-results {
@@ -13049,6 +12774,42 @@ html[data-theme="meadow"] .empty-hint {
 
 .pref-volume {
   margin-top: 4px;
+}
+
+/* The switch for each kind of sound, listed under the volume */
+.pref-sound-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pref-sound-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pref-sound-name {
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+/* While a reply streams, each new paragraph, list item or code block fades up as it arrives,
+   so the reply seems to be spoken rather than dropped in. Blocks already there don't replay. */
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .assistant-content.is-revealing > *,
+  .assistant-content.is-revealing li {
+    animation: reveal-in 0.5s ease-out backwards;
+  }
 }
 
 /* Sidebar header buttons: the same glass circles as the top bar, on the same line */
@@ -13377,45 +13138,142 @@ html[data-theme] .chat-topbar .topbar-icon-btn.is-private:hover:not(:disabled) {
 
 html {
   --page-plain: #0d0c0c;
-  --sky-wash: rgba(13, 12, 12, 0.55);
-  --sky-top: rgba(13, 12, 12, 0.7);
+  --photo-wash: rgba(13, 12, 12, 0.55);
+  --photo-top: rgba(13, 12, 12, 0.7);
 }
 
 html[data-theme="ember"] {
   --page-plain: #1d2021;
-  --sky-wash: rgba(29, 32, 33, 0.55);
-  --sky-top: rgba(29, 32, 33, 0.7);
+  --photo-wash: rgba(29, 32, 33, 0.55);
+  --photo-top: rgba(29, 32, 33, 0.7);
 }
 
 html[data-theme="frost"] {
   --page-plain: #2e3440;
-  --sky-wash: rgba(46, 52, 64, 0.5);
-  --sky-top: rgba(46, 52, 64, 0.7);
+  --photo-wash: rgba(46, 52, 64, 0.5);
+  --photo-top: rgba(46, 52, 64, 0.7);
 }
 
 html[data-theme="dune"] {
   --page-plain: #faf8f5;
-  --sky-wash: rgba(250, 248, 245, 0.5);
-  --sky-top: rgba(250, 248, 245, 0.85);
+  --photo-wash: rgba(250, 248, 245, 0.5);
+  --photo-top: rgba(250, 248, 245, 0.85);
 }
 
 html[data-theme="meadow"] {
   --page-plain: #f0f8f2;
-  --sky-wash: rgba(240, 248, 242, 0.5);
-  --sky-top: rgba(240, 248, 242, 0.85);
+  --photo-wash: rgba(240, 248, 242, 0.5);
+  --photo-top: rgba(240, 248, 242, 0.85);
 }
 
-html[data-background="sky"] body,
-html[data-background="sky"][data-theme] body {
-  /* The photo's top edge is nearly black, which showed as a grey band behind the top bar,
-     so the page colour fades in over the top of it */
-  background-image:
-    linear-gradient(to bottom, var(--sky-top) 0, transparent 160px),
-    linear-gradient(var(--sky-wash), var(--sky-wash)),
-    url("./assets/skypublicdomain.jpg");
+html[data-background] body,
+html[data-background][data-theme] body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+}
+
+/* Each photo's top edge (Sky's nearly black, Dunes' bright sky) would show as a band behind the
+   top bar, so the page colour fades in over the top of it */
+html[data-background="sky"] body,
+html[data-background="sky"][data-theme] body {
+  background-image:
+    linear-gradient(to bottom, var(--photo-top) 0, transparent 160px),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/skypublicdomain.jpg");
+}
+
+/* Moon belongs to the Halloween theme alone (background.ts never sets it anywhere else, and
+   these rules also ask for data-festive). The photo is dark already, so its wash is lighter. */
+html[data-background="moon"][data-festive="halloween"] {
+  --photo-wash: rgba(11, 16, 36, 0.32);
+  --photo-top: rgba(11, 16, 36, 0.7);
+}
+
+html[data-background="moon"][data-festive="halloween"] body,
+html[data-background="moon"][data-festive="halloween"][data-theme] body {
+  background-image:
+    linear-gradient(to bottom, var(--photo-top) 0, transparent 160px),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/halloween-moon.jpg");
+}
+
+/* Dunes is toned down in the file itself (less saturated, a strip of sky cropped off) so the
+   orange sits as calmly under the wash as Sky does */
+html[data-background="dunes"] body,
+html[data-background="dunes"][data-theme] body {
+  background-image:
+    linear-gradient(to bottom, var(--photo-top) 0, transparent 160px),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/dune.jpg");
+}
+
+/* On a photo, the assistant's bubbles turn to frosted glass so a little of the picture shows
+   through. A blur can't see past a masked or fading ancestor, so here the message list drops
+   its edge fade (the top bar's progressive blur and the input bar's glass still soften the
+   edges) and new messages rise in without fading, or their blur would pop in late. */
+html[data-background] .chat-main .messages {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+html[data-background] .message-row {
+  animation: page-rise 0.42s var(--spring) backwards;
+}
+
+html[data-background] .message.assistant {
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+html[data-background][data-theme="dune"] .message.assistant {
+  background: linear-gradient(180deg, rgba(253, 248, 243, 0.74) 0%, rgba(240, 232, 218, 0.74) 100%);
+}
+
+html[data-background][data-theme="ember"] .message.assistant {
+  background: linear-gradient(180deg, rgba(60, 56, 54, 0.72) 0%, rgba(50, 48, 47, 0.72) 100%);
+}
+
+html[data-background][data-theme="frost"] .message.assistant {
+  background: linear-gradient(180deg, rgba(68, 77, 95, 0.72) 0%, rgba(58, 65, 80, 0.72) 100%);
+}
+
+html[data-background][data-theme="meadow"] .message.assistant {
+  background: linear-gradient(180deg, rgba(238, 251, 242, 0.74) 0%, rgba(218, 240, 225, 0.74) 100%);
+}
+
+/* The games list's rows and gears show the blur baked into a small copy of each photo (made
+   from the full one: resized to 680px wide, saturation 1.4, Gaussian blur radius 6) instead of
+   a live backdrop-filter, so the list is frosted from its first frame. Fixed to the viewport and
+   sized like the page's own, it lines up with the photo behind, under the theme's wash and glass. */
+html[data-background="sky"][data-theme] .games-hub .game-card,
+html[data-background="sky"][data-theme] .games-hub .game-card-settings {
+  background:
+    var(--glass-bg),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/skypublicdomain-blur.jpg") center / cover no-repeat fixed;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-background="moon"][data-festive="halloween"] .games-hub .game-card,
+html[data-background="moon"][data-festive="halloween"] .games-hub .game-card-settings {
+  background:
+    var(--glass-bg),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/halloween-moon-blur.jpg") center / cover no-repeat fixed;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-background="dunes"][data-theme] .games-hub .game-card,
+html[data-background="dunes"][data-theme] .games-hub .game-card-settings {
+  background:
+    var(--glass-bg),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/dune-blur.jpg") center / cover no-repeat fixed;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* The picker: theme cards with a square preview of each background */
@@ -13432,8 +13290,20 @@ html[data-background="sky"][data-theme] body {
 
 .pref-bg-preview-sky {
   background-image:
-    linear-gradient(var(--sky-wash), var(--sky-wash)),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
     url("./assets/skypublicdomain.jpg");
+}
+
+.pref-bg-preview-moon {
+  background-image:
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/halloween-moon.jpg");
+}
+
+.pref-bg-preview-dunes {
+  background-image:
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/dune.jpg");
 }
 
 /* Light themes: the faint greys (timestamps, the message box's placeholder and icons, chat

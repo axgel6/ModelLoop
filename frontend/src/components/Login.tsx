@@ -49,22 +49,22 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
     setError("");
 
     if (!email.trim() || !password.trim()) {
-      setError("Email and password are required.");
+      setError("Add your email and password to continue.");
       return;
     }
 
     if (!isLogin && password !== confirm) {
-      setError("Passwords do not match.");
+      setError("Those passwords don't match yet.");
       return;
     }
 
     if (!isLogin && password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError("Your password needs at least 8 characters.");
       return;
     }
 
     if (!isLogin && !fullName.trim()) {
-      setError("Name is required.");
+      setError("What should we call you? Add a name to continue.");
       return;
     }
 
@@ -79,7 +79,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
       scheduleProactiveRefresh();
       onLogin();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : "That didn't go through. Want to try again?");
     } finally {
       setLoading(false);
     }

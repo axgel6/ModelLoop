@@ -85,6 +85,40 @@ function Pre({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MD_COMPONENTS = { pre: Pre as any };
 
+// Tokens arrive in bursts. While a reply streams, this shows it flowing out at an even pace
+// instead: each frame reveals a share of what is still hidden, so a burst is spread over a few
+// frames and a long backlog still catches up quickly. Text that was already there when the
+// message appeared (a saved chat) shows at once.
+const REVEAL_SHARE = 0.14;
+const REVEAL_MIN = 2;
+
+function useSmoothText(text: string, streaming: boolean): string {
+  const [shown, setShown] = useState(streaming ? "" : text);
+  const target = useRef(text);
+  target.current = text;
+
+  // Anything that is not the shown text carrying on (a retry, an edit) starts over
+  if (!text.startsWith(shown)) setShown(streaming ? "" : text);
+
+  const behind = shown.length < text.length;
+  useEffect(() => {
+    if (!behind) return;
+    let frame = requestAnimationFrame(function step() {
+      setShown((prev) => {
+        const full = target.current;
+        if (!full.startsWith(prev)) return full;
+        const backlog = full.length - prev.length;
+        if (backlog <= 0) return prev;
+        return full.slice(0, prev.length + Math.max(REVEAL_MIN, Math.ceil(backlog * REVEAL_SHARE)));
+      });
+      frame = requestAnimationFrame(step);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [behind]);
+
+  return shown;
+}
+
 // No trailing dots: the swaying leaves next to the phrase do that job.
 const THINKING_PHRASES = [
   "Thinking it over",
@@ -101,6 +135,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   canRetry,
   isThinking,
   activeTool,
+  streaming,
   onRetry,
 }: {
   msg: Message;
@@ -108,8 +143,11 @@ export const AssistantMessage = memo(function AssistantMessage({
   canRetry: boolean;
   isThinking: boolean;
   activeTool: string | null;
+  streaming: boolean;
   onRetry: () => void;
 }) {
+  const shownContent = useSmoothText(msg.content, streaming);
+  const revealing = streaming || shownContent.length < msg.content.length;
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
@@ -157,7 +195,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   return (
     <div className="msg-bubble-group">
       <div className="message assistant">
-        <div className="assistant-content">
+        <div className={`assistant-content${revealing ? " is-revealing" : ""}`}>
           {msg.thinking && (
             <div className="reasoning-block">
               <button
@@ -256,7 +294,7 @@ export const AssistantMessage = memo(function AssistantMessage({
               rehypePlugins={[rehypeKatex, rehypeHighlight]}
               components={MD_COMPONENTS}
             >
-              {fixMathDelimiters(msg.content)}
+              {fixMathDelimiters(shownContent)}
             </ReactMarkdown>
           )}
         </div>

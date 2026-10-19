@@ -13,7 +13,7 @@
   padding: 16px 16px 14px;
   color: var(--game-ink);
   font-family: var(--ui-font);
-  animation: fade-in 0.2s ease-out both;
+  animation: page-rise 0.2s ease-out backwards;
 }
 
 /* Themed layouts float the top bar over the content */
@@ -2761,9 +2761,7 @@ html .neg-browser .neg-saved-filter:disabled {
 }
 
 .neg-badge-grid {
-  display: flex;
   flex-wrap: wrap;
-  gap: 6px;
 }
 
 .neg-profile-top {
@@ -2875,7 +2873,6 @@ html .neg-browser .neg-badge-tile.is-open:hover {
 /* The review tabs, flat inside the profile rather than a floating bar */
 .neg-profile .neg-modes {
   margin: 4px 0 0;
-  box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }

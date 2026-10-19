@@ -1,3 +1,5 @@
+import { holiday, season, SEASON_LINES } from "../../season";
+
 export function fixMathDelimiters(text: string): string {
   text = text
     .replace(/\\\[(.+?)\\\]/gs, (_, c) => `$$${c.trim()}$$`)
@@ -105,14 +107,35 @@ export function dayPart(date = new Date()): DayPart {
   return "night";
 }
 
-// "Good morning, Angel." Uses the first name only; guests get the greeting alone.
+// A line for each part of the day, joining the rotation under the greeting.
+const DAYPART_LINES: Record<DayPart, string[]> = {
+  morning: ["A fresh start. What's first today?"],
+  day: ["How's the day going? I'm here if you need a hand."],
+  evening: ["Winding down? Happy to help with anything, big or small."],
+  night: ["Quiet hours. What's keeping you up?"],
+};
+
+// Everything that can sit under the greeting right now: the usual lines, one for this part of
+// the day and one for the season
+export function greetingLines(date = new Date()): string[] {
+  return [...GREETINGS, ...DAYPART_LINES[dayPart(date)], ...SEASON_LINES[season(date)]];
+}
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// "Good morning, Angel." Uses the first name only; guests get the greeting alone. A holiday
+// has its own hello, and so do weekend afternoons and Friday evenings.
 export function timeGreeting(name?: string | null, date = new Date()): string {
   const h = date.getHours();
+  const day = date.getDay();
+  const weekend = day === 0 || day === 6;
   const hello =
-    h < 5 ? "Up late"
+    holiday(date)?.hello ??
+    (h < 5 ? "Up late"
     : h < 11 ? "Good morning"
-    : h < 17 ? "Good afternoon"
-    : "Good evening";
+    : h < 17 ? (weekend ? `Happy ${WEEKDAYS[day]}` : "Good afternoon")
+    : day === 5 && h < 21 ? "Happy Friday"
+    : "Good evening");
   const first = name?.trim().split(/\s+/)[0];
   return first ? `${hello}, ${first}.` : `${hello}.`;
 }
@@ -131,9 +154,9 @@ export function friendlyError(raw: string): string {
   if ((m.includes("404") && m.includes("api/chat")) || (m.includes("model") && m.includes("not found")))
     return "I couldn't find that model on the server. Try picking another one in Preferences.";
   if (m.includes("an error occurred") || m.includes("failed to get response"))
-    return "Something went wrong on my end. Want to try again?";
+    return "Something got tangled on my end. Want to try again?";
   if (m.startsWith("i couldn't") || m.startsWith("that ")) return raw;
-  return `Something went wrong: ${raw}`;
+  return `That didn't quite work (${raw}). Want to try again?`;
 }
 
 // Picks white or near-black text for a hex background, whichever contrasts more

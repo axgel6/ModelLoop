@@ -150,6 +150,8 @@ html[data-theme="meadow"] {
   padding: 24px 20px 32px;
   color: var(--game-ink);
   font-family: var(--ui-font);
+  /* A fade, not page-rise: the rows' baked blur is pinned to the viewport, and a transform on
+     the list would unpin it until the animation ends, so the blur jumped into place */
   animation: fade-in 0.2s ease-out both;
 }
 

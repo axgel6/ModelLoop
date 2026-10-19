@@ -317,7 +317,7 @@ export function useVoiceConversation({
 
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
-      setError("Speech recognition is not supported in this browser.");
+      setError("Voice chat isn't available in this browser, but typing works just fine.");
       isActiveRef.current = false;
       setIsActive(false);
       setStatusSync("idle");
@@ -350,7 +350,7 @@ export function useVoiceConversation({
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       if (event.error === "not-allowed") {
-        setError("Microphone access denied. Enable it in macOS System Settings → Privacy & Security → Microphone.");
+        setError("I can't hear you yet. Allow the microphone in System Settings, under Privacy & Security, then Microphone.");
         clearSilenceTimer();
         isActiveRef.current = false;
         setIsActive(false);

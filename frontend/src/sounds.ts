@@ -6,6 +6,38 @@ export type SoundName = "tick" | "pop" | "send" | "done" | "warn" | "stop" | "sp
 
 const STORAGE_KEY = "sound_fx";
 const VOLUME_KEY = "sound_volume";
+
+// While sound is on, each kind of sound has its own switch. Taps and replies start on;
+// typing and hovering are extras, off until chosen.
+export type SoundGroup = "clicks" | "replies" | "typing" | "hover";
+
+export const SOUND_GROUPS: { id: SoundGroup; label: string; desc: string }[] = [
+  { id: "clicks", label: "Taps and clicks", desc: "Buttons, toggles, sparkles and game moments." },
+  { id: "replies", label: "Replies", desc: "Sending, the soft voice as a reply comes in, and its finish." },
+  { id: "typing", label: "Typing", desc: "A soft tap for each key as you type." },
+  { id: "hover", label: "Hovering", desc: "A low note when the pointer finds a button." },
+];
+
+const GROUP_KEYS: Record<SoundGroup, string> = {
+  clicks: "sound_clicks",
+  replies: "sound_replies",
+  typing: "typing_sounds",
+  hover: "sound_hover",
+};
+
+const GROUP_DEFAULTS: Record<SoundGroup, boolean> = {
+  clicks: true,
+  replies: true,
+  typing: false,
+  hover: false,
+};
+
+const GROUP_OF: Record<SoundName, SoundGroup> = {
+  tick: "clicks", pop: "clicks", sparkle: "clicks", warn: "clicks",
+  lock: "clicks", unlock: "clicks", think: "clicks", unthink: "clicks",
+  pay: "clicks", declined: "clicks",
+  send: "replies", done: "replies", stop: "replies",
+};
 // The slider's starting point. The note volumes below were tuned at this setting,
 // so the master gain is the chosen volume relative to it.
 const DEFAULT_VOLUME = 0.6;
@@ -58,6 +90,21 @@ const CLICKS: Partial<Record<SoundName, Click[]>> = {
 const BABBLE_NOTES = [C4, D4, E4, G4, A4];
 const BABBLE_GAP_MS = 85;
 
+// Every sound is played a few percent sharp or flat at random, so a sound heard over and over
+// never comes out mechanically identical. Small enough that the pentatonic chords stay sweet.
+const PITCH_SPREAD = 0.04;
+const drift = () => 1 + (Math.random() * 2 - 1) * PITCH_SPREAD;
+
+// Typing: a creamy "thock", like a well-damped keyboard. A wide, low band of noise for the key
+// landing and a quick low thump under it, with nothing bright or clacky on top.
+const KEY_BAND_HZ = 260;
+const KEY_THUMP_HZ = 120;
+const KEY_GAP_MS = 30;
+// Hovering something you can press: a soft, low note eased in rather than struck, held back
+// while the pointer sweeps
+const HOVER_NOTES = [C4, D4, E4];
+const HOVER_GAP_MS = 70;
+
 class SoundManager {
   private ctx: AudioContext | null = null;
   private out: AudioNode | null = null;
@@ -66,14 +113,47 @@ class SoundManager {
   private lastName: SoundName | null = null;
   private lastAt = 0;
   private lastBabble = 0;
+  private lastKey = 0;
+  private lastHover = 0;
 
-  // On until the user turns it off; their choice is remembered in this browser.
+  // Off until the user turns it on; their choice is remembered in this browser.
   isEnabled(): boolean {
-    return localStorage.getItem(STORAGE_KEY) !== "off";
+    try {
+      return localStorage.getItem(STORAGE_KEY) === "on";
+    } catch {
+      return false;
+    }
   }
 
   setEnabled(on: boolean) {
-    localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
+    try {
+      localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
+    } catch {
+      // private mode: it lasts until the page closes
+    }
+  }
+
+  // One kind of sound's own switch, as set in Preferences (see GROUP_DEFAULTS when unset)
+  isGroupOn(group: SoundGroup): boolean {
+    try {
+      const stored = localStorage.getItem(GROUP_KEYS[group]);
+      return stored === null ? GROUP_DEFAULTS[group] : stored === "on";
+    } catch {
+      return GROUP_DEFAULTS[group];
+    }
+  }
+
+  setGroupOn(group: SoundGroup, on: boolean) {
+    try {
+      localStorage.setItem(GROUP_KEYS[group], on ? "on" : "off");
+    } catch {
+      // private mode: it lasts until the page closes
+    }
+  }
+
+  // Whether a kind of sound is heard now: sound on, and that kind on
+  private allows(group: SoundGroup): boolean {
+    return this.isEnabled() && this.isGroupOn(group);
   }
 
   // 0 to 1, remembered in this browser.
@@ -89,7 +169,7 @@ class SoundManager {
   }
 
   play(name: SoundName) {
-    if (!this.isEnabled()) return;
+    if (!this.allows(GROUP_OF[name])) return;
     // One click can reach here twice (a global handler plus a local one).
     const now = performance.now();
     if (name === this.lastName && now - this.lastAt < 60) return;
@@ -98,8 +178,10 @@ class SoundManager {
 
     try {
       this.ready();
-      for (const note of SOUNDS[name]) this.note(...note);
-      for (const click of CLICKS[name] ?? []) this.click(...click);
+      // One drift for the whole sound, so its notes keep their intervals
+      const pitch = drift();
+      for (const [freq, ...rest] of SOUNDS[name]) this.note(freq * pitch, ...rest);
+      for (const [freq, ...rest] of CLICKS[name] ?? []) this.click(freq * pitch, ...rest);
     } catch {
       // No audio available (or blocked before a user gesture): stay silent.
     }
@@ -108,7 +190,7 @@ class SoundManager {
   // Call once per streamed token. Tokens arrive far faster than this should sound,
   // so it voices at most one very quiet blip every BABBLE_GAP_MS.
   babble() {
-    if (!this.isEnabled()) return;
+    if (!this.allows("replies")) return;
     const now = performance.now();
     if (now - this.lastBabble < BABBLE_GAP_MS) return;
     this.lastBabble = now;
@@ -116,6 +198,38 @@ class SoundManager {
       this.ready();
       const base = BABBLE_NOTES[Math.floor(Math.random() * BABBLE_NOTES.length)];
       this.note(base * (0.97 + Math.random() * 0.06), 0, 0.07, 0.022);
+    } catch {
+      // stay silent
+    }
+  }
+
+  // Call on each key typed into a text field. Fast typing is thinned out, not queued.
+  key() {
+    if (!this.allows("typing")) return;
+    const now = performance.now();
+    if (now - this.lastKey < KEY_GAP_MS) return;
+    this.lastKey = now;
+    try {
+      this.ready();
+      // Both swell in over a few ms: a hard edge on the noise is what made it a typewriter
+      this.click(KEY_BAND_HZ * drift(), 0, 0.05, 0.14, 0.7, 0.005);
+      this.note(KEY_THUMP_HZ * drift(), 0, 0.07, 0.045, 0.006);
+    } catch {
+      // stay silent
+    }
+  }
+
+  // Call when the pointer comes onto something pressable.
+  hover() {
+    // Browsers only allow audio after a press, so hovers stay silent until the first one has
+    // started it, rather than starting it early and getting blocked
+    if (!this.allows("hover") || !this.ctx) return;
+    const now = performance.now();
+    if (now - this.lastHover < HOVER_GAP_MS) return;
+    this.lastHover = now;
+    try {
+      this.ready();
+      this.note(HOVER_NOTES[Math.floor(Math.random() * HOVER_NOTES.length)] * drift(), 0, 0.16, 0.022, 0.03);
     } catch {
       // stay silent
     }
@@ -136,8 +250,9 @@ class SoundManager {
     if (this.ctx.state === "suspended") void this.ctx.resume();
   }
 
-  // White noise through a narrow band-pass, snapping on and dying away within a few ms.
-  private click(freq: number, delay: number, length: number, volume: number) {
+  // White noise through a band-pass (narrow by default), snapping on (or swelling in, given an
+  // attack) and dying away within a few ms.
+  private click(freq: number, delay: number, length: number, volume: number, q = 3, attack = 0) {
     const ctx = this.ctx!;
     if (!this.noise) {
       // A tenth of a second covers any click, and the buffer is reused for all of them
@@ -151,22 +266,28 @@ class SoundManager {
     const band = ctx.createBiquadFilter();
     band.type = "bandpass";
     band.frequency.value = freq;
-    band.Q.value = 3;
+    band.Q.value = q;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(volume, start);
+    if (attack > 0) {
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(volume, start + attack);
+    } else {
+      gain.gain.setValueAtTime(volume, start);
+    }
     gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
     source.connect(band).connect(gain).connect(this.out!);
     source.start(start);
     source.stop(start + length + 0.01);
   }
 
-  // A sine with a quiet octave above it, struck quickly and left to ring out.
-  private note(freq: number, delay: number, length: number, volume: number) {
+  // A sine with a quiet octave above it, struck quickly (or eased in, with a longer attack) and
+  // left to ring out.
+  private note(freq: number, delay: number, length: number, volume: number, attack = 0.012) {
     const ctx = this.ctx!;
     const start = ctx.currentTime + delay;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(volume, start + attack);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
     gain.connect(this.out!);
 

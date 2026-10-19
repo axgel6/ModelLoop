@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import "highlight.js/styles/github-dark.css";
 import App from "./App.tsx";
 import { haptics } from "./haptics";
+import { sounds } from "./sounds";
 import { isEmptySpaceClick, sparkleAt } from "./sparkle";
 import { initStretchy } from "./stretchy";
 import { background } from "./background";
@@ -95,6 +96,30 @@ document.addEventListener(
 // detail, so nothing pressed with a pointer gets its feedback twice
 document.addEventListener("click", (e) => {
   if (e.detail === 0) feedback(e);
+});
+
+// ---- Typing: a soft tap per key in a text field, when turned on in Preferences ----
+const TYPED_FIELD = "textarea, input:not([type]), input[type='text'], input[type='search'], input[type='email'], input[type='password']";
+document.addEventListener("keydown", (e) => {
+  const target = e.target as HTMLElement;
+  if (!target.matches?.(TYPED_FIELD) || e.metaKey || e.ctrlKey || e.altKey) return;
+  // Characters, plus the keys that change the text; arrows, Shift, Tab and the rest stay quiet
+  if (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete") sounds.key();
+});
+
+// ---- Hover: a faint chime on coming onto something pressable, mouse only ----
+const HOVERABLE = [
+  ".topbar-icon-btn", ".toolbar-icon-btn", ".toolbar-chip-btn", ".ask-button", ".sidebar-chat-item",
+  ".game-card", ".game-card-settings", ".suggestion-chip", ".pref-nav-item", ".pref-theme-card",
+].join(",");
+let hovered: Element | null = null;
+document.addEventListener("pointerover", (e) => {
+  if (e.pointerType !== "mouse") return;
+  const el = (e.target as Element | null)?.closest?.(HOVERABLE) ?? null;
+  // Moving between the parts inside one button is still the same button
+  if (el === hovered) return;
+  hovered = el;
+  if (el && !el.matches(":disabled")) sounds.hover();
 });
 
 // ---- Sliders: haptic tick on each step change ----

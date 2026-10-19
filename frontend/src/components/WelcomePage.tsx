@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { type Theme } from "./ChatPreferences";
 import { sounds } from "../sounds";
-import { background, BACKGROUNDS } from "../background";
+import { background, backgroundsFor } from "../background";
+import { halloweenOpen } from "../season";
 
 interface WelcomePageProps {
   onStart: () => void;
@@ -25,6 +26,7 @@ const THEMES: { id: Theme; label: string; previewClass: string }[] = [
   { id: "dune",    label: "Dune",    previewClass: "pref-theme-preview-dune" },
   { id: "ember",   label: "Ember",   previewClass: "pref-theme-preview-ember" },
   { id: "frost",    label: "Frost",    previewClass: "pref-theme-preview-frost" },
+  { id: "halloween", label: "Halloween", previewClass: "pref-theme-preview-halloween" },
 ];
 
 const STEPS: { n: string; title: string; body: React.ReactNode }[] = [
@@ -209,13 +211,14 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
             <span
               className="landing-footer-link"
               onClick={() => {
-                const i = BACKGROUNDS.findIndex((b) => b.id === bg);
-                const next = BACKGROUNDS[(i + 1) % BACKGROUNDS.length].id;
+                const list = backgroundsFor(theme === "halloween" ? "halloween" : undefined);
+                const i = list.findIndex((b) => b.id === bg);
+                const next = list[(i + 1) % list.length].id;
                 background.set(next);
                 setBg(next);
               }}
             >
-              Background: {BACKGROUNDS.find((b) => b.id === bg)?.label}
+              Background: {backgroundsFor(theme === "halloween" ? "halloween" : undefined).find((b) => b.id === bg)?.label ?? "Plain"}
             </span>
           </p>
           <p>
@@ -289,7 +292,7 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
               </button>
             </div>
             <div className="pref-theme-cards">
-              {THEMES.map((t) => (
+              {THEMES.filter((t) => t.id !== "halloween" || halloweenOpen()).map((t) => (
                 <div
                   key={t.id}
                   className={`pref-theme-card${theme === t.id ? " active" : ""}`}

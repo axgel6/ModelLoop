@@ -46,7 +46,7 @@ html[data-theme="meadow"] {
   font-family: var(--ui-font);
   font-size: 0.82rem;
   line-height: 1.5;
-  animation: fade-in 0.2s ease-out both;
+  animation: page-rise 0.2s ease-out backwards;
 }
 
 /* Themed layouts float the top bar over the content */
