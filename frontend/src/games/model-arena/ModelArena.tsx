@@ -14,6 +14,7 @@ import {
 import { BackButton } from "../BackButton";
 import type { GameProps } from "../types";
 import { CHARACTERS, DEFAULT_CHARACTERS, MODES, NO_CHARACTER, TOPICS } from "./setup";
+import { isUnhingedAllowed } from "./settings";
 import type { ArenaMode, ArenaState, ArenaSummary, SideIndex } from "./types";
 import { useDebateVoice } from "./useDebateVoice";
 import "./arena.css";
@@ -73,6 +74,8 @@ function Menu({
     { model: model ?? "", character: DEFAULT_CHARACTERS[0] },
     { model: model ?? "", character: DEFAULT_CHARACTERS[1] },
   ]);
+  // The characters on offer: Unhinged only while the game's settings allow it
+  const characters = isUnhingedAllowed() ? CHARACTERS : CHARACTERS.filter((c) => c.label !== "Unhinged");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -126,7 +129,7 @@ function Menu({
         topic: topic.trim(),
         mode,
         sides: sides.map((s) => {
-          const character = CHARACTERS.find((c) => c.label === s.character) ?? NO_CHARACTER;
+          const character = characters.find((c) => c.label === s.character) ?? NO_CHARACTER;
           return {
             model: s.model,
             character: character === NO_CHARACTER ? "" : character.label,
@@ -206,7 +209,7 @@ function Menu({
 
           <div className="arena-corners">
             {sides.map((side, i) => {
-              const character = CHARACTERS.find((c) => c.label === side.character) ?? NO_CHARACTER;
+              const character = characters.find((c) => c.label === side.character) ?? NO_CHARACTER;
               return (
                 <div key={i} className="arena-corner">
                   <Debater
@@ -238,7 +241,7 @@ function Menu({
                         value={character.label}
                         onChange={(e) => setSide(i as SideIndex, { character: e.target.value })}
                       >
-                        {CHARACTERS.map((c) => (
+                        {characters.map((c) => (
                           <option key={c.label} value={c.label}>
                             {c.label}
                           </option>

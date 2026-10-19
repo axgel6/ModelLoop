@@ -7,8 +7,12 @@ import App from "./App.tsx";
 import { haptics } from "./haptics";
 import { isEmptySpaceClick, sparkleAt } from "./sparkle";
 import { initStretchy } from "./stretchy";
+import { background } from "./background";
+import { uiScale } from "./uiScale";
 
 initStretchy();
+background.init();
+uiScale.init();
 
 // Sound, haptics and the sparkle for a press. They run the moment the pointer goes down, before
 // React re-renders anything: on "click" they waited for the whole screen to update first, which a

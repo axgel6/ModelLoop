@@ -15,7 +15,7 @@ import {
   cancelProactiveRefresh,
   type ChatMeta,
 } from "./components/api";
-import { type Theme, type Font, type TextSize } from "./components/ChatPreferences";
+import { type Theme, type Font } from "./components/ChatPreferences";
 import { useRoute } from "./router";
 import { chatIdFromPath } from "./subroute";
 import { dayPart } from "./components/utils/chatUtils";
@@ -103,30 +103,6 @@ function App() {
     return stored === "mono" || stored === "inter" ? stored : "rounded";
   });
 
-  const [textSize, setTextSizeState] = useState<TextSize>(() => {
-    const stored = localStorage.getItem("text_size");
-    return (["xs", "small", "medium", "large"] as TextSize[]).includes(stored as TextSize)
-      ? (stored as TextSize)
-      : "medium";
-  });
-
-  const setTextSize = (size: TextSize) => {
-    setTextSizeState(size);
-    localStorage.setItem("text_size", size);
-    if (size === "medium") {
-      delete document.documentElement.dataset.textSize;
-    } else {
-      document.documentElement.dataset.textSize = size;
-    }
-  };
-
-  useEffect(() => {
-    if (textSize === "medium") {
-      delete document.documentElement.dataset.textSize;
-    } else {
-      document.documentElement.dataset.textSize = textSize;
-    }
-  }, []);
 
   const [avatarColor, setAvatarColorState] = useState<string | null>(() =>
     localStorage.getItem("avatar_color"),
@@ -309,8 +285,6 @@ function App() {
           setTheme={handleSetTheme}
           font={font}
           setFont={handleSetFont}
-          textSize={textSize}
-          setTextSize={setTextSize}
           avatarColor={avatarColor}
           setAvatarColor={handleSetAvatarColor}
         />

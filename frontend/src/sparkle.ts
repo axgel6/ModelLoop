@@ -3,6 +3,7 @@
 
 import { sounds } from "./sounds";
 import { inGamesPath } from "./subroute";
+import { uiScale } from "./uiScale";
 
 // Anything that does something, holds text worth selecting, or closes a layer
 // when clicked is not "empty space".
@@ -51,8 +52,10 @@ export function sparkleAt(x: number, y: number) {
   const root = document.createElement("div");
   // In the games, the burst takes the colours of the SNES face buttons
   root.className = inGamesPath() ? "sparkle sparkle--snes" : "sparkle";
-  root.style.left = `${Math.round(x)}px`;
-  root.style.top = `${Math.round(y)}px`;
+  // Pointer coordinates are viewport px; the page's own px are zoomed by the UI scale
+  const s = uiScale.scale();
+  root.style.left = `${Math.round(x / s)}px`;
+  root.style.top = `${Math.round(y / s)}px`;
   for (const [dx, dy, shape] of BITS) {
     const bit = document.createElement("span");
     bit.className = `sparkle-bit sparkle-bit--${shape}`;

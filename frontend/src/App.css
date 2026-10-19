@@ -69,7 +69,7 @@ html,
 body {
   margin: 0;
   height: 100%;
-  width: 100vw;
+  width: calc(100vw / var(--ui-scale, 1));
   overflow-x: hidden;
   background-color: #0d0c0c;
   background-size: cover, cover, cover;
@@ -81,6 +81,12 @@ body {
    list of a <select>, which Chrome on Windows otherwise draws white under the theme's light text */
 html {
   color-scheme: dark;
+}
+
+/* UI scale from Preferences (see uiScale.ts). Zoom scales every length on the page, so viewport
+   units elsewhere divide by --ui-scale to keep full-screen layouts the size of the screen. */
+html {
+  zoom: var(--ui-scale, 1);
 }
 
 html[data-theme="dune"],
@@ -113,15 +119,15 @@ html[data-view="chat"] body {
 html[data-view="chat"] #root {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100dvh;
+  width: calc(100vw / var(--ui-scale, 1));
+  height: calc(100dvh / var(--ui-scale, 1));
   overflow: hidden;
 }
 
 #root {
   width: 100%;
-  max-width: 100vw;
-  height: 100vh;
+  max-width: calc(100vw / var(--ui-scale, 1));
+  height: calc(100vh / var(--ui-scale, 1));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -468,7 +474,7 @@ html[data-theme="meadow"] .connection-banner {
   max-width: 85%;
   margin-bottom: 10px;
   padding: 10px 13px;
-  font-size: var(--msg-font-size);
+  font-size: 0.95rem;
   line-height: 1.45;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -1019,21 +1025,19 @@ html[data-theme="meadow"] .connection-banner {
   transform: translateX(-50%) translateY(0);
 }
 
-.toolbar-left .toolbar-icon-btn:first-child .toolbar-dock-label,
-.toolbar-left .toolbar-chip-btn:first-child .toolbar-dock-label {
+/* Only the bar's first control, whichever it is, keeps its label from running off the left edge */
+.toolbar-left > :first-child .toolbar-dock-label {
   left: 0;
   right: auto;
   transform: translateY(-4px);
 }
 
-.toolbar-left .toolbar-icon-btn:first-child .toolbar-dock-label::after,
-.toolbar-left .toolbar-chip-btn:first-child .toolbar-dock-label::after {
+.toolbar-left > :first-child .toolbar-dock-label::after {
   left: 10px;
   transform: none;
 }
 
-.toolbar-left .toolbar-icon-btn:first-child:hover .toolbar-dock-label,
-.toolbar-left .toolbar-chip-btn:first-child:hover .toolbar-dock-label {
+.toolbar-left > :first-child:hover .toolbar-dock-label {
   transform: translateY(0);
 }
 
@@ -2257,8 +2261,8 @@ html[data-theme="meadow"] .tool-indicator {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100dvh;
+  width: calc(100vw / var(--ui-scale, 1));
+  height: calc(100dvh / var(--ui-scale, 1));
   display: flex;
   flex-direction: row;
   overflow: hidden;
@@ -3003,7 +3007,7 @@ html[data-theme="meadow"] .sidebar-section-divider {
   outline: none;
   text-align: center;
   width: 220px;
-  max-width: 36vw;
+  max-width: calc(36vw / var(--ui-scale, 1));
   transition: border-color 0.15s;
   caret-color: #fabd2f;
 }
@@ -3028,7 +3032,7 @@ html[data-theme="meadow"] .sidebar-section-divider {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 24vh;
+  padding-top: calc(24vh / var(--ui-scale, 1));
   background: transparent;
   pointer-events: none;
   animation: spotlight-fade-in 0.14s ease;
@@ -3047,7 +3051,7 @@ html[data-theme="meadow"] .sidebar-section-divider {
 
 .spotlight-box {
   width: 500px;
-  max-width: 80vw;
+  max-width: calc(80vw / var(--ui-scale, 1));
   pointer-events: auto;
   position: relative;
   z-index: 1;
@@ -3086,11 +3090,6 @@ html[data-theme="meadow"] .sidebar-section-divider {
 @keyframes spotlight-drop-in {
   from { opacity: 0; transform: scale(0.97) translateY(-4px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.spotlight-search-icon {
-  flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.30);
 }
 
 .spotlight-input-row {
@@ -4942,12 +4941,6 @@ html[data-theme] .pref-info-btn.active {
   color: #fabd2f;
 }
 
-/* ---- data-text-size scaling ---- */
-
-html { --msg-font-size: 0.95rem; }
-html[data-text-size="xs"]    { --msg-font-size: 0.78rem; }
-html[data-text-size="small"] { --msg-font-size: 0.87rem; }
-html[data-text-size="large"] { --msg-font-size: 1.05rem; }
 
 /* ---- Account / danger section ---- */
 
@@ -7102,7 +7095,7 @@ html[data-theme="meadow"] .pref-close-btn:hover {
   border-radius: 12px;
   padding: 28px 28px 22px;
   width: 320px;
-  max-width: 90vw;
+  max-width: calc(90vw / var(--ui-scale, 1));
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -7483,7 +7476,7 @@ html[data-theme="meadow"] .pref-close-btn:hover {
   padding: 20px;
   font-family: var(--ui-font);
   width: 100%;
-  min-height: calc(100vh);
+  min-height: calc(100vh / var(--ui-scale, 1));
   overflow-y: auto;
 }
 
@@ -7639,8 +7632,8 @@ html[data-theme="meadow"] .pref-close-btn:hover {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100dvh;
+  width: calc(100vw / var(--ui-scale, 1));
+  height: calc(100dvh / var(--ui-scale, 1));
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -11711,16 +11704,16 @@ html[data-theme="meadow"] .landing-theme-modal-close:hover {
   html[data-view="chat"] body {
     position: fixed;
     inset: 0;
-    width: 100vw;
-    height: 100dvh;
+    width: calc(100vw / var(--ui-scale, 1));
+    height: calc(100dvh / var(--ui-scale, 1));
     overflow: hidden;
   }
 
   html[data-view="chat"] #root {
     position: fixed;
     inset: 0;
-    width: 100vw;
-    height: 100dvh;
+    width: calc(100vw / var(--ui-scale, 1));
+    height: calc(100dvh / var(--ui-scale, 1));
     padding: 0;
     overflow: hidden;
   }
@@ -11740,7 +11733,7 @@ html[data-theme="meadow"] .landing-theme-modal-close:hover {
     left: 0;
     height: 100%;
     z-index: 200;
-    width: min(280px, 85vw);
+    width: min(280px, calc(85vw / var(--ui-scale, 1)));
     transform: translateX(-102%);
     opacity: 0;
     pointer-events: none;
@@ -11834,7 +11827,7 @@ html[data-theme="meadow"] .landing-theme-modal-close:hover {
   .pref-modal {
     width: 100%;
     max-width: 100%;
-    height: min(560px, 90dvh);
+    height: min(560px, calc(90dvh / var(--ui-scale, 1)));
     border-radius: 16px 16px 0 0;
     flex-direction: column;
     will-change: transform;
@@ -11905,7 +11898,7 @@ html[data-theme="meadow"] .landing-theme-modal-close:hover {
 
 .welcome-how-modal {
   max-width: 560px;
-  max-height: min(78vh, 720px);
+  max-height: min(calc(78vh / var(--ui-scale, 1)), 720px);
   overflow-y: auto;
 }
 
@@ -12325,11 +12318,6 @@ html[data-font="rounded"] {
   opacity: 0.7;
 }
 
-.pref-sound-btn {
-  flex-shrink: 0;
-  min-width: 64px;
-}
-
 html[data-theme="meadow"] .pref-about-link {
   color: #2b7251;
 }
@@ -12586,6 +12574,7 @@ html[data-theme="meadow"][data-daypart="night"] body::after {
 }
 
 html[data-theme="dune"] {
+  --glass-text: #1c1917;
   --bar-tint: #faf8f5;
   --glass-bg: linear-gradient(
     180deg,
@@ -12601,6 +12590,7 @@ html[data-theme="dune"] {
 }
 
 html[data-theme="ember"] {
+  --glass-text: #ebdbb2;
   --bar-tint: #1d2021;
   --glass-bg: linear-gradient(
     180deg,
@@ -12616,6 +12606,7 @@ html[data-theme="ember"] {
 }
 
 html[data-theme="frost"] {
+  --glass-text: #d8dee9;
   --bar-tint: #2e3440;
   --glass-bg: linear-gradient(
     180deg,
@@ -12631,6 +12622,7 @@ html[data-theme="frost"] {
 }
 
 html[data-theme="meadow"] {
+  --glass-text: #294231;
   --bar-tint: #f0f8f2;
   --glass-bg: linear-gradient(
     180deg,
@@ -12769,6 +12761,33 @@ html[data-theme] .chat-topbar .topbar-icon-btn:hover:not(:disabled) {
 
 html[data-theme] .chat-topbar .topbar-icon-btn:active:not(:disabled) {
   transform: scale(0.94);
+}
+
+/* The hover labels on the top bar and input bar buttons share their glass. The bars already blur
+   what is behind them, and a blur nested inside another can't see the page, so the label leans on
+   a dense tint of the page colour under the glass sheen instead. */
+html[data-theme] .chat-topbar .topbar-dock-label,
+html[data-theme] .toolbar-dock-label {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--glass-bg), color-mix(in srgb, var(--bar-tint) 84%, transparent);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  color: var(--glass-text);
+  font-weight: 500;
+}
+
+html[data-theme] .chat-topbar .topbar-dock-label {
+  top: calc(100% + 8px);
+}
+
+html[data-theme] .toolbar-dock-label {
+  bottom: calc(100% + 8px);
+}
+
+html[data-theme] .chat-topbar .topbar-dock-label::before,
+html[data-theme] .toolbar-dock-label::after {
+  content: none;
 }
 
 html[data-theme="meadow"] .msg-timestamp {
@@ -12917,29 +12936,30 @@ html[data-theme="meadow"] .empty-hint {
 
 /* ============================================================
    Search chats: dark glass pill
-   A smooth near-black to slate gradient over a heavy blur, a thin
-   bright rim along the bottom edge, a wide soft shadow, and a
-   glowing caret while the field is empty.
+   A translucent smoked glass over a heavy blur, so the page behind
+   reads as a soft tint through it, darkest at the top and easing
+   lighter toward a faint rim along the bottom edge. A wide soft
+   shadow lifts it, and the caret glows while the field is empty.
    ============================================================ */
 
 .spotlight-box {
-  width: 560px;
-  max-width: 86vw;
-  /* Pure black on top like macOS search, lightening toward the bottom rim */
+  width: 520px;
+  max-width: calc(86vw / var(--ui-scale, 1));
   background: linear-gradient(
     180deg,
-    rgba(0, 0, 0, 0.97) 0%,
-    rgba(0, 0, 0, 0.94) 40%,
-    rgba(28, 29, 33, 0.86) 75%,
-    rgba(92, 95, 104, 0.8) 100%
+    rgba(0, 0, 0, 0.82) 0%,
+    rgba(10, 10, 12, 0.68) 50%,
+    rgba(36, 38, 44, 0.5) 100%
   );
-  backdrop-filter: blur(6px) saturate(160%);
-  -webkit-backdrop-filter: blur(6px) saturate(160%);
+  backdrop-filter: blur(15px) saturate(110%);
+  -webkit-backdrop-filter: blur(15px) saturate(110%);
   border: none;
   border-radius: 44px;
   box-shadow:
-    0 28px 60px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    0 24px 56px rgba(0, 0, 0, 0.32),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
   animation: spotlight-drop-in 0.32s cubic-bezier(0.3, 0.7, 0.3, 1);
 }
 
@@ -12953,12 +12973,6 @@ html[data-theme="meadow"] .empty-hint {
   padding: 0 28px;
 }
 
-.spotlight-search-icon {
-  width: 18px;
-  height: 18px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
 .spotlight-input-row .spotlight-input {
   padding: 26px 0;
   font-size: 1.35rem;
@@ -12968,14 +12982,14 @@ html[data-theme="meadow"] .empty-hint {
 }
 
 .spotlight-input::placeholder {
-  color: rgba(255, 255, 255, 0.68);
+  color: rgba(255, 255, 255, 0.6);
 }
 
-/* The glow sits where the caret rests in an empty field: row padding + icon + gap */
+/* The glow sits where the caret rests in an empty field, just inside the row padding */
 .spotlight-input-row:has(.spotlight-input:placeholder-shown:focus)::after {
   content: "";
   position: absolute;
-  left: 58px;
+  left: 28px;
   top: 50%;
   width: 2px;
   height: 1.7em;
@@ -13163,7 +13177,7 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
 
 @media (max-width: 640px) {
   html[data-theme] .pref-modal {
-    height: min(660px, 88dvh);
+    height: min(660px, calc(88dvh / var(--ui-scale, 1)));
     border-radius: 26px 26px 0 0;
     border-bottom: none;
   }
@@ -13351,4 +13365,185 @@ html[data-theme] .chat-topbar .topbar-icon-btn.is-private,
 html[data-theme] .chat-topbar .topbar-icon-btn.is-private:hover:not(:disabled) {
   color: var(--leaf-accent);
   border-color: var(--leaf-accent);
+}
+
+/* ============================================================
+   Backgrounds (Preferences > Appearance > Background)
+   A picture sits under the page in any theme. A wash of the theme's own page colour goes
+   over it, heavier on the dark themes, so text and glass keep their contrast. The body
+   never scrolls (#root does), so the picture stays put without background-attachment: fixed,
+   which iOS ignores. The choices are listed in background.ts.
+   ============================================================ */
+
+html {
+  --page-plain: #0d0c0c;
+  --sky-wash: rgba(13, 12, 12, 0.55);
+  --sky-top: rgba(13, 12, 12, 0.7);
+}
+
+html[data-theme="ember"] {
+  --page-plain: #1d2021;
+  --sky-wash: rgba(29, 32, 33, 0.55);
+  --sky-top: rgba(29, 32, 33, 0.7);
+}
+
+html[data-theme="frost"] {
+  --page-plain: #2e3440;
+  --sky-wash: rgba(46, 52, 64, 0.5);
+  --sky-top: rgba(46, 52, 64, 0.7);
+}
+
+html[data-theme="dune"] {
+  --page-plain: #faf8f5;
+  --sky-wash: rgba(250, 248, 245, 0.5);
+  --sky-top: rgba(250, 248, 245, 0.85);
+}
+
+html[data-theme="meadow"] {
+  --page-plain: #f0f8f2;
+  --sky-wash: rgba(240, 248, 242, 0.5);
+  --sky-top: rgba(240, 248, 242, 0.85);
+}
+
+html[data-background="sky"] body,
+html[data-background="sky"][data-theme] body {
+  /* The photo's top edge is nearly black, which showed as a grey band behind the top bar,
+     so the page colour fades in over the top of it */
+  background-image:
+    linear-gradient(to bottom, var(--sky-top) 0, transparent 160px),
+    linear-gradient(var(--sky-wash), var(--sky-wash)),
+    url("./assets/skypublicdomain.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* The picker: theme cards with a square preview of each background */
+.pref-bg-preview {
+  width: 100%;
+  max-width: 96px;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background-color: var(--page-plain);
+  background-size: cover;
+  background-position: center;
+}
+
+.pref-bg-preview-sky {
+  background-image:
+    linear-gradient(var(--sky-wash), var(--sky-wash)),
+    url("./assets/skypublicdomain.jpg");
+}
+
+/* Light themes: the faint greys (timestamps, the message box's placeholder and icons, chat
+   dates) one step darker, so they hold up on the sky photo and still sit quietly on the plain page */
+html[data-theme="dune"] .msg-timestamp {
+  color: #78716c;
+  opacity: 0.9;
+}
+
+html[data-theme="meadow"] .msg-timestamp {
+  color: #5b6a61;
+  opacity: 0.9;
+}
+
+html[data-theme="dune"] .chat-textarea::placeholder,
+html[data-theme="dune"] .sidebar-chat-date {
+  color: #8a837c;
+}
+
+html[data-theme="dune"] .toolbar-icon-btn,
+html[data-theme="dune"] .toolbar-chip-btn {
+  color: #78716c;
+}
+
+html[data-theme="meadow"] .chat-textarea::placeholder,
+html[data-theme="meadow"] .sidebar-chat-date,
+html[data-theme="meadow"] .toolbar-icon-btn,
+html[data-theme="meadow"] .toolbar-chip-btn {
+  color: #5b6a61;
+}
+
+/* An on/off switch, as in the Marketplace's settings, in the theme's accent */
+html .pref-sound-row .pref-switch,
+html .pref-sound-row .pref-switch:hover,
+html .pref-sound-row .pref-switch:active {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  /* the page's text colour, not the white the themes give buttons, so the off track shows */
+  color: inherit;
+  box-shadow: none;
+  cursor: pointer;
+  transform: none;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+html .pref-sound-row .pref-switch.is-on,
+html .pref-sound-row .pref-switch.is-on:hover,
+html .pref-sound-row .pref-switch.is-on:active {
+  border-color: var(--leaf-accent);
+  background: var(--leaf-accent);
+}
+
+.pref-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+}
+
+.pref-switch.is-on .pref-switch-knob {
+  transform: translateX(18px);
+}
+
+/* Light themes, continued: the new chat screen and the top bar, a shade darker for the same reason */
+html[data-theme="dune"] .empty-subline,
+html[data-theme="dune"] .topbar-title,
+html[data-theme="dune"] .suggestion-chip {
+  color: #6b625b;
+}
+
+html[data-theme="dune"] .empty-hint,
+html[data-theme="dune"] .chat-topbar .topbar-icon-btn {
+  color: #78716c;
+}
+
+html[data-theme="meadow"] .empty-subline,
+html[data-theme="meadow"] .topbar-title,
+html[data-theme="meadow"] .suggestion-chip {
+  color: #46574d;
+}
+
+html[data-theme="meadow"] .empty-hint,
+html[data-theme="meadow"] .chat-topbar .topbar-icon-btn {
+  color: #5b6a61;
+}
+
+/* A disabled top bar button (new chat, on a new chat) still reads as a button */
+html[data-theme="dune"] .chat-topbar .topbar-icon-btn:disabled,
+html[data-theme="meadow"] .chat-topbar .topbar-icon-btn:disabled {
+  opacity: 0.45;
+}
+
+/* The greeting on a new chat, in the app's wide bold heading face like the Games and game titles.
+   A touch smaller than before, since the wide letters run longer */
+html[data-theme] .empty-title {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: clamp(1rem, 2.7vw, 1.35rem);
+  font-weight: 700;
+  line-height: 1.2;
 }

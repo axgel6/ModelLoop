@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useEscapeKey } from "./useEscapeKey";
 import { sounds } from "../sounds";
+import { background, BACKGROUNDS } from "../background";
+import { uiScale, UI_SCALES } from "../uiScale";
 import {
   apiGetMe,
   apiUpdateProfile,
@@ -15,7 +17,6 @@ import { PRESETS } from "./presets";
 
 export type Theme = "ember" | "frost" | "dune" | "meadow";
 export type Font = "mono" | "inter" | "rounded";
-export type TextSize = "xs" | "small" | "medium" | "large";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -27,8 +28,6 @@ interface ChatPreferencesProps {
   setTheme: (theme: Theme) => void;
   font: Font;
   setFont: (font: Font) => void;
-  textSize: TextSize;
-  setTextSize: (size: TextSize) => void;
   avatarColor: string | null;
   setAvatarColor: (c: string | null) => void;
   temperature: number;
@@ -106,8 +105,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   setTheme,
   font,
   setFont,
-  textSize,
-  setTextSize,
   avatarColor,
   setAvatarColor,
   temperature,
@@ -134,6 +131,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   useEscapeKey(onClose);
   const [soundOn, setSoundOn] = useState(() => sounds.isEnabled());
   const [soundVolume, setSoundVolume] = useState(() => sounds.getVolume());
+  const [bg, setBg] = useState(() => background.get());
+  const [scale, setScale] = useState(() => uiScale.get());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
@@ -758,6 +757,28 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
+                Background
+              </div>
+              {/* Each preview is the picture under the current theme's wash, as it will look */}
+              <div className="pref-theme-cards pref-bg-cards">
+                {BACKGROUNDS.map((b) => (
+                  <div
+                    key={b.id}
+                    className={`pref-theme-card${bg === b.id ? " active" : ""}`}
+                    onClick={() => {
+                      background.set(b.id);
+                      setBg(b.id);
+                    }}
+                  >
+                    <div className={`pref-bg-preview pref-bg-preview-${b.id}`} />
+                    <span className="pref-theme-label">{b.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div
+                className="pref-setting-section-label"
+                style={{ marginTop: "20px" }}
+              >
                 Sound
               </div>
               <div className="pref-sound-row">
@@ -766,7 +787,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 </span>
                 <button
                   type="button"
-                  className="pref-sound-btn"
+                  className={`pref-switch${soundOn ? " is-on" : ""}`}
                   role="switch"
                   aria-checked={soundOn}
                   aria-label="Sound effects"
@@ -777,7 +798,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     if (next) sounds.play("done");
                   }}
                 >
-                  {soundOn ? "On" : "Off"}
+                  <span className="pref-switch-knob" aria-hidden="true" />
                 </button>
               </div>
               {soundOn && (
@@ -809,28 +830,25 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
-                Chat Size
+                UI Scale
               </div>
               <input
                 type="range"
                 className="temperature-slider pref-slider"
                 min={0}
-                max={3}
+                max={UI_SCALES.length - 1}
                 step={1}
-                value={["xs", "small", "medium", "large"].indexOf(textSize)}
-                onChange={(e) =>
-                  setTextSize(
-                    (["xs", "small", "medium", "large"] as TextSize[])[
-                      Number(e.target.value)
-                    ],
-                  )
-                }
+                value={UI_SCALES.indexOf(scale)}
+                onChange={(e) => {
+                  const next = UI_SCALES[Number(e.target.value)];
+                  setScale(next);
+                  uiScale.set(next);
+                }}
               />
               <div className="temperature-labels">
-                <span>XS</span>
-                <span>S</span>
-                <span>M (Default)</span>
-                <span>L</span>
+                <span>Smaller</span>
+                <span>{Math.round(scale * 100)}%</span>
+                <span>Larger</span>
               </div>
             </div>
           </>

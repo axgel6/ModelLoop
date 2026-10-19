@@ -202,10 +202,12 @@ html .games-hub .game-card:disabled {
   gap: 16px;
   /* the right side is kept for the gear above and the play symbol below */
   padding: 16px 56px 16px 18px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid var(--glass-border);
   border-radius: 22px;
-  background: var(--game-card);
-  box-shadow: none;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   color: var(--game-ink);
   font-family: var(--ui-font);
   font-size: 0.8rem;
@@ -214,24 +216,18 @@ html .games-hub .game-card:disabled {
   text-align: left;
   opacity: 1;
   transform: none;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+  transition: border-color 0.15s;
 }
 
-/* On hover a row turns into the app's glass, like the top bar's buttons. Keyed to the wrap
-   so the row stays glass while the pointer is on its gear */
+/* Rows are the app's glass, like the top bar's buttons; on hover the border takes the game's
+   colour and its badge brightens. Keyed to the wrap so it holds while the pointer is on the gear */
 html .games-hub .game-card-wrap:hover > .game-card:not(:disabled) {
-  border-color: var(--glass-border);
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  border-color: color-mix(in srgb, var(--game-color, var(--game-accent)) 55%, var(--glass-border));
   cursor: pointer;
 }
 
-html .games-hub .game-card:active:not(:disabled) {
-  background: var(--game-card);
+html .games-hub .game-card-wrap:hover > .game-card:not(:disabled) .game-card-badge {
+  background: color-mix(in srgb, var(--game-color, var(--game-accent)) 26%, transparent);
 }
 
 html .games-hub .game-card:disabled {
@@ -249,6 +245,7 @@ html .games-hub .game-card:disabled {
   justify-content: center;
   /* --game-color: the game's SNES button colour, set on its row in GamesHub.tsx */
   background: color-mix(in srgb, var(--game-color, var(--game-accent)) 16%, transparent);
+  transition: background-color 0.15s;
   color: var(--game-color, var(--game-heading));
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
@@ -348,30 +345,39 @@ html .games-hub .game-card:disabled {
   flex: 1;
 }
 
+/* The gear is one of the app's glass buttons, like the top bar's, at a size that fits a card */
 html .games-hub .game-card-settings,
 html .games-hub .game-card-settings:hover {
   position: absolute;
-  top: 12px;
-  right: 10px;
-  width: 34px;
-  height: 34px;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid var(--glass-border);
   border-radius: 50%;
-  background: transparent;
-  box-shadow: none;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   color: var(--game-muted);
   cursor: pointer;
   transform: none;
   transition:
     color 0.15s,
-    background-color 0.15s;
+    border-color 0.15s,
+    transform 0.15s;
 }
 
+/* On hover it takes the game's colour, as the card's border does */
 html .games-hub .game-card-settings:hover {
-  color: var(--game-ink);
-  background: var(--game-nav-hover);
+  color: var(--game-color, var(--game-ink));
+  border-color: color-mix(in srgb, var(--game-color, var(--game-accent)) 55%, var(--glass-border));
+}
+
+html .games-hub .game-card-settings:active {
+  transform: scale(0.94);
 }

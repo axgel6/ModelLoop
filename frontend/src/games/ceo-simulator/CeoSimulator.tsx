@@ -545,6 +545,17 @@ function Play({
     }
   };
 
+  // On a phone the side panel is a short strip, and the rest of it opens as a sheet
+  const [details, setDetails] = useState(false);
+  useEffect(() => {
+    if (!details) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDetails(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [details]);
+
   const staff = state.staff ?? [];
   const payroll = staff.reduce((sum, p) => sum + p.salary + DESK_COST, 0);
   // What the team can sell in a week at ordinary morale, and what the products are likely to sell
@@ -798,7 +809,14 @@ function Play({
           )}
         </div>
 
-        <aside className="ceo-side">
+        {details && <div className="chat-preferences-modal-overlay ceo-side-backdrop" onClick={() => setDetails(false)} />}
+        <aside className={`ceo-side${details ? " is-open" : ""}`}>
+          <div className="ceo-side-head">
+            <span className="ceo-side-title">{state.company.name}</span>
+            <button type="button" className="ceo-link" onClick={() => setDetails(false)}>
+              Close
+            </button>
+          </div>
           {/* Always in view: the numbers checked every week */}
           <div className="ceo-side-top">
               <div className="ceo-value">
@@ -849,6 +867,13 @@ function Play({
                 />
                 <Stat label="Employees" value={String(state.employees)} />
               </div>
+
+              <button type="button" className="ceo-details-toggle" onClick={() => setDetails(true)}>
+                Team, products, money and buzz
+                {Object.values(needsYou).some(Boolean) && (
+                  <span className="ceo-tab-dot" role="img" aria-label="needs attention" />
+                )}
+              </button>
 
               <Meter label="Reputation" value={state.reputation} />
               <Meter label="Team morale" value={state.morale} />

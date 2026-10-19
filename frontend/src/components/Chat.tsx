@@ -2,10 +2,10 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptics } from "../haptics";
 import { sounds } from "../sounds";
+import { uiScale } from "../uiScale";
 import ChatPreferences, {
   type Theme,
   type Font,
-  type TextSize,
   type Section as PrefSection,
 } from "./ChatPreferences";
 import ChatInput from "./ChatInput";
@@ -149,8 +149,6 @@ interface ChatProps {
   setTheme: (theme: Theme) => void;
   font: Font;
   setFont: (font: Font) => void;
-  textSize: TextSize;
-  setTextSize: (size: TextSize) => void;
   avatarColor: string | null;
   setAvatarColor: (c: string | null) => void;
 }
@@ -168,8 +166,6 @@ function Chat({
   setTheme,
   font,
   setFont,
-  textSize,
-  setTextSize,
   avatarColor,
   setAvatarColor,
 }: ChatProps) {
@@ -1209,9 +1205,9 @@ function Chat({
                             rect
                               ? {
                                   position: "fixed",
-                                  bottom: `calc(100vh - ${rect.top}px + 6px)`,
-                                  left: rect.left + 8,
-                                  width: rect.width - 16,
+                                  bottom: `calc((100vh - ${rect.top}px) / ${uiScale.scale()} + 6px)`,
+                                  left: rect.left / uiScale.scale() + 8,
+                                  width: rect.width / uiScale.scale() - 16,
                                 }
                               : undefined
                           }
@@ -1367,20 +1363,6 @@ function Chat({
                   />
                   <div className={`spotlight-box${searchResults.length > 0 ? " has-results" : ""}`}>
                     <div className="spotlight-input-row">
-                      <svg
-                        className="spotlight-search-icon"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      </svg>
                       <input
                         className="spotlight-input"
                         value={historySearch}
@@ -1897,8 +1879,6 @@ function Chat({
           setTheme={setTheme}
           font={font}
           setFont={setFont}
-          textSize={textSize}
-          setTextSize={setTextSize}
           avatarColor={avatarColor}
           setAvatarColor={setAvatarColor}
           temperature={temperature}

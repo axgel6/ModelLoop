@@ -7,7 +7,8 @@ import "./negotiation.css";
 /** The Marketplace's own settings, opened from the gear on its card */
 export function MarketplaceSettings({ onClose }: { onClose: () => void }) {
   useEscapeKey(onClose);
-  const [clean, setClean] = useState(isCleanLanguage);
+  // Shown as the opposite of the stored Clean language setting, so earlier choices carry over
+  const [strong, setStrong] = useState(() => !isCleanLanguage());
 
   return createPortal(
     <div className="chat-preferences-modal-overlay" onClick={onClose}>
@@ -26,21 +27,21 @@ export function MarketplaceSettings({ onClose }: { onClose: () => void }) {
 
         <div className="neg-setting">
           <div className="neg-setting-text">
-            <span className="pref-item-name">Clean language</span>
+            <span className="pref-item-name">Strong language</span>
             <span className="pref-setting-hint">
-              Unhinged buyers and sellers keep their loud, chaotic energy but stop swearing. Everyone else is clean
-              either way.
+              Lets Unhinged buyers and sellers swear freely. Turn it off and they keep their loud, chaotic energy
+              without the swearing. Everyone else is clean either way.
             </span>
           </div>
           <button
             type="button"
             role="switch"
-            aria-checked={clean}
-            aria-label="Clean language"
-            className={`neg-switch${clean ? " is-on" : ""}`}
+            aria-checked={strong}
+            aria-label="Strong language"
+            className={`neg-switch${strong ? " is-on" : ""}`}
             onClick={() => {
-              setCleanLanguage(!clean);
-              setClean(!clean);
+              setCleanLanguage(strong);
+              setStrong(!strong);
             }}
           >
             <span className="neg-switch-knob" aria-hidden="true" />

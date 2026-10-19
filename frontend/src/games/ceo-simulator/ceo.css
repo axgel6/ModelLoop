@@ -1098,7 +1098,7 @@ html .ceo .ceo-chart-tab.is-on:hover {
   color: var(--game-muted);
 }
 
-/* Narrow: the numbers go on top in a short scrolling strip, the story below */
+/* Narrow: the numbers go on top in a short scrolling strip, the story below (a phone goes further, see the end) */
 @media (max-width: 900px) {
   .ceo {
     padding-left: 10px;
@@ -1113,7 +1113,7 @@ html .ceo .ceo-chart-tab.is-on:hover {
   /* One scrolling strip on a narrow screen: the tab body grows instead of scrolling inside it */
   .ceo-side {
     order: -1;
-    max-height: 42vh;
+    max-height: calc(42vh / var(--ui-scale, 1));
     overflow-y: auto;
   }
 
@@ -1135,5 +1135,180 @@ html .ceo .ceo-chart-tab.is-on:hover {
 @media (max-width: 520px) {
   .ceo-stats {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* The sheet's header and the strip's button exist only on a phone */
+.ceo-side-head,
+.ceo .ceo-side-backdrop,
+html .ceo .ceo-details-toggle {
+  display: none;
+}
+
+/* Phone: the numbers shrink to a strip over the story, and everything else (the meters and the
+   tabs) opens from it as a sheet, so the story keeps most of the screen and is the only thing
+   that scrolls */
+@media (max-width: 640px) {
+  .ceo-side {
+    max-height: none;
+    overflow: visible;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 18px;
+  }
+
+  .ceo-side:not(.is-open) .ceo-meter,
+  .ceo-side:not(.is-open) .ceo-tabs,
+  .ceo-side:not(.is-open) .ceo-tab-body {
+    display: none;
+  }
+
+  .ceo-side:not(.is-open) .ceo-side-top {
+    gap: 8px;
+  }
+
+  .ceo-side:not(.is-open) .ceo-value {
+    padding: 8px 10px 9px;
+  }
+
+  .ceo-side:not(.is-open) .ceo-value-amount {
+    font-size: 1.1rem;
+  }
+
+  .ceo-side:not(.is-open) .ceo-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .ceo-side:not(.is-open) .ceo-stat {
+    padding: 6px 7px;
+    border-radius: 11px;
+  }
+
+  .ceo-side:not(.is-open) .ceo-stat-label {
+    font-size: 0.56rem;
+    letter-spacing: 0.04em;
+  }
+
+  .ceo-side:not(.is-open) .ceo-stat-value {
+    font-size: 0.8rem;
+  }
+
+  /* "last week" says nothing new here; a warning or a change still shows */
+  .ceo-side:not(.is-open) .ceo-stat .ceo-stat-note:not(.is-down):not(.is-up) {
+    display: none;
+  }
+
+  html .ceo .ceo-details-toggle,
+  html .ceo .ceo-details-toggle:hover,
+  html .ceo .ceo-details-toggle:active,
+  html .ceo .ceo-details-toggle:focus {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 7px 12px;
+    border: 1px solid var(--game-card-border);
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--game-muted);
+    font-family: var(--ui-font);
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transform: none;
+    transition: none;
+    outline: none;
+  }
+
+  html .ceo .ceo-details-toggle:focus-visible {
+    outline: 2px solid var(--game-accent);
+    outline-offset: 2px;
+  }
+
+  html .ceo .ceo-details-toggle .ceo-tab-dot {
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+  }
+
+  .ceo .ceo-side-backdrop {
+    display: block;
+  }
+
+  .ceo-side.is-open {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    max-height: calc(85dvh / var(--ui-scale, 1));
+    overflow-y: auto;
+    z-index: 1001;
+  }
+
+  .ceo-side.is-open .ceo-tab-body {
+    flex: none;
+    overflow: visible;
+  }
+
+  .ceo-side.is-open .ceo-side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ceo-side-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "Archivo", var(--ui-font);
+    font-stretch: 125%;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--game-heading);
+  }
+
+  /* One row of suggestions, swiped sideways */
+  .ceo .ceo-options {
+    display: flex;
+    overflow-x: auto;
+    gap: 7px;
+    margin: 0 -10px;
+    padding: 0 10px 2px;
+    scrollbar-width: none;
+  }
+
+  .ceo .ceo-options::-webkit-scrollbar {
+    display: none;
+  }
+
+  html .ceo .ceo-options .suggestion-chip,
+  html .ceo .ceo-options .suggestion-chip:hover {
+    flex: none;
+    min-height: 34px;
+    white-space: nowrap;
+  }
+
+  /* The message box on one line, with the send button inside it */
+  .ceo .ceo-composer .input-wrapper {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .ceo .ceo-composer .chat-textarea {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 6px 10px 14px;
+    border-radius: 14px 0 0 14px;
+  }
+
+  .ceo .ceo-composer .input-toolbar {
+    flex: none;
+    gap: 6px;
+    padding: 4px 6px 4px 0;
+    border-top: none;
   }
 }

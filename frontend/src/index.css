@@ -15,5 +15,5 @@ body {
   font-family: inherit;
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: calc(100vh / var(--ui-scale, 1));
 }

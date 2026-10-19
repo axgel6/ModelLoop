@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { type Theme } from "./ChatPreferences";
 import { sounds } from "../sounds";
+import { background, BACKGROUNDS } from "../background";
 
 interface WelcomePageProps {
   onStart: () => void;
@@ -76,6 +77,7 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
   const [done, setDone] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(() => sounds.isEnabled());
+  const [bg, setBg] = useState(() => background.get());
   const [howOpen, setHowOpen] = useState(false);
 
   useEffect(() => {
@@ -201,6 +203,19 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
               }}
             >
               Sound: {soundOn ? "On" : "Off"}
+            </span>{" "}
+            •{" "}
+            {/* Steps through the backgrounds in turn */}
+            <span
+              className="landing-footer-link"
+              onClick={() => {
+                const i = BACKGROUNDS.findIndex((b) => b.id === bg);
+                const next = BACKGROUNDS[(i + 1) % BACKGROUNDS.length].id;
+                background.set(next);
+                setBg(next);
+              }}
+            >
+              Background: {BACKGROUNDS.find((b) => b.id === bg)?.label}
             </span>
           </p>
           <p>

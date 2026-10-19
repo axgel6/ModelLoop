@@ -963,7 +963,7 @@ html .neg .neg-take:active:not(:disabled) {
 
 .landing-theme-modal.neg-browser {
   max-width: 640px;
-  max-height: min(86vh, 760px);
+  max-height: min(calc(86vh / var(--ui-scale, 1)), 760px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -2711,7 +2711,7 @@ html .neg-browser .neg-saved-filter:disabled {
 }
 
 .neg-trade .neg-browser-list {
-  max-height: 46vh;
+  max-height: calc(46vh / var(--ui-scale, 1));
 }
 
 .neg-trade-cash {
@@ -2883,7 +2883,7 @@ html .neg-browser .neg-badge-tile.is-open:hover {
 /* A badge just earned: the chat search's glass pill, dropped in near the top. Clicks go through
    everywhere but the pill, so the game stays usable while it shows. */
 .spotlight-overlay.neg-achievement-overlay {
-  padding-top: 7vh;
+  padding-top: calc(7vh / var(--ui-scale, 1));
 }
 
 /* Pure black on top like macOS search, fading into a mostly see-through bottom. Black in every theme. */
