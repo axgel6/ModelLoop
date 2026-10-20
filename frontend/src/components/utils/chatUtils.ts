@@ -1,4 +1,5 @@
 import { holiday, season, SEASON_LINES } from "../../season";
+import type { FestiveTheme } from "../../festive";
 
 export function fixMathDelimiters(text: string): string {
   text = text
@@ -73,8 +74,8 @@ export const SUGGESTION_POOL = [
   "Write a poem about nature",
 ];
 
-export function pickSuggestions(n = 4): string[] {
-  const pool = [...SUGGESTION_POOL];
+export function pickSuggestions(n = 4, from = SUGGESTION_POOL): string[] {
+  const pool = [...from];
   const picked: string[] = [];
   while (picked.length < n && pool.length > 0) {
     const i = Math.floor(Math.random() * pool.length);
@@ -124,14 +125,15 @@ export function greetingLines(date = new Date()): string[] {
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 // "Good morning, Angel." Uses the first name only; guests get the greeting alone. A holiday
-// has its own hello, and so do weekend afternoons and Friday evenings.
-export function timeGreeting(name?: string | null, date = new Date()): string {
+// has its own hello, and so do weekend afternoons and Friday evenings. So does a festive theme.
+export function timeGreeting(name?: string | null, date = new Date(), festive?: FestiveTheme | null): string {
   const h = date.getHours();
   const day = date.getDay();
   const weekend = day === 0 || day === 6;
   const hello =
     holiday(date)?.hello ??
-    (h < 5 ? "Up late"
+    (festive ? festive.hello(h)
+    : h < 5 ? "Up late"
     : h < 11 ? "Good morning"
     : h < 17 ? (weekend ? `Happy ${WEEKDAYS[day]}` : "Good afternoon")
     : day === 5 && h < 21 ? "Happy Friday"

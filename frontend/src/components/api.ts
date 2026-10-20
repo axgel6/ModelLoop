@@ -536,6 +536,8 @@ export async function apiGuestChatStream(
     images?: string[];
     /** Reason before answering, for models that can */
     think?: boolean;
+    /** The festive theme in use (see festive.ts): Olly answers in its voice for it */
+    festive?: string;
   },
   signal?: AbortSignal,
 ): Promise<Response> {
@@ -577,6 +579,8 @@ export async function apiPrivateChatStream(
     force_search?: boolean;
     /** Reason before answering, for models that can */
     think?: boolean;
+    /** The festive theme in use (see festive.ts): Olly answers in its voice for it */
+    festive?: string;
   },
   signal?: AbortSignal,
 ): Promise<Response> {
@@ -615,6 +619,8 @@ export async function apiChatStream(
     force_search?: boolean;
     /** Reason before answering, for models that can */
     think?: boolean;
+    /** The festive theme in use (see festive.ts): Olly answers in its voice for it */
+    festive?: string;
   },
   signal?: AbortSignal,
 ): Promise<Response> {

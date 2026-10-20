@@ -27,6 +27,8 @@ interface ChatInputProps {
   onRegisterSetInput?: (setFn: (value: string) => void) => void;
   // Who the placeholder invites you to ask: "Olly" while that preset is active
   assistantName?: string;
+  // In place of "Ask <assistantName>": a festive theme's own (see festive.ts)
+  placeholder?: string;
   selectedModel?: string;
   setSelectedModel?: (model: string) => void;
   /** Installed models, for the quick switch */
@@ -63,6 +65,7 @@ function ChatInput({
   onRegisterFocus,
   onRegisterSetInput,
   assistantName = "ModelLoop",
+  placeholder,
   selectedModel,
   setSelectedModel,
   models = [],
@@ -418,7 +421,7 @@ function ChatInput({
           placeholder={
             voiceActive
               ? voiceStatusLabel || "Voice conversation active…"
-              : `Ask ${assistantName}`
+              : placeholder ?? `Ask ${assistantName}`
           }
           value={
             voiceActive && voiceStatus === "listening" ? voiceTranscript : input

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { type Theme } from "./ChatPreferences";
 import { sounds } from "../sounds";
 import { background, backgroundsFor } from "../background";
-import { halloweenOpen } from "../season";
+import { BASE_THEMES, openFestiveThemes } from "../festive";
 
 interface WelcomePageProps {
   onStart: () => void;
@@ -20,14 +20,6 @@ const MESSAGES = [
 
 const CHAR_SPEED = 18;
 const MESSAGE_GAP = 180;
-
-const THEMES: { id: Theme; label: string; previewClass: string }[] = [
-  { id: "meadow",  label: "Meadow",  previewClass: "pref-theme-preview-meadow" },
-  { id: "dune",    label: "Dune",    previewClass: "pref-theme-preview-dune" },
-  { id: "ember",   label: "Ember",   previewClass: "pref-theme-preview-ember" },
-  { id: "frost",    label: "Frost",    previewClass: "pref-theme-preview-frost" },
-  { id: "halloween", label: "Halloween", previewClass: "pref-theme-preview-halloween" },
-];
 
 const STEPS: { n: string; title: string; body: React.ReactNode }[] = [
   {
@@ -211,14 +203,14 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
             <span
               className="landing-footer-link"
               onClick={() => {
-                const list = backgroundsFor(theme === "halloween" ? "halloween" : undefined);
+                const list = backgroundsFor(theme);
                 const i = list.findIndex((b) => b.id === bg);
                 const next = list[(i + 1) % list.length].id;
                 background.set(next);
                 setBg(next);
               }}
             >
-              Background: {backgroundsFor(theme === "halloween" ? "halloween" : undefined).find((b) => b.id === bg)?.label ?? "Plain"}
+              Background: {backgroundsFor(theme).find((b) => b.id === bg)?.label ?? "Plain"}
             </span>
           </p>
           <p>
@@ -292,13 +284,14 @@ function WelcomePage({ onStart, onTerms, theme, onThemeChange }: WelcomePageProp
               </button>
             </div>
             <div className="pref-theme-cards">
-              {THEMES.filter((t) => t.id !== "halloween" || halloweenOpen()).map((t) => (
+              {/* The everyday themes, then any festive ones in season (see festive.ts) */}
+              {[...BASE_THEMES, ...openFestiveThemes()].map((t) => (
                 <div
                   key={t.id}
                   className={`pref-theme-card${theme === t.id ? " active" : ""}`}
                   onClick={() => onThemeChange(t.id)}
                 >
-                  <div className={`pref-theme-preview ${t.previewClass}`}>
+                  <div className={`pref-theme-preview pref-theme-preview-${t.id}`}>
                     <span className="ptc-bar ptc-bar-1" />
                     <span className="ptc-bar ptc-bar-2" />
                     <span className="ptc-bar ptc-bar-3" />

@@ -1,14 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { halloweenTheme } from "./halloween-theme";
+import { festiveThemes } from "./festive-themes";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   css: {
     postcss: {
-      // Builds the Halloween theme's colours from Frost's rules (see halloween-theme.ts)
-      plugins: [halloweenTheme()],
+      // Builds each festive theme's colours from its base theme's rules (see festive-themes.ts)
+      plugins: [festiveThemes()],
     },
   },
   build: {

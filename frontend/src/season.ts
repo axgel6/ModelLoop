@@ -35,10 +35,3 @@ export const SEASON_LINES: Record<Season, string[]> = {
   summer: ["Long days for long questions. What's on your mind?"],
   autumn: ["Leaves are turning. A cozy time to dig into something."],
 };
-
-/** Whether the Halloween theme is on offer: October 1 through November 7, every year. Outside
-    it the theme stays in the code but can't be picked, and anyone still on it moves to Frost. */
-export function halloweenOpen(date = new Date()): boolean {
-  const m = date.getMonth();
-  return m === 9 || (m === 10 && date.getDate() <= 7);
-}

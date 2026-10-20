@@ -3,7 +3,7 @@ import { useEscapeKey } from "./useEscapeKey";
 import { sounds, SOUND_GROUPS, type SoundGroup } from "../sounds";
 import { background, backgroundsFor } from "../background";
 import { uiScale, UI_SCALES } from "../uiScale";
-import { halloweenOpen } from "../season";
+import { openFestiveThemes, type Theme } from "../festive";
 import {
   apiGetMe,
   apiUpdateProfile,
@@ -16,7 +16,7 @@ import type { OllamaStatus } from "./api";
 import { readableTextOn } from "./utils/chatUtils";
 import { PRESETS } from "./presets";
 
-export type Theme = "ember" | "frost" | "dune" | "meadow" | "halloween";
+export type { Theme };
 export type Font = "mono" | "inter" | "rounded";
 
 interface ChatPreferencesProps {
@@ -721,20 +721,21 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                   <span className="pref-theme-label">Frost</span>
                 </div>
-                {/* Only offered in its season (see halloweenOpen in season.ts) */}
-                {halloweenOpen() && (
+                {/* Festive themes, each only offered in its season (see festive.ts) */}
+                {openFestiveThemes().map((f) => (
                   <div
-                    className={`pref-theme-card${theme === "halloween" ? " active" : ""}`}
-                    onClick={() => setTheme("halloween")}
+                    key={f.id}
+                    className={`pref-theme-card${theme === f.id ? " active" : ""}`}
+                    onClick={() => setTheme(f.id)}
                   >
-                    <div className="pref-theme-preview pref-theme-preview-halloween">
+                    <div className={`pref-theme-preview pref-theme-preview-${f.id}`}>
                       <span className="ptc-bar ptc-bar-1" />
                       <span className="ptc-bar ptc-bar-2" />
                       <span className="ptc-bar ptc-bar-3" />
                     </div>
-                    <span className="pref-theme-label">Halloween</span>
+                    <span className="pref-theme-label">{f.label}</span>
                   </div>
-                )}
+                ))}
               </div>
               <div
                 className="pref-setting-section-label"
@@ -779,7 +780,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               </div>
               {/* Each preview is the picture under the current theme's wash, as it will look */}
               <div className="pref-theme-cards pref-bg-cards">
-                {backgroundsFor(theme === "halloween" ? "halloween" : undefined).map((b) => (
+                {backgroundsFor(theme).map((b) => (
                   <div
                     key={b.id}
                     className={`pref-theme-card${bg === b.id ? " active" : ""}`}

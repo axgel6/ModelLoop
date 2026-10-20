@@ -6,7 +6,7 @@
 import { sounds } from "./sounds";
 
 const STRETCHY =
-  ".stretchy-logo, .chat-topbar .topbar-icon-btn, .sidebar-brand-btn";
+  ".stretchy-logo, .chat-topbar .topbar-icon-btn, .sidebar-brand-btn, .focused-overlay .voice-close-btn";
 
 const STIFFNESS = 260;
 const DAMPING = 9; // well under critical, so it overshoots a few times

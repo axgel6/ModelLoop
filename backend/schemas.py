@@ -48,6 +48,8 @@ class ChatRequest(BaseModel):
     force_search:  Optional[bool]      = Field(default=False)
     # Reason before answering, for models that can. Ignored by the rest.
     think:         Optional[bool]      = Field(default=False)
+    # The festive theme in use (frontend/src/festive.ts): Olly's default prompt gets its voice
+    festive:       Optional[str]       = Field(default=None, max_length=32, pattern=r"^[a-z-]+$")
 
 
 class GuestChatRequest(BaseModel):
@@ -60,6 +62,7 @@ class GuestChatRequest(BaseModel):
     num_predict:   Optional[int]        = Field(default=-1, ge=-1, le=32768)
     images:        Optional[list[str]]  = Field(default=None, max_length=4)
     think:         Optional[bool]       = Field(default=False)
+    festive:       Optional[str]        = Field(default=None, max_length=32, pattern=r"^[a-z-]+$")
 
 
 # A signed-in user's private chat: nothing is stored, so the browser sends the
@@ -75,6 +78,7 @@ class PrivateChatRequest(BaseModel):
     images:        Optional[list[str]]  = Field(default=None, max_length=4)
     force_search:  Optional[bool]       = Field(default=False)
     think:         Optional[bool]       = Field(default=False)
+    festive:       Optional[str]        = Field(default=None, max_length=32, pattern=r"^[a-z-]+$")
 
 
 class RenameChatRequest(BaseModel):

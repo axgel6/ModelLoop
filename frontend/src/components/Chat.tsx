@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { haptics } from "../haptics";
 import { sounds } from "../sounds";
 import { uiScale } from "../uiScale";
+import { festiveTheme } from "../festive";
 import ChatPreferences, {
   type Theme,
   type Font,
@@ -318,12 +319,21 @@ function Chat({
   );
   const { deletingIds, renameState, editState } = interactionState;
 
-  const chatSubline = useMemo(() => {
-    const lines = isGuest ? greetingLines() : [...greetingLines(), PERSONALITY_TIP];
-    return lines[Math.floor(Math.random() * lines.length)];
-  }, [isGuest]);
+  // A festive theme (Halloween, say) brings its own words and Olly's voice for it (see festive.ts)
+  const festive = festiveTheme(theme);
 
-  const chatSuggestions = useMemo(() => pickSuggestions(4), []);
+  const assistantName = activePreset === "Olly" ? "Olly" : "ModelLoop";
+
+  const chatSubline = useMemo(() => {
+    const lines = festive
+      ? festive.lines
+      : isGuest
+        ? greetingLines()
+        : [...greetingLines(), PERSONALITY_TIP];
+    return lines[Math.floor(Math.random() * lines.length)];
+  }, [isGuest, festive]);
+
+  const chatSuggestions = useMemo(() => pickSuggestions(4, festive?.suggestions), [festive]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -563,6 +573,7 @@ function Chat({
               num_predict: numPredict,
               images,
               think: thinking && canThink,
+              festive: festive?.id,
             },
             ctrl.signal,
           )
@@ -580,6 +591,7 @@ function Chat({
               num_predict: numPredict,
               images,
               think: thinking && canThink,
+              festive: festive?.id,
               force_search: options?.forceSearch,
             },
             ctrl.signal,
@@ -597,6 +609,7 @@ function Chat({
               num_predict: numPredict,
               images,
               think: thinking && canThink,
+              festive: festive?.id,
               force_search: options?.forceSearch,
             },
             ctrl.signal,
@@ -1549,7 +1562,7 @@ function Chat({
             {!messagesLoading && messages.length === 0 && (
               <div className="empty-state">
                 <h2 className="empty-title">
-                  {privateMode ? "Off the record." : timeGreeting(userName)}
+                  {privateMode ? "Off the record." : timeGreeting(userName, new Date(), festive)}
                 </h2>
                 <p className="empty-subline">
                   {privateMode
@@ -1650,7 +1663,8 @@ function Chat({
 
           <ChatInput
             loading={loading}
-            assistantName={activePreset === "Olly" ? "Olly" : "ModelLoop"}
+            assistantName={assistantName}
+            placeholder={festive?.placeholder(assistantName)}
             onAsk={(prompt, images) => handleAsk(prompt, undefined, images)}
             onStop={handleStop}
             onRegisterFocus={(focusFn) => {

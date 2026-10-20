@@ -20,7 +20,7 @@ import config as _config
 import ollama_caps
 from config import (
     IS_PRODUCTION, NGROK_HEADERS,
-    SYSTEM_PROMPT_WITH_TOOLS, SYSTEM_PROMPT_NO_TOOLS, PROPRIETARY_INSTRUCTIONS,
+    SYSTEM_PROMPT_WITH_TOOLS, SYSTEM_PROMPT_NO_TOOLS, PROPRIETARY_INSTRUCTIONS, FESTIVE_PERSONAS,
     TOOL_CAPABLE_MODELS, NO_SYSTEM_PROMPT_MODELS, API_KEY,
     ENABLE_GUEST_CHAT, CHAT_RATE_LIMIT, GUEST_CHAT_RATE_LIMIT, GUEST_CHAT_DAILY_LIMIT,
     fix_math_delimiters,
@@ -218,6 +218,7 @@ async def _chat_stream_response(
     user: Optional[User] = None,
     chat: Optional[Chat] = None,
     think: bool = False,
+    festive: Optional[str] = None,
 ) -> StreamingResponse:
     is_guest = user is None
     # A model that can think is always told whether to, so it never thinks unasked
@@ -231,7 +232,12 @@ async def _chat_stream_response(
     if images and not photo_enabled:
         raise HTTPException(status_code=403, detail="Image upload is disabled")
 
-    system_prompt = system_prompt or (SYSTEM_PROMPT_WITH_TOOLS if actions_enabled else SYSTEM_PROMPT_NO_TOOLS)
+    # No prompt of its own means Olly, the default, who takes on a festive theme's voice (a
+    # personality with its own prompt keeps its voice)
+    if not system_prompt:
+        system_prompt = SYSTEM_PROMPT_WITH_TOOLS if actions_enabled else SYSTEM_PROMPT_NO_TOOLS
+        if festive in FESTIVE_PERSONAS:
+            system_prompt += "\n\n" + FESTIVE_PERSONAS[festive]
 
     if actions_enabled:
         active_tools = get_active_tools(prompt)
@@ -688,6 +694,7 @@ async def chat_stream(
         user=user,
         chat=chat,
         think=bool(body.think),
+        festive=body.festive,
     )
 
 
@@ -720,6 +727,7 @@ async def guest_chat_stream(
         base_url=await effective_ollama_url(None),
         db=db,
         think=bool(body.think),
+        festive=body.festive,
     )
 
 
@@ -747,4 +755,5 @@ async def private_chat_stream(
         db=db,
         user=user,
         think=bool(body.think),
+        festive=body.festive,
     )

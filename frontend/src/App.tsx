@@ -20,21 +20,9 @@ import { useRoute } from "./router";
 import { chatIdFromPath } from "./subroute";
 import { dayPart } from "./components/utils/chatUtils";
 import { background } from "./background";
-import { halloweenOpen } from "./season";
+import { baseTheme, festiveTheme, inSeason, isTheme } from "./festive";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
-
-const THEME_TO_DATA: Record<Theme, string> = {
-  ember: "ember",
-  frost: "frost",
-  dune: "dune",
-  meadow: "meadow",
-  // Halloween is Frost's layout in its own colours (see themes/halloween.css), so it sets
-  // data-theme="frost" and adds data-festive, which only its own rules look for
-  halloween: "frost",
-};
-
-const FESTIVE: Partial<Record<Theme, string>> = { halloween: "halloween" };
 
 function App() {
   // The URL decides the view; a bare "/" falls back to the session (chat when signed in).
@@ -67,7 +55,6 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    const valid: Theme[] = ["ember", "frost", "dune", "meadow", "halloween"];
     // Ember was called Gruvbox, and had variants before that. Anything else that is
     // no longer a theme (the retired Ocean theme) falls through to the default.
     if (
@@ -78,15 +65,15 @@ function App() {
       stored === "gruvbox"
     )
       return "ember";
-    if (stored === "halloween" && !halloweenOpen()) return "frost"; // its season is over
-    return valid.includes(stored as Theme) ? (stored as Theme) : "meadow";
+    return isTheme(stored) ? inSeason(stored) : "meadow"; // out of season, a festive theme becomes its base
   });
 
   useEffect(() => {
     const root = document.documentElement;
-    root.dataset.theme = THEME_TO_DATA[theme];
-    const festive = FESTIVE[theme];
-    if (festive) root.dataset.festive = festive;
+    // A festive theme lays out as its base theme, and adds data-festive for its own rules
+    root.dataset.theme = baseTheme(theme);
+    const festive = festiveTheme(theme);
+    if (festive) root.dataset.festive = festive.id;
     else delete root.dataset.festive;
     localStorage.setItem("theme", theme);
     // A festive theme's background only shows with that theme, so the choice is put back on
@@ -225,12 +212,10 @@ function App() {
         await apiUpdatePreferences(patch).catch(() => {});
       } else {
         // No local changes — apply DB preferences
-        const validThemes: Theme[] = ["ember", "frost", "dune", "meadow", "halloween"];
         const validFonts: Font[] = ["mono", "inter", "rounded"];
         // Accounts saved before the rename still say "gruvbox".
-        let savedTheme = me.theme === "gruvbox" ? "ember" : me.theme;
-        if (savedTheme === "halloween" && !halloweenOpen()) savedTheme = "frost"; // its season is over
-        if (validThemes.includes(savedTheme as Theme)) setTheme(savedTheme as Theme);
+        const savedTheme = me.theme === "gruvbox" ? "ember" : me.theme;
+        if (isTheme(savedTheme)) setTheme(inSeason(savedTheme));
         if (validFonts.includes(me.font as Font)) setFont(me.font as Font);
       }
     } catch {
