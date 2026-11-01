@@ -3,6 +3,7 @@ import { useEscapeKey } from "./useEscapeKey";
 import { sounds, SOUND_GROUPS, type SoundGroup } from "../sounds";
 import { background, backgroundsFor } from "../background";
 import { uiScale, UI_SCALES } from "../uiScale";
+import { panels, PANELS } from "../panels";
 import { openFestiveThemes, type Theme } from "../festive";
 import {
   apiGetMe,
@@ -17,7 +18,7 @@ import { readableTextOn } from "./utils/chatUtils";
 import { PRESETS } from "./presets";
 
 export type { Theme };
-export type Font = "mono" | "inter" | "rounded";
+export type Font = "inter" | "rounded";
 
 interface ChatPreferencesProps {
   systemPrompt: string;
@@ -137,6 +138,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   );
   const [bg, setBg] = useState(() => background.get());
   const [scale, setScale] = useState(() => uiScale.get());
+  const [panelsId, setPanelsId] = useState(() => panels.get());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
@@ -510,18 +512,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           <>
             <div className="pref-content-header">
               <span className="pref-content-title">Generation</span>
-              <button
-                className="pref-generation-reset-btn"
-                onClick={() => {
-                  setTemperature(0.7);
-                  setTopP(0.9);
-                  setNumPredict(-1);
-                  setSpeechRate(1.0);
-                }}
-                title="Reset to defaults"
-              >
-                Reset to defaults
-              </button>
             </div>
             <div className="pref-settings-area">
               <div className="pref-setting-row">
@@ -664,6 +654,18 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span>2.0×</span>
               </div>
               {infoPanel("speechRate")}
+              <button
+                className="pref-generation-reset-btn"
+                onClick={() => {
+                  setTemperature(0.7);
+                  setTopP(0.9);
+                  setNumPredict(-1);
+                  setSpeechRate(1.0);
+                }}
+                title="Reset to defaults"
+              >
+                Reset to defaults
+              </button>
             </div>
           </>
         );
@@ -762,15 +764,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </span>
                   <span className="pref-font-label">Inter</span>
                 </div>
-                <div
-                  className={`pref-font-card${font === "mono" ? " active" : ""}`}
-                  onClick={() => setFont("mono")}
-                >
-                  <span className="pref-font-preview pref-font-preview-mono">
-                    Aa
-                  </span>
-                  <span className="pref-font-label">JetBrains Mono</span>
-                </div>
               </div>
               <div
                 className="pref-setting-section-label"
@@ -791,6 +784,34 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   >
                     <div className={`pref-bg-preview pref-bg-preview-${b.id}`} />
                     <span className="pref-theme-label">{b.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div
+                className="pref-setting-section-label"
+                style={{ marginTop: "20px" }}
+              >
+                Panels
+              </div>
+              {/* How much shows through the windows (this one included) and the sidebar. Each preview is a
+                  sample window at that level over a still scene in the theme's colours. */}
+              <div className="pref-theme-cards pref-bg-cards">
+                {PANELS.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`pref-theme-card${panelsId === p.id ? " active" : ""}`}
+                    onClick={() => {
+                      panels.set(p.id);
+                      setPanelsId(p.id);
+                    }}
+                  >
+                    <div
+                      className={`pref-panels-preview frosting-scope${p.id === "opaque" ? " panels-opaque" : ""}`}
+                      style={{ "--frosting": p.frosting } as React.CSSProperties}
+                    >
+                      <div className="pref-panels-sample" />
+                    </div>
+                    <span className="pref-theme-label">{p.label}</span>
                   </div>
                 ))}
               </div>
@@ -1403,7 +1424,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-about-hero">
                 <div className="pref-about-wordmark">ModelLoop</div>
                 <div className="pref-about-build">
-                  Latest Build Date: Oct 13, 2026
+                  Latest Build Date: Nov 1, 2026
                 </div>
                 <div className="pref-about-tagline">
                   Self-hosted AI chat powered by your local LLM
@@ -1412,7 +1433,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-account-card">
                 <div className="pref-account-field">
                   <div className="pref-field-label">Version</div>
-                  <div className="pref-about-meta-value">v1.5.0</div>
+                  <div className="pref-about-meta-value">v1.6.0</div>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
                   <div className="pref-field-label">Built by</div>

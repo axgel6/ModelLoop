@@ -102,7 +102,7 @@ function App() {
 
   const [font, setFont] = useState<Font>(() => {
     const stored = localStorage.getItem("font");
-    return stored === "mono" || stored === "inter" ? stored : "rounded";
+    return stored === "inter" ? stored : "rounded";
   });
 
 
@@ -144,11 +144,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (font !== "mono") {
-      document.documentElement.dataset.font = font;
-    } else {
-      delete document.documentElement.dataset.font;
-    }
+    document.documentElement.dataset.font = font;
     localStorage.setItem("font", font);
   }, [font]);
 
@@ -212,7 +208,7 @@ function App() {
         await apiUpdatePreferences(patch).catch(() => {});
       } else {
         // No local changes — apply DB preferences
-        const validFonts: Font[] = ["mono", "inter", "rounded"];
+        const validFonts: Font[] = ["inter", "rounded"];
         // Accounts saved before the rename still say "gruvbox".
         const savedTheme = me.theme === "gruvbox" ? "ember" : me.theme;
         if (isTheme(savedTheme)) setTheme(inSeason(savedTheme));

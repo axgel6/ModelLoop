@@ -241,6 +241,15 @@ function Chat({
 
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  // Escape closes the account menu
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowUserMenu(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showUserMenu]);
   // A refresh on /games/... comes back to the games
   const [showGames, setShowGames] = useState(() => inGamesPath());
   // Bumped on every click of the sidebar's Games entry, which remounts the hub
@@ -1213,12 +1222,14 @@ function Chat({
                         />
                         <div
                           className="sidebar-user-menu"
+                          role="menu"
+                          aria-label="Account"
                           onClick={(e) => e.stopPropagation()}
                           style={
                             rect
                               ? {
                                   position: "fixed",
-                                  bottom: `calc((100vh - ${rect.top}px) / ${uiScale.scale()} + 6px)`,
+                                  bottom: `calc((100vh - ${rect.top}px) / ${uiScale.scale()} + 8px)`,
                                   left: rect.left / uiScale.scale() + 8,
                                   width: rect.width / uiScale.scale() - 16,
                                 }
@@ -1227,6 +1238,7 @@ function Chat({
                         >
                           <button
                             className="sidebar-user-menu-item"
+                            role="menuitem"
                             onClick={() => {
                               setShowUserMenu(false);
                               setPrefSection("account");
@@ -1235,8 +1247,8 @@ function Chat({
                           >
                             <svg
                               viewBox="0 0 24 24"
-                              width="14"
-                              height="14"
+                              width="16"
+                              height="16"
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="2"
@@ -1246,10 +1258,12 @@ function Chat({
                               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                               <circle cx="12" cy="7" r="4" />
                             </svg>
-                            Account Settings
+                            Account settings
                           </button>
+                          <div className="sidebar-user-menu-sep" role="separator" />
                           <button
                             className="sidebar-user-menu-item"
+                            role="menuitem"
                             onClick={() => {
                               setShowUserMenu(false);
                               setShowLogoutConfirm(true);
@@ -1257,8 +1271,8 @@ function Chat({
                           >
                             <svg
                               viewBox="0 0 24 24"
-                              width="14"
-                              height="14"
+                              width="16"
+                              height="16"
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="2"
@@ -1269,7 +1283,7 @@ function Chat({
                               <polyline points="16 17 21 12 16 7" />
                               <line x1="21" y1="12" x2="9" y2="12" />
                             </svg>
-                            Sign Out
+                            Sign out
                           </button>
                         </div>
                       </>
@@ -1277,6 +1291,9 @@ function Chat({
                   })()}
                 <div
                   className="sidebar-footer"
+                  role="button"
+                  aria-haspopup="menu"
+                  aria-expanded={showUserMenu}
                   onClick={() => setShowUserMenu((v) => !v)}
                   style={{ cursor: "pointer" }}
                 >
@@ -1511,8 +1528,8 @@ function Chat({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
                     <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                   </svg>
                   <span className="topbar-dock-label">Preferences</span>
                 </button>

@@ -105,134 +105,137 @@ const KEY_GAP_MS = 30;
 const HOVER_NOTES = [C4, D4, E4];
 const HOVER_GAP_MS = 70;
 
+// Browser storage can be blocked (some private modes); then settings last until the page closes.
+function load(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function save(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // blocked: the choice still holds for this visit
+  }
+}
+
+const clampVolume = (v: number) => Math.min(1, Math.max(0, v));
+
 class SoundManager {
   private ctx: AudioContext | null = null;
   private out: AudioNode | null = null;
   private master: GainNode | null = null;
   private noise: AudioBuffer | null = null;
-  private lastName: SoundName | null = null;
-  private lastAt = 0;
-  private lastBabble = 0;
-  private lastKey = 0;
-  private lastHover = 0;
+  // When each kind of sound last played, for thinning out rapid repeats
+  private lastAt = new Map<string, number>();
 
-  // Off until the user turns it on; their choice is remembered in this browser.
-  isEnabled(): boolean {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === "on";
-    } catch {
-      return false;
+  // Settings are read from storage once and kept here, since some sounds are asked for on every
+  // streamed token, keystroke or hover.
+  private enabled = false;
+  private groups = { ...GROUP_DEFAULTS };
+  private volume = DEFAULT_VOLUME;
+
+  constructor() {
+    this.loadSettings();
+    // Pick up a change made in another tab
+    window.addEventListener("storage", () => this.loadSettings());
+  }
+
+  private loadSettings() {
+    // Off until the user turns it on
+    this.enabled = load(STORAGE_KEY) === "on";
+    for (const group of Object.keys(GROUP_KEYS) as SoundGroup[]) {
+      const stored = load(GROUP_KEYS[group]);
+      this.groups[group] = stored === null ? GROUP_DEFAULTS[group] : stored === "on";
     }
+    const volume = parseFloat(load(VOLUME_KEY) ?? "");
+    this.volume = Number.isFinite(volume) ? clampVolume(volume) : DEFAULT_VOLUME;
+    if (this.master) this.master.gain.value = this.volume / DEFAULT_VOLUME;
+  }
+
+  isEnabled(): boolean {
+    return this.enabled;
   }
 
   setEnabled(on: boolean) {
-    try {
-      localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
-    } catch {
-      // private mode: it lasts until the page closes
-    }
+    this.enabled = on;
+    save(STORAGE_KEY, on ? "on" : "off");
   }
 
   // One kind of sound's own switch, as set in Preferences (see GROUP_DEFAULTS when unset)
   isGroupOn(group: SoundGroup): boolean {
-    try {
-      const stored = localStorage.getItem(GROUP_KEYS[group]);
-      return stored === null ? GROUP_DEFAULTS[group] : stored === "on";
-    } catch {
-      return GROUP_DEFAULTS[group];
-    }
+    return this.groups[group];
   }
 
   setGroupOn(group: SoundGroup, on: boolean) {
-    try {
-      localStorage.setItem(GROUP_KEYS[group], on ? "on" : "off");
-    } catch {
-      // private mode: it lasts until the page closes
-    }
+    this.groups[group] = on;
+    save(GROUP_KEYS[group], on ? "on" : "off");
   }
 
-  // Whether a kind of sound is heard now: sound on, and that kind on
-  private allows(group: SoundGroup): boolean {
-    return this.isEnabled() && this.isGroupOn(group);
-  }
-
-  // 0 to 1, remembered in this browser.
+  // 0 to 1
   getVolume(): number {
-    const stored = parseFloat(localStorage.getItem(VOLUME_KEY) ?? "");
-    return Number.isFinite(stored) ? Math.min(1, Math.max(0, stored)) : DEFAULT_VOLUME;
+    return this.volume;
   }
 
   setVolume(volume: number) {
-    const clamped = Math.min(1, Math.max(0, volume));
-    localStorage.setItem(VOLUME_KEY, String(clamped));
-    if (this.master) this.master.gain.value = clamped / DEFAULT_VOLUME;
+    this.volume = clampVolume(volume);
+    save(VOLUME_KEY, String(this.volume));
+    if (this.master) this.master.gain.value = this.volume / DEFAULT_VOLUME;
+  }
+
+  // Plays `voice` if its kind of sound is on and `id` has not played within `gapMs`.
+  private emit(group: SoundGroup, id: string, gapMs: number, voice: () => void) {
+    if (!this.enabled || !this.groups[group]) return;
+    const now = performance.now();
+    if (now - (this.lastAt.get(id) ?? -Infinity) < gapMs) return;
+    this.lastAt.set(id, now);
+    try {
+      this.ready();
+      voice();
+    } catch {
+      // No audio available (or blocked before a user gesture): stay silent
+    }
   }
 
   play(name: SoundName) {
-    if (!this.allows(GROUP_OF[name])) return;
-    // One click can reach here twice (a global handler plus a local one).
-    const now = performance.now();
-    if (name === this.lastName && now - this.lastAt < 60) return;
-    this.lastName = name;
-    this.lastAt = now;
-
-    try {
-      this.ready();
+    // The short gap catches one click reaching here twice (a global handler plus a local one)
+    this.emit(GROUP_OF[name], name, 60, () => {
       // One drift for the whole sound, so its notes keep their intervals
       const pitch = drift();
       for (const [freq, ...rest] of SOUNDS[name]) this.note(freq * pitch, ...rest);
       for (const [freq, ...rest] of CLICKS[name] ?? []) this.click(freq * pitch, ...rest);
-    } catch {
-      // No audio available (or blocked before a user gesture): stay silent.
-    }
+    });
   }
 
   // Call once per streamed token. Tokens arrive far faster than this should sound,
   // so it voices at most one very quiet blip every BABBLE_GAP_MS.
   babble() {
-    if (!this.allows("replies")) return;
-    const now = performance.now();
-    if (now - this.lastBabble < BABBLE_GAP_MS) return;
-    this.lastBabble = now;
-    try {
-      this.ready();
+    this.emit("replies", "babble", BABBLE_GAP_MS, () => {
       const base = BABBLE_NOTES[Math.floor(Math.random() * BABBLE_NOTES.length)];
       this.note(base * (0.97 + Math.random() * 0.06), 0, 0.07, 0.022);
-    } catch {
-      // stay silent
-    }
+    });
   }
 
   // Call on each key typed into a text field. Fast typing is thinned out, not queued.
   key() {
-    if (!this.allows("typing")) return;
-    const now = performance.now();
-    if (now - this.lastKey < KEY_GAP_MS) return;
-    this.lastKey = now;
-    try {
-      this.ready();
+    this.emit("typing", "key", KEY_GAP_MS, () => {
       // Both swell in over a few ms: a hard edge on the noise is what made it a typewriter
       this.click(KEY_BAND_HZ * drift(), 0, 0.05, 0.14, 0.7, 0.005);
       this.note(KEY_THUMP_HZ * drift(), 0, 0.07, 0.045, 0.006);
-    } catch {
-      // stay silent
-    }
+    });
   }
 
   // Call when the pointer comes onto something pressable.
   hover() {
     // Browsers only allow audio after a press, so hovers stay silent until the first one has
     // started it, rather than starting it early and getting blocked
-    if (!this.allows("hover") || !this.ctx) return;
-    const now = performance.now();
-    if (now - this.lastHover < HOVER_GAP_MS) return;
-    this.lastHover = now;
-    try {
-      this.ready();
+    if (!this.ctx) return;
+    this.emit("hover", "hover", HOVER_GAP_MS, () => {
       this.note(HOVER_NOTES[Math.floor(Math.random() * HOVER_NOTES.length)] * drift(), 0, 0.16, 0.022, 0.03);
-    } catch {
-      // stay silent
-    }
+    });
   }
 
   private ready() {
@@ -243,7 +246,7 @@ class SoundManager {
       filter.type = "lowpass";
       filter.frequency.value = 3200;
       this.master = this.ctx.createGain();
-      this.master.gain.value = this.getVolume() / DEFAULT_VOLUME;
+      this.master.gain.value = this.volume / DEFAULT_VOLUME;
       filter.connect(this.master).connect(this.ctx.destination);
       this.out = filter;
     }

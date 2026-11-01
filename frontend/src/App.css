@@ -3,7 +3,9 @@
    ============================================================ */
 
 :root {
-  --ui-font: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+  --ui-font:
+    "Nunito", "Varela Round", ui-rounded, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Helvetica, Arial, sans-serif;
   /* The app's one spring: unhurried, with a small overshoot before it settles */
   --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
@@ -934,10 +936,6 @@ html[data-theme="meadow"] .connection-banner {
 :where(html[data-theme="frost"]) .input-toolbar {
   border-top: 1px solid rgba(76, 86, 106, 0.25);
 }
-.pref-list-item--muted {
-  opacity: 0.5;
-  cursor: default !important;
-}
 
 .toolbar-left,
 .toolbar-right {
@@ -1287,23 +1285,6 @@ html[data-theme="meadow"] .connection-banner {
   50% {
     transform: scaleY(1);
   }
-}
-
-.toolbar-icon-btn.mic-btn.recording {
-  color: #fb4934;
-  animation: mic-pulse 1.2s ease-in-out infinite;
-}
-
-:where(html[data-theme="frost"]) .toolbar-icon-btn.mic-btn.recording {
-  color: #bf616a;
-}
-
-.toolbar-icon-btn.mic-btn.recording:hover {
-  color: #fb4934;
-}
-
-:where(html[data-theme="frost"]) .toolbar-icon-btn.mic-btn.recording:hover {
-  color: #bf616a;
 }
 
 .chat-textarea.voice-listening {
@@ -2212,48 +2193,6 @@ html[data-theme="meadow"] .reasoning-content {
     inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 
-html[data-theme="dune"] .tool-indicator {
-  background: rgba(217, 119, 87, 0.08);
-  border-color: rgba(217, 119, 87, 0.25);
-  color: #d97757;
-}
-
-html[data-theme="ember"] .tool-indicator {
-  background: rgba(250, 189, 47, 0.08);
-  border-color: rgba(250, 189, 47, 0.25);
-  color: #fbc954;
-}
-
-html[data-theme="frost"] .tool-indicator {
-  background: rgba(135, 191, 208, 0.08);
-  border-color: rgba(135, 191, 208, 0.25);
-  color: #9bcad8;
-}
-
-html[data-theme="meadow"] .tool-indicator {
-  background: rgba(70, 161, 119, 0.08);
-  border-color: rgba(70, 161, 119, 0.25);
-  color: #46a177;
-}
-
-.tool-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 10px;
-  padding: 3px 10px 3px 8px;
-  border-radius: 20px;
-  background: #32302f;
-  border: 1px solid #504945;
-  color: #fabd2f;
-  font-size: 0.78rem;
-  animation: tool-pulse 1.6s ease-in-out infinite;
-}
-
-:where(html[data-theme="frost"]) .tool-indicator {
-  border: 1px solid #4c566a;
-}
-
 @keyframes tool-pulse {
   0%,
   100% {
@@ -2502,35 +2441,6 @@ html[data-theme="meadow"] .tool-indicator {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-}
-
-.sidebar-search {
-  flex-shrink: 0;
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid rgba(80, 73, 69, 0.38);
-  border-radius: 15px;
-  font-size: 0.74rem;
-  background: rgba(29, 32, 33, 0.45);
-  color: #ebdbb2;
-  font-family: var(--ui-font);
-  outline: none;
-  transition: border-color 0.2s;
-  margin-bottom: 5px;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-:where(html[data-theme="frost"]) .sidebar-search {
-  border: 1px solid rgba(76, 86, 106, 0.38);
-}
-
-.sidebar-search::placeholder {
-  color: #504945;
-}
-
-.sidebar-search:focus {
-  border-color: rgba(250, 189, 47, 0.35);
 }
 
 .sidebar-chat-list {
@@ -4287,15 +4197,6 @@ html:where([data-theme="frost"])[data-theme] .pref-avatar-swatch--default:hover 
   color: #5d687e;
 }
 
-.login-field-optional {
-  font-size: 0.78rem;
-  color: #928374;
-  font-weight: 400;
-}
-
-:where(html[data-theme="frost"]) .login-field-optional {
-  color: #8f99ad;
-}
 .btn-spinner {
   display: inline-block;
   width: 12px;
@@ -4850,15 +4751,6 @@ html[data-theme] .pref-info-btn.active {
   color: #fabd2f;
 }
 
-.pref-theme-check {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  font-size: 0.75rem;
-  color: #fabd2f;
-  font-weight: 700;
-}
-
 /* ---- Font picker ---- */
 
 .pref-font-cards {
@@ -4906,10 +4798,6 @@ html[data-theme] .pref-info-btn.active {
   color: #ebdbb2;
   line-height: 1;
   letter-spacing: -0.02em;
-}
-
-.pref-font-preview-mono {
-  font-family: "JetBrains Mono", monospace;
 }
 
 .pref-font-preview-inter {
@@ -5038,12 +4926,6 @@ html[data-theme] .pref-info-btn.active {
   letter-spacing: -0.01em;
 }
 
-.pref-about-version {
-  font-size: 0.72rem;
-  color: #928374;
-  margin-top: 4px;
-}
-
 .pref-about-build {
   font-size: 0.65rem;
   color: #665c54;
@@ -5070,13 +4952,6 @@ html[data-theme] .pref-info-btn.active {
 .pref-about-link:hover {
   color: #8ec07c;
   text-decoration: underline;
-}
-
-.pref-about-disclaimer {
-  margin: 4px 24px 20px;
-  font-size: 0.72rem;
-  color: #928374;
-  line-height: 1.55;
 }
 /* ---- Dune theme overrides ---- */
 
@@ -6234,22 +6109,6 @@ html[data-theme="meadow"] .pref-font-card.active .pref-font-label {
   color: #ffffff;
 }
 
-html[data-theme="dune"] .pref-theme-check {
-  color: #ffffff;
-}
-
-html[data-theme="ember"] .pref-theme-check {
-  color: #282828;
-}
-
-html[data-theme="frost"] .pref-theme-check {
-  color: #353c4a;
-}
-
-html[data-theme="meadow"] .pref-theme-check {
-  color: #ffffff;
-}
-
 html[data-theme="dune"] .pref-custom-prompt textarea {
   background: linear-gradient(
     180deg,
@@ -6855,22 +6714,6 @@ html[data-theme="meadow"] .pref-about-wordmark {
   color: #294231;
 }
 
-html[data-theme="dune"] .pref-about-version {
-  color: #a8a29e;
-}
-
-html[data-theme="ember"] .pref-about-version {
-  color: #928374;
-}
-
-html[data-theme="frost"] .pref-about-version {
-  color: #8f99ad;
-}
-
-html[data-theme="meadow"] .pref-about-version {
-  color: #68766d;
-}
-
 html[data-theme="dune"] .pref-about-build {
   color: #c4b8b0;
 }
@@ -6941,22 +6784,6 @@ html[data-theme="ember"] .pref-about-link:hover {
 
 html[data-theme="frost"] .pref-about-link:hover {
   color: #82bdce;
-}
-
-html[data-theme="dune"] .pref-about-disclaimer {
-  color: #a8a29e;
-}
-
-html[data-theme="ember"] .pref-about-disclaimer {
-  color: #928374;
-}
-
-html[data-theme="frost"] .pref-about-disclaimer {
-  color: #8f99ad;
-}
-
-html[data-theme="meadow"] .pref-about-disclaimer {
-  color: #68766d;
 }
 
 /* ---- Pref header buttons (close / refresh) ---- */
@@ -7238,6 +7065,73 @@ html[data-theme="meadow"] .pref-close-btn:hover {
   gap: 6px;
 }
 
+/* Sign-up-only fields slide open and shut when switching between sign in and sign up.
+   Animating the grid row from 0fr to 1fr lets the card's height follow smoothly. The
+   negative margin cancels the form's gap while the field is shut. */
+.login-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-bottom: -16px;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    margin-bottom 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease;
+}
+
+.login-collapse.is-open {
+  grid-template-rows: 1fr;
+  margin-bottom: 0;
+  opacity: 1;
+  transition:
+    grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    margin-bottom 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.26s ease 0.12s;
+}
+
+.login-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Once open, stop clipping so the input's focus ring can show */
+.login-collapse.is-open .login-collapse-inner {
+  animation: login-unclip 0s 0.38s forwards;
+}
+
+@keyframes login-unclip {
+  to {
+    overflow: visible;
+  }
+}
+
+/* Text that changes with the mode fades in rather than snapping */
+.login-swap {
+  animation: login-swap-in 0.32s ease both;
+}
+
+span.login-swap {
+  display: inline-block;
+}
+
+@keyframes login-swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-collapse,
+  .login-collapse.is-open {
+    transition: none;
+  }
+
+  .login-swap {
+    animation: none;
+  }
+}
+
 .login-field label {
   font-size: 0.78rem;
   color: #a89984;
@@ -7367,10 +7261,6 @@ html[data-theme="meadow"] .pref-close-btn:hover {
   color: #d3869b;
   background: none;
   box-shadow: none;
-}
-
-.login-brand-mark {
-  display: none;
 }
 
 .login-divider {
@@ -9762,110 +9652,6 @@ html[data-theme="frost"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete
   color: #353c4a !important;
 }
 
-html[data-theme="dune"] .sidebar-search {
-  background: #ede6dc;
-  border-color: rgba(180, 170, 158, 0.8);
-  color: #1c1917;
-  box-shadow:
-    inset 0 1px 3px rgba(28, 25, 23, 0.1),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s,
-    background 0.2s;
-}
-
-html[data-theme="ember"] .sidebar-search {
-  background: #3c3836;
-  border-color: rgba(124, 111, 100, 0.8);
-  color: #ebdbb2;
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.25),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s,
-    background 0.2s;
-}
-
-html[data-theme="frost"] .sidebar-search {
-  background: #444d5f;
-  border-color: rgba(119, 129, 150, 0.8);
-  color: #d8dee9;
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.25),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s,
-    background 0.2s;
-}
-
-html[data-theme="meadow"] .sidebar-search {
-  background: #dcede1;
-  border-color: rgba(158, 180, 165, 0.8);
-  color: #294231;
-  box-shadow:
-    inset 0 1px 3px rgba(41, 66, 49, 0.1),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s,
-    background 0.2s;
-}
-
-html[data-theme="dune"] .sidebar-search::placeholder {
-  color: #a8a29e;
-}
-
-html[data-theme="ember"] .sidebar-search::placeholder {
-  color: #928374;
-}
-
-html[data-theme="frost"] .sidebar-search::placeholder {
-  color: #8f99ad;
-}
-
-html[data-theme="meadow"] .sidebar-search::placeholder {
-  color: #68766d;
-}
-
-html[data-theme="dune"] .sidebar-search:focus {
-  border-color: rgba(217, 119, 87, 0.6);
-  background: #f0e9de;
-  box-shadow:
-    inset 0 1px 3px rgba(28, 25, 23, 0.12),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
-    0 0 0 2px rgba(217, 119, 87, 0.14);
-}
-
-html[data-theme="ember"] .sidebar-search:focus {
-  border-color: rgba(250, 189, 47, 0.6);
-  background: #3c3836;
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.3),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 0 0 2px rgba(250, 189, 47, 0.14);
-}
-
-html[data-theme="frost"] .sidebar-search:focus {
-  border-color: rgba(135, 191, 208, 0.6);
-  background: #434c5e;
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.3),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 0 0 2px rgba(135, 191, 208, 0.14);
-}
-
-html[data-theme="meadow"] .sidebar-search:focus {
-  border-color: rgba(70, 161, 119, 0.6);
-  background: #d8eedf;
-  box-shadow:
-    inset 0 1px 3px rgba(41, 66, 49, 0.12),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
-    0 0 0 2px rgba(70, 161, 119, 0.14);
-}
-
 html[data-theme="dune"] .sidebar-footer {
   border-top: 1px solid rgba(180, 165, 145, 0.45);
   background: rgba(235, 228, 218, 0.6);
@@ -10005,102 +9791,6 @@ html[data-theme="meadow"] .chat-preferences-modal-overlay {
   background: rgba(41, 66, 49, 0.4);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-html[data-theme="dune"] .chat-preferences-modal {
-  background: #fdf9f4;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid #e7e0d6;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(28, 25, 23, 0.12);
-}
-
-html[data-theme="ember"] .chat-preferences-modal {
-  background: #32302f;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid #504945;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-html[data-theme="frost"] .chat-preferences-modal {
-  background: #3a4150;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid #495366;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-html[data-theme="meadow"] .chat-preferences-modal {
-  background: #eefbf2;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid #d6e7db;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(41, 66, 49, 0.12);
-}
-
-html[data-theme="dune"] .chat-preferences-modal textarea {
-  background: #faf8f5;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid #e7e0d6;
-  color: #1c1917;
-  box-shadow: none;
-}
-
-html[data-theme="ember"] .chat-preferences-modal textarea {
-  background: #1d2021;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid #504945;
-  color: #ebdbb2;
-  box-shadow: none;
-}
-
-html[data-theme="frost"] .chat-preferences-modal textarea {
-  background: #2e3440;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid #495366;
-  color: #d8dee9;
-  box-shadow: none;
-}
-
-html[data-theme="meadow"] .chat-preferences-modal textarea {
-  background: #f0f8f2;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid #d6e7db;
-  color: #294231;
-  box-shadow: none;
-}
-
-html[data-theme="dune"] .chat-preferences-modal textarea:focus {
-  border-color: #d97757;
-  background: #f5ede3;
-  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.1);
-}
-
-html[data-theme="ember"] .chat-preferences-modal textarea:focus {
-  border-color: #fabd2f;
-  background: #3c3836;
-  box-shadow: 0 0 0 3px rgba(250, 189, 47, 0.1);
-}
-
-html[data-theme="frost"] .chat-preferences-modal textarea:focus {
-  border-color: #87bfd0;
-  background: #3f4859;
-  box-shadow: 0 0 0 3px rgba(135, 191, 208, 0.1);
-}
-
-html[data-theme="meadow"] .chat-preferences-modal textarea:focus {
-  border-color: #46a177;
-  background: #ddf3e4;
-  box-shadow: 0 0 0 3px rgba(70, 161, 119, 0.1);
 }
 
 html[data-theme="dune"] .logout-confirm-overlay {
@@ -10363,42 +10053,6 @@ html[data-theme="meadow"] .login-card {
   box-shadow:
     0 1px 3px rgba(41, 66, 49, 0.06),
     0 8px 32px rgba(41, 66, 49, 0.09);
-}
-
-html[data-theme="dune"] .login-brand-mark {
-  display: block;
-  width: 36px;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #e0815f 0%, #c96344 100%);
-  margin-bottom: 2px;
-}
-
-html[data-theme="ember"] .login-brand-mark {
-  display: block;
-  width: 36px;
-  height: 4px;
-  border-radius: 999px;
-  background: #fabd2f;
-  margin-bottom: 2px;
-}
-
-html[data-theme="frost"] .login-brand-mark {
-  display: block;
-  width: 36px;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #8ec3d2 0%, #76b6c9 100%);
-  margin-bottom: 2px;
-}
-
-html[data-theme="meadow"] .login-brand-mark {
-  display: block;
-  width: 36px;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #46ac7d 0%, #438969 100%);
-  margin-bottom: 2px;
 }
 
 html[data-theme="dune"] .login-logo {
@@ -11801,25 +11455,21 @@ html[data-theme="meadow"] .landing-theme-modal-close:hover {
   line-height: 1.55;
 }
 
-html[data-theme="dune"] .welcome-how-title,
 html[data-theme="dune"] .welcome-step-body,
 html[data-theme="dune"] .pref-ollama-target {
   color: #78716c;
 }
 
-html[data-theme="ember"] .welcome-how-title,
 html[data-theme="ember"] .welcome-step-body,
 html[data-theme="ember"] .pref-ollama-target {
   color: #a89984;
 }
 
-html[data-theme="frost"] .welcome-how-title,
 html[data-theme="frost"] .welcome-step-body,
 html[data-theme="frost"] .pref-ollama-target {
   color: #a3adbf;
 }
 
-html[data-theme="meadow"] .welcome-how-title,
 html[data-theme="meadow"] .welcome-step-body,
 html[data-theme="meadow"] .pref-ollama-target {
   color: #52635a;
@@ -13227,6 +12877,42 @@ html[data-background][data-theme="meadow"] .message.assistant {
   background: linear-gradient(180deg, rgba(238, 251, 242, 0.74) 0%, rgba(218, 240, 225, 0.74) 100%);
 }
 
+/* On a photo, the new chat screen's text and chips get shadows so they lift off the picture.
+   Dark themes put a soft dark shadow under their light text; light themes a faint light lift
+   under their dark text, with ink-tinted shadows under the chips. Never coloured, never a glow. */
+html[data-background][data-theme] {
+  --wall-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 12px rgba(0, 0, 0, 0.35);
+  --wall-chip-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 4px rgba(0, 0, 0, 0.22),
+    0 8px 22px rgba(0, 0, 0, 0.3);
+}
+
+html[data-background][data-theme="dune"] {
+  --wall-text-shadow: 0 1px 1px rgba(255, 255, 255, 0.55), 0 1px 10px rgba(250, 248, 245, 0.45);
+  --wall-chip-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 2px 4px rgba(28, 25, 23, 0.1),
+    0 8px 22px rgba(28, 25, 23, 0.16);
+}
+
+html[data-background][data-theme="meadow"] {
+  --wall-text-shadow: 0 1px 1px rgba(255, 255, 255, 0.55), 0 1px 10px rgba(240, 248, 242, 0.45);
+  --wall-chip-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 2px 4px rgba(41, 66, 49, 0.1),
+    0 8px 22px rgba(41, 66, 49, 0.16);
+}
+
+html[data-background][data-theme] .empty-title,
+html[data-background][data-theme] .empty-subline,
+html[data-background][data-theme] .empty-hint,
+html[data-background][data-theme] .topbar-title {
+  text-shadow: var(--wall-text-shadow);
+}
+
+html[data-background][data-theme] .suggestion-chip,
+html[data-background][data-theme] .suggestion-chip:hover {
+  box-shadow: var(--wall-chip-shadow);
+}
+
 /* The games list's rows and gears show the blur baked into a small copy of each photo (made
    from the full one: resized to 680px wide, saturation 1.4, Gaussian blur radius 6) instead of
    a live backdrop-filter, so the list is frosted from its first frame. Fixed to the viewport and
@@ -13433,5 +13119,459 @@ html[data-theme="frost"][data-festive="halloween"] body::before {
 @keyframes halloween-fog {
   to {
     transform: translate3d(-1400px, 0, 0);
+  }
+}
+
+/* ============================================================
+   Popups, in NineLeft's finish
+   Preferences, the welcome and game windows and the confirm
+   dialogs share one look: a see-through tint of the page over a
+   blur, a clean side bar on the same surface, the active tab on
+   the press surface, and a centred title in the wide bold heading
+   face. In Preferences every tab scrolls under its title (and
+   search bar) through a progressive blur, like the chat's top bar.
+   ============================================================ */
+
+/* ---- Transparency (Preferences > Appearance > Panels, from NineLeft) ----
+   One setting, --frosting, sets how much shows through every window. Clear is 0, Frosted 0.7
+   (the default, kept in step with DEFAULT in panels.ts).
+   Opaque is 1 plus data-panels="opaque", which turns the blur off entirely. panels.ts puts the
+   choice on <html> before the first paint. The previews redeclare these on .frosting-scope
+   with their own --frosting. */
+:root {
+  --frosting: 0.7;
+}
+
+:root,
+.frosting-scope {
+  --float-bg: color-mix(in srgb, var(--page-plain) calc(42% + 40% * var(--frosting)), transparent);
+  --float-filter: blur(calc(2.5px + 21.5px * var(--frosting)))
+    saturate(calc(120% + 40% * var(--frosting)));
+}
+
+:root[data-panels="opaque"],
+.frosting-scope.panels-opaque {
+  --float-bg: var(--page-plain);
+  --float-filter: none;
+}
+
+/* ---- The window ---- */
+html[data-theme] .pref-modal,
+html[data-theme] .landing-theme-modal,
+:root[data-theme] .landing-theme-modal.neg-profile,
+html[data-theme] .pref-delete-dialog-box,
+html[data-theme] .logout-confirm-dialog {
+  background: var(--float-bg);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+}
+
+/* The chat sidebar follows the same setting. It keeps its own edge and layout. */
+.chat-sidebar,
+html[data-theme] .chat-sidebar {
+  background: var(--float-bg);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+}
+
+/* So does the input bar. Its theme rules set the glass with !important, so this has to too. */
+html[data-theme] .input-wrapper {
+  background: var(--float-bg) !important;
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+}
+
+/* The round buttons in the top bar and the sidebar header take the same tint. They keep no blur
+   of their own: they already sit on the top bar's blur or the sidebar's, and a blur nested in
+   another barely shows while costing a redraw on every frame. */
+html[data-theme] .chat-topbar .topbar-icon-btn,
+html[data-theme] .chat-topbar .topbar-icon-btn:hover:not(:disabled),
+html[data-theme] .chat-sidebar .sidebar-brand-btn,
+html[data-theme] .chat-sidebar .sidebar-brand-btn:hover {
+  background: var(--float-bg);
+}
+
+/* The Panels picker: a sample window at each level, over a still scene in the theme's colours */
+.pref-panels-preview {
+  position: relative;
+  width: 100%;
+  max-width: 96px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background:
+    radial-gradient(circle at 28% 68%, var(--snes-y) 0 12%, transparent 13%),
+    linear-gradient(112deg, transparent 50%, var(--snes-b) 50% 58%, transparent 58%),
+    linear-gradient(
+      150deg,
+      transparent 49%,
+      color-mix(in srgb, var(--game-ink) 70%, transparent) 49% 51.5%,
+      transparent 51.5%
+    ),
+    color-mix(in srgb, var(--page-plain) 92%, var(--game-ink));
+}
+
+/* A small pill in the scene's corner */
+.pref-panels-preview::before {
+  content: "";
+  position: absolute;
+  top: 20%;
+  right: 14%;
+  width: 22%;
+  height: 7%;
+  border-radius: 999px;
+  background: var(--snes-x);
+}
+
+.pref-panels-sample {
+  position: absolute;
+  inset: 34% 9% 32% 9%;
+  border-radius: 9px;
+  background: var(--float-bg);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  border: 1px solid var(--glass-border);
+}
+
+/* ---- Side bar: the same surface as the content, split off by a hairline ---- */
+html[data-theme] .pref-sidebar {
+  background: none;
+  border-right: 1px solid var(--glass-border);
+  padding: 14px 0;
+  gap: 4px;
+}
+
+html[data-theme] .pref-sidebar-title {
+  display: none;
+}
+
+html[data-theme] .pref-nav-item {
+  margin: 0 10px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-weight: 600;
+}
+
+html[data-theme] .pref-nav-item:not(.active):hover {
+  background: color-mix(in srgb, var(--game-ink) 8%, transparent);
+  color: var(--game-ink);
+}
+
+/* The open tab is pressed in, the same in every theme */
+html[data-theme] .pref-nav-item.active {
+  background: var(--game-press);
+  border-color: var(--game-press-border);
+  box-shadow: var(--game-press-shadow);
+  color: var(--game-accent-ink);
+  font-weight: 700;
+}
+
+/* ---- Titles: centred, in the wide bold heading face ---- */
+html[data-theme] .pref-content-title,
+html[data-theme] .landing-theme-modal-header > span,
+html[data-theme] .pref-delete-dialog-title {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0;
+  color: var(--game-ink);
+}
+
+html[data-theme] .pref-delete-dialog-title {
+  font-size: 1rem;
+}
+
+html[data-theme] .landing-theme-modal-header {
+  position: relative;
+  justify-content: center;
+  min-height: 32px;
+}
+
+html[data-theme] .landing-theme-modal-header > span {
+  flex: 1;
+  padding: 0 40px;
+  text-align: center;
+}
+
+/* A header with a back button keeps it at the start */
+html[data-theme] .landing-theme-modal-header > .neg-detail-back {
+  padding: 0;
+  text-align: left;
+}
+
+html[data-theme] .landing-theme-modal-close {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+html[data-theme] .landing-theme-modal-close:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.92);
+}
+
+/* Section labels inside a tab: small, bold capitals */
+html[data-theme] .pref-setting-section-label {
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--game-muted);
+}
+
+/* ---- Preferences: every tab scrolls under its header ---- */
+html[data-theme] .pref-content {
+  --pref-head: 60px;
+  --pref-top: var(--pref-head);
+  position: relative;
+}
+
+/* Model and Presets float their search bar under the title as well */
+html[data-theme] .pref-content:has(> .pref-search-bar) {
+  --pref-top: 124px;
+}
+
+html[data-theme] .pref-content-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: var(--pref-head);
+  padding: 0 56px;
+  justify-content: center;
+  border-bottom: none;
+  background: none;
+}
+
+html[data-theme] .pref-search-bar {
+  position: absolute;
+  top: var(--pref-head);
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding-top: 4px;
+  border-bottom: none;
+  background: none;
+}
+
+/* Generation's reset button sits at the end of the tab, centred. A quiet outlined pill, not a
+   filled primary button, so it doesn't compete with the open tab. */
+html[data-theme] .pref-settings-area .pref-generation-reset-btn,
+html[data-theme] .pref-settings-area .pref-generation-reset-btn:hover:not(:disabled) {
+  align-self: center;
+  margin: 4px 0 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+html[data-theme] .pref-settings-area .pref-generation-reset-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--game-ink) 8%, transparent);
+  color: var(--game-ink);
+}
+
+html[data-theme] .pref-settings-area .pref-generation-reset-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+html[data-theme] .pref-close-btn {
+  top: 12px;
+  right: 12px;
+}
+
+/* The scrolling part starts under the header, so it can slide up beneath it */
+html[data-theme] .pref-content > .pref-list,
+html[data-theme] .pref-content > .pref-account-scroll {
+  padding-top: var(--pref-top);
+}
+
+html[data-theme] .pref-content > .pref-settings-area {
+  padding-top: calc(var(--pref-top) + 4px);
+}
+
+/* The progressive blur: a light blur over the whole header, a stronger one at the very top,
+   each fading out downwards, with a wash of the page colour so the title stays readable */
+html[data-theme] .pref-content::before,
+html[data-theme] .pref-content::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+html[data-theme] .pref-content::before {
+  height: calc(var(--pref-top) + 24px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+
+html[data-theme] .pref-content::after {
+  height: calc(var(--pref-top) + 4px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--page-plain) 62%, transparent) 0%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(to bottom, #000 35%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 35%, transparent 100%);
+}
+
+/* Phones: the tabs are a row of pills above the content, with the same pressed tab */
+@media (max-width: 640px) {
+  /* Still a bottom sheet */
+  html[data-theme] .pref-modal {
+    border-radius: 26px 26px 0 0;
+    border-bottom: none;
+  }
+
+  html[data-theme] .pref-sidebar {
+    border-right: none;
+    padding: 4px 16px 8px;
+    gap: 8px;
+  }
+
+  html[data-theme] .pref-nav-item {
+    margin: 0;
+    padding: 9px 16px;
+    border-radius: 999px;
+  }
+
+  html[data-theme] .pref-content {
+    --pref-head: 52px;
+  }
+
+  html[data-theme] .pref-content:has(> .pref-search-bar) {
+    --pref-top: 120px;
+  }
+
+  html[data-theme] .pref-content-header {
+    padding: 0 20px;
+  }
+}
+
+/* ============================================================
+   Small details, more visible
+   The input bar's buttons, placeholder and divider, and the
+   sidebar's lines, labels and dates were faint enough to vanish
+   on a photo. Each now mixes the theme's own text colour, so all
+   four themes lift together. Toggles that are on keep their accent.
+   ============================================================ */
+
+html[data-theme] .chat-textarea::placeholder {
+  color: color-mix(in srgb, var(--game-ink) 58%, transparent);
+}
+
+html[data-theme] .input-toolbar {
+  border-top-color: color-mix(in srgb, var(--game-ink) 16%, transparent);
+}
+
+html[data-theme] .toolbar-icon-btn:not(.is-on):not(.focused-mode-active):not(.voice-active),
+html[data-theme] .toolbar-chip-btn:not(.doc-chip-active) {
+  color: color-mix(in srgb, var(--game-ink) 74%, transparent);
+}
+
+html[data-theme] .toolbar-icon-btn:not(.is-on):not(.focused-mode-active):not(.voice-active):hover,
+html[data-theme] .toolbar-chip-btn:not(.doc-chip-active):hover {
+  color: var(--game-ink);
+}
+
+/* Send, before there is anything to send: dimmed, but still plainly there */
+html[data-theme] .input-toolbar .ask-button:disabled {
+  color: color-mix(in srgb, var(--game-ink) 40%, transparent);
+}
+
+/* Sidebar lines: its edge, the line under the pinned chats, and the line above the account */
+html[data-theme] .chat-sidebar {
+  border-right-color: color-mix(in srgb, var(--game-ink) 14%, transparent);
+}
+
+html[data-theme] .sidebar-section-divider {
+  background: color-mix(in srgb, var(--game-ink) 18%, transparent);
+}
+
+html[data-theme] .sidebar-footer {
+  border-top-color: color-mix(in srgb, var(--game-ink) 16%, transparent);
+}
+
+html[data-theme] .sidebar-section-label {
+  color: color-mix(in srgb, var(--game-ink) 62%, transparent);
+  font-weight: 700;
+}
+
+/* The open chat's date keeps its theme's colour, which suits its pressed row */
+html[data-theme] .sidebar-chat-date {
+  color: color-mix(in srgb, var(--game-ink) 62%, transparent);
+}
+
+/* ============================================================
+   Account menu (the sidebar's user button)
+   The design system's menu: a solid surface (never glass, so it
+   reads over anything) with the surface corners, flat rows that
+   fill on hover, a line before the sign-out, and the upward spring
+   since it opens from the bottom of the sidebar. The theme rules
+   above keep its colours.
+   ============================================================ */
+
+html[data-theme] .sidebar-user-menu {
+  padding: 4px;
+  gap: 0;
+  border-radius: 22px;
+  overflow: visible;
+  animation: dropdown-up 0.26s var(--spring) both;
+}
+
+html[data-theme] .sidebar-user-menu-item {
+  gap: 10px;
+  padding: 11px 12px !important;
+  border-radius: 14px !important;
+  font-size: 0.82rem !important;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+html[data-theme] .sidebar-user-menu-item svg {
+  flex: none;
+}
+
+html[data-theme] .sidebar-user-menu-item:active {
+  transform: scale(0.94);
+}
+
+html[data-theme] .sidebar-user-menu-item:focus-visible {
+  outline: 2px solid var(--game-accent);
+  outline-offset: -2px;
+}
+
+html[data-theme] .sidebar-user-menu-sep {
+  height: 1px;
+  margin: 4px 10px;
+  background: color-mix(in srgb, var(--game-ink) 14%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme] .sidebar-user-menu {
+    animation: none;
   }
 }

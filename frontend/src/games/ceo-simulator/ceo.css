@@ -882,27 +882,7 @@ html .ceo .ceo-link:disabled {
   text-decoration: none;
 }
 
-/* ---- Setup pickers, team, and the week's summary line ---- */
-
-.ceo-team {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px 14px;
-  font-size: 0.76rem;
-}
-
-.ceo-team li {
-  display: flex;
-  justify-content: space-between;
-}
-
-.ceo-team li span:last-child {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
+/* ---- Setup pickers and the week's summary line ---- */
 
 .ceo-entry .ceo-entry-summary {
   font-size: 0.76rem;

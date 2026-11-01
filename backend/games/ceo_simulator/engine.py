@@ -740,10 +740,6 @@ def valuation(state: dict) -> int:
     return max(0, round(worth - owed))
 
 
-def stake_value(state: dict) -> int:
-    return round(state["valuation"] * state["equity"])
-
-
 # (id, label, test). Each is reached once per company and marked in that week's story.
 MILESTONES = [
     ("profit", "First profitable week", lambda s: s["last"]["profit"] > 0),

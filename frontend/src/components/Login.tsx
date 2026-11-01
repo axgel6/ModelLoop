@@ -8,6 +8,29 @@ import {
 import ConnectionBanner from "./ConnectionBanner";
 import { StretchyLogo } from "./StretchyLogo";
 
+// How long a sign-up-only field takes to slide shut (matches .login-collapse in App.css)
+const COLLAPSE_MS = 380;
+
+// Slides a sign-up-only field open or shut as the mode changes. Once shut, the field leaves
+// the page: password managers treat a form with a hidden "new password" box as a sign-up
+// form and stop filling the saved password. `inert` keeps a closing field out of reach.
+function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
+
+  useEffect(() => {
+    if (open) return;
+    const t = setTimeout(() => setMounted(false), COLLAPSE_MS);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  return (
+    <div className={`login-collapse${open ? " is-open" : ""}`} inert={!open}>
+      <div className="login-collapse-inner">{mounted && children}</div>
+    </div>
+  );
+}
+
 interface LoginProps {
   onLogin: () => void;
   onGuest: () => void;
@@ -110,7 +133,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
             <h1 className="login-logo">
               <StretchyLogo />
             </h1>
-            <p className="login-subtitle">
+            <p key={mode} className="login-subtitle login-swap">
               {isLogin
                 ? "Welcome back. Sign in to pick up where you left off."
                 : "Create an account to save your chats, pick a theme, and play games."}
@@ -118,7 +141,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
           </div>
 
           <div className="login-form">
-            {!isLogin && (
+            <Collapse open={!isLogin}>
               <div className="login-field">
                 <label htmlFor="fullName">Name</label>
                 <input
@@ -133,7 +156,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
                   required
                 />
               </div>
-            )}
+            </Collapse>
             <div className="login-field">
               <label htmlFor="email">Email</label>
               <input
@@ -165,7 +188,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
               />
             </div>
 
-            {!isLogin && (
+            <Collapse open={!isLogin}>
               <div className="login-field">
                 <label htmlFor="confirm">Confirm Password</label>
                 <input
@@ -179,7 +202,7 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
                   autoComplete="new-password"
                 />
               </div>
-            )}
+            </Collapse>
 
             {error && <p className="login-error">{error}</p>}
 
@@ -190,22 +213,26 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
             >
               {loading ? (
                 <span className="btn-spinner" />
-              ) : isLogin ? (
-                "Sign In"
               ) : (
-                "Create Account"
+                <span key={mode} className="login-swap">
+                  {isLogin ? "Sign In" : "Create Account"}
+                </span>
               )}
             </button>
           </div>
 
           <p className="login-toggle">
-            {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+            <span key={mode} className="login-swap">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}
+            </span>{" "}
             <button
               className="login-toggle-btn"
               onClick={switchMode}
               disabled={loading}
             >
-              {isLogin ? "Sign up" : "Sign in"}
+              <span key={mode} className="login-swap">
+                {isLogin ? "Sign up" : "Sign in"}
+              </span>
             </button>
           </p>
 

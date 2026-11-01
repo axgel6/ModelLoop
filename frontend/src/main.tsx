@@ -10,10 +10,12 @@ import { isEmptySpaceClick, sparkleAt } from "./sparkle";
 import { initStretchy } from "./stretchy";
 import { background } from "./background";
 import { uiScale } from "./uiScale";
+import { panels } from "./panels";
 
 initStretchy();
 background.init();
 uiScale.init();
+panels.init();
 
 // Sound, haptics and the sparkle for a press. They run the moment the pointer goes down, before
 // React re-renders anything: on "click" they waited for the whole screen to update first, which a
