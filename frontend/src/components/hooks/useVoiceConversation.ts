@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { chosenVoice, onVoicesChanged } from "../speechVoice";
 
-export type VoiceStatus = "idle" | "listening" | "processing" | "speaking";
+// "paused": voice mode stays open but stops listening, and the mic is let go
+export type VoiceStatus = "idle" | "listening" | "processing" | "speaking" | "paused";
 
 const SILENCE_TIMEOUT_MS = 30_000;
 
@@ -83,36 +85,6 @@ function getSpeechRecognitionCtor(): (typeof SpeechRecognition) | undefined {
   );
 }
 
-// Ordered by quality: macOS premium > Microsoft Neural > Google Neural > generic online
-export const VOICE_PRIORITY = [
-  "Samantha", "Alex",                                                  // macOS premium
-  "Microsoft Aria Online", "Microsoft Jenny Online",                   // Edge Neural
-  "Microsoft Guy Online", "Microsoft Ava Online",                      // Edge Neural
-  "Microsoft Emma Online", "Microsoft Brian Online",                   // Edge Neural
-  "Google US English", "Google UK English Female",                     // Chrome Neural
-  "Google UK English Male", "Google Australia English",                // Chrome Neural
-];
-
-function getPreferredVoice(lang: string): SpeechSynthesisVoice | null {
-  const voices = window.speechSynthesis.getVoices();
-  if (!voices.length) return null;
-  const base = lang.split("-")[0];
-  const langVoices = voices.filter((v) => v.lang.startsWith(base));
-  if (!langVoices.length) return voices[0] ?? null;
-
-  for (const name of VOICE_PRIORITY) {
-    const match = langVoices.find((v) => v.name.includes(name));
-    if (match) return match;
-  }
-  return (
-    langVoices.find((v) => v.name.toLowerCase().includes("natural")) ??
-    langVoices.find((v) => v.name.toLowerCase().includes("neural")) ??
-    langVoices.find((v) => !v.localService) ??
-    langVoices[0] ??
-    null
-  );
-}
-
 // ── hook ─────────────────────────────────────────────────────────────────────
 
 interface Options {
@@ -132,6 +104,11 @@ export interface VoiceConversationHandle {
   toggle: () => void;
   stop: () => void;
   interrupt: () => void;
+  /** Whether listening is paused (a reply already under way still finishes speaking) */
+  paused: boolean;
+  togglePause: () => void;
+  /** Called on each spoken word, where the voice reports word boundaries; returns an unsubscribe */
+  onWord: (listener: () => void) => () => void;
 }
 
 export function useVoiceConversation({
@@ -145,8 +122,10 @@ export function useVoiceConversation({
   const [transcript, setTranscript] = useState("");
   const [speakingText, setSpeakingText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
 
   const isActiveRef       = useRef(false);
+  const pausedRef         = useRef(false);
   const statusRef         = useRef<VoiceStatus>("idle");
   const recognitionRef    = useRef<SpeechRecognition | null>(null);
   const onSubmitRef       = useRef(onSubmit);
@@ -164,20 +143,20 @@ export function useVoiceConversation({
   const spokenUpToRef     = useRef(0);
   const loadingDoneRef    = useRef(false);
   const silenceTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wordListenersRef  = useRef(new Set<() => void>());
 
   useEffect(() => { onSubmitRef.current = onSubmit; }, [onSubmit]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
   useEffect(() => { lastResponseTextRef.current = lastResponseText; }, [lastResponseText]);
   useEffect(() => { speechRateRef.current = speechRate; }, [speechRate]);
 
-  // Load best available voice; refresh on voiceschanged
+  // The chosen voice (see speechVoice.ts); refreshed when the list loads or the choice changes
   useEffect(() => {
     const load = () => {
-      voiceRef.current = getPreferredVoice(navigator.language || "en-US");
+      voiceRef.current = chosenVoice();
     };
     load();
-    window.speechSynthesis.addEventListener("voiceschanged", load);
-    return () => window.speechSynthesis.removeEventListener("voiceschanged", load);
+    return onVoicesChanged(load);
   }, []);
 
   const setStatusSync = (s: VoiceStatus) => {
@@ -229,7 +208,8 @@ export function useVoiceConversation({
     ) {
       loadingDoneRef.current = false;
       spokenUpToRef.current = 0;
-      startListeningRef.current();
+      if (pausedRef.current) setStatusSync("paused");
+      else startListeningRef.current();
     }
   }, []);
 
@@ -255,6 +235,9 @@ export function useVoiceConversation({
       utterance.rate = speechRateRef.current;
       utterance.pitch = 0.95;
       if (voiceRef.current) utterance.voice = voiceRef.current;
+      utterance.onboundary = (e) => {
+        if (e.name === "word") wordListenersRef.current.forEach((fn) => fn());
+      };
       utterance.onend  = () => processQueueRef.current();
       utterance.onerror = () => processQueueRef.current();
       window.speechSynthesis.speak(utterance);
@@ -313,7 +296,7 @@ export function useVoiceConversation({
   }, [loading, enqueue, checkAllDone]);
 
   const startListening = useCallback(() => {
-    if (!isActiveRef.current) return;
+    if (!isActiveRef.current || pausedRef.current) return;
 
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
@@ -390,7 +373,9 @@ export function useVoiceConversation({
 
   const stopAll = useCallback(() => {
     isActiveRef.current = false;
+    pausedRef.current = false;
     setIsActive(false);
+    setPaused(false);
     setStatusSync("idle");
     setTranscript("");
     setSpeakingText("");
@@ -408,7 +393,9 @@ export function useVoiceConversation({
       stopAll();
     } else {
       isActiveRef.current = true;
+      pausedRef.current = false;
       setIsActive(true);
+      setPaused(false);
       setError(null);
       if (loadingRef.current) {
         setStatusSync("processing");
@@ -428,13 +415,44 @@ export function useVoiceConversation({
     cancelSpeech();
     spokenUpToRef.current = lastResponseTextRef.current.length;
     loadingDoneRef.current = false;
-    startListeningRef.current();
+    if (pausedRef.current) setStatusSync("paused");
+    else startListeningRef.current();
+  }, []);
+
+  // Pause stops listening straight away and lets go of the mic. A reply that's under way still
+  // finishes speaking, and then it rests instead of listening. Resume picks up listening again.
+  const togglePause = useCallback(() => {
+    if (!isActiveRef.current) return;
+    if (pausedRef.current) {
+      pausedRef.current = false;
+      setPaused(false);
+      if (statusRef.current === "paused") startListeningRef.current();
+      return;
+    }
+    pausedRef.current = true;
+    setPaused(true);
+    clearSilenceTimer();
+    if (statusRef.current === "listening" || statusRef.current === "idle") {
+      stopRecognition();
+      setTranscript("");
+      setStatusSync("paused");
+    }
+  }, []);
+
+  const onWord = useCallback((listener: () => void) => {
+    const listeners = wordListenersRef.current;
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
   }, []);
 
   const statusLabel =
     status === "listening"  ? "Listening…"  :
     status === "processing" ? "Processing…" :
-    status === "speaking"   ? "Speaking…"   : "";
+    status === "speaking"   ? "Speaking…"   :
+    status === "paused"     ? "Paused"      : "";
 
-  return { isActive, status, statusLabel, transcript, speakingText, error, toggle, stop: stopAll, interrupt };
+  return {
+    isActive, status, statusLabel, transcript, speakingText, error,
+    toggle, stop: stopAll, interrupt, paused, togglePause, onWord,
+  };
 }

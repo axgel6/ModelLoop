@@ -50,11 +50,16 @@ import {
   friendlyError,
   readableTextOn,
   withMandatoryPromptRules,
+  toLyricText,
 } from "./utils/chatUtils";
 import ConnectionBanner from "./ConnectionBanner";
 import { StretchyLogo } from "./StretchyLogo";
 import { GamesHub, GamesIcon } from "../games/GamesHub";
 import { inGamesPath, replacePath } from "../subroute";
+import { FocusedReaderMenu } from "./FocusedReaderMenu";
+import { VoiceMatrix } from "./VoiceMatrix";
+import { READER_SIZES, useReaderPrefs } from "./readerPrefs";
+import { splitParas, useFocusedNav } from "./useFocusedNav";
 
 // ── Sidebar chat item ─────────────────────────────────────────────────────────
 
@@ -807,6 +812,7 @@ function Chat({
 
   // ── Focused mode ─────────────────────────────────────────────────────────
   const [focusedMode, setFocusedMode] = useState(false);
+  const [readerPrefs, setReaderPrefs] = useReaderPrefs();
   const [focusedLines, setFocusedLines] = useState<
     { role: "user" | "assistant"; text: string }[]
   >([]);
@@ -816,23 +822,23 @@ function Chat({
   const prevLoadingRef = useRef(loading);
   const focusedPendingUserText = useRef("");
 
-  const stripMd = (s: string) =>
-    s
-      .replace(/```[\s\S]*?```/g, " [code] ")
-      .replace(/`[^`]+`/g, "[code]")
-      .replace(/#{1,6}\s/gm, "")
-      .replace(/\*\*(.+?)\*\*/gs, "$1")
-      .replace(/\*(.+?)\*/gs, "$1")
-      .replace(/\[(?!code\])(.+?)\]\(.+?\)/g, "$1")
-      .replace(/\n+/g, " ")
-      .trim();
+  // The live reply puts each word in its own span so it comes into focus as it lands, the same
+  // as in the chat. Words keep their place as the text grows, so only new ones play the effect.
+  const renderWords = (text: string) =>
+    text.split(/(\s+)/).map((part, i) =>
+      /^\s*$/.test(part) ? part : (
+        <span key={i} className="stream-word">
+          {part}
+        </span>
+      ),
+    );
 
-  const renderLyric = (text: string) => {
-    if (!text.includes("[code]")) return text;
+  const renderLyric = (text: string, streaming = false) => {
+    if (!text.includes("[code]")) return streaming ? renderWords(text) : text;
     const parts = text.split("[code]");
     return parts.map((part, i) => (
       <span key={i}>
-        {part}
+        {streaming ? renderWords(part) : part}
         {i < parts.length - 1 && (
           <span className="focused-code-pill">{"{ }"}</span>
         )}
@@ -860,7 +866,7 @@ function Chat({
     const history = messages.map((m) => ({
       role: m.role as "user" | "assistant",
       text:
-        m.role === "assistant" ? stripMd(m.content ?? "") : (m.content ?? ""),
+        m.role === "assistant" ? toLyricText(m.content ?? "") : (m.content ?? ""),
     }));
     setFocusedLines(history);
     scrollFocusedToBottom();
@@ -875,7 +881,7 @@ function Chat({
       if (last?.role === "assistant" && last.content) {
         setFocusedLines((ls) => [
           ...ls,
-          { role: "assistant" as const, text: stripMd(last.content!) },
+          { role: "assistant" as const, text: toLyricText(last.content!) },
         ]);
         scrollFocusedToBottom();
       }
@@ -883,19 +889,58 @@ function Chat({
     }
   }, [loading, focusedMode, messages]);
 
+  // Every line in focused mode, with the reply that's still arriving as the last one
+  const focusedLive = loading && lastAssistantText ? toLyricText(lastAssistantText) : null;
+  const focusedAll =
+    focusedLive === null
+      ? focusedLines
+      : [...focusedLines, { role: "assistant" as const, text: focusedLive }];
+
+  const focusNav = useFocusedNav({
+    active: focusedMode,
+    lines: focusedAll,
+    scrollRef: focusedScrollRef,
+    textareaRef: focusedTextareaRef,
+    inputEmpty: focusedInput === "",
+  });
+
+  // Follow the reply as it streams, unless the user has stepped back to read something else
   useEffect(() => {
-    if (focusedMode && loading) scrollFocusedToBottom();
-  }, [lastAssistantText, focusedMode, loading]);
+    if (focusedMode && loading && !focusNav.navigating) scrollFocusedToBottom();
+  }, [lastAssistantText, focusedMode, loading, focusNav.navigating]);
+
+  // The field grows with what is typed, up to a few lines, then scrolls
+  useEffect(() => {
+    const el = focusedTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  }, [focusedInput, focusedMode, readerPrefs.size, readerPrefs.font]);
 
   const submitFocused = () => {
     const text = focusedInput.trim();
     if (!text || loading) return;
     focusedPendingUserText.current = text;
+    focusNav.backToLatest();
     setFocusedLines((ls) => [...ls, { role: "user" as const, text }]);
     scrollFocusedToBottom();
     setFocusedInput("");
     void handleAsk(text);
   };
+
+  // Space pauses and resumes listening in voice mode (unless typing somewhere)
+  useEffect(() => {
+    if (!voice.isActive) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== " " || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement;
+      if (target.closest("input, textarea, [contenteditable='true'], button")) return;
+      e.preventDefault();
+      voice.togglePause();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [voice.isActive, voice.togglePause]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Voice lyrics history ──────────────────────────────────────────────────
   type VoiceLine = { role: "user" | "assistant"; text: string };
@@ -1748,7 +1793,7 @@ function Chat({
       )}
 
       {voice.isActive && (
-        <div className={`voice-overlay voice-overlay--${voice.status}`}>
+        <div className="voice-overlay">
           {/* ── X close button ── */}
           <button
             className="voice-close-btn"
@@ -1769,17 +1814,12 @@ function Chat({
             </svg>
           </button>
 
-          {/* ── Orb ── */}
-          <div
-            className={`voice-orb-wrap${voice.status === "speaking" ? " voice-orb-wrap--speaking" : ""}`}
-            onClick={voice.status === "speaking" ? voice.interrupt : undefined}
-          >
-            <div
-              className={`voice-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}
-            >
-              <div className="voice-orb-shimmer" aria-hidden="true" />
-            </div>
-          </div>
+          {/* ── Glow matrix ── */}
+          <VoiceMatrix
+            status={voice.status}
+            onWord={voice.onWord}
+            onTap={voice.status === "speaking" ? voice.interrupt : undefined}
+          />
 
           <div className="voice-lyrics">
             {voiceLines.map((line, i) => {
@@ -1810,11 +1850,46 @@ function Chat({
               </p>
             )}
           </div>
+
+          {/* Pause stops listening and lets go of the mic; a reply already under way finishes
+              first. Space does the same. */}
+          <div className="voice-controls">
+            {voice.paused && voice.status !== "paused" && (
+              <span className="voice-controls-note">Pauses after this reply</span>
+            )}
+            <button
+              type="button"
+              className={`voice-pause-btn${voice.paused ? " is-paused" : ""}`}
+              onClick={voice.togglePause}
+              aria-pressed={voice.paused}
+              title={voice.paused ? "Resume listening (Space)" : "Pause listening (Space)"}
+            >
+              {voice.paused ? (
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                  <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                  <rect x="6" y="5" width="4" height="14" rx="1.5" />
+                  <rect x="14" y="5" width="4" height="14" rx="1.5" />
+                </svg>
+              )}
+              {voice.paused ? "Resume" : "Pause"}
+              <kbd>Space</kbd>
+            </button>
+          </div>
         </div>
       )}
 
       {focusedMode && (
-        <div className="voice-overlay focused-overlay">
+        <div
+          className="voice-overlay focused-overlay"
+          data-reader-theme={readerPrefs.theme}
+          data-reader-font={readerPrefs.font}
+          data-reader-width={readerPrefs.width}
+          style={{ "--reader-scale": READER_SIZES[readerPrefs.size] } as React.CSSProperties}
+        >
+          <FocusedReaderMenu prefs={readerPrefs} onChange={setReaderPrefs} />
           <button
             className="voice-close-btn"
             onClick={() => setFocusedMode(false)}
@@ -1836,32 +1911,100 @@ function Chat({
 
           <div className="focused-scroll" ref={focusedScrollRef}>
             <div className="voice-lyrics">
-              {focusedLines.map((line, i) => {
-                const age = focusedLines.length - 1 - i;
+              {focusedAll.map((line, i) => {
+                // Lines step down by distance from the focused one (the latest, unless the user
+                // has moved the focus with the arrow keys)
+                const distance = Math.abs(i - focusNav.current);
+                const isLive = focusedLive !== null && i === focusedAll.length - 1;
                 const ageClass =
-                  age <= 2 ? `voice-lyric--age-${age}` : "voice-lyric--history";
+                  distance === 0 && isLive
+                    ? "voice-lyric--current"
+                    : distance <= 2
+                      ? `voice-lyric--age-${distance}`
+                      : "voice-lyric--history";
+                const paraFocus = distance === 0 && focusNav.para !== null;
                 return (
                   <p
-                    key={i}
-                    className={`voice-lyric ${ageClass} voice-lyric--${line.role}`}
+                    key={isLive ? "assistant-live" : i}
+                    data-line={i}
+                    className={`voice-lyric ${ageClass} voice-lyric--${line.role}${paraFocus ? " has-para-focus" : ""}${focusNav.speaking === i ? " is-speaking" : ""}`}
+                    onClick={() => {
+                      // Selecting text shouldn't move the focus
+                      if (!window.getSelection()?.toString()) focusNav.goTo(i);
+                    }}
                   >
-                    {renderLyric(line.text)}
+                    {paraFocus
+                      ? splitParas(line.text).map((part, k, all) => (
+                          <span key={k}>
+                            <span
+                              data-para={k}
+                              className={`lyric-para${k === focusNav.para ? " is-focus" : ""}`}
+                            >
+                              {renderLyric(part, isLive)}
+                            </span>
+                            {k < all.length - 1 && "\n\n"}
+                          </span>
+                        ))
+                      : renderLyric(line.text, isLive)}
                   </p>
                 );
               })}
-              {loading && lastAssistantText && (
-                <p
-                  className="voice-lyric voice-lyric--current voice-lyric--assistant"
-                  key="assistant-live"
-                >
-                  {renderLyric(stripMd(lastAssistantText))}
-                </p>
-              )}
             </div>
           </div>
 
-          <div className={`focused-input-wrap${loading ? " thinking" : ""}`}>
-            <div className="focused-input-row">
+          {/* Where the focus is in the conversation: a tick per message, shown while
+              navigating. Clicking a tick jumps there. */}
+          <div
+            className={`focused-rail${focusNav.navigating ? " is-visible" : ""}`}
+            style={{ height: `min(56vh, ${focusedAll.length * 12}px)` }}
+            aria-hidden={!focusNav.navigating}
+          >
+            {focusedAll.map((line, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`focused-rail-tick is-${line.role}${i === focusNav.current ? " is-on" : ""}`}
+                onClick={() => focusNav.goTo(i)}
+                tabIndex={focusNav.navigating ? 0 : -1}
+                aria-label={`Go to message ${i + 1}`}
+              />
+            ))}
+          </div>
+
+          {focusNav.toast && (
+            <div className="focused-toast" role="status">
+              {focusNav.toast}
+            </div>
+          )}
+
+          <div className="focused-input-wrap">
+            {focusNav.navigating && (
+              <button
+                type="button"
+                className="focused-latest-chip"
+                onClick={focusNav.backToLatest}
+                title="Back to the latest (Esc)"
+              >
+                {focusNav.hasNew && <span className="focused-latest-dot" aria-hidden="true" />}
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <polyline points="6 13 12 19 18 13" />
+                </svg>
+                Latest
+                <kbd>Esc</kbd>
+              </button>
+            )}
+            <div className={`focused-input-row${loading ? " thinking" : ""}`}>
               <textarea
                 ref={focusedTextareaRef}
                 className="focused-textarea"
@@ -1877,21 +2020,72 @@ function Chat({
                 rows={1}
                 disabled={loading}
               />
-              <button
-                className="focused-orb-btn"
-                onClick={() => {
-                  setFocusedMode(false);
-                  if (!voice.isActive) voice.toggle();
-                }}
-                title="Switch to Talk"
-                type="button"
-              >
-                <div
-                  className={`voice-orb-core focused-orb-core${voice.status === "speaking" ? " voice-orb-core--interruptible" : ""}`}
+              {/* One button that is whatever the moment needs: stop while a reply comes in,
+                  send once there is something to send, and Talk when the field is empty */}
+              {loading ? (
+                <button
+                  key="stop"
+                  type="button"
+                  className="focused-action-btn"
+                  onClick={handleStop}
+                  title="Stop generation"
+                  aria-label="Stop generation"
                 >
-                  <div className="voice-orb-shimmer" aria-hidden="true" />
-                </div>
-              </button>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                    <rect x="5" y="5" width="14" height="14" rx="3" />
+                  </svg>
+                </button>
+              ) : focusedInput.trim() ? (
+                <button
+                  key="send"
+                  type="button"
+                  className="focused-action-btn is-send"
+                  onClick={submitFocused}
+                  title="Send (Enter)"
+                  aria-label="Send"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="6 11 12 5 18 11" />
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  key="talk"
+                  type="button"
+                  className="focused-action-btn"
+                  onClick={() => {
+                    setFocusedMode(false);
+                    if (!voice.isActive) voice.toggle();
+                  }}
+                  title="Switch to Talk"
+                  aria-label="Switch to Talk"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="9" y="2" width="6" height="11" rx="3" />
+                    <path d="M5 10a7 7 0 0 0 14 0" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </div>

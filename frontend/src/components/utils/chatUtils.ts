@@ -189,3 +189,23 @@ export function withMandatoryPromptRules(prompt: string): string {
     return trimmedPrompt;
   return `${MANDATORY_SYSTEM_PROMPT_RULES}\n\n${trimmedPrompt}`;
 }
+
+/**
+ * A reply as focused mode shows it: plain text that keeps its shape (a poem's lines, paragraphs,
+ * list items as bullets) without the markdown. Code becomes a "[code]" marker, which focused
+ * mode draws as a small pill.
+ */
+export function toLyricText(markdown: string): string {
+  return markdown
+    .replace(/^[ \t]*[-*+][ \t]+/gm, "• ")
+    .replace(/```[\s\S]*?```/g, " [code] ")
+    .replace(/`[^`]+`/g, "[code]")
+    .replace(/#{1,6}\s/gm, "")
+    .replace(/\*\*(.+?)\*\*/gs, "$1")
+    .replace(/\*(.+?)\*/gs, "$1")
+    .replace(/\[(?!code\])(.+?)\]\(.+?\)/g, "$1")
+    .replace(/^[ \t]*>[ \t]?/gm, "")
+    .replace(/^[ \t]+|[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}

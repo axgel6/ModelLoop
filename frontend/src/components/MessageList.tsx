@@ -5,6 +5,8 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { type Message } from "./api";
+import { speakWithChosenVoice } from "./speechVoice";
+import { rehypeStreamWords } from "./utils/rehypeStreamWords";
 import { fixMathDelimiters, fmtTime } from "./utils/chatUtils";
 
 function stripMarkdown(text: string): string {
@@ -84,6 +86,9 @@ function Pre({
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MD_COMPONENTS = { pre: Pre as any };
+
+const REHYPE_PLUGINS = [rehypeKatex, rehypeHighlight];
+const REHYPE_PLUGINS_STREAMING = [rehypeKatex, rehypeHighlight, rehypeStreamWords];
 
 // Tokens arrive in bursts. While a reply streams, this shows it flowing out at an even pace
 // instead: each frame reveals a share of what is still hidden, so a burst is spread over a few
@@ -172,17 +177,13 @@ export const AssistantMessage = memo(function AssistantMessage({
     }
     const cleaned = stripMarkdown(msg.content);
     if (!cleaned) return;
-    // cancel() stops whatever is currently playing and fires its onend,
-    // resetting that component's isSpeaking. Chrome drops speak() if called
-    // immediately after cancel(), so defer it one tick.
-    window.speechSynthesis.cancel();
-    const rate = parseFloat(localStorage.getItem("voice_speech_rate") || "1.0");
-    const utterance = new SpeechSynthesisUtterance(cleaned);
-    utterance.rate = rate;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    // Starting this stops whatever is playing, which fires its onend and resets that
+    // message's isSpeaking
+    speakWithChosenVoice(cleaned, {
+      rate: parseFloat(localStorage.getItem("voice_speech_rate") || "1.0"),
+      onEnd: () => setIsSpeaking(false),
+    });
     setIsSpeaking(true);
-    setTimeout(() => window.speechSynthesis.speak(utterance), 50);
   };
 
   useEffect(() => {
@@ -291,7 +292,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex, rehypeHighlight]}
+              rehypePlugins={revealing ? REHYPE_PLUGINS_STREAMING : REHYPE_PLUGINS}
               components={MD_COMPONENTS}
             >
               {fixMathDelimiters(shownContent)}

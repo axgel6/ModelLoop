@@ -6,6 +6,16 @@ import { uiScale, UI_SCALES } from "../uiScale";
 import { panels, PANELS } from "../panels";
 import { openFestiveThemes, type Theme } from "../festive";
 import {
+  automaticVoice,
+  betterVoicesTip,
+  isNoveltyVoice,
+  speakWithVoice,
+  useVoiceChoice,
+  voiceLabel,
+  voiceQuality,
+  voiceRegion,
+} from "./speechVoice";
+import {
   apiGetMe,
   apiUpdateProfile,
   apiSavePersonalContext,
@@ -69,6 +79,10 @@ const GENERATION_INFO: Record<string, { title: string; body: string }> = {
   numPredict: {
     title: "Max Tokens",
     body: "A hard cap on the length of a single reply. One token is roughly three quarters of a word. Left unlimited, the model stops when it judges the answer complete. Set a number and the reply is cut off once it reaches that many tokens, even mid sentence, which is useful for keeping answers short or bounding how long a response can take.",
+  },
+  voice: {
+    title: "Voice",
+    body: "The voice Olly speaks with in voice mode, and when a reply is read aloud with Listen or in focused mode. The list is the voices your browser offers for your language, which depend on your device. Premium and Enhanced voices sound the most natural. Automatic picks the best one it can find.",
   },
   speechRate: {
     title: "Voice Speed",
@@ -139,6 +153,35 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [bg, setBg] = useState(() => background.get());
   const [scale, setScale] = useState(() => uiScale.get());
   const [panelsId, setPanelsId] = useState(() => panels.get());
+  const voiceChoice = useVoiceChoice();
+  // The voice being previewed: a voiceURI, "auto" for the automatic row, or null
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  // The list shows its first few voices (the best ones, as it's sorted) until asked for all,
+  // so it never needs a scroll area of its own. The picked voice is always shown.
+  const [showAllVoices, setShowAllVoices] = useState(false);
+  const autoVoice = voiceChoice.voices.length > 0 ? automaticVoice() : null;
+  const VOICES_SHOWN = 5;
+  const listedVoices = showAllVoices
+    ? voiceChoice.voices
+    : voiceChoice.voices.filter(
+        (v, i) => (i < VOICES_SHOWN && !isNoveltyVoice(v)) || v.voiceURI === voiceChoice.choice,
+      );
+  const hiddenVoices = voiceChoice.voices.length - listedVoices.length;
+  const hasBestVoice = voiceChoice.voices.some((v) => voiceQuality(v) !== null);
+  const voiceTip = hasBestVoice ? null : betterVoicesTip();
+
+  const previewVoice = (key: string, voice: SpeechSynthesisVoice | null) => {
+    if (previewing === key) {
+      window.speechSynthesis.cancel();
+      setPreviewing(null);
+      return;
+    }
+    setPreviewing(key);
+    speakWithVoice("Hi, I'm Olly. This is how I'll sound when I talk with you.", voice, {
+      rate: speechRate,
+      onEnd: () => setPreviewing((p) => (p === key ? null : p)),
+    });
+  };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
@@ -620,6 +663,115 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
                   <div className="pref-setting-label">
+                    Voice
+                    {infoButton("voice")}
+                  </div>
+                  <div className="pref-setting-hint">
+                    Used for voice mode and reading replies aloud
+                  </div>
+                </div>
+              </div>
+              {infoPanel("voice")}
+              <div className="pref-voice-list" role="radiogroup" aria-label="Voice">
+                {[null, ...listedVoices].map((v) => {
+                  const key = v ? v.voiceURI : "auto";
+                  const isActive = (v ? v.voiceURI : "") === voiceChoice.choice;
+                  const quality = v ? voiceQuality(v) : null;
+                  const playing = previewing === key;
+                  return (
+                    <div
+                      key={key}
+                      className={`pref-list-item${isActive ? " active" : ""}`}
+                      role="radio"
+                      aria-checked={isActive}
+                      tabIndex={0}
+                      onClick={() => voiceChoice.setChoice(v ? v.voiceURI : "")}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          voiceChoice.setChoice(v ? v.voiceURI : "");
+                        }
+                      }}
+                    >
+                      {/* The round icon is the preview button: tap it to hear the voice */}
+                      <span
+                        className={`pref-item-icon pref-voice-play${playing ? " is-playing" : ""}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={playing ? "Stop preview" : `Preview ${v ? voiceLabel(v) : "the automatic voice"}`}
+                        title={playing ? "Stop" : "Preview"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          previewVoice(key, v ?? autoVoice);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            previewVoice(key, v ?? autoVoice);
+                          }
+                        }}
+                      >
+                        {playing ? (
+                          <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true">
+                            <rect x="5" y="5" width="14" height="14" rx="2.5" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+                            <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+                          </svg>
+                        )}
+                      </span>
+                      <div className="pref-item-info">
+                        <div className="pref-item-name">
+                          {v ? voiceLabel(v) : "Automatic"}
+                          {quality === "premium" && (
+                            <span className="pref-model-badge pref-model-badge--thinking">Premium</span>
+                          )}
+                          {quality === "enhanced" && (
+                            <span className="pref-model-badge pref-model-badge--web">Enhanced</span>
+                          )}
+                          {quality === "natural" && (
+                            <span className="pref-model-badge pref-model-badge--games">Natural</span>
+                          )}
+                        </div>
+                        <div className="pref-item-desc">
+                          {v
+                            ? `${voiceRegion(v)}${v.localService ? "" : " · Online"}`
+                            : `The best voice on this device${autoVoice ? `, now ${voiceLabel(autoVoice)}` : ""}`}
+                        </div>
+                      </div>
+                      <div className={`pref-item-check${isActive ? " checked" : ""}`}>
+                        {isActive && <span className="pref-check-mark">✓</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {(hiddenVoices > 0 || showAllVoices || voiceTip || voiceChoice.missing) && (
+                <div className="pref-voice-foot">
+                  {voiceChoice.missing && (
+                    <span>The voice you picked isn't on this device, so the automatic one is used here.</span>
+                  )}
+                  {voiceTip && <span>{voiceTip}</span>}
+                  {(hiddenVoices > 0 || showAllVoices) && (
+                    <button
+                      type="button"
+                      className="pref-voice-more"
+                      onClick={() => setShowAllVoices((v) => !v)}
+                    >
+                      {showAllVoices ? "Show fewer" : `Show all ${voiceChoice.voices.length} voices`}
+                    </button>
+                  )}
+                </div>
+              )}
+
+
+              <div className="pref-setting-divider" />
+
+              <div className="pref-setting-row">
+                <div className="pref-setting-info">
+                  <div className="pref-setting-label">
                     Voice Speed
                     {infoButton("speechRate")}
                   </div>
@@ -661,6 +813,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   setTopP(0.9);
                   setNumPredict(-1);
                   setSpeechRate(1.0);
+                  voiceChoice.setChoice("");
                 }}
                 title="Reset to defaults"
               >

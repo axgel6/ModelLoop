@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { VOICE_PRIORITY } from "../../components/hooks/useVoiceConversation";
+import { VOICE_PRIORITY } from "../../components/speechVoice";
 import type { ArenaSpeech, SideIndex } from "./types";
 
 const READ_ALOUD_KEY = "arena_read_aloud";
