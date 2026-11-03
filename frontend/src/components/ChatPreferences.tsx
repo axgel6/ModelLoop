@@ -100,16 +100,76 @@ export type Section =
   | "advanced"
   | "about";
 
-const NAV_ITEMS: { id: Section; label: string }[] = [
-  { id: "model", label: "Model" },
-  { id: "presets", label: "Presets" },
-  { id: "temperature", label: "Generation" },
-  { id: "appearance", label: "Appearance" },
-  { id: "shortcuts", label: "Shortcuts" },
-  { id: "account", label: "Account" },
-  { id: "advanced", label: "Advanced" },
-  { id: "about", label: "About" },
+// The sections, in groups. Wider screens list them straight down the sidebar; phones show each
+// group as a card of rows, like a phone's own Settings.
+const NAV_GROUPS: { id: Section; label: string }[][] = [
+  [
+    { id: "model", label: "Model" },
+    { id: "presets", label: "Presets" },
+    { id: "temperature", label: "Generation" },
+  ],
+  [
+    { id: "appearance", label: "Appearance" },
+    { id: "shortcuts", label: "Shortcuts" },
+  ],
+  [
+    { id: "account", label: "Account" },
+    { id: "advanced", label: "Advanced" },
+    { id: "about", label: "About" },
+  ],
 ];
+
+const sectionLabel = (id: Section) =>
+  NAV_GROUPS.flat().find((n) => n.id === id)?.label ?? "";
+
+// Each section's icon on phones, drawn in a 24-unit box with round 2-unit strokes
+const NAV_ICONS: Record<Section, React.ReactNode> = {
+  model: (
+    <>
+      <rect x="6" y="6" width="12" height="12" rx="2.5" />
+      <path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3" />
+    </>
+  ),
+  presets: (
+    <>
+      <path d="M12 3 3 8l9 5 9-5-9-5z" />
+      <path d="m3 13 9 5 9-5" />
+    </>
+  ),
+  temperature: (
+    <>
+      <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />
+      <circle cx="15" cy="6" r="2" />
+      <circle cx="9" cy="12" r="2" />
+      <circle cx="17" cy="18" r="2" />
+    </>
+  ),
+  appearance: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none" />
+    </>
+  ),
+  shortcuts: (
+    <>
+      <rect x="3" y="6" width="18" height="12" rx="2.5" />
+      <path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8" />
+    </>
+  ),
+  account: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" />
+    </>
+  ),
+  advanced: <path d="m8.5 7.5-4.5 4.5 4.5 4.5M15.5 7.5l4.5 4.5-4.5 4.5" />,
+  about: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5.5M12 7.75h.01" />
+    </>
+  ),
+};
 
 const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   systemPrompt,
@@ -189,22 +249,19 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [activeSection, setActiveSection] = useState<Section>(
     initialSection ?? "model",
   );
+  // Phones show one pane at a time: the list of sections, or the open section. Opening straight to
+  // a section (from elsewhere in the app) skips the list. "back" is the list, slid in from the left.
+  const [phonePane, setPhonePane] = useState<"list" | "back" | "section">(
+    initialSection ? "section" : "list",
+  );
   const [openInfo, setOpenInfo] = useState<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const navRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; pulling: boolean | null } | null>(
     null,
   );
 
-  // On phones the tabs are a sideways-scrolling row: keep the chosen one in view.
-  useEffect(() => {
-    navRef.current
-      ?.querySelector(".pref-nav-item.active")
-      ?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-  }, [activeSection]);
-
-  // Pull the sheet down by its handle or tab row to close it (phones only; the
-  // handle is hidden and the tab row is a sidebar on wider screens).
+  // Pull the sheet down by its handle or top bar to close it (phones only; both are hidden on
+  // wider screens).
   const isSheet = () => window.matchMedia("(max-width: 640px)").matches;
   const sheetDrag = {
     onTouchStart: (e: React.TouchEvent) => {
@@ -218,7 +275,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       if (!d || !sheet) return;
       const dx = e.touches[0].clientX - d.x;
       const dy = e.touches[0].clientY - d.y;
-      // Decide once whether this is a pull down or a sideways scroll of the tabs.
+      // Decide once whether this is a pull down or a sideways swipe.
       if (d.pulling === null && Math.hypot(dx, dy) > 8)
         d.pulling = dy > Math.abs(dx);
       if (d.pulling) {
@@ -417,6 +474,22 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
           : temperature <= 1.4
             ? "Creative - more varied and expressive"
             : "Wild - highly unpredictable outputs";
+
+  // The current value beside each row in the phone list, where there's a short one to show
+  const navHint = (id: Section): string => {
+    switch (id) {
+      case "model":
+        return (selectedModel.split(":")[0] ?? "").split("/").pop() ?? "";
+      case "presets":
+        return activePreset;
+      case "temperature":
+        return `Temp ${temperature.toFixed(1)}`;
+      case "appearance":
+        return theme.charAt(0).toUpperCase() + theme.slice(1);
+      default:
+        return "";
+    }
+  };
 
   const renderSection = () => {
     switch (activeSection) {
@@ -1621,22 +1694,67 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     <>
       <div className="chat-preferences-modal-overlay" onClick={onClose}>
         <div
-          className="pref-modal"
+          className={`pref-modal pref-modal--${phonePane}`}
           ref={sheetRef}
           // Clicks inside stay inside, so they do not close the window. Their sounds come from the
           // page-wide press handler in main.tsx, which already knows every element here.
           onClick={(e) => e.stopPropagation()}
         >
           <div className="pref-sheet-handle" {...sheetDrag} />
-          <div className="pref-sidebar" ref={navRef} {...sheetDrag}>
-            <div className="pref-sidebar-title">Preferences</div>
-            {NAV_ITEMS.map(({ id, label }) => (
-              <div
-                key={id}
-                className={`pref-nav-item${activeSection === id ? " active" : ""}`}
-                onClick={() => setActiveSection(id)}
+          <div className="pref-phone-bar" {...sheetDrag}>
+            {phonePane === "section" ? (
+              <button
+                type="button"
+                className="pref-phone-btn"
+                onClick={() => setPhonePane("back")}
+                aria-label="Back to Preferences"
               >
-                {label}
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="m14.5 5.5-6.5 6.5 6.5 6.5" />
+                </svg>
+              </button>
+            ) : (
+              <span className="pref-phone-btn-space" />
+            )}
+            <span className="pref-phone-title">
+              {phonePane === "section" ? sectionLabel(activeSection) : "Preferences"}
+            </span>
+            <button
+              type="button"
+              className="pref-phone-btn"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+          <div className="pref-sidebar">
+            {NAV_GROUPS.map((group) => (
+              <div className="pref-nav-group" key={group[0].id}>
+                {group.map(({ id, label }) => (
+                  <div
+                    key={id}
+                    data-section={id}
+                    className={`pref-nav-item${activeSection === id ? " active" : ""}`}
+                    onClick={() => {
+                      setActiveSection(id);
+                      setPhonePane("section");
+                    }}
+                  >
+                    <span className="pref-nav-icon">
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        {NAV_ICONS[id]}
+                      </svg>
+                    </span>
+                    <span className="pref-nav-label">{label}</span>
+                    <span className="pref-nav-hint">{navHint(id)}</span>
+                    <svg className="pref-nav-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />
+                    </svg>
+                  </div>
+                ))}
               </div>
             ))}
           </div>

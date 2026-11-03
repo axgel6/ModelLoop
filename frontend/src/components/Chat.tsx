@@ -228,7 +228,8 @@ function Chat({
   } = useChatSettings();
   // Thinking is offered only for a model that can do it, as Ollama reports
   const canThink = (modelCapabilities[selectedModel] ?? []).includes("thinking");
-  const [prefSection, setPrefSection] = useState<PrefSection>("model");
+  // A section to open Preferences on; none opens the list of sections on phones, Model elsewhere
+  const [prefSection, setPrefSection] = useState<PrefSection | undefined>(undefined);
 
   const {
     sidebarOpen,
@@ -1100,7 +1101,9 @@ function Chat({
     <>
       {!isConnected && <ConnectionBanner />}
 
-      <div className="chat-layout">
+      {/* Inert under voice mode: the mic button that started Talk would otherwise keep focus
+          behind the overlay, and a stray Space or Enter would press it and end the conversation */}
+      <div className="chat-layout" inert={voice.isActive}>
         {/* ---- Sidebar ---- */}
         {/* Hidden in a private chat, along with the history it lists */}
         {!isGuest && !privateMode && (sidebarOpen || sidebarClosing || isMobileViewport) && (
@@ -2097,7 +2100,7 @@ function Chat({
           setSystemPrompt={setSystemPrompt}
           onClose={() => {
             setShowPreferences(false);
-            setPrefSection("model");
+            setPrefSection(undefined);
           }}
           activePreset={activePreset}
           setActivePreset={setActivePreset}

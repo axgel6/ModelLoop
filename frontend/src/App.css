@@ -3797,31 +3797,23 @@ html[data-theme="meadow"] .sidebar-section-divider {
   width: 100%;
 }
 
+/* The chips' look is with the input bar's glass, under "Suggestion chips" further down */
 .suggestion-chip {
-  background: rgba(250, 189, 47, 0.06);
-  border: 1px solid rgba(250, 189, 47, 0.2);
-  color: #928374;
   font-family: var(--ui-font);
   font-size: 0.74rem;
-  padding: 8px 14px;
-  min-height: 38px;
+  font-weight: 500;
+  padding: 9px 16px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   white-space: normal;
   line-height: 1.35;
-  border-radius: 12px 12px 2px 12px;
+  border-radius: 14px;
   cursor: pointer;
-  transition:
-    border-color 0.15s,
-    color 0.15s,
-    background 0.15s;
-  animation: chip-in 0.32s var(--spring) both;
-}
-
-:where(html[data-theme="frost"]) .suggestion-chip {
-  border: 1px solid rgba(136, 192, 208, 0.2);
+  /* backwards, not both: a held final frame would pin transform and block the press shrink */
+  animation: chip-in 0.32s var(--spring) backwards;
 }
 
 .suggestion-chip:nth-child(1) {
@@ -3835,12 +3827,6 @@ html[data-theme="meadow"] .sidebar-section-divider {
 }
 .suggestion-chip:nth-child(4) {
   animation-delay: 0.16s;
-}
-
-.suggestion-chip:hover:not(:disabled) {
-  background: rgba(250, 189, 47, 0.1);
-  border-color: rgba(250, 189, 47, 0.4);
-  color: #fabd2f;
 }
 
 .suggestion-chip:disabled {
@@ -4325,15 +4311,6 @@ html[data-theme="meadow"] .sidebar-section-divider {
 
 :where(html[data-theme="frost"]) .pref-sidebar {
   border-right: 1px solid rgba(76, 86, 106, 0.35);
-}
-
-.pref-sidebar-title {
-  padding: 0 16px 14px;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #665c54;
-  font-weight: 600;
 }
 
 .pref-nav-item {
@@ -5575,22 +5552,6 @@ html[data-theme="frost"] .pref-sidebar {
 html[data-theme="meadow"] .pref-sidebar {
   background: #e0f5e7;
   border-right-color: #d6e7db;
-}
-
-html[data-theme="dune"] .pref-sidebar-title {
-  color: #a8a29e;
-}
-
-html[data-theme="ember"] .pref-sidebar-title {
-  color: #928374;
-}
-
-html[data-theme="frost"] .pref-sidebar-title {
-  color: #8f99ad;
-}
-
-html[data-theme="meadow"] .pref-sidebar-title {
-  color: #68766d;
 }
 
 html[data-theme="dune"] .pref-nav-item {
@@ -9603,58 +9564,6 @@ html[data-theme="meadow"] .toolbar-dock-label::after {
   border-top-color: rgba(41, 66, 49, 0.88);
 }
 
-/* ---- Suggestion chips ---- */
-
-html[data-theme="dune"] .suggestion-chip {
-  background: #f5ede3;
-  border-color: #e7e0d6;
-  box-shadow: none;
-}
-
-html[data-theme="ember"] .suggestion-chip {
-  background: #3c3836;
-  border-color: #504945;
-  color: #a89984;
-  box-shadow: none;
-}
-
-html[data-theme="frost"] .suggestion-chip {
-  background: #3f4859;
-  border-color: #495366;
-  color: #a3adbf;
-  box-shadow: none;
-}
-
-html[data-theme="meadow"] .suggestion-chip {
-  background: #ddf3e4;
-  border-color: #d6e7db;
-  box-shadow: none;
-}
-
-html[data-theme="dune"] .suggestion-chip:hover:not(:disabled) {
-  background: #faf8f5;
-  border-color: #d97757;
-  color: #1c1917;
-}
-
-html[data-theme="ember"] .suggestion-chip:hover:not(:disabled) {
-  background: #1d2021;
-  border-color: #fabd2f;
-  color: #ebdbb2;
-}
-
-html[data-theme="frost"] .suggestion-chip:hover:not(:disabled) {
-  background: #2e3440;
-  border-color: #87bfd0;
-  color: #d8dee9;
-}
-
-html[data-theme="meadow"] .suggestion-chip:hover:not(:disabled) {
-  background: #f0f8f2;
-  border-color: #46a177;
-  color: #294231;
-}
-
 html[data-theme="dune"] .tools-dropdown-menu,
 html[data-theme="dune"] .slash-dropdown {
   background-color: #faf9f2;
@@ -11761,33 +11670,6 @@ html[data-theme="meadow"] .landing-theme-modal-close:hover {
     animation: sheet-up 0.16s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
-  .pref-sidebar {
-    width: 100%;
-    flex-direction: row;
-    flex-shrink: 0;
-    padding: 10px 8px 0;
-    border-right: none;
-    border-bottom: 1px solid rgba(80, 73, 69, 0.35);
-    overflow-x: auto;
-    gap: 0;
-  }
-
-  :where(html[data-theme="frost"]) .pref-sidebar {
-    border-bottom: 1px solid rgba(76, 86, 106, 0.35);
-  }
-
-  .pref-sidebar-title {
-    display: none;
-  }
-
-  .pref-nav-item {
-    white-space: nowrap;
-    font-size: 0.8rem;
-    padding: 8px 12px;
-    margin: 0 2px;
-    border-radius: 8px 8px 0 0;
-  }
-
   .pref-close-btn {
     display: none;
   }
@@ -13131,13 +13013,7 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
 }
 
 @media (max-width: 640px) {
-  html[data-theme] .pref-modal {
-    height: min(660px, calc(88dvh / var(--ui-scale, 1)));
-    border-radius: 26px 26px 0 0;
-    border-bottom: none;
-  }
-
-  /* Pull down here (or on the tab row) to close */
+  /* Pull down here (or on the top bar) to close */
   .pref-sheet-handle {
     display: block;
     flex-shrink: 0;
@@ -13156,63 +13032,8 @@ html[data-theme] .chat-sidebar .sidebar-brand-btn:active {
     opacity: 0.22;
   }
 
-  html[data-theme] .pref-sidebar {
-    background: none;
-    border-bottom: none;
-    padding: 4px 16px 12px;
-    gap: 8px;
-    align-items: center;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    overscroll-behavior-x: contain;
-    touch-action: pan-x;
-    /* Tabs fade out at the edges, which shows there are more to scroll to */
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 36px), transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 36px), transparent 100%);
-  }
-
-  html[data-theme] .pref-sidebar::-webkit-scrollbar {
-    display: none;
-  }
-
-  html[data-theme] .pref-nav-item {
-    flex-shrink: 0;
-    margin: 0;
-    padding: 9px 16px;
-    font-size: 0.9rem;
-    border-radius: 999px;
-  }
-
-  /* The last tab can scroll clear of the fade */
-  html[data-theme] .pref-nav-item:last-child {
-    margin-right: 20px;
-  }
-
-  /* Resting tabs get a soft fill so each one reads as a button */
-  html[data-theme="dune"] .pref-nav-item:not(.active) {
-    background: rgba(28, 25, 23, 0.05);
-  }
-
-  html[data-theme="ember"] .pref-nav-item:not(.active),
-  html[data-theme="frost"] .pref-nav-item:not(.active) {
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  html[data-theme="meadow"] .pref-nav-item:not(.active) {
-    background: rgba(41, 66, 49, 0.06);
-  }
-
   .pref-content {
     padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* No close button on phones, so the title row doesn't need to leave room for it */
-  .pref-content-header {
-    padding: 10px 20px 12px;
-  }
-
-  .pref-search-bar {
-    padding: 12px 16px;
   }
 
   html[data-theme] .pref-search-input {
@@ -13527,11 +13348,6 @@ html[data-background][data-theme] .topbar-title {
   text-shadow: var(--wall-text-shadow);
 }
 
-html[data-background][data-theme] .suggestion-chip,
-html[data-background][data-theme] .suggestion-chip:hover {
-  box-shadow: var(--wall-chip-shadow);
-}
-
 /* The games list's rows and gears show the blur baked into a small copy of each photo (made
    from the full one: resized to 680px wide, saturation 1.4, Gaussian blur radius 6) instead of
    a live backdrop-filter, so the list is frosted from its first frame. Fixed to the viewport and
@@ -13655,8 +13471,7 @@ html .pref-sound-row .pref-switch.is-on:active {
 
 /* Light themes, continued: the new chat screen and the top bar, a shade darker for the same reason */
 html[data-theme="dune"] .empty-subline,
-html[data-theme="dune"] .topbar-title,
-html[data-theme="dune"] .suggestion-chip {
+html[data-theme="dune"] .topbar-title {
   color: #6b625b;
 }
 
@@ -13666,8 +13481,7 @@ html[data-theme="dune"] .chat-topbar .topbar-icon-btn {
 }
 
 html[data-theme="meadow"] .empty-subline,
-html[data-theme="meadow"] .topbar-title,
-html[data-theme="meadow"] .suggestion-chip {
+html[data-theme="meadow"] .topbar-title {
   color: #46574d;
 }
 
@@ -13863,10 +13677,6 @@ html[data-theme] .pref-sidebar {
   gap: 4px;
 }
 
-html[data-theme] .pref-sidebar-title {
-  display: none;
-}
-
 html[data-theme] .pref-nav-item {
   margin: 0 10px;
   padding: 10px 14px;
@@ -14058,37 +13868,6 @@ html[data-theme] .pref-content::after {
 }
 
 /* Phones: the tabs are a row of pills above the content, with the same pressed tab */
-@media (max-width: 640px) {
-  /* Still a bottom sheet */
-  html[data-theme] .pref-modal {
-    border-radius: 26px 26px 0 0;
-    border-bottom: none;
-  }
-
-  html[data-theme] .pref-sidebar {
-    border-right: none;
-    padding: 4px 16px 8px;
-    gap: 8px;
-  }
-
-  html[data-theme] .pref-nav-item {
-    margin: 0;
-    padding: 9px 16px;
-    border-radius: 999px;
-  }
-
-  html[data-theme] .pref-content {
-    --pref-head: 52px;
-  }
-
-  html[data-theme] .pref-content:has(> .pref-search-bar) {
-    --pref-top: 120px;
-  }
-
-  html[data-theme] .pref-content-header {
-    padding: 0 20px;
-  }
-}
 
 /* ============================================================
    Small details, more visible
@@ -14193,4 +13972,416 @@ html[data-theme] .sidebar-user-menu-sep {
   html[data-theme] .sidebar-user-menu {
     animation: none;
   }
+}
+
+/* ============================================================
+   Suggestion chips, on the input bar's glass
+   The same see-through tint and blur as the input bar and the
+   popups (so they follow Panels), with the theme's glass edge
+   and sheen. Hover stays on that glass: the text comes up to
+   full strength and the edge picks up a hint of the accent,
+   rather than swapping to a solid colour.
+   ============================================================ */
+
+html[data-theme] .suggestion-chip {
+  background: var(--float-bg);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  border: 1px solid var(--glass-border);
+  /* The wall shadow, when there's a photo behind, keeps the chips off a busy background */
+  box-shadow: var(--wall-chip-shadow, var(--glass-shadow));
+  color: color-mix(in srgb, var(--glass-text) 72%, transparent);
+  /* Set here, not on .suggestion-chip, to outlast the slower easing every themed button gets */
+  transition:
+    color 0.18s,
+    border-color 0.18s,
+    transform 0.22s var(--spring);
+}
+
+html[data-theme] .suggestion-chip:hover:not(:disabled) {
+  background: var(--float-bg);
+  border-color: color-mix(in srgb, var(--leaf-accent) 40%, var(--glass-border));
+  box-shadow: var(--wall-chip-shadow, var(--glass-shadow));
+  color: var(--glass-text);
+}
+
+html[data-theme] .suggestion-chip:active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 0.08s;
+}
+
+html[data-theme] .suggestion-chip:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--leaf-accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme] .suggestion-chip:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   Preferences on phones: a list, then the section
+   Like a phone's own Settings. The sheet opens on a list of the
+   sections in grouped cards, each row with an icon, its current
+   value and a chevron. A row slides its section in from the
+   right, under a top bar with a back button, the section's
+   title and a close button. The bar and the handle above it
+   pull the sheet down to close it. Wider screens keep the
+   sidebar, and none of the phone-only parts show there.
+   ============================================================ */
+
+.pref-phone-bar,
+.pref-nav-icon,
+.pref-nav-hint,
+.pref-nav-chevron {
+  display: none;
+}
+
+.pref-nav-group {
+  display: contents;
+}
+
+/* The icon tiles, in the manner of iOS dark mode icons: dark grey down to black in the dark
+   themes, white down to light grey in the light ones, each with a hairline of light along the
+   top. The icon itself is in the theme's accent. */
+html[data-theme="ember"],
+html[data-theme="frost"] {
+  --pref-icon-tile: linear-gradient(180deg, #2e2e30 0%, #161617 55%, #050505 100%);
+  --pref-icon-edge: rgba(255, 255, 255, 0.07);
+  --pref-icon-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dune"],
+html[data-theme="meadow"] {
+  --pref-icon-tile: linear-gradient(180deg, #ffffff 0%, #f1f1f2 55%, #dcdcde 100%);
+  --pref-icon-edge: color-mix(in srgb, var(--game-ink) 10%, transparent);
+  --pref-icon-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+html[data-theme="ember"] {
+  --pref-icon-ink: #fabd2f;
+}
+
+html[data-theme="frost"] {
+  --pref-icon-ink: #88c0d0;
+}
+
+html[data-theme="dune"] {
+  --pref-icon-ink: #d97757;
+}
+
+html[data-theme="meadow"] {
+  --pref-icon-ink: #3f9a6f;
+}
+
+/* Halloween borrows Frost's colours, but its icons are pumpkin orange, like its voice face */
+html[data-festive="halloween"] {
+  --pref-icon-ink: #f27a24;
+}
+
+@media (max-width: 640px) {
+  /* ---- The sheet ---- */
+  /* Rounded on top only. This comes after the popups' shared finish, which rounds all four. */
+  html[data-theme] .pref-modal {
+    /* The handle (22px) and the top bar (46px) above whatever is showing */
+    --pref-phone-head: 68px;
+    height: calc(92dvh / var(--ui-scale, 1));
+    border-radius: 26px 26px 0 0;
+    border-bottom: none;
+  }
+
+  /* The handle and top bar float over the list and the section, so both scroll up beneath them
+     and the fade starts at the top of the sheet rather than partway down. Pulling down on
+     either closes the sheet. */
+  html[data-theme] .pref-modal .pref-sheet-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 4;
+  }
+
+  html[data-theme] .pref-modal .pref-phone-bar {
+    position: absolute;
+    top: 22px;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 46px;
+    box-sizing: border-box;
+    padding: 0 14px 10px;
+    touch-action: none;
+  }
+
+  .pref-phone-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-family: "Archivo", var(--ui-font);
+    font-stretch: 125%;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--game-ink);
+  }
+
+  /* Holds the back button's place on the list, so the title stays centred */
+  .pref-phone-btn-space {
+    width: 36px;
+    flex-shrink: 0;
+  }
+
+  html[data-theme] .pref-phone-btn,
+  html[data-theme] .pref-phone-btn:hover:not(:disabled) {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    min-width: 0;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: color-mix(in srgb, var(--game-ink) 8%, transparent);
+    box-shadow: none;
+    color: var(--game-ink);
+  }
+
+  html[data-theme] .pref-phone-btn:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+
+  /* ---- One pane at a time: the list, or the open section ---- */
+  html[data-theme] .pref-modal--section .pref-sidebar,
+  html[data-theme] .pref-modal:not(.pref-modal--section) .pref-content {
+    display: none;
+  }
+
+  /* Only what's inside the section slides in. The section's own top fade (its ::before and
+     ::after) is there from the first frame, so the top bar never flashes without it. */
+  html[data-theme] .pref-modal--section .pref-content > * {
+    animation: pref-pane-forward 0.3s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+  }
+
+  html[data-theme] .pref-modal--back .pref-sidebar {
+    animation: pref-pane-back 0.3s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+  }
+
+  /* ---- The list ---- */
+  html[data-theme] .pref-modal .pref-sidebar {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border: none;
+    scrollbar-width: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: calc(var(--pref-phone-head) + 6px) 16px calc(24px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+
+  /* The list scrolls itself, so its fade is drawn on the sheet: the same progressive blur and
+     wash as a section's (see "every tab scrolls under its header"), ending where the cards start */
+  html[data-theme] .pref-modal:not(.pref-modal--section)::before,
+  html[data-theme] .pref-modal:not(.pref-modal--section)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  html[data-theme] .pref-modal:not(.pref-modal--section)::before {
+    height: calc(var(--pref-phone-head) + 8px);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  }
+
+  html[data-theme] .pref-modal:not(.pref-modal--section)::after {
+    height: var(--pref-phone-head);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--page-plain) 62%, transparent) 0%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+  }
+
+  .pref-nav-group {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid var(--glass-border);
+    background: color-mix(in srgb, var(--game-ink) 5%, transparent);
+  }
+
+  /* Rows: no pressed look for the open section here, since the list is the only thing showing */
+  html[data-theme] .pref-sidebar .pref-nav-item,
+  html[data-theme] .pref-sidebar .pref-nav-item.active,
+  html[data-theme] .pref-sidebar .pref-nav-item:hover {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    margin: 0;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--game-ink);
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  html[data-theme] .pref-sidebar .pref-nav-item:active {
+    background: color-mix(in srgb, var(--game-ink) 8%, transparent);
+  }
+
+  /* A hairline between rows, starting after the icon */
+  .pref-nav-item + .pref-nav-item::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 56px;
+    right: 0;
+    height: 1px;
+    background: var(--glass-border);
+  }
+
+  /* No keyboard on a phone, so no shortcuts */
+  html[data-theme] .pref-sidebar .pref-nav-item[data-section="shortcuts"] {
+    display: none;
+  }
+
+  .pref-nav-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    border: 1px solid var(--pref-icon-edge);
+    background: var(--pref-icon-tile);
+    box-shadow: var(--pref-icon-shadow);
+    color: var(--pref-icon-ink);
+  }
+
+  .pref-nav-hint {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--game-muted);
+  }
+
+  .pref-nav-chevron {
+    display: block;
+    flex-shrink: 0;
+    color: var(--game-muted);
+    opacity: 0.7;
+  }
+
+  /* ---- An open section: its title is in the top bar, which it scrolls under ---- */
+  html[data-theme] .pref-content-header {
+    display: none;
+  }
+
+  html[data-theme] .pref-content {
+    --pref-head: var(--pref-phone-head);
+  }
+
+  html[data-theme] .pref-content:has(> .pref-search-bar) {
+    --pref-top: calc(var(--pref-phone-head) + 64px);
+  }
+
+  html[data-theme] .pref-search-bar {
+    padding: 4px 16px 12px;
+  }
+
+  /* The header is taller here, so the strong blur and wash hold on further down, under the
+     search bar as well as the title */
+  html[data-theme] .pref-content::after {
+    -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+  }
+
+  html[data-theme] .pref-content:has(> .pref-search-bar)::after {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--page-plain) 70%, transparent) 0%,
+      color-mix(in srgb, var(--page-plain) 45%, transparent) 70%,
+      transparent 100%
+    );
+  }
+}
+
+@keyframes pref-pane-forward {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pref-pane-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme] .pref-modal--section .pref-content > *,
+  html[data-theme] .pref-modal--back .pref-sidebar {
+    animation: none;
+  }
+}
+
+/* Every tab keeps room for its scrollbar from the start. Generation grows once the voices load,
+   and without this the bar would appear then and nudge everything sideways. Phones' scrollbars
+   float over the content and take no room, so this changes nothing there. */
+.pref-list,
+.pref-settings-area,
+.pref-account-scroll {
+  scrollbar-gutter: stable;
+}
+
+.pref-settings-area,
+.pref-account-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--game-ink, #a89984) 28%, transparent) transparent;
 }

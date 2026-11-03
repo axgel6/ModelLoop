@@ -286,6 +286,8 @@ export function VoiceMatrix({
         // Once it's cross, each further tap gets a shake of the head
         if (annoyRef.current > MAD_FROM) shakeUntilRef.current = now + 300;
       }}
+      // A tap shouldn't take focus, so Space keeps pausing instead of pressing the face
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onTap}
       aria-label={status === "speaking" ? "Interrupt" : "Voice"}
       tabIndex={status === "speaking" ? 0 : -1}
