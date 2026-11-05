@@ -1262,7 +1262,10 @@ function Chat({
                   (() => {
                     const rect =
                       footerWrapperRef.current?.getBoundingClientRect();
-                    return (
+                    // On the body, not in the sidebar: the sidebar's own blur stops any blur
+                    // inside it from seeing what is beneath, so the menu would show the chat
+                    // list sharp through its glass
+                    return createPortal(
                       <>
                         <div
                           className="sidebar-user-menu-backdrop"
@@ -1334,7 +1337,8 @@ function Chat({
                             Sign out
                           </button>
                         </div>
-                      </>
+                      </>,
+                      document.body,
                     );
                   })()}
                 <div

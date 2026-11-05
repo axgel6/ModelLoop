@@ -4,9 +4,9 @@
    Preferences cards and list rows, the sign-in fields, message
    bubbles, suggestion chips, the message box and the standard
    buttons. What is particular to running a company (the dashboard,
-   the week cards) lives here: panels are the app's glass (the
-   --glass-* variables in App.css) and colours come from the
-   --game-* variables in ../games.css.
+   the week cards) lives here: panels are lenses (the --lens-*
+   variables in App.css) and colors come from the --game-*
+   variables in ../games.css.
    Buttons and inputs are prefixed with `html` so they outrank the
    themes' blanket button styling.
    ============================================================ */
@@ -177,12 +177,12 @@ html .ceo .ceo-input:focus {
 html .ceo .ceo-list {
   flex-shrink: 0;
   margin: 0 0 18px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 16px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  background: var(--lens-bg-dense);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
 }
 
 .ceo-list .pref-list-item {
@@ -331,12 +331,12 @@ html .ceo .ceo-bar .ceo-link {
   flex-direction: column;
   gap: 6px;
   padding: 12px 14px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 15px 15px 15px 2px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-shadow);
+  background: var(--lens-bg-dense);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  box-shadow: var(--shadow-lens);
 }
 
 .ceo-entry p {
@@ -402,7 +402,7 @@ html .ceo .ceo-bar .ceo-link {
   padding: 4px 6px 10px;
 }
 
-/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colours */
+/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colors */
 .ceo-waiting .thinking-phrase {
   background-image: linear-gradient(90deg, var(--game-muted) 20%, var(--game-ink) 50%, var(--game-muted) 80%);
 }
@@ -415,16 +415,20 @@ html .ceo .ceo-bar .ceo-link {
 
 html .ceo .ceo-options .suggestion-chip,
 html .ceo .ceo-options .suggestion-chip:hover {
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  border: 1px solid transparent;
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
 }
 
 html .ceo .ceo-options .suggestion-chip:hover:not(:disabled) {
-  border-color: var(--game-accent);
+  background: var(--lens-bg-hover);
   color: var(--game-ink);
+}
+
+html .ceo .ceo-options .suggestion-chip:active:not(:disabled) {
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 .ceo-composer {
@@ -460,13 +464,13 @@ html .ceo .ceo-options .suggestion-chip:hover:not(:disabled) {
 
 .ceo-result {
   padding: 14px;
-  border: 1.5px solid var(--game-accent);
+  border: 1px solid transparent;
   border-radius: 18px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  background: var(--lens-bg-dense);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
   align-items: flex-start;
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--shadow-lens);
 }
 
 .ceo-result-score {
@@ -518,12 +522,12 @@ html .ceo .ceo-options .suggestion-chip:hover:not(:disabled) {
   flex-direction: column;
   gap: 10px;
   padding: 14px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 22px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-shadow);
+  background: var(--lens-bg-dense);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  box-shadow: var(--shadow-lens);
 }
 
 /* The summary stays put; only the tab's contents scroll */
@@ -540,7 +544,7 @@ html .ceo .ceo-options .suggestion-chip:hover:not(:disabled) {
   gap: 4px;
 }
 
-/* Every state spelled out, so the themes' button hover cannot resize or recolour a tab */
+/* Every state spelled out, so the themes' button hover cannot resize or recolor a tab */
 html .ceo .ceo-tab,
 html .ceo .ceo-tab:hover,
 html .ceo .ceo-tab:active,
@@ -1033,7 +1037,7 @@ html .ceo .ceo-chart-tab.is-on:hover {
   stroke-dasharray: 3 3;
 }
 
-/* The ring is the card colour, so the dot stays readable where it sits on the line */
+/* The ring is the card color, so the dot stays readable where it sits on the line */
 .ceo-chart-dot {
   fill: var(--game-accent);
   stroke: var(--game-card-hover);

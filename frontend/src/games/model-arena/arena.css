@@ -218,7 +218,7 @@ html .arena .pref-confirm-no {
   transition: box-shadow 0.2s;
 }
 
-/* The side arguing against wears the colour of its bubbles */
+/* The side arguing against wears the color of its bubbles */
 html .arena .arena-debater--against .pref-item-icon {
   border-color: transparent;
   background: var(--game-accent);
@@ -287,23 +287,27 @@ html .arena .arena-unseen:hover {
   gap: 6px;
   margin-top: 8px;
   padding: 6px 14px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
   color: var(--game-ink);
   font-family: var(--ui-font);
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transform: none;
-  animation: fade-in 0.15s ease-out both;
+  animation: fade-in 0.15s ease-out backwards;
 }
 
 html .arena .arena-unseen:hover {
-  border-color: var(--game-accent);
+  background: var(--lens-bg-hover);
+}
+
+html .arena .arena-unseen:active {
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 /* A speech is a few paragraphs, not a one-line chat message */
@@ -346,7 +350,7 @@ html .arena .arena-voice.is-on {
   padding: 4px 6px 10px;
 }
 
-/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colours */
+/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colors */
 .arena-waiting .thinking-phrase {
   background-image: linear-gradient(90deg, var(--game-muted) 20%, var(--game-ink) 50%, var(--game-muted) 80%);
 }

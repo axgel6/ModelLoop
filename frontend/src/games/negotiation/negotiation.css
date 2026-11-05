@@ -128,6 +128,27 @@ html .neg .neg-refresh:hover {
   padding: 11px 16px;
 }
 
+/* The game's cards and switch tracks float over the page, often a photo, rather than sitting in
+   a window, so their wells are see-through (--well-glass) and blur what is behind them. A solid
+   well there reads as a slab cut out of the picture. */
+html[data-theme] .neg .pref-account-card,
+html[data-theme] .neg-browser .pref-account-card {
+  border: 1px solid transparent;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
+}
+
+html[data-theme] .neg .pref-account-card,
+.neg-modes,
+.neg-inventory-item,
+.neg-inventory-total,
+.neg-pickup,
+.neg-detail-fact,
+.neg-bank-statement {
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+}
+
 /* A row that shows something without being a choice */
 .neg-card .neg-row--static,
 .neg-card .neg-row--static:hover {
@@ -138,27 +159,6 @@ html .neg .neg-refresh:hover {
 .neg-card .pref-content-badge,
 .neg-card .start-button {
   flex-shrink: 0;
-}
-
-/* On the selected row the price badge takes the row's own text colour: some themes fill the row
-   with the accent, others only darken it, so one ink cannot suit them all */
-html {
-  --neg-active-ink: #fbf1c7;
-}
-
-html[data-theme="dune"],
-html[data-theme="meadow"] {
-  --neg-active-ink: #ffffff;
-}
-
-html[data-theme="frost"] {
-  --neg-active-ink: #353c4a;
-}
-
-html .neg-card .pref-list-item.active .pref-content-badge,
-html .neg-browser-list .pref-list-item.active .pref-content-badge {
-  background: color-mix(in srgb, var(--neg-active-ink) 16%, transparent);
-  color: var(--neg-active-ink);
 }
 
 .neg-start {
@@ -198,7 +198,7 @@ html .neg-browser-list .pref-list-item.active .pref-content-badge {
   gap: 14px;
   padding: 0 4px 14px;
   margin-bottom: 14px;
-  border-bottom: 1px solid var(--game-card-border);
+  border-bottom: 1px solid var(--lens-rim-dark);
 }
 
 .neg-merchant {
@@ -282,6 +282,14 @@ html .neg-browser-list .pref-list-item.active .pref-content-badge {
   mask-image: linear-gradient(to bottom, #000 calc(100% - var(--neg-fade)), transparent);
 }
 
+/* On a photo the feed drops its edge fade, as the chat's message list does: a blur can't see
+   past a masked ancestor, so the listing and bubbles would show the picture sharp. The blur
+   strip below still softens the bottom edge. */
+html[data-background] .neg-feed {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 /* ...and blurs on the way: pinned to the bottom while scrolled up, and a spacer below the last
    message once at the end, so the newest message is never the one fading */
 .neg-feed-fade {
@@ -307,12 +315,12 @@ html .neg-browser-list .pref-list-item.active .pref-content-badge {
   gap: 4px;
   margin: 2px 0 14px;
   padding: 12px 16px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 16px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  background: var(--lens-bg-dense);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
 }
 
 .neg-listing-head {
@@ -356,7 +364,7 @@ html .neg-browser-list .pref-list-item.active .pref-content-badge {
   padding: 4px 6px 10px;
 }
 
-/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colours */
+/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colors */
 .neg-waiting .thinking-phrase {
   background-image: linear-gradient(90deg, var(--game-muted) 20%, var(--game-ink) 50%, var(--game-muted) 80%);
 }
@@ -510,7 +518,7 @@ html .neg-browser-list .pref-list-item.active .pref-content-badge {
   text-decoration-color: var(--pay-ink);
 }
 
-/* Black stands out on the light themes by itself: just a softer shadow in the page's colour */
+/* Black stands out on the light themes by itself: just a softer shadow in the page's color */
 html[data-theme="dune"] .neg-pay-card {
   box-shadow:
     0 12px 20px -10px rgba(28, 25, 23, 0.45),
@@ -592,13 +600,13 @@ html .neg .neg-pay-button:hover {
   gap: 12px;
   margin-top: 10px;
   padding: 16px 18px 18px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 24px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
-  animation: msg-appear 0.2s ease-out both;
+  background: var(--lens-bg-dense);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  animation: msg-appear 0.2s ease-out backwards;
 }
 
 .neg-pay-sheet-head {
@@ -624,7 +632,7 @@ html .neg .neg-pay-sheet-head .neg-link {
   align-items: center;
   gap: 16px;
   padding: 8px 0;
-  border-top: 1px solid var(--game-card-border);
+  border-top: 1px solid var(--lens-rim-dark);
   font-size: 0.8rem;
 }
 
@@ -803,7 +811,7 @@ html .neg .neg-pay-confirm.is-declined:hover {
   color: color-mix(in srgb, var(--game-muted) 60%, transparent);
 }
 
-/* Send: the chat's own send colour (not the game's accent), on a filled circle. The toolbar
+/* Send: the chat's own send color (not the game's accent), on a filled circle. The toolbar
    strips button backgrounds with !important, so this has to answer in kind. */
 .neg-composer {
   --send: #b8bb26;
@@ -873,7 +881,7 @@ html .neg .neg-take:hover {
   font-size: 0.76rem;
   font-weight: 600;
   white-space: nowrap;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--game-accent) 35%, transparent);
+  box-shadow: none;
   cursor: pointer;
   transition: filter 0.15s, transform 0.12s;
 }
@@ -1025,9 +1033,10 @@ html .neg .neg-take:active:not(:disabled) {
   flex-direction: column;
   gap: 2px;
   padding: 10px 14px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 .neg-detail-fact dt {
@@ -1096,10 +1105,10 @@ html .neg-browser .neg-detail-seller {
 html .neg-browser .neg-detail-save,
 html .neg-browser .neg-detail-save:hover {
   padding: 8px 24px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 25px;
-  background: transparent;
-  box-shadow: none;
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
   color: var(--game-muted);
   font-family: var(--ui-font);
   font-size: 0.8rem;
@@ -1109,8 +1118,12 @@ html .neg-browser .neg-detail-save:hover {
 }
 
 html .neg-browser .neg-detail-save:hover {
-  border-color: var(--game-accent);
+  background: var(--lens-bg-hover);
   color: var(--game-ink);
+}
+
+html .neg-browser .neg-detail-save:active {
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 html .neg-browser .neg-detail-save:disabled {
@@ -1131,10 +1144,10 @@ html .neg .neg-chip:hover,
 html .neg-browser .neg-chip,
 html .neg-browser .neg-chip:hover {
   padding: 5px 12px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: transparent;
-  box-shadow: none;
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
   color: var(--game-muted);
   font-family: var(--ui-font);
   font-size: 0.74rem;
@@ -1146,16 +1159,24 @@ html .neg-browser .neg-chip:hover {
 
 html .neg .neg-chip:hover,
 html .neg-browser .neg-chip:hover {
+  background: var(--lens-bg-hover);
   color: var(--game-ink);
 }
 
+html .neg .neg-chip:active,
+html .neg-browser .neg-chip:active {
+  box-shadow: var(--shadow-lens-pressed);
+}
+
+/* Switched on: the accent, as every other switched-on control */
 html .neg .neg-chip.is-on,
 html .neg .neg-chip.is-on:hover,
 html .neg-browser .neg-chip.is-on,
 html .neg-browser .neg-chip.is-on:hover {
-  border-color: var(--game-accent);
-  background: color-mix(in srgb, var(--game-accent) 14%, transparent);
-  color: var(--game-ink);
+  border-color: var(--game-press-border);
+  background: var(--game-press);
+  box-shadow: var(--game-press-shadow);
+  color: var(--game-accent-ink);
 }
 
 .neg-browser-bar {
@@ -1216,9 +1237,10 @@ html .neg-browser .neg-browser-count {
 
 .neg-select select {
   padding: 5px 10px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: transparent;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   color: var(--game-ink);
   font-family: var(--ui-font);
   font-size: 0.74rem;
@@ -1267,9 +1289,10 @@ html .neg-browser .neg-browser-count {
   display: flex;
   flex-direction: column;
   padding: 10px 12px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 .neg-inventory-total-value {
@@ -1299,9 +1322,10 @@ html .neg-browser .neg-browser-count {
   flex-direction: column;
   gap: 4px;
   padding: 12px 16px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 .neg-inventory-item .msg-timestamp {
@@ -1351,12 +1375,10 @@ html .neg-browser .neg-browser-count {
   gap: 2px;
   margin: 0 0 18px;
   padding: 4px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 html .neg .neg-modes .neg-chip,
@@ -1418,9 +1440,10 @@ html .neg .neg-modes .neg-chip.is-on:hover {
   width: 100%;
   height: 36px;
   padding: 0 14px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   color: var(--game-ink);
   font-family: var(--ui-font);
   font-size: 0.8rem;
@@ -1500,9 +1523,10 @@ html .neg-browser .neg-sell:hover {
 .neg-custom-description {
   width: 100%;
   padding: 12px 18px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 18px;
-  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   color: var(--game-ink);
   font-family: var(--ui-font);
   font-size: 0.86rem;
@@ -1562,7 +1586,8 @@ html .neg .neg-plays .neg-chip:hover {
   height: 4px;
   margin: 0 16px 12px;
   border-radius: 999px;
-  background: var(--game-card-border);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   overflow: hidden;
 }
 
@@ -1678,7 +1703,9 @@ html .neg .neg-balance:hover {
 
 .neg-bank-facts span {
   padding: 3px 10px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   border-radius: 999px;
 }
 
@@ -1691,7 +1718,9 @@ html .neg .neg-balance:hover {
   flex: 1;
   min-height: 120px;
   overflow-y: auto;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   border-radius: 16px;
   scrollbar-width: thin;
 }
@@ -1701,7 +1730,7 @@ html .neg .neg-balance:hover {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--game-card-border);
+  border-bottom: 1px solid var(--lens-rim-dark);
 }
 
 .neg-bank-line:last-child {
@@ -1810,9 +1839,10 @@ html .neg .neg-balance:hover {
 .neg-bank-move .neg-offer {
   height: 34px;
   padding: 0 14px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--glass-bg);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   font-size: 0.8rem;
 }
 
@@ -1843,12 +1873,12 @@ html .neg .neg-account-part:hover {
   gap: 2px;
   min-width: 0;
   padding: 10px 16px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 16px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
   color: var(--game-ink);
   font-family: var(--ui-font);
   text-align: left;
@@ -1856,13 +1886,12 @@ html .neg .neg-account-part:hover {
   transform: none;
 }
 
-html .neg .neg-account-part:hover {
-  border-color: var(--game-accent);
+html .neg .neg-account-part:active:not(:disabled) {
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 html .neg .neg-account-part:disabled {
   cursor: default;
-  border-color: var(--glass-border);
 }
 
 .neg-account-value {
@@ -1905,12 +1934,12 @@ html .neg .neg-extra:disabled {
   gap: 6px;
   height: 28px;
   padding: 0 11px 0 9px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
   color: var(--game-ink);
   font-family: var(--ui-font);
   font-size: 0.74rem;
@@ -1925,8 +1954,12 @@ html .neg .neg-extra:disabled {
 }
 
 html .neg .neg-extra:hover:not(:disabled) {
-  border-color: var(--game-accent);
+  background: var(--lens-bg-hover);
   transform: translateY(-1px);
+}
+
+html .neg .neg-extra:active:not(:disabled) {
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 html .neg .neg-extra:disabled {
@@ -1964,7 +1997,7 @@ html .neg .neg-extra--research:hover:not(:disabled) {
   font-size: 0.64rem;
 }
 
-/* Something the game says, not either side: centred, like the persona line */
+/* Something the game says, not either side: centered, like the persona line */
 .neg-notice {
   margin: -4px 0 12px;
   padding: 0;
@@ -2000,9 +2033,10 @@ html .neg .neg-extra--research:hover:not(:disabled) {
   gap: 6px;
   max-width: 460px;
   padding: 10px 16px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--game-card) 55%, transparent);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 /* After a scam: the report card, in the verdict's column but laid out like any other card */
@@ -2105,7 +2139,7 @@ html .neg-report-badge.is-down {
   gap: 7px;
   margin: 0;
   padding: 5px 11px;
-  border: 1px dashed var(--glass-border);
+  border: 1px dashed var(--lens-rim-dark);
   border-radius: 12px;
   color: var(--game-ink);
   font-size: 0.74rem;
@@ -2126,7 +2160,7 @@ html .neg-report-badge.is-down {
 .pref-item-icon.neg-face {
   padding: 0;
   overflow: hidden;
-  border-color: var(--glass-border);
+  border-color: var(--lens-rim-dark);
   background: transparent;
 }
 
@@ -2156,7 +2190,7 @@ html .neg-report-badge.is-down {
 .neg-said-face {
   flex-shrink: 0;
   margin-top: 4px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--lens-rim-dark);
 }
 
 /* "Active now" gets a small green dot, like a messaging app */
@@ -2194,21 +2228,31 @@ html .neg-report-badge.is-down {
   --pastel-lavender: #c4b3ef;
 }
 
-/* The account tiles: money in mint, stuff in lavender, barely there */
+/* The account tiles: money in mint, stuff in lavender, barely there, over the lens. On hover
+   the lens shade goes over the tint. */
+html .neg .neg-account-part--money {
+  --tile-tint: linear-gradient(135deg, color-mix(in srgb, var(--pastel-mint) 16%, transparent), transparent 70%);
+}
+
+html .neg .neg-account-part--stuff {
+  --tile-tint: linear-gradient(135deg, color-mix(in srgb, var(--pastel-lavender) 16%, transparent), transparent 70%);
+}
+
+html .neg .neg-account-part--profile {
+  --tile-tint: linear-gradient(135deg, color-mix(in srgb, var(--game-accent) 14%, transparent), transparent 70%);
+}
+
 html .neg .neg-account-part--money,
-html .neg .neg-account-part--money:hover {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--pastel-mint) 16%, transparent), transparent 70%), var(--glass-bg);
-}
-
 html .neg .neg-account-part--stuff,
-html .neg .neg-account-part--stuff:hover,
-html .neg .neg-account-part--stuff:disabled {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--pastel-lavender) 16%, transparent), transparent 70%), var(--glass-bg);
+html .neg .neg-account-part--stuff:disabled,
+html .neg .neg-account-part--profile {
+  background: var(--tile-tint), var(--lens-bg);
 }
 
-html .neg .neg-account-part--profile,
+html .neg .neg-account-part--money:hover,
+html .neg .neg-account-part--stuff:hover:not(:disabled),
 html .neg .neg-account-part--profile:hover {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--game-accent) 14%, transparent), transparent 70%), var(--glass-bg);
+  background: linear-gradient(var(--lens-hover), var(--lens-hover)), var(--tile-tint), var(--lens-bg);
 }
 
 .neg-account-part--profile .neg-account-value {
@@ -2262,10 +2306,10 @@ html .neg-promote .neg-switch:hover {
   width: 44px;
   height: 26px;
   padding: 0;
-  border: 1px solid var(--game-tile-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--game-muted) 25%, transparent);
-  box-shadow: none;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   cursor: pointer;
   transform: none;
   transition: background 0.2s;
@@ -2273,8 +2317,9 @@ html .neg-promote .neg-switch:hover {
 
 html .neg-browser .neg-switch.is-on,
 html .neg-promote .neg-switch.is-on {
-  border-color: var(--game-accent);
-  background: var(--game-accent);
+  border-color: var(--game-press-border);
+  background: var(--game-press);
+  box-shadow: var(--game-press-shadow);
 }
 
 .neg-switch-knob {
@@ -2408,7 +2453,9 @@ html .neg-promote .neg-switch.is-on {
 
 .neg-profile-tag {
   padding: 1px 8px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   border-radius: 999px;
   font-size: 0.66rem;
   font-weight: 600;
@@ -2490,9 +2537,10 @@ html .neg .neg-rate-input {
   flex: 1;
   min-width: 0;
   padding: 8px 14px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--glass-bg);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   font-size: 0.85rem;
 }
 
@@ -2546,7 +2594,9 @@ html .neg-browser .neg-profile-delete.is-armed,
 html .neg-browser .neg-profile-delete.is-armed:hover {
   padding: 0 10px;
   border-color: color-mix(in srgb, var(--neg-down) 45%, transparent);
-  background: color-mix(in srgb, var(--neg-down) 12%, var(--glass-bg));
+  background:
+    linear-gradient(color-mix(in srgb, var(--neg-down) 12%, transparent), color-mix(in srgb, var(--neg-down) 12%, transparent)),
+    var(--lens-bg);
   color: var(--neg-down);
   opacity: 1;
 }
@@ -2618,7 +2668,7 @@ html .neg-browser .neg-saved-filter:disabled {
   flex-direction: column;
   gap: 8px;
   padding-top: 4px;
-  border-top: 1px solid var(--game-card-border);
+  border-top: 1px solid var(--lens-rim-dark);
 }
 
 .neg-promote .neg-promote-boosts {
@@ -2639,10 +2689,10 @@ html .neg-browser .neg-saved-filter:disabled {
 .neg-promote .neg-promote-auth {
   margin-top: 4px;
   padding: 12px 14px 12px 16px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid transparent;
   border-radius: 18px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 .neg-promote-auth-name {
@@ -2663,7 +2713,9 @@ html .neg-browser .neg-saved-filter:disabled {
 
 .neg-tag {
   padding: 1px 8px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
   border-radius: 999px;
   font-size: 0.66rem;
   font-weight: 600;
@@ -2728,7 +2780,7 @@ html .neg-browser .neg-saved-filter:disabled {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px dashed var(--game-card-border);
+  border: 1px dashed var(--lens-rim-dark);
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 600;
@@ -2784,7 +2836,7 @@ html .neg-browser .neg-saved-filter:disabled {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  animation: neg-badge-in 0.5s ease-out both;
+  animation: neg-badge-in 0.5s ease-out backwards;
 }
 
 @keyframes neg-badge-in {
@@ -2819,10 +2871,10 @@ html .neg-browser .neg-badge-tile:hover {
   min-width: 0;
   height: auto;
   padding: 7px 10px 7px 7px;
-  border: 1px solid var(--game-card-border);
+  border: 1px solid transparent;
   border-radius: 12px;
-  background: none;
-  box-shadow: none;
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
   color: var(--game-muted);
   font-family: var(--ui-font);
   font-size: 0.78rem;
@@ -2833,7 +2885,7 @@ html .neg-browser .neg-badge-tile:hover {
 }
 
 html .neg-browser .neg-badge-tile:hover {
-  border-color: color-mix(in srgb, var(--game-accent) 50%, transparent);
+  background: var(--lens-bg-hover);
 }
 
 html .neg-browser .neg-badge-tile.is-earned {
@@ -2843,8 +2895,8 @@ html .neg-browser .neg-badge-tile.is-earned {
 
 html .neg-browser .neg-badge-tile.is-open,
 html .neg-browser .neg-badge-tile.is-open:hover {
-  border-color: var(--game-accent);
-  background: color-mix(in srgb, var(--game-accent) 10%, transparent);
+  background: var(--well-selected);
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 .neg-badge-tile-name {
@@ -3021,44 +3073,10 @@ html .neg-browser .neg-badge-tile.is-open:hover {
   }
 }
 
-/* ---- The profile, finished in ModelLoop's glass ----
-   The sheet is the Preferences window's: the theme's panel color, a quarter see-through, over
-   a blur of what is behind it. The pieces inside are the same glass as the top bar's buttons,
-   without their own blur since the sheet already blurs what is behind it. */
-.landing-theme-modal.neg-profile,
-html[data-theme] .landing-theme-modal.neg-profile {
-  --pref-see-through: 75%;
-  background: color-mix(in srgb, #282828 var(--pref-see-through), transparent);
-  border: 1px solid rgba(80, 73, 69, 0.5);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
-}
-
-html[data-theme="dune"] .landing-theme-modal.neg-profile {
-  background: color-mix(in srgb, #ffffff var(--pref-see-through), transparent);
-  border-color: #e7e0d6;
-  box-shadow: 0 8px 40px rgba(28, 25, 23, 0.12);
-}
-
-html[data-theme="ember"] .landing-theme-modal.neg-profile {
-  background: color-mix(in srgb, #32302f var(--pref-see-through), transparent);
-  border-color: #504945;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
-}
-
-html[data-theme="frost"] .landing-theme-modal.neg-profile {
-  background: color-mix(in srgb, #373e4d var(--pref-see-through), transparent);
-  border-color: #495366;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
-}
-
-html[data-theme="meadow"] .landing-theme-modal.neg-profile {
-  background: color-mix(in srgb, #ffffff var(--pref-see-through), transparent);
-  border-color: #d6e7db;
-  box-shadow: 0 8px 40px rgba(41, 66, 49, 0.12);
-}
-
+/* ---- The profile, in the lens finish ----
+   The sheet is a window like Preferences (see "Windows" in App.css). The buttons on it are
+   lenses and the facts are sunken wells, without blur of their own since the sheet already
+   blurs what is behind it. */
 html[data-theme] .neg-profile .landing-theme-modal-close {
   display: flex;
   align-items: center;
@@ -3067,9 +3085,17 @@ html[data-theme] .neg-profile .landing-theme-modal-close {
   height: 32px;
   padding: 0;
   border-radius: 50%;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: var(--lens-bg);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-lens);
+}
+
+html[data-theme] .neg-profile .landing-theme-modal-close:hover {
+  background: var(--lens-bg-hover);
+}
+
+html[data-theme] .neg-profile .landing-theme-modal-close:active {
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 .neg-profile .neg-profile-photo.sidebar-user-avatar {
@@ -3081,11 +3107,17 @@ html[data-theme] .neg-profile .landing-theme-modal-close {
 .neg-profile .neg-badge.is-earned,
 .neg-profile .neg-bank-facts span,
 .neg-profile .neg-inventory-total,
-.neg-profile .neg-bank-statement,
+.neg-profile .neg-bank-statement {
+  background: var(--well-glass);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-lens-pressed);
+}
+
+/* Badge tiles open their badge, so they're raised; the open one sits pressed in */
 html .neg-browser.neg-profile .neg-badge-tile {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: var(--lens-bg);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-lens);
 }
 
 .neg-profile .neg-inventory-total {
@@ -3100,31 +3132,25 @@ html .neg-browser.neg-profile .neg-badge-tile {
   border-radius: 16px;
 }
 
-/* Earned badges keep their accent edge, and the open one its tint, over the glass */
+/* Earned badges keep a hint of the accent on their edge */
 .neg-profile .neg-badge.is-earned,
 html .neg-browser.neg-profile .neg-badge-tile.is-earned {
-  border-color: color-mix(in srgb, var(--game-accent) 40%, var(--glass-border));
+  border-color: color-mix(in srgb, var(--game-accent) 40%, transparent);
 }
 
 html .neg-browser.neg-profile .neg-badge-tile:hover {
-  border-color: color-mix(in srgb, var(--game-accent) 55%, transparent);
+  background: var(--lens-bg-hover);
 }
 
 html .neg-browser.neg-profile .neg-badge-tile.is-open,
 html .neg-browser.neg-profile .neg-badge-tile.is-open:hover {
-  border-color: var(--game-accent);
-  background:
-    linear-gradient(color-mix(in srgb, var(--game-accent) 12%, transparent), color-mix(in srgb, var(--game-accent) 12%, transparent)),
-    var(--glass-bg);
+  background: var(--well-selected);
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 html .neg-browser.neg-profile .neg-badge-tile:active {
+  box-shadow: var(--shadow-lens-pressed);
   transform: scale(0.98);
-}
-
-/* The review tabs float on the sheet like the game's other mode switch */
-.neg-profile .neg-modes {
-  box-shadow: var(--glass-shadow);
 }
 
 /* "Show all" under the first reviews: the outlined button, in the Marketplace's pill shape */
