@@ -5,6 +5,7 @@ import { background, backgroundsFor } from "../background";
 import { uiScale, UI_SCALES } from "../uiScale";
 import { panels, PANELS } from "../panels";
 import { openFestiveThemes, type Theme } from "../festive";
+import logoUrl from "../assets/ModelLoop.png";
 import {
   automaticVoice,
   betterVoicesTip,
@@ -533,8 +534,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         {name[0].toUpperCase()}
                       </div>
                       <div className="pref-item-info">
-                        <div className="pref-item-name">
-                          {name}
+                        <div className="pref-item-name pref-model-name">
+                          <span className="pref-model-name-text">{name}</span>
                           {caps.includes("web") && (
                             <span className="pref-model-badge pref-model-badge--web">
                               Web
@@ -1648,9 +1649,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             </div>
             <div className="pref-account-scroll">
               <div className="pref-about-hero">
+                <img className="pref-about-logo" src={logoUrl} alt="" />
                 <div className="pref-about-wordmark">ModelLoop</div>
                 <div className="pref-about-build">
-                  Latest Build Date: Nov 1, 2026
+                  Latest Build Date: Nov 6, 2026
                 </div>
                 <div className="pref-about-tagline">
                   Self-hosted AI chat powered by your local LLM
@@ -1659,7 +1661,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-account-card">
                 <div className="pref-account-field">
                   <div className="pref-field-label">Version</div>
-                  <div className="pref-about-meta-value">v1.6.0</div>
+                  <div className="pref-about-meta-value">v2.0.0</div>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
                   <div className="pref-field-label">Built by</div>

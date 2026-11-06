@@ -82,6 +82,46 @@ const PALETTES: Palette[] = [
       return rgb; // reds and yellows keep their hue
     },
   },
+  {
+    // Christmas: a warm evergreen room by the fire, lit by coloured string lights, from Frost
+    id: "christmas",
+    base: "frost",
+    // Nord's own colours, placed by hand
+    exact: {
+      "2e3440": "16241c", // page: evergreen
+      "3b4252": "1f3327", // cards and bubbles
+      "434c5e": "273d30", // hover
+      "4c566a": "35503f", // borders
+      "d8dee9": "f6e8d0", // body text: warm cream in lamplight
+      "e5e9f0": "f9eed9",
+      "eceff4": "fcf3e2", // headings
+      "88c0d0": "e8444f", // accent: cranberry
+      "8fbcbb": "ff6b6b",
+      "81a1c1": "f0b840", // gold
+      "5e81ac": "d99a2b",
+      "bf616a": "e03a45", // holly berry
+      "d08770": "ff8f45", // firelight
+      "ebcb8b": "ffc94d", // star on the tree
+      "a3be8c": "5fd17a", // green bulbs
+      "b48ead": "ff7ab8", // pink bulbs
+    },
+    recolour: (deg, s, l, rgb) => {
+      if (s < 0.22) {
+        // Greys: the dark ones (surfaces) become evergreen a step deeper, the middle ones (muted
+        // text) a warm taupe, the light ones cream
+        if (l < 0.38) return fromHsl(148, 0.24, l < 0.32 ? l * 0.62 : l - 0.11);
+        if (l < 0.7) return fromHsl(35, 0.14, l);
+        return fromHsl(38, 0.55, l);
+      }
+      // Frost's cyan accent becomes cranberry, held dark enough to read as red, not pink
+      if (deg >= 170 && deg < 200) return fromHsl(356, 0.8, Math.min(l * 0.9, 0.6));
+      if (deg >= 200 && deg < 260) return fromHsl(40, 0.85, l); // blues become gold
+      if (deg >= 260 && deg < 330) return fromHsl(335, Math.max(s, 0.7), l); // purples become pink bulbs
+      if (deg >= 20 && deg < 35) return fromHsl(24, Math.max(s, 0.85), l); // oranges become firelight
+      if (deg >= 60 && deg < 170) return fromHsl(138, Math.min(Math.max(s, 0.45), 0.65), l); // greens become green bulbs
+      return rgb; // reds and yellows keep their hue
+    },
+  },
 ];
 
 /** Moves a base theme colour into a festive palette */

@@ -1248,6 +1248,12 @@ html[data-festive="halloween"] .voice-overlay {
   --voice-dot: #f27a24;
 }
 
+/* Christmas: warm gold, like a lamp */
+html[data-festive="christmas"] .voice-overlay {
+  --voice-dot-hi: #ffe7b0;
+  --voice-dot: #f0b840;
+}
+
 /* ── Voice glow matrix ──────────────────────────────────────────────────────
    A 17x17 grid of dots showing a simple face (see VoiceMatrix.tsx). The colors are set per theme
    above; the bloom comes from two soft glows in the same color around every lit dot. */
@@ -1803,6 +1809,12 @@ html[data-theme] .voice-overlay .voice-pause-btn.is-paused:hover {
 
 .focused-textarea::placeholder {
   color: rgb(var(--reader-ink) / 0.6);
+}
+
+/* While the glowing caret shows, it is the only caret: the system one would sit beside it
+   (on iPhone they don't line up). Typing brings the system caret back. */
+.focused-overlay .focused-textarea:placeholder-shown:focus {
+  caret-color: transparent;
 }
 
 .focused-textarea:disabled {
@@ -3914,6 +3926,24 @@ html:where([data-theme="frost"])[data-theme] .pref-avatar-swatch--default:hover 
   overflow: hidden;
 }
 
+/* A model's name and its badges: the badges wrap below a long name rather than being cut off,
+   and a name too long for the row ends in an ellipsis. Nothing clips, so the badges keep their
+   raised lip. */
+.pref-model-name {
+  flex-wrap: wrap;
+  row-gap: 5px;
+  overflow: visible;
+  padding-bottom: 2px;
+}
+
+.pref-model-name-text {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pref-item-desc {
   font-size: 0.76rem;
   white-space: nowrap;
@@ -4306,6 +4336,18 @@ html[data-theme] .pref-info-btn.active {
 .pref-about-hero {
   padding: 32px 24px 16px;
   text-align: center;
+}
+
+/* The app icon above the name, as it looks on a home screen */
+.pref-about-logo {
+  display: block;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 14px;
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 .pref-about-wordmark {
@@ -4853,7 +4895,7 @@ html[data-theme="meadow"] .pref-about-wordmark {
 }
 
 html[data-theme="dune"] .pref-about-build {
-  color: #c4b8b0;
+  color: #78716c;
 }
 
 html[data-theme="ember"] .pref-about-build {
@@ -4865,7 +4907,7 @@ html[data-theme="frost"] .pref-about-build {
 }
 
 html[data-theme="meadow"] .pref-about-build {
-  color: #b0c4b6;
+  color: #52635a;
 }
 
 html[data-theme="dune"] .pref-about-tagline {
@@ -8144,6 +8186,33 @@ html[data-font="rounded"] {
   background: #211530;
 }
 
+/* Christmas's card: evergreen under a string of lights, with cranberry and gold */
+.pref-theme-preview-christmas {
+  background:
+    radial-gradient(circle 3px at 15% 14%, #ff5a5f 60%, transparent),
+    radial-gradient(circle 3px at 35% 22%, #ffc44d 60%, transparent),
+    radial-gradient(circle 3px at 55% 24%, #5fd17a 60%, transparent),
+    radial-gradient(circle 3px at 75% 20%, #5aa8ff 60%, transparent),
+    radial-gradient(circle 3px at 92% 12%, #ff7ab8 60%, transparent),
+    radial-gradient(ellipse 70% 60% at 0% 100%, rgba(255, 140, 50, 0.3), transparent 70%),
+    #16241c;
+}
+
+.pref-theme-preview-christmas .ptc-bar-1 {
+  width: 70%;
+  background: #e8444f;
+}
+
+.pref-theme-preview-christmas .ptc-bar-2 {
+  width: 50%;
+  background: #f0b840;
+}
+
+.pref-theme-preview-christmas .ptc-bar-3 {
+  width: 85%;
+  background: #1f3327;
+}
+
 .pref-sound-row {
   display: flex;
   align-items: center;
@@ -8664,6 +8733,12 @@ html[data-theme="frost"] .empty-hint {
 
 .spotlight-input::placeholder {
   color: rgba(255, 255, 255, 0.6);
+}
+
+/* While the glow shows, it is the only caret: the system one would sit beside it (on iPhone
+   they don't line up). Typing brings the system caret back. */
+.spotlight-input-row .spotlight-input:placeholder-shown:focus {
+  caret-color: transparent;
 }
 
 /* The glow sits where the caret rests in an empty field, just inside the row padding */
@@ -9385,6 +9460,115 @@ html[data-theme="frost"][data-festive="halloween"] body::before {
   to {
     transform: translate3d(-1400px, 0, 0);
   }
+}
+
+/* ============================================================
+   Christmas's own touches
+   Its colors come from Frost's rules (see festive-themes.ts);
+   these are the bits Frost has nothing to recolor.
+   ============================================================ */
+
+/* The wordmark is solid cranberry with a red glow, like a lit sign */
+html[data-theme][data-festive="christmas"] .sidebar-logo .stretchy-logo {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: #ff4d57;
+  text-shadow:
+    0 0 10px rgba(255, 60, 72, 0.65),
+    0 0 24px rgba(255, 40, 55, 0.35);
+}
+
+/* Readability: the accent is a deep cranberry fill, so whatever sits on it is white. Frost's
+   accent is a pale cyan with dark text on it, which the palette alone can't turn around. */
+html[data-theme][data-festive="christmas"] {
+  --game-accent: #e5484f;
+  --game-accent-ink: #ffffff;
+  --game-press: linear-gradient(180deg, #e0434d 0%, #c8323d 100%);
+  --game-press-border: #a82833;
+  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 2px 0 rgba(110, 18, 28, 0.55);
+}
+
+/* Your messages: white on cranberry */
+html[data-theme][data-festive="christmas"] .message.user,
+html[data-theme][data-festive="christmas"] .message.user :not(pre, code, pre *) {
+  color: #ffffff;
+}
+
+/* The model and voice badges: deeper fills with white text, instead of dark text on a pastel */
+html[data-theme][data-festive="christmas"] .pref-model-badge {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--badge), #fff 12%) 0%,
+    var(--badge) 100%
+  );
+  border-color: color-mix(in srgb, var(--badge), #000 25%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 0 color-mix(in srgb, var(--badge), #000 50%);
+  color: #ffffff;
+}
+
+html[data-theme][data-festive="christmas"] .pref-model-badge--web {
+  --badge: #c9303b;
+}
+
+html[data-theme][data-festive="christmas"] .pref-model-badge--thinking {
+  --badge: #b8407a;
+}
+
+html[data-theme][data-festive="christmas"] .pref-model-badge--vision {
+  --badge: #b45c14;
+}
+
+html[data-theme][data-festive="christmas"] .pref-model-badge--games {
+  --badge: #2f8a4c;
+}
+
+/* The greeting glows like the lamp in the corner */
+html[data-festive="christmas"] .empty-title {
+  text-shadow:
+    0 0 20px rgba(255, 190, 90, 0.4),
+    0 0 42px rgba(255, 120, 60, 0.18);
+}
+
+/* String lights draped along the top of the page, with a few out-of-focus ones further down.
+   Each bulb is a bright core in a soft halo. They stay still on purpose: the glass panels blur
+   what is behind them, so moving lights would make every panel redraw each frame. */
+html[data-theme="frost"][data-festive="christmas"] body::before {
+  background:
+    /* The string: a scalloped row of bulbs in a 300px tile */
+    radial-gradient(circle 16px at 18px 26px, rgba(255, 90, 95, 1) 0 3.5px, rgba(255, 90, 95, 0.5) 5px, rgba(255, 90, 95, 0.12) 10px, transparent),
+    radial-gradient(circle 16px at 62px 40px, rgba(255, 196, 77, 1) 0 3.5px, rgba(255, 196, 77, 0.5) 5px, rgba(255, 196, 77, 0.12) 10px, transparent),
+    radial-gradient(circle 16px at 108px 48px, rgba(95, 209, 122, 1) 0 3.5px, rgba(95, 209, 122, 0.5) 5px, rgba(95, 209, 122, 0.12) 10px, transparent),
+    radial-gradient(circle 16px at 152px 44px, rgba(90, 168, 255, 1) 0 3.5px, rgba(90, 168, 255, 0.5) 5px, rgba(90, 168, 255, 0.12) 10px, transparent),
+    radial-gradient(circle 16px at 196px 34px, rgba(255, 122, 184, 1) 0 3.5px, rgba(255, 122, 184, 0.5) 5px, rgba(255, 122, 184, 0.12) 10px, transparent),
+    radial-gradient(circle 16px at 240px 24px, rgba(255, 154, 60, 1) 0 3.5px, rgba(255, 154, 60, 0.5) 5px, rgba(255, 154, 60, 0.12) 10px, transparent),
+    radial-gradient(circle 16px at 282px 20px, rgba(95, 209, 122, 1) 0 3.5px, rgba(95, 209, 122, 0.5) 5px, rgba(95, 209, 122, 0.12) 10px, transparent),
+    /* Out-of-focus lights in a larger 640px tile */
+    radial-gradient(circle 40px at 90px 210px, rgba(255, 90, 95, 0.26), transparent),
+    radial-gradient(circle 50px at 380px 160px, rgba(255, 196, 77, 0.26), transparent),
+    radial-gradient(circle 36px at 540px 300px, rgba(90, 168, 255, 0.22), transparent),
+    radial-gradient(circle 44px at 250px 420px, rgba(95, 209, 122, 0.2), transparent),
+    radial-gradient(circle 38px at 470px 520px, rgba(255, 122, 184, 0.2), transparent);
+  background-size:
+    300px 80px, 300px 80px, 300px 80px, 300px 80px, 300px 80px, 300px 80px, 300px 80px,
+    640px 640px, 640px 640px, 640px 640px, 640px 640px, 640px 640px;
+  background-repeat: repeat-x, repeat-x, repeat-x, repeat-x, repeat-x, repeat-x, repeat-x,
+    repeat, repeat, repeat, repeat, repeat;
+  /* The string stays crisp; the soft lights fade out toward the bottom */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.8) 45%, transparent 92%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.8) 45%, transparent 92%);
+  opacity: 1;
+}
+
+/* Firelight from the bottom corner and lamplight from the top, in place of Frost's cool glow */
+html[data-theme="frost"][data-festive="christmas"] body::after {
+  background:
+    radial-gradient(ellipse 70% 60% at 6% 100%, rgba(255, 140, 50, 0.34) 0%, rgba(255, 100, 40, 0.12) 45%, transparent 70%),
+    radial-gradient(ellipse 50% 45% at 92% 10%, rgba(255, 200, 110, 0.16) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 45% at 72% 100%, rgba(220, 50, 60, 0.14) 0%, transparent 70%);
+  opacity: 1;
 }
 
 /* ============================================================
@@ -10445,6 +10629,11 @@ html[data-theme="meadow"] {
 /* Halloween borrows Frost's colors, but its icons are pumpkin orange, like its voice face */
 html[data-festive="halloween"] {
   --pref-icon-ink: #f27a24;
+}
+
+/* Christmas's icons are cranberry */
+html[data-festive="christmas"] {
+  --pref-icon-ink: #e8444f;
 }
 
 @media (max-width: 640px) {

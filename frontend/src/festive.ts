@@ -13,7 +13,7 @@
 //      of its own in background.ts (with `festive: "<id>"`).
 
 export type BaseTheme = "ember" | "frost" | "dune" | "meadow";
-export type FestiveId = "halloween";
+export type FestiveId = "halloween" | "christmas";
 
 export type Theme = BaseTheme | FestiveId;
 
@@ -46,8 +46,8 @@ const FESTIVE_THEMES: FestiveTheme[] = [
     id: "halloween",
     label: "Halloween",
     base: "frost",
-    // October 1 through November 7
-    open: (d) => d.getMonth() === 9 || (d.getMonth() === 10 && d.getDate() <= 7),
+    // October 1 through November 1
+    open: (d) => d.getMonth() === 9 || (d.getMonth() === 10 && d.getDate() <= 1),
     hello: (h) => (h < 5 ? "It's the witching hour" : "Happy haunting"),
     lines: [
       "What shall we conjure up tonight?",
@@ -71,7 +71,45 @@ const FESTIVE_THEMES: FestiveTheme[] = [
     ],
     placeholder: (name) => `Ask ${name}, if you dare`,
   },
+  {
+    id: "christmas",
+    label: "Christmas",
+    base: "frost",
+    // The day after Thanksgiving (the fourth Thursday of November) through New Year's Day
+    open: (d) =>
+      d.getMonth() === 11 ||
+      (d.getMonth() === 0 && d.getDate() === 1) ||
+      (d.getMonth() === 10 && d.getDate() > thanksgiving(d.getFullYear())),
+    hello: (h) => (h < 5 || h >= 21 ? "Silent night" : "Merry and bright"),
+    lines: [
+      "Grab some cocoa. What can I help with?",
+      "'Tis the season for good questions. What's on your mind?",
+      "The fire's lit and the snow is falling. What shall we dig into?",
+      "Making a list, checking it twice. What's on yours?",
+    ],
+    suggestions: [
+      "Gift ideas for someone who has everything",
+      "Plan a cozy Christmas movie marathon",
+      "Write a short story about a lost reindeer",
+      "Easy Christmas cookies to bake",
+      "Explain the history of Christmas trees",
+      "Help me write a holiday card message",
+      "Ideas for a Secret Santa under $25",
+      "Suggest a festive playlist for a party",
+      "Plan a Christmas dinner menu for 6",
+      "Write a poem about the first snowfall",
+      "Fun holiday traditions from around the world",
+      "Make a gift budget for the season",
+    ],
+    placeholder: (name) => `Ask ${name}, merrily`,
+  },
 ];
+
+/** The day of November that Thanksgiving falls on: its fourth Thursday */
+function thanksgiving(year: number): number {
+  const firstThursday = 1 + ((4 - new Date(year, 10, 1).getDay() + 7) % 7);
+  return firstThursday + 21;
+}
 
 /** The festive theme a theme id names, or null for an everyday theme */
 export function festiveTheme(theme: Theme): FestiveTheme | null {
