@@ -94,7 +94,7 @@ interface Options {
   speechRate: number;
 }
 
-export interface VoiceConversationHandle {
+interface VoiceConversationHandle {
   isActive: boolean;
   status: VoiceStatus;
   statusLabel: string;

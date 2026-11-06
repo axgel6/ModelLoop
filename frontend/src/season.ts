@@ -2,7 +2,7 @@
 // the lines under it. Only words: festive colours belong to their own theme, never to the
 // others. Seasons are the northern hemisphere's, by month.
 
-export type Season = "winter" | "spring" | "summer" | "autumn";
+type Season = "winter" | "spring" | "summer" | "autumn";
 
 export function season(date = new Date()): Season {
   const m = date.getMonth(); // 0 is January
@@ -12,7 +12,7 @@ export function season(date = new Date()): Season {
   return "autumn";
 }
 
-export type HolidayId = "new-year" | "valentines" | "halloween" | "winter-holidays" | "new-years-eve";
+type HolidayId = "new-year" | "valentines" | "halloween" | "winter-holidays" | "new-years-eve";
 
 // The days with a greeting of their own. Each runs for the whole local day.
 const HOLIDAYS: { id: HolidayId; month: number; days: number[]; hello: string }[] = [

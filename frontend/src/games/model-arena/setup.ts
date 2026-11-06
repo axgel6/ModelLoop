@@ -2,7 +2,7 @@
 import { PRESETS } from "../../components/presets";
 import type { ArenaMode } from "./types";
 
-export interface Character {
+interface Character {
   label: string;
   description: string;
   /** The system prompt that makes a model play this character; "" plays it straight */

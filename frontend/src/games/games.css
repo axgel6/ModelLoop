@@ -289,14 +289,6 @@ html .games-hub .game-card:disabled {
 
 /* ---- Inside a game ---- */
 
-/* The app's round back button, a little smaller so it sits beside a game's title */
-.back-to-landing.game-back {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  font-size: 1.05rem;
-}
-
 .game-menu-head {
   display: flex;
   align-items: center;
@@ -363,7 +355,10 @@ html .games-hub .game-card-settings:hover {
   background: var(--lens-bg-hover);
 }
 
+/* Pressed: the bevel flips, like the card's. No shrink: on a photo background the button paints
+   its own copy of the photo pinned to the screen (see App.css), and a transform unpins it, so a
+   stray patch of the picture showed inside the circle while it was held. */
 html .games-hub .game-card-settings:active {
   box-shadow: var(--shadow-lens-pressed);
-  transform: scale(0.94);
+  transform: none;
 }

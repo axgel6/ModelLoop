@@ -2,7 +2,7 @@
 // App.css turns into `zoom` there. Viewport units in the CSS divide by it so full-screen layouts
 // still fit, and code that positions things from pointer or rect coordinates divides by scale().
 export const UI_SCALES = [0.85, 0.9, 1, 1.1, 1.25] as const;
-export type UiScale = (typeof UI_SCALES)[number];
+type UiScale = (typeof UI_SCALES)[number];
 
 const STORAGE_KEY = "ui_scale";
 // The earlier chat-text-size setting, read once so a choice made with it carries over

@@ -49,8 +49,6 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
 
   // Poll backend health every 5s until connected, then stop
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-
     const check = async () => {
       const ok = await apiHealth();
       if (ok) {
@@ -59,8 +57,9 @@ function Login({ onLogin, onGuest, onBack }: LoginProps) {
       }
     };
 
+    // Started before the first check, so a check that finds the backend up can always stop it
+    const interval = setInterval(check, 5000);
     check();
-    interval = setInterval(check, 5000);
     return () => clearInterval(interval);
   }, []);
 

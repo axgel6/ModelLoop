@@ -2,7 +2,7 @@
 // they do deserve real URLs so /welcome can be linked, bookmarked, and shared.
 import { useCallback, useEffect, useState } from "react";
 
-export type View = "welcome" | "login" | "chat" | "terms";
+type View = "welcome" | "login" | "chat" | "terms";
 
 const PATH_FOR: Record<View, string> = {
   welcome: "/welcome",
@@ -11,11 +11,11 @@ const PATH_FOR: Record<View, string> = {
   terms: "/terms",
 };
 
-export function pathForView(view: View): string {
+function pathForView(view: View): string {
   return PATH_FOR[view];
 }
 
-export function viewForPath(pathname: string): View {
+function viewForPath(pathname: string): View {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path === "/" || path === "/welcome") return "welcome";
   if (path === "/login") return "login";

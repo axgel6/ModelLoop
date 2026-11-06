@@ -56,26 +56,12 @@ html .neg .neg-link,
 html .neg .neg-link:hover {
   align-self: flex-start;
   padding: 2px 0;
-  border: none;
   border-radius: 0;
-  background: none;
-  box-shadow: none;
-  color: var(--game-heading);
-  font-family: var(--ui-font);
   font-size: 0.76rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 html .neg .neg-link:hover {
   text-decoration: underline;
-}
-
-/* The outlined button sits beside a pill button here, so it takes the same shape */
-html .neg .pref-confirm-no {
-  padding: 8px 20px;
-  border-radius: 25px;
-  font-size: 0.8rem;
 }
 
 .neg button:disabled {
@@ -871,18 +857,7 @@ html .neg .neg-take:hover {
   display: flex;
   align-items: center;
   gap: 3px;
-  height: 32px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 999px;
-  background: var(--game-accent);
-  color: var(--game-accent-ink);
-  font-family: var(--ui-font);
-  font-size: 0.76rem;
-  font-weight: 600;
   white-space: nowrap;
-  box-shadow: none;
-  cursor: pointer;
   transition: filter 0.15s, transform 0.12s;
 }
 
@@ -1101,34 +1076,10 @@ html .neg-browser .neg-detail-seller {
   margin-top: 2px;
 }
 
-/* The quieter of the two: the same size as the start button, outlined instead of filled */
+/* The quieter of the two: a secondary pill beside the start button (controls.css) */
 html .neg-browser .neg-detail-save,
 html .neg-browser .neg-detail-save:hover {
-  padding: 8px 24px;
-  border: 1px solid transparent;
-  border-radius: 25px;
-  background: var(--lens-bg);
-  box-shadow: var(--shadow-lens);
-  color: var(--game-muted);
-  font-family: var(--ui-font);
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
   transform: none;
-}
-
-html .neg-browser .neg-detail-save:hover {
-  background: var(--lens-bg-hover);
-  color: var(--game-ink);
-}
-
-html .neg-browser .neg-detail-save:active {
-  box-shadow: var(--shadow-lens-pressed);
-}
-
-html .neg-browser .neg-detail-save:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .neg-detail-note {
@@ -1143,40 +1094,7 @@ html .neg .neg-chip,
 html .neg .neg-chip:hover,
 html .neg-browser .neg-chip,
 html .neg-browser .neg-chip:hover {
-  padding: 5px 12px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: var(--lens-bg);
-  box-shadow: var(--shadow-lens);
-  color: var(--game-muted);
-  font-family: var(--ui-font);
-  font-size: 0.74rem;
-  font-weight: 600;
-  line-height: 1.2;
-  cursor: pointer;
   transform: none;
-}
-
-html .neg .neg-chip:hover,
-html .neg-browser .neg-chip:hover {
-  background: var(--lens-bg-hover);
-  color: var(--game-ink);
-}
-
-html .neg .neg-chip:active,
-html .neg-browser .neg-chip:active {
-  box-shadow: var(--shadow-lens-pressed);
-}
-
-/* Switched on: the accent, as every other switched-on control */
-html .neg .neg-chip.is-on,
-html .neg .neg-chip.is-on:hover,
-html .neg-browser .neg-chip.is-on,
-html .neg-browser .neg-chip.is-on:hover {
-  border-color: var(--game-press-border);
-  background: var(--game-press);
-  box-shadow: var(--game-press-shadow);
-  color: var(--game-accent-ink);
 }
 
 .neg-browser-bar {
@@ -1384,28 +1302,9 @@ html .neg-browser .neg-browser-count {
 html .neg .neg-modes .neg-chip,
 html .neg .neg-modes .neg-chip:hover {
   min-width: 84px;
-  padding: 6px 16px;
-  border: 1px solid transparent;
-  background: transparent;
-  box-shadow: none;
-  color: var(--game-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
   transition:
     background 0.15s,
     color 0.15s;
-}
-
-html .neg .neg-modes .neg-chip:hover {
-  color: var(--game-ink);
-}
-
-html .neg .neg-modes .neg-chip.is-on,
-html .neg .neg-modes .neg-chip.is-on:hover {
-  border-color: var(--game-press-border);
-  background: var(--game-press);
-  box-shadow: var(--game-press-shadow);
-  color: var(--game-accent-ink);
 }
 
 /* The listing for the item picked to sell: every field labelled the same way */
@@ -1440,25 +1339,12 @@ html .neg .neg-modes .neg-chip.is-on:hover {
   width: 100%;
   height: 36px;
   padding: 0 14px;
-  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--well-glass);
-  box-shadow: var(--shadow-lens-pressed);
-  color: var(--game-ink);
-  font-family: var(--ui-font);
-  font-size: 0.8rem;
-  outline: none;
 }
 
 select.neg-field-input {
   cursor: pointer;
   text-overflow: ellipsis;
-}
-
-.neg-field-input:focus,
-.neg-field-input:focus-within,
-.neg-relist .neg-custom-description:focus {
-  border-color: var(--game-accent);
 }
 
 .neg-field-money {
@@ -1523,20 +1409,9 @@ html .neg-browser .neg-sell:hover {
 .neg-custom-description {
   width: 100%;
   padding: 12px 18px;
-  border: 1px solid transparent;
   border-radius: 18px;
-  background: var(--well-glass);
-  box-shadow: var(--shadow-lens-pressed);
-  color: var(--game-ink);
-  font-family: var(--ui-font);
-  font-size: 0.86rem;
   line-height: 1.5;
   resize: vertical;
-  outline: none;
-}
-
-.neg-custom-description:focus {
-  border-color: var(--game-accent);
 }
 
 /* ---- Hustle ---- */
@@ -1571,8 +1446,6 @@ html[data-theme="meadow"] {
 html .neg .neg-plays .neg-chip,
 html .neg .neg-plays .neg-chip:hover {
   min-width: 0;
-  padding: 5px 14px;
-  font-size: 0.76rem;
 }
 
 /* The title row needs a little air before what follows, now the switch is beside it */
@@ -2296,48 +2169,6 @@ html .neg .neg-account-part--profile:hover {
   margin: 0;
 }
 
-/* An on/off switch: the knob slides right and the track takes the accent when on */
-html .neg-browser .neg-switch,
-html .neg-browser .neg-switch:hover,
-html .neg-promote .neg-switch,
-html .neg-promote .neg-switch:hover {
-  position: relative;
-  flex-shrink: 0;
-  width: 44px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: var(--well-glass);
-  box-shadow: var(--shadow-lens-pressed);
-  cursor: pointer;
-  transform: none;
-  transition: background 0.2s;
-}
-
-html .neg-browser .neg-switch.is-on,
-html .neg-promote .neg-switch.is-on {
-  border-color: var(--game-press-border);
-  background: var(--game-press);
-  box-shadow: var(--game-press-shadow);
-}
-
-.neg-switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s;
-}
-
-.neg-switch.is-on .neg-switch-knob {
-  transform: translateX(18px);
-}
-
 /* ---- Reviews: your profile, the review left for you, and rating them back ---- */
 
 .neg-profile-stars {
@@ -2643,11 +2474,6 @@ html .neg-browser .neg-heart.is-on {
 .neg .pref-item-desc.neg-news {
   color: var(--game-ink);
   font-weight: 600;
-}
-
-html .neg-browser .neg-detail-save.is-on {
-  border-color: var(--neg-down);
-  color: var(--neg-down);
 }
 
 .neg-browser-count-row {
@@ -3077,26 +2903,6 @@ html .neg-browser .neg-badge-tile.is-open:hover {
    The sheet is a window like Preferences (see "Windows" in App.css). The buttons on it are
    lenses and the facts are sunken wells, without blur of their own since the sheet already
    blurs what is behind it. */
-html[data-theme] .neg-profile .landing-theme-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: 50%;
-  background: var(--lens-bg);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-lens);
-}
-
-html[data-theme] .neg-profile .landing-theme-modal-close:hover {
-  background: var(--lens-bg-hover);
-}
-
-html[data-theme] .neg-profile .landing-theme-modal-close:active {
-  box-shadow: var(--shadow-lens-pressed);
-}
 
 .neg-profile .neg-profile-photo.sidebar-user-avatar {
   box-shadow:
@@ -3153,10 +2959,7 @@ html .neg-browser.neg-profile .neg-badge-tile:active {
   transform: scale(0.98);
 }
 
-/* "Show all" under the first reviews: the outlined button, in the Marketplace's pill shape */
+/* "Show all" under the first reviews, centered */
 html .neg-profile .pref-confirm-no.neg-profile-more {
   align-self: center;
-  padding: 8px 20px;
-  border-radius: 25px;
-  font-size: 0.8rem;
 }

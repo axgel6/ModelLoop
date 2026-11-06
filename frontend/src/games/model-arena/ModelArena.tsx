@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { apiGetModels } from "../../components/api";
+import { SpeakerIcon, StopIcon } from "../../components/MessageIcons";
 import { useOpenSave } from "../useOpenSave";
 import {
   apiCreateGame,
@@ -521,13 +522,7 @@ function Stage({
                         onClick={() => voice.listen(i)}
                         title={voice.speaking === i ? "Stop" : "Listen"}
                       >
-                        {voice.speaking === i ? (
-                          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none">
-                            <rect x="4" y="4" width="16" height="16" rx="2" />
-                          </svg>
-                        ) : (
-                          <SpeakerIcon />
-                        )}
+                        {voice.speaking === i ? <StopIcon /> : <SpeakerIcon />}
                       </button>
                     </div>
                   )}
@@ -684,26 +679,6 @@ function Question({ text }: { text: string }) {
   );
 }
 
-/** The chat's Listen icon */
-function SpeakerIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="13"
-      height="13"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-    </svg>
-  );
-}
 
 /** A debater as the Presets list would show them: initial, name, and a line underneath */
 function Debater({

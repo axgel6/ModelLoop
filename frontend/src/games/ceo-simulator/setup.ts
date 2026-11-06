@@ -37,10 +37,3 @@ export const ROLE_TITLE: Record<string, string> = {
   product: "product person",
   support: "support person",
 };
-
-export const ROLES: { id: Role; label: string; blurb: string }[] = [
-  { id: "general", label: "Generalists", blurb: "Keep things running. Every employee adds capacity." },
-  { id: "sales", label: "Sales", blurb: "Each one grows demand a little every week." },
-  { id: "product", label: "Product", blurb: "Each one raises product quality a little every week." },
-  { id: "support", label: "Support", blurb: "Each one builds reputation a little every week." },
-];

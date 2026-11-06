@@ -1,13 +1,13 @@
 export type EditState = { idx: number; value: string };
 export type RenameState = { id: string; value: string };
 
-export type ChatInteractionState = {
+type ChatInteractionState = {
   deletingIds: Set<string>;
   renameState: RenameState | null;
   editState: EditState | null;
 };
 
-export type ChatInteractionAction =
+type ChatInteractionAction =
   | { type: "delete_start"; id: string }
   | { type: "delete_finish"; id: string }
   | { type: "rename_start"; id: string; value: string }

@@ -3,9 +3,9 @@
 // A festive one belongs to its theme alone: it is only offered there, and any other theme shows
 // the plain page instead. To add one, list it here and give it a body rule and a preview rule in
 // App.css.
-export type BackgroundId = "plain" | "sky" | "dunes";
+type BackgroundId = "plain" | "sky" | "dunes";
 
-export const BACKGROUNDS: { id: BackgroundId; label: string; festive?: string }[] = [
+const BACKGROUNDS: { id: BackgroundId; label: string; festive?: string }[] = [
   { id: "plain", label: "Plain" },
   { id: "sky", label: "Sky" },
   { id: "dunes", label: "Dunes" },

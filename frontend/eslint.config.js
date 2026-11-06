@@ -19,5 +19,10 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Pulling a prop out with a rest sibling ({ node: _node, ...props }) is how a prop is left
+      // off; it is meant to go unused
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
+    },
   },
 ])

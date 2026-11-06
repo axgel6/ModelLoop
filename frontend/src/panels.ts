@@ -3,7 +3,7 @@
 // <html>, which App.css turns into the windows' tint and blur. Opaque also sets
 // data-panels="opaque", which turns the blur off entirely: a blur is the costliest thing to draw
 // in Chromium, so this is the setting to reach for when it stutters.
-export type PanelsId = "clear" | "frosted" | "opaque";
+type PanelsId = "clear" | "frosted" | "opaque";
 
 export const PANELS: { id: PanelsId; label: string; frosting: number }[] = [
   { id: "clear", label: "Clear", frosting: 0 },

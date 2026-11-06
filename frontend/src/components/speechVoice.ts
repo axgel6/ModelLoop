@@ -45,7 +45,7 @@ export function automaticVoice(lang = userLang()): SpeechSynthesisVoice | null {
   );
 }
 
-export type VoiceQuality = "premium" | "enhanced" | "natural" | null;
+type VoiceQuality = "premium" | "enhanced" | "natural" | null;
 
 /** How good a voice is likely to sound, from what its name and service say */
 export function voiceQuality(voice: SpeechSynthesisVoice): VoiceQuality {

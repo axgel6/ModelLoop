@@ -1,0 +1,563 @@
+/* ============================================================
+   Controls: one look for every button, tab, switch, field and link
+   The app's controls grew up screen by screen, so the same job
+   ended up with different sizes, corners and finishes. This file
+   is the one place each kind gets its size and finish:
+
+     Primary     the accent pill: the one thing to do next
+     Secondary   the glass (lens) pill beside it
+     Back        a small glass circle
+     Close       a bare ✕ in a window's corner
+     Tab         a choice among a few: glass, accent when chosen
+     Switch      on/off: a sunken track, the accent when on
+     Link        a quiet action in text: the accent, no box
+     Field       a sunken well to type in
+     Message     the time under a message and its copy, listen,
+     actions     retry and edit icons: bare, bold and rounded
+
+   Pills come in three heights: small (inside a row), standard
+   (dialogs, forms, game menus) and large (the sign-in card).
+   Colors come from the theme tokens only (--game-press,
+   --lens-bg and friends), so all four themes follow.
+
+   To give a new control one of these looks, add its class to
+   that kind's list below. Each list is written once; its states
+   (hover, pressed, disabled, keyboard focus) are nested in it.
+
+   Loaded last (see main.tsx), after the games' stylesheets, and
+   every rule starts with :root[data-theme] body so it outranks
+   the older per-screen rules without !important.
+   ============================================================ */
+
+:root {
+  --btn-h-sm: 30px;
+  --btn-h: 38px;
+  --btn-h-lg: 46px;
+  --btn-pad-sm: 14px;
+  --btn-pad: 20px;
+  --btn-font-sm: 0.78rem;
+  --btn-font: 0.85rem;
+  --btn-font-lg: 0.9rem;
+  --btn-weight: 600;
+  --icon-btn: 32px;
+  --tab-h: 28px;
+  --tab-font: 0.74rem;
+  --focus-ring: 2px solid color-mix(in srgb, var(--game-accent) 60%, transparent);
+}
+
+/* ---- Pills: the shape every primary and secondary button shares ---- */
+:root[data-theme] body :is(
+    .start-button,
+    .login-submit,
+    .logout-confirm-yes,
+    .pref-confirm-yes,
+    .pref-name-save-btn,
+    .edit-save-btn,
+    .neg-take,
+    .pref-confirm-no,
+    .logout-confirm-cancel,
+    .pref-name-edit-btn,
+    .pref-name-cancel-btn,
+    .edit-cancel-btn,
+    .login-guest-btn,
+    .pref-generation-reset-btn,
+    .neg-detail-save,
+    .arena-unseen
+  ) {
+  &,
+  &:is(:hover, :active, :focus):not(:disabled) {
+    height: auto;
+    min-height: var(--btn-h);
+    padding: 6px var(--btn-pad);
+    border-radius: 999px;
+    font-family: var(--ui-font);
+    font-size: var(--btn-font);
+    font-weight: var(--btn-weight);
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-shadow: none;
+    cursor: pointer;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  &:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Small: inside a row or beside a field */
+:root[data-theme] body :is(
+    .pref-name-save-btn,
+    .pref-name-edit-btn,
+    .pref-name-cancel-btn,
+    .edit-save-btn,
+    .edit-cancel-btn,
+    .neg-take,
+    .arena-unseen
+  ) {
+  &,
+  &:is(:hover, :active, :focus):not(:disabled) {
+    min-height: var(--btn-h-sm);
+    padding: 4px var(--btn-pad-sm);
+    font-size: var(--btn-font-sm);
+  }
+}
+
+/* Large: the sign-in card's full-width buttons */
+:root[data-theme] body :is(.login-submit, .login-guest-btn) {
+  &,
+  &:is(:hover, :active, :focus):not(:disabled) {
+    min-height: var(--btn-h-lg);
+    font-size: var(--btn-font-lg);
+  }
+}
+
+/* ---- Primary: the accent ---- */
+:root[data-theme] body :is(
+    .start-button,
+    .login-submit,
+    .logout-confirm-yes,
+    .pref-confirm-yes,
+    .pref-name-save-btn,
+    .edit-save-btn,
+    .neg-take
+  ) {
+  &,
+  &:is(:hover, :focus) {
+    border: 1px solid var(--game-press-border);
+    background: var(--game-press);
+    box-shadow: var(--game-press-shadow);
+    color: var(--game-accent-ink);
+  }
+
+  /* Hover deepens the accent a touch rather than swapping it */
+  &:hover:not(:disabled) {
+    background: linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0.07)), var(--game-press);
+  }
+
+  /* Pressed: the ledge underneath goes, so it sits down into the page */
+  &:active:not(:disabled) {
+    background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), var(--game-press);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.22);
+  }
+}
+
+/* ---- Secondary: the glass pill ---- */
+:root[data-theme] body :is(
+    .pref-confirm-no,
+    .logout-confirm-cancel,
+    .pref-name-edit-btn,
+    .pref-name-cancel-btn,
+    .edit-cancel-btn,
+    .login-guest-btn,
+    .pref-generation-reset-btn,
+    .neg-detail-save,
+    .arena-unseen
+  ) {
+  &,
+  &:is(:hover, :focus) {
+    border: 1px solid transparent;
+    background: var(--lens-bg);
+    box-shadow: var(--shadow-lens);
+    color: var(--game-ink);
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--lens-bg-hover);
+  }
+
+  &:active:not(:disabled) {
+    box-shadow: var(--shadow-lens-pressed);
+  }
+}
+
+/* A glass pill that is switched on (Read aloud in the Arena): pushed in, in the accent */
+:root[data-theme] body .pref-confirm-no.is-on {
+  &,
+  &:is(:hover, :focus, :active) {
+    background: var(--row-selected, var(--lens-bg));
+    box-shadow: var(--shadow-lens-pressed);
+    color: var(--game-accent);
+  }
+}
+
+/* ---- Back: a small glass circle on every page and window. Position is left to each screen. ---- */
+:root[data-theme] body :is(.back-to-landing, .tos-back-btn) {
+  &,
+  &:is(:hover, :focus) {
+    display: inline-grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: var(--icon-btn);
+    height: var(--icon-btn);
+    min-width: 0;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: var(--lens-bg);
+    box-shadow: var(--shadow-lens);
+    color: var(--game-ink);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  &:hover {
+    background: var(--lens-bg-hover);
+  }
+
+  &:active {
+    box-shadow: var(--shadow-lens-pressed);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ---- Close: a bare ✕ in a window's corner, muted until hovered ---- */
+:root[data-theme] body :is(.pref-close-btn, .landing-theme-modal-close) {
+  &,
+  &:is(:hover, :active, :focus) {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    box-shadow: none;
+    color: var(--game-muted);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  &:hover {
+    color: var(--game-ink);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Phones close Preferences from the sheet's own top bar */
+@media (max-width: 640px) {
+  :root[data-theme] body .pref-close-btn {
+    display: none;
+  }
+}
+
+/* ---- Tabs and segments ----
+   Marketplace's modes, Founder Mode's company tabs and chart measures, the profile's review tabs */
+:root[data-theme] body :is(.neg-chip, .ceo-tab, .ceo-chart-tab, .ceo-details-toggle) {
+  &,
+  &:is(:hover, :active, :focus) {
+    min-height: var(--tab-h);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--lens-bg);
+    box-shadow: var(--shadow-lens);
+    color: var(--game-muted);
+    font-family: var(--ui-font);
+    font-size: var(--tab-font);
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+
+  &:hover {
+    background: var(--lens-bg-hover);
+    color: var(--game-ink);
+  }
+
+  &:active {
+    box-shadow: var(--shadow-lens-pressed);
+  }
+
+  &.is-on,
+  &.is-on:is(:hover, :active, :focus) {
+    border-color: var(--game-press-border);
+    background: var(--game-press);
+    box-shadow: var(--game-press-shadow);
+    color: var(--game-accent-ink);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  &:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Founder Mode's tabs share a row evenly, so only the Marketplace's take this padding */
+:root[data-theme] body .neg-chip {
+  &,
+  &:is(:hover, :active, :focus) {
+    padding: 5px 14px;
+  }
+}
+
+/* ---- Switches: one switch, wherever it sits (Preferences, the games' settings, Promote) ---- */
+:root[data-theme] body :is(.pref-switch, .neg-switch) {
+  &,
+  &:is(:hover, :active, :focus) {
+    position: relative;
+    flex-shrink: 0;
+    width: 44px;
+    height: 26px;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--well-glass);
+    box-shadow: var(--shadow-lens-pressed);
+    color: inherit;
+    cursor: pointer;
+    transform: none;
+    transition:
+      background 0.2s,
+      border-color 0.2s;
+  }
+
+  &.is-on,
+  &.is-on:is(:hover, :active, :focus) {
+    border-color: var(--game-press-border);
+    background: var(--game-press);
+    box-shadow: var(--game-press-shadow);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  &:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+:root[data-theme] body :is(.pref-switch-knob, .neg-switch-knob) {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s var(--spring);
+
+  :is(.pref-switch, .neg-switch).is-on & {
+    transform: translateX(18px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* ---- Text links ---- */
+:root[data-theme] body :is(.ceo-link, .neg-link, .arena-link, .login-toggle-btn, .pref-voice-more) {
+  &,
+  &:is(:hover, :active, :focus) {
+    border: none;
+    background: none;
+    box-shadow: none;
+    color: var(--game-accent);
+    font-family: var(--ui-font);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  &:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ---- Fields ----
+   Every form field is a sunken well (the Marketplace's fields were the model): see-through,
+   pressed in, the accent along its edge while typing. The chat composer, renaming in place
+   and editing a message keep their own looks, since they sit inside the text they change. */
+:root[data-theme] body :is(
+    .pref-name-input,
+    .pref-search-input,
+    .pref-context-textarea,
+    .ceo-input:not(.ceo-edit-input),
+    .neg-field-input,
+    .neg-custom-description,
+    .login-field input
+  ) {
+  &,
+  &:is(:hover, :focus, :focus-within) {
+    border: 1px solid transparent;
+    background: var(--well-glass);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--shadow-lens-pressed);
+    color: var(--game-ink);
+    caret-color: var(--game-accent);
+    font-family: var(--ui-font);
+    font-size: var(--btn-font);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  &:is(:focus, :focus-within) {
+    border-color: color-mix(in srgb, var(--game-accent) 70%, transparent);
+  }
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--game-muted) 80%, transparent);
+  }
+}
+
+/* One line: a pill as tall as a standard button. Dropdowns keep their own padding, which leaves
+   room for the arrow. */
+:root[data-theme] body :is(.pref-name-input, .pref-search-input, .ceo-input:not(.ceo-edit-input), .neg-field-input, .login-field input) {
+  min-height: var(--btn-h);
+  border-radius: 999px;
+}
+
+:root[data-theme] body input:is(.pref-name-input, .pref-search-input, .ceo-input:not(.ceo-edit-input)) {
+  padding: 8px 16px;
+}
+
+/* The sign-in card's fields match its large buttons */
+:root[data-theme] body .login-field input {
+  min-height: var(--btn-h-lg);
+  padding: 10px 18px;
+  font-size: var(--btn-font-lg);
+}
+
+/* More than one line: a rounded box */
+:root[data-theme] body :is(.pref-context-textarea, .neg-custom-description) {
+  border-radius: 16px;
+}
+
+/* ---- Lists of rows in a card ----
+   Founder Mode's choices, the Marketplace's cards and the Arena's modes. The card gets an even
+   inset and the rows sit inside it with corners that follow the card's (its radius less the
+   inset), so a hovered or chosen row has the same gap on all four sides. Only cards that hold
+   rows: Founder Mode's company form is the same card with padding of its own. */
+:root[data-theme] body :is(.ceo-list, .neg-card, .arena-card--list) {
+  --list-inset: 4px;
+
+  &:has(> .pref-list-item) {
+    padding: var(--list-inset);
+    border-radius: 16px;
+  }
+
+  .pref-list-item {
+    margin: 0;
+    padding: 11px 14px;
+    border-radius: calc(16px - var(--list-inset));
+  }
+
+  .pref-list-item + .pref-list-item {
+    margin-top: 2px;
+  }
+}
+
+/* ---- Badges ----
+   Small readouts beside a title, such as a list's count or Founder Mode's "Week 1 of 52".
+   Information, so a small sunken well. */
+:root[data-theme] body .pref-content-badge {
+  padding: 2px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
+  color: var(--game-muted);
+  font-weight: 600;
+}
+
+/* ---- Message actions ----
+   The row under each chat message: its time, then copy, listen, retry and edit. Bare, with no
+   box of their own: thick rounded icons (MessageIcons.tsx) and the time in bold Archivo, a step
+   stronger than the old faint grey so they hold up over a wallpaper. */
+:root {
+  --msg-meta-ink: color-mix(in srgb, var(--game-muted) 70%, var(--game-ink));
+}
+
+:root[data-theme] body .msg-meta .msg-timestamp {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--msg-meta-ink);
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 1;
+}
+
+:root[data-theme] body :is(.copy-btn, .listen-btn, .retry-btn, .edit-msg-btn) {
+  &,
+  &:is(:hover, :active, :focus) {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    color: var(--msg-meta-ink);
+    cursor: pointer;
+    transform: none;
+    transition: color 0.12s, transform 0.12s;
+  }
+
+  &:hover {
+    color: var(--game-ink);
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+
+  /* While it is on (just copied, or reading aloud): the accent */
+  &:is(.copied, .speaking),
+  &:is(.copied, .speaking):hover {
+    color: var(--game-accent);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 0;
+  }
+}
+
+/* Over a wallpaper, a soft halo in the page's color keeps them clear of the photo */
+:root[data-theme][data-background] body .msg-meta :is(.msg-timestamp, .msg-actions) {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--lens-page) 85%, transparent));
+}

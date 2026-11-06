@@ -6,7 +6,7 @@ import { vi } from "vitest";
 export const fakeVoice = (name: string, lang = "en-US", localService = true) =>
   ({ name, lang, voiceURI: `uri:${name}:${lang}`, localService, default: false }) as SpeechSynthesisVoice;
 
-export class FakeUtterance {
+class FakeUtterance {
   text: string;
   voice: SpeechSynthesisVoice | null = null;
   lang = "";

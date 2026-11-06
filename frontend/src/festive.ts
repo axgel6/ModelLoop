@@ -41,7 +41,7 @@ export interface FestiveTheme {
   placeholder: (assistantName: string) => string;
 }
 
-export const FESTIVE_THEMES: FestiveTheme[] = [
+const FESTIVE_THEMES: FestiveTheme[] = [
   {
     id: "halloween",
     label: "Halloween",

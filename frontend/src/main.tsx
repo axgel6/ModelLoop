@@ -4,6 +4,8 @@ import "./index.css";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github-dark.css";
 import App from "./App.tsx";
+// After App, so it loads after every screen's own stylesheet (the games' included)
+import "./controls.css";
 import { haptics } from "./haptics";
 import { sounds } from "./sounds";
 import { isEmptySpaceClick, sparkleAt } from "./sparkle";

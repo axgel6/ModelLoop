@@ -56,15 +56,8 @@ html .arena .arena-link,
 html .arena .arena-link:hover {
   align-self: flex-start;
   padding: 2px 0;
-  border: none;
   border-radius: 0;
-  background: none;
-  box-shadow: none;
-  color: var(--game-heading);
-  font-family: var(--ui-font);
   font-size: 0.76rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 html .arena .arena-link:hover {
@@ -76,13 +69,6 @@ html .arena .arena-link--quiet:hover {
   align-self: center;
   color: var(--game-muted);
   font-weight: 500;
-}
-
-/* The two outlined buttons sit beside pill buttons here, so they take the same shape */
-html .arena .pref-confirm-no {
-  padding: 8px 20px;
-  border-radius: 25px;
-  font-size: 0.8rem;
 }
 
 .arena button:disabled {
@@ -141,8 +127,6 @@ html .arena .pref-confirm-no {
   flex: none;
   width: 100%;
   padding: 11px 14px;
-  border-radius: 12px;
-  font-size: 0.84rem !important;
 }
 
 /* A dropdown that looks like the inputs around it: the browser's own skinny control is
@@ -286,28 +270,10 @@ html .arena .arena-unseen:hover {
   align-items: center;
   gap: 6px;
   margin-top: 8px;
-  padding: 6px 14px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: var(--lens-bg);
-  box-shadow: var(--shadow-lens);
   backdrop-filter: var(--float-filter);
   -webkit-backdrop-filter: var(--float-filter);
-  color: var(--game-ink);
-  font-family: var(--ui-font);
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
   transform: none;
   animation: fade-in 0.15s ease-out backwards;
-}
-
-html .arena .arena-unseen:hover {
-  background: var(--lens-bg-hover);
-}
-
-html .arena .arena-unseen:active {
-  box-shadow: var(--shadow-lens-pressed);
 }
 
 /* A speech is a few paragraphs, not a one-line chat message */
