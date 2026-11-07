@@ -1,4 +1,5 @@
 import { CeoIcon } from "../icons";
+import cover from "./cover.png";
 import type { GameInfo } from "../types";
 import { CeoSimulator } from "./CeoSimulator";
 
@@ -7,6 +8,7 @@ export const ceoSimulator: GameInfo = {
   name: "Founder Mode",
   monogram: "FM",
   icon: CeoIcon,
+  cover,
   button: "A",
   tagline: "Build a company one decision at a time",
   description:

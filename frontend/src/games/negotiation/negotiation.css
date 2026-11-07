@@ -175,30 +175,69 @@ html[data-theme] .neg .pref-account-card,
   flex-shrink: 0;
 }
 
-/* Who you are dealing with, how patient they still are, and the price on the table */
-.neg-table {
-  flex-shrink: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+/* The chat's header: one row. Back, their face, the item with who is selling it under it,
+   then how it stands as figures with a caption under each: patience, the price, your money. */
+.neg-top .neg-head {
   gap: 14px;
-  padding: 0 4px 14px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--lens-rim-dark);
+  margin: 0;
 }
 
-.neg-merchant {
+.neg-top .neg-face--head {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.neg-who {
+  flex: 1;
   min-width: 0;
   display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.neg-who-title {
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.neg-top .neg-who .neg-title {
+  flex: 0 1 auto;
+  font-size: clamp(0.98rem, 1.9vw, 1.12rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neg-who-seller {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .neg-merchant-name {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 10px;
+  font-weight: 600;
+  color: var(--game-ink);
+}
+
+.neg-who-seller .neg-seller-stars {
+  font-size: 1em;
+  letter-spacing: 0.5px;
+}
+
+.neg-who-setting {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neg-who-setting::before {
+  content: "· ";
 }
 
 /* The seller's rating beside their name: a low one is the first sign of a scam */
@@ -221,74 +260,236 @@ html[data-theme] .neg .pref-account-card,
   color: var(--neg-down);
 }
 
-.neg-patience,
+/* The price on the table, with what it moved from under it */
 .neg-price {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.neg-patience {
-  align-items: center;
-}
-
-.neg-price {
   align-items: flex-end;
+  gap: 3px;
   text-align: right;
+  white-space: nowrap;
 }
 
-.neg-pips {
-  display: flex;
-  gap: 5px;
+.neg-stat-value {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-heading);
 }
 
-.neg-pip {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--game-muted) 25%, transparent);
-  transition: background 0.2s;
+/* Patience: a segmented ring round the seller's face, each segment a try left. It drains
+   clockwise from the top and turns to the warning color near the end. */
+.neg-patience-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  cursor: help;
 }
 
-.neg-pip.is-left {
-  background: var(--game-accent);
+.neg-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.neg-ring circle {
+  fill: none;
+  stroke: color-mix(in srgb, var(--game-muted) 28%, transparent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke 0.3s;
+}
+
+.neg-ring circle.is-left {
+  stroke: var(--game-accent);
+}
+
+.neg-patience-ring.is-low .neg-ring circle.is-left {
+  stroke: var(--neg-down);
+}
+
+/* Your money, in the message box beside the offer and set like it: a muted label, then the
+   figure in the offer's bold wide face. A wider gap keeps the two apart. Opens the bank. */
+html .neg .neg-composer .neg-wallet,
+html .neg .neg-composer .neg-wallet:hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin: 0 0 0 14px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 0;
+  background: none !important;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transform: none;
+}
+
+.neg-composer .neg-wallet strong {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-ink);
+  transition: color 0.15s;
+}
+
+html .neg .neg-composer .neg-wallet:hover strong {
+  color: var(--game-heading);
+}
+
+/* ---- The chat: one surface, like the app's own ----
+   The feed fills the whole screen and scrolls under the header and the dock, which float over
+   it on a progressive blur, the way the chat scrolls under its top bar and message box. Their
+   heights (--neg-top, --neg-bottom) are measured and become the feed's padding, so nothing
+   rests behind them. No line, no edge where messages are cut off. */
+.neg.neg--stage {
+  --neg-gutter: max(16px, calc((100% - 828px) / 2));
+  position: relative;
+  max-width: none;
+  padding: 0;
+  overflow: hidden;
+}
+
+html[data-theme] .neg--stage {
+  padding-top: 0;
 }
 
 .neg-feed {
-  --neg-fade: 40px;
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 0 4px;
+  padding: calc(var(--neg-top, 170px) + 6px) calc(var(--neg-gutter) + 4px)
+    calc(var(--neg-bottom, 130px) + 10px);
+  scroll-padding-top: var(--neg-top, 170px);
+  scroll-padding-bottom: calc(var(--neg-bottom, 130px) + 10px);
   scrollbar-width: thin;
-  /* The bottom edge fades out... */
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--neg-fade)), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--neg-fade)), transparent);
 }
 
-/* On a photo the feed drops its edge fade, as the chat's message list does: a blur can't see
-   past a masked ancestor, so the listing and bubbles would show the picture sharp. The blur
-   strip below still softens the bottom edge. */
-html[data-background] .neg-feed {
-  -webkit-mask-image: none;
-  mask-image: none;
+.neg-top,
+.neg-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding-left: var(--neg-gutter);
+  padding-right: var(--neg-gutter);
 }
 
-/* ...and blurs on the way: pinned to the bottom while scrolled up, and a spacer below the last
-   message once at the end, so the newest message is never the one fading */
-.neg-feed-fade {
-  position: sticky;
-  bottom: 0;
-  flex-shrink: 0;
-  height: var(--neg-fade);
-  margin: 0 -4px;
+.neg-top {
+  top: 0;
+  padding-top: 16px;
+  padding-bottom: 20px;
+  /* Only what is in it catches the mouse; the rest lets the chat below scroll */
   pointer-events: none;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000);
-  mask-image: linear-gradient(to bottom, transparent, #000);
+}
+
+html[data-theme] .neg-top {
+  padding-top: 66px;
+}
+
+.neg-top :where(button, a, [title], [role="img"], .neg-face) {
+  pointer-events: auto;
+}
+
+.neg-dock {
+  bottom: 0;
+  padding-top: 26px;
+  padding-bottom: 14px;
+}
+
+/* Two stacked blurs, each faded out by a mask, make the blur progressive: strongest at the
+   screen's edge, gone where the chat is read. A faint wash of the page color keeps the
+   header's text clear of what passes under it. */
+.neg-top::before,
+.neg-top::after,
+.neg-dock::before,
+.neg-dock::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.neg-top::before {
+  top: 0;
+  bottom: 0;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+}
+
+/* The strong blur and the wash run the full height of the text and fade out in the padding below
+   it, so every word sits on blur and nothing is read over the fade */
+.neg-top::after {
+  top: 0;
+  bottom: 0;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bar-tint) 62%, transparent) 0%,
+    color-mix(in srgb, var(--bar-tint) 36%, transparent) calc(100% - 20px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+}
+
+.neg-dock::before {
+  top: 0;
+  bottom: 0;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 calc(100% - 30px),
+    transparent
+  );
+  mask-image: linear-gradient(to top, #000 calc(100% - 30px), transparent);
+}
+
+.neg-dock::after {
+  top: 14px;
+  bottom: 0;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--bar-tint) 45%, transparent) 0%,
+    color-mix(in srgb, var(--bar-tint) 20%, transparent) 60%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 calc(100% - 44px),
+    transparent
+  );
+  mask-image: linear-gradient(to top, #000 calc(100% - 44px), transparent);
 }
 
 /* The listing being haggled over, pinned to the top of the chat like the app's glass panels */
@@ -352,7 +553,12 @@ html[data-background] .neg-feed {
 
 /* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colors */
 .neg-waiting .thinking-phrase {
-  background-image: linear-gradient(90deg, var(--game-muted) 20%, var(--game-ink) 50%, var(--game-muted) 80%);
+  background-image: linear-gradient(
+    90deg,
+    var(--game-muted) 20%,
+    var(--game-ink) 50%,
+    var(--game-muted) 80%
+  );
 }
 
 .neg-verdict {
@@ -477,8 +683,12 @@ html[data-background] .neg-feed {
       rgba(0, 0, 0, 0.08) 100%
     ),
     var(--chroma);
-  background-size: 100% 100%, 300% 100%;
-  background-position: 0 0, var(--mx) 0;
+  background-size:
+    100% 100%,
+    300% 100%;
+  background-position:
+    0 0,
+    var(--mx) 0;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -576,20 +786,21 @@ html .neg .neg-pay-button:hover {
   cursor: pointer;
 }
 
+/* Paying: a raised lens over the chat, centered above the dock's edge. The amount stands on its
+   own, the details sit in a sunken well (to read, not to press), and the pay button is the app's
+   raised accent pill, which sinks in on the first tap so you can see it took. */
 .neg-pay-sheet {
-  flex-shrink: 0;
-  align-self: center;
   width: 100%;
-  max-width: 420px;
+  max-width: 380px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 10px;
-  padding: 16px 18px 18px;
+  gap: 14px;
+  margin: 10px auto 0;
+  padding: 14px 16px 16px;
   border: 1px solid transparent;
-  border-radius: 24px;
+  border-radius: 26px;
   background: var(--lens-bg-dense);
-  box-shadow: var(--shadow-lens);
+  box-shadow: var(--shadow-lens), 0 12px 32px -12px rgba(0, 0, 0, 0.45);
   backdrop-filter: var(--float-filter);
   -webkit-backdrop-filter: var(--float-filter);
   animation: msg-appear 0.2s ease-out backwards;
@@ -599,40 +810,44 @@ html .neg .neg-pay-button:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 4px;
+}
+
+.neg-pay-sheet .neg-pay-brand {
+  color: var(--game-ink);
 }
 
 html .neg .neg-pay-sheet-head .neg-link {
   align-self: center;
 }
 
-.neg-pay-rows {
-  margin: 0;
+.neg-pay-hero {
   display: flex;
   flex-direction: column;
-}
-
-.neg-pay-rows > div {
-  display: flex;
-  justify-content: space-between;
-  /* Level with the figure, however big it is: the total, or a face beside the name */
   align-items: center;
-  gap: 16px;
-  padding: 8px 0;
-  border-top: 1px solid var(--lens-rim-dark);
-  font-size: 0.8rem;
+  gap: 6px;
+  padding: 2px 0;
+  text-align: center;
 }
 
-.neg-pay-rows dt {
-  flex-shrink: 0;
-  color: var(--game-muted);
+.neg-pay-hero-amount {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-heading);
 }
 
 /* Who the money goes to: their face, their name, and a seller's stars */
-.neg-pay-rows dd.neg-pay-who {
-  display: flex;
+.neg-pay-who {
+  max-width: 100%;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 7px;
+  font-size: 0.8rem;
+  color: var(--game-muted);
 }
 
 .neg-pay-who .neg-avatar {
@@ -643,6 +858,9 @@ html .neg .neg-pay-sheet-head .neg-link {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--game-ink);
 }
 
 .neg-pay-stars {
@@ -655,13 +873,35 @@ html .neg .neg-pay-sheet-head .neg-link {
   color: var(--neg-down);
 }
 
-/* Under the pay button: one quiet line, with the details on hover */
-.neg-pay-note {
-  margin: -4px 0 0;
-  font-size: 0.7rem;
-  text-align: center;
+.neg-pay-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 14px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
+}
+
+.neg-pay-rows > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  font-size: 0.8rem;
+}
+
+/* A soft line between rows, fading at both ends, so the well stays one piece */
+.neg-pay-rows > div + div {
+  border-top: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, var(--lens-rim-dark) 12%, var(--lens-rim-dark) 88%, transparent) 1;
+}
+
+.neg-pay-rows dt {
+  flex-shrink: 0;
   color: var(--game-muted);
-  cursor: help;
 }
 
 .neg-pay-rows dd {
@@ -671,14 +911,64 @@ html .neg .neg-pay-sheet-head .neg-link {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--game-ink);
 }
 
-.neg-pay-total dd {
-  font-family: "Archivo", var(--ui-font);
-  font-stretch: 125%;
-  font-size: 1.15rem;
-  font-weight: 700;
+/* The card you pay with: a tiny one in the payment bubbles' black chroma, with a chip */
+.neg-pay-rows dd.neg-pay-card-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-variant-numeric: tabular-nums;
+}
+
+.neg-mini-card {
+  position: relative;
+  flex-shrink: 0;
+  width: 30px;
+  height: 20px;
+  border-radius: 4px;
+  background:
+    linear-gradient(115deg, transparent 35%, rgba(214, 202, 255, 0.35) 50%, rgba(186, 228, 255, 0.3) 58%, transparent 72%),
+    linear-gradient(135deg, #2a2730 0%, #131216 60%, #1c1d22 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* The chip, in pale gold */
+.neg-mini-card::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  width: 7px;
+  height: 6px;
+  border-radius: 1.5px;
+  background: linear-gradient(135deg, #f3e2b0, #c9a95c);
+}
+
+/* A stripe of the brand's pastel chroma along the bottom */
+.neg-mini-card::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, #ffc4e0, #d6caff, #bae4ff, #c8fae4);
+  opacity: 0.8;
+}
+
+/* Under the pay button: one quiet line, with the details on hover */
+.neg-pay-note {
+  margin: -6px 0 0;
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--game-muted);
+  cursor: help;
 }
 
 html .neg .neg-pay-confirm,
@@ -688,21 +978,33 @@ html .neg .neg-pay-confirm:disabled {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 13px 18px;
-  border: none;
+  min-height: 46px;
+  padding: 12px 18px;
+  border: 1px solid var(--game-press-border);
   border-radius: 999px;
-  background: var(--game-ink);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  color: var(--bar-tint);
+  background: var(--game-press);
+  box-shadow: var(--game-press-shadow);
+  color: var(--game-accent-ink);
   font-family: var(--ui-font);
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.12s;
+  transform: none;
+  transition:
+    box-shadow 0.15s,
+    background 0.15s;
 }
 
-html .neg .neg-pay-confirm:active:not(:disabled) {
-  transform: scale(0.97);
+html .neg .neg-pay-confirm:hover:not(:disabled) {
+  background: linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0.07)), var(--game-press);
+}
+
+/* Armed after the first tap, and while pressed: the ledge goes and it sits down into the sheet */
+html .neg .neg-pay-confirm:active:not(:disabled),
+html .neg .neg-pay-confirm.is-armed,
+html .neg .neg-pay-confirm.is-armed:hover {
+  background: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), var(--game-press);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.28);
 }
 
 /* Two bars, the second filling in once the first tap has landed */
@@ -718,16 +1020,12 @@ html .neg .neg-pay-confirm:active:not(:disabled) {
   border-right-color: currentColor;
 }
 
-html .neg .neg-pay-confirm.is-armed,
-html .neg .neg-pay-confirm.is-armed:hover {
-  background: var(--game-accent);
-  color: var(--game-accent-ink);
-}
-
 /* Turned down for want of funds: red for a moment, then back to waiting for a tap */
 html .neg .neg-pay-confirm.is-declined,
 html .neg .neg-pay-confirm.is-declined:hover {
+  border-color: transparent;
   background: var(--neg-down);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.25);
   color: #fff;
   /* The word on its own, in the brand's wide face */
   font-family: "Archivo", var(--ui-font);
@@ -858,7 +1156,9 @@ html .neg .neg-take:hover {
   align-items: center;
   gap: 3px;
   white-space: nowrap;
-  transition: filter 0.15s, transform 0.12s;
+  transition:
+    filter 0.15s,
+    transform 0.12s;
 }
 
 html .neg .neg-take:hover:not(:disabled) {
@@ -919,25 +1219,18 @@ html .neg .neg-take:active:not(:disabled) {
     flex-wrap: wrap;
   }
 
-  .neg-table {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .neg-top .neg-head {
+    flex-wrap: nowrap;
+    gap: 10px;
   }
 
-  /* Patience tucks under the seller's name as one short line, the pips and their label side by side */
-  .neg-patience {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-top: -6px;
+  /* On a narrow message box the figure says enough on its own */
+  .neg-composer .neg-wallet span {
+    display: none;
   }
 
-  .neg-table {
-    gap: 10px 14px;
-    padding-bottom: 12px;
-    margin-bottom: 10px;
+  .neg--stage {
+    --neg-gutter: 10px;
   }
 }
 
@@ -1981,7 +2274,11 @@ html .neg-report-badge.is-down {
     padding: 2px 10px 4px;
     scroll-padding-inline: 10px;
     scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - 28px),
+      transparent
+    );
     mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
 
@@ -2104,15 +2401,27 @@ html .neg-report-badge.is-down {
 /* The account tiles: money in mint, stuff in lavender, barely there, over the lens. On hover
    the lens shade goes over the tint. */
 html .neg .neg-account-part--money {
-  --tile-tint: linear-gradient(135deg, color-mix(in srgb, var(--pastel-mint) 16%, transparent), transparent 70%);
+  --tile-tint: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--pastel-mint) 16%, transparent),
+    transparent 70%
+  );
 }
 
 html .neg .neg-account-part--stuff {
-  --tile-tint: linear-gradient(135deg, color-mix(in srgb, var(--pastel-lavender) 16%, transparent), transparent 70%);
+  --tile-tint: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--pastel-lavender) 16%, transparent),
+    transparent 70%
+  );
 }
 
 html .neg .neg-account-part--profile {
-  --tile-tint: linear-gradient(135deg, color-mix(in srgb, var(--game-accent) 14%, transparent), transparent 70%);
+  --tile-tint: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--game-accent) 14%, transparent),
+    transparent 70%
+  );
 }
 
 html .neg .neg-account-part--money,
@@ -2125,7 +2434,9 @@ html .neg .neg-account-part--profile {
 html .neg .neg-account-part--money:hover,
 html .neg .neg-account-part--stuff:hover:not(:disabled),
 html .neg .neg-account-part--profile:hover {
-  background: linear-gradient(var(--lens-hover), var(--lens-hover)), var(--tile-tint), var(--lens-bg);
+  background:
+    linear-gradient(var(--lens-hover), var(--lens-hover)), var(--tile-tint),
+    var(--lens-bg);
 }
 
 .neg-account-part--profile .neg-account-value {
@@ -2346,7 +2657,10 @@ html .neg .neg-rate-star:hover {
   color: var(--game-muted);
   opacity: 0.45;
   cursor: pointer;
-  transition: color 0.12s, opacity 0.12s, transform 0.12s;
+  transition:
+    color 0.12s,
+    opacity 0.12s,
+    transform 0.12s;
 }
 
 html .neg .neg-rate-star.is-on {
@@ -2401,7 +2715,11 @@ html .neg-browser .neg-profile-delete:hover {
   color: var(--game-muted);
   opacity: 0;
   cursor: pointer;
-  transition: opacity 0.12s, color 0.12s, background 0.12s, border-color 0.12s;
+  transition:
+    opacity 0.12s,
+    color 0.12s,
+    background 0.12s,
+    border-color 0.12s;
 }
 
 /* Out of sight until the row is pointed at, as in the sidebar; always there on touch */
@@ -2426,7 +2744,10 @@ html .neg-browser .neg-profile-delete.is-armed:hover {
   padding: 0 10px;
   border-color: color-mix(in srgb, var(--neg-down) 45%, transparent);
   background:
-    linear-gradient(color-mix(in srgb, var(--neg-down) 12%, transparent), color-mix(in srgb, var(--neg-down) 12%, transparent)),
+    linear-gradient(
+      color-mix(in srgb, var(--neg-down) 12%, transparent),
+      color-mix(in srgb, var(--neg-down) 12%, transparent)
+    ),
     var(--lens-bg);
   color: var(--neg-down);
   opacity: 1;
@@ -2456,7 +2777,9 @@ html .neg-browser .neg-heart:hover {
   box-shadow: none;
   color: var(--game-muted);
   cursor: pointer;
-  transition: color 0.12s, transform 0.12s;
+  transition:
+    color 0.12s,
+    transform 0.12s;
 }
 
 html .neg .neg-heart:hover,
@@ -2707,7 +3030,9 @@ html .neg-browser .neg-badge-tile:hover {
   font-weight: 600;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.12s, background 0.12s;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
 }
 
 html .neg-browser .neg-badge-tile:hover {

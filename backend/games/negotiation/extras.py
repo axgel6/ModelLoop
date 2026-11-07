@@ -33,6 +33,8 @@ SWEETENER_BONUS = 1            # a sweetener lifts how persuasive the message wa
 WORDS_ONLY = {"compliment"}
 # What puts the other side in a better mood wins back this much patience, never above where it started
 CALMING = {"compliment": 2, "dropoff": 2, "hold": 2, "anytime": 2}
+# Buying: a compliment costs no patience that round, so it is a clean +2
+FREE_SWEETENERS = {"compliment"}
 
 
 def sweetener(mode: str, key: Optional[str]) -> Optional[tuple]:
@@ -41,6 +43,54 @@ def sweetener(mode: str, key: Optional[str]) -> Optional[tuple]:
 
 def moves_price(key: Optional[str]) -> bool:
     return bool(key) and key not in WORDS_ONLY
+
+
+# ---- Temperament: a few kinds of seller play by slightly different rules ----
+# Read from the persona the player can see under the listing, so a sharp player can tell.
+#   sentimental: kind words about it move the price a little, and a lowball stings sooner
+#   hurry:       wants it gone, so cash and quick pickup count double
+#   pro:         has heard every line; words alone move them one notch at most
+_NOT = r"(?<!not )(?<!no )(?<!wary of )(?<!distrusts )(?<!hates )"
+_TEMPERAMENTS = (
+    ("sentimental", re.compile(
+        _NOT + r"\b(sentimental|nostalgic|emotional|attached to)\b|\b(her|his) late\b|childhood|good home|"
+        r"each \w+ has a story", re.I)),
+    ("hurry", re.compile(
+        r"\bmoving\b(?! up)|before moving|relocat|\bgone by\b|wants? (?:it|them|the [\w ]{1,20}) gone|quick sale|"
+        r"clearing out|(?<!anyone )in a (?:big )?hurry|needs? the (?:money|cash)|downsizing", re.I)),
+    ("pro", re.compile(
+        r"\b(?:a|an) (?:[\w-]+ ){0,3}(?:reseller|dealer|flipper)\b|quotes what|immune to flattery|"
+        r"not here to be charmed|heard every line|gold price", re.I)),
+)
+TEMPER_LINES = {
+    "sentimental": "You are attached to it. Kindness about it, or the promise of a good home, softens you. A cold lowball stings.",
+    "hurry": "You want it gone soon. Quick pickup and cash appeal to you a lot.",
+    "pro": "You have heard every line. Flattery and sob stories do nothing for you; real facts, comparisons and quick cash do.",
+}
+SENTIMENTAL_INSULT_SHARE = 0.75  # a sentimental seller is offended by an offer under this share of their floor
+HURRY_SWEETENER_BONUS = 2        # cash, pickup or shipping, to someone who wants it gone
+PRO_MAX_PERSUASION = 1           # words alone, to someone who has heard them all
+
+
+# Phrases that say the opposite of what they contain
+_NEGATED = re.compile(r"never in a hurry|not (?:to|for) an? \w+|not sentimental[\w ]*", re.I)
+
+
+def temperament(scenario: dict) -> Optional[str]:
+    """Which of the special kinds of seller this is, if any. The first that fits wins."""
+    persona = _NEGATED.sub("", scenario.get("persona") or "")
+    if scenario.get("scam"):
+        return None
+    return next((name for name, pattern in _TEMPERAMENTS if pattern.search(persona)), None)
+
+
+def temper_lines(scenario: dict) -> list[str]:
+    kind = temperament(scenario)
+    return [TEMPER_LINES[kind]] if kind else []
+
+
+def sweetener_bonus(scenario: dict, key: Optional[str]) -> int:
+    return HURRY_SWEETENER_BONUS if temperament(scenario) == "hurry" else SWEETENER_BONUS
 
 
 def calmed(state: dict, key: Optional[str]) -> int:
@@ -491,12 +541,45 @@ def deal_flaw(scenario: dict, rng) -> Optional[dict]:
     return {"text": text, "words": list(words), "loss": loss, "revealed": False}
 
 
+CANDOR = 0.3                   # the chance any seller owns up when only asked if anything is wrong
+_HONEST = re.compile(r"(?<!not )\bhonest\b|upfront|mentions the (?:one )?flaw|admits", re.I)
+
+
+def candid(state: dict) -> bool:
+    """Whether this seller owns up to a hidden flaw when asked vaguely. Honest ones always do; the
+    rest now and then. Fixed for the whole chat."""
+    if _HONEST.search(state["scenario"].get("persona") or ""):
+        return True
+    return random.Random(f"candor:{state.get('started_at')}:{state['scenario'].get('id')}").random() < CANDOR
+
+
+def flaw_question(state: dict, message: str) -> Optional[str]:
+    """What a question about flaws gets: "reveal" when it names the thing that is wrong (or the seller
+    is candid), "dodge" when it only asks whether anything is wrong, None when it asks neither."""
+    flaw = state.get("flaw")
+    if not flaw or flaw.get("revealed"):
+        return None
+    said = set(re.findall(r"[a-z/]+", message.lower()))
+    if said & set(flaw["words"]):
+        return "reveal"
+    if said & set(_ANY_FLAW):
+        return "reveal" if candid(state) else "dodge"
+    return None
+
+
 def asks_about(flaw: Optional[dict], message: str) -> bool:
-    """Whether the buyer's message asks about the flaw, or about flaws at all."""
+    """Whether the buyer's message names the flaw itself."""
     if not flaw or flaw.get("revealed"):
         return False
-    said = set(re.findall(r"[a-z/]+", message.lower()))
-    return bool(said & set(flaw["words"]) or said & set(_ANY_FLAW))
+    return bool(set(re.findall(r"[a-z/]+", message.lower())) & set(flaw["words"]))
+
+
+# Patience nearly gone: the seller warns the buyer once that someone else is interested
+WARNINGS = (
+    "Just so you know, someone else is asking about it too, so I need an answer soon.",
+    "Heads up, I've got another person interested. I need to decide soon.",
+    "Someone else messaged about it as well, so let me know soon.",
+)
 
 
 def flaw_hint(flaw: Optional[dict]) -> str:

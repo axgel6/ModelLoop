@@ -18,6 +18,9 @@ export interface GameInfo {
   monogram: string;
   /** Drawn on the card's badge */
   icon?: ComponentType;
+  /** Cover art for the game's tile: a square image, imported so the build fingerprints it.
+   *  Without one the tile is drawn from the game's color and icon. */
+  cover?: string;
   /** The SNES face button whose colour the game's icon and play symbol take, as in the click burst */
   button: "A" | "B" | "X" | "Y";
   tagline: string;

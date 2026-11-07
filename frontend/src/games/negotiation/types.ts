@@ -49,6 +49,10 @@ export interface HaggleEntry {
   flaw?: string;
   /** Buying: someone else bought it first */
   lost?: boolean;
+  /** Buying: patience nearly gone, they said someone else is interested. One more push could lose it. */
+  warning?: boolean;
+  /** Buying: asked about a flaw they had brushed off before, and caught them out */
+  caught?: boolean;
   /** Buying: not a message but a payment that bounced, which the seller reacted to */
   bounced?: boolean;
   /** Selling: one of the other buyers messaged with a better offer after this round */

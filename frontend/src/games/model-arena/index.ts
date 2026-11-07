@@ -1,4 +1,5 @@
 import { ArenaIcon } from "../icons";
+import cover from "./cover.png";
 import type { GameInfo } from "../types";
 import { ArenaSettings } from "./ArenaSettings";
 import { ModelArena } from "./ModelArena";
@@ -8,6 +9,7 @@ export const modelArena: GameInfo = {
   name: "Model Arena",
   monogram: "MA",
   icon: ArenaIcon,
+  cover,
   button: "X",
   tagline: "Two models debate. You moderate.",
   description:

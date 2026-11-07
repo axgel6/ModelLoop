@@ -1,4 +1,5 @@
 import { NegotiationIcon } from "../icons";
+import cover from "./cover.png";
 import type { GameInfo } from "../types";
 import { MarketplaceSettings } from "./MarketplaceSettings";
 import { Negotiation } from "./Negotiation";
@@ -8,6 +9,7 @@ export const negotiation: GameInfo = {
   name: "Marketplace",
   monogram: "MP",
   icon: NegotiationIcon,
+  cover,
   button: "Y",
   tagline: "Buy low, sell high, one message at a time",
   description:

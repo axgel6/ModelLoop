@@ -112,7 +112,9 @@ html[data-theme="meadow"] {
   color: var(--game-accent);
 }
 
-/* ---- Selection screen ---- */
+/* ---- Selection screen ----
+   A console's home screen in the app's own finish: a shelf of square covers, the chosen one
+   ringed in its game's color, its name and blurb below, and the keys along the bottom. */
 
 /* The chat stays mounted underneath, so a reply that is streaming keeps going. */
 .chat-main.games-open .messages,
@@ -125,12 +127,11 @@ html[data-theme="meadow"] {
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
-  padding: 24px 20px 32px;
+  display: flex;
+  padding: 24px 20px 20px;
   color: var(--game-ink);
   font-family: var(--ui-font);
-  /* A fade, not page-rise: the rows' baked blur is pinned to the viewport, and a transform on
-     the list would unpin it until the animation ends, so the blur jumped into place. Backwards,
-     not both: a held opacity animation stops every blur inside from seeing the page. */
+  /* Backwards, not both: a held opacity animation stops every blur inside from seeing the page */
   animation: fade-in 0.2s ease-out backwards;
 }
 
@@ -141,12 +142,15 @@ html[data-theme] .games-hub {
 
 .games-hub-inner {
   width: 100%;
-  max-width: 860px;
+  max-width: 900px;
+  min-height: 100%;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .games-hub-header {
-  margin-bottom: 22px;
+  margin-bottom: 28px;
 }
 
 .games-hub-title {
@@ -165,126 +169,230 @@ html[data-theme] .games-hub {
   color: var(--game-muted);
 }
 
-.games-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+/* ---- The shelf ---- */
 
-/* A game is one row: icon, its name and blurb, and a play icon at the end. The whole row
-   is one raised lens button: hovering only shades it, nothing moves or glows.
-   html prefix: each theme styles every <button>, and this has to outrank it */
-html .games-hub .game-card,
-html .games-hub .game-card:hover,
-html .games-hub .game-card:disabled {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  /* the right side is kept for the gear above and the play symbol below */
-  padding: 16px 56px 16px 18px;
-  border: 1px solid transparent;
-  border-radius: 22px;
-  background: var(--lens-bg);
-  box-shadow: var(--shadow-lens);
-  backdrop-filter: var(--float-filter);
-  -webkit-backdrop-filter: var(--float-filter);
-  color: var(--game-ink);
-  font-family: var(--ui-font);
-  font-size: 0.8rem;
-  font-weight: 400;
-  line-height: 1.5;
-  text-align: left;
-  opacity: 1;
-  transform: none;
-  transition: border-color 0.15s;
-}
-
-/* Rows are lenses, like the top bar's buttons; on hover the lens shades and the badge takes the
-   game's color. Keyed to the wrap so it holds while the pointer is on the gear */
-html .games-hub .game-card-wrap:hover > .game-card:not(:disabled) {
-  background: var(--lens-bg-hover);
-  cursor: pointer;
-}
-
-html .games-hub .game-card:active:not(:disabled) {
-  box-shadow: var(--shadow-lens-pressed);
-}
-
-html .games-hub .game-card-wrap:hover > .game-card:not(:disabled) .game-card-badge {
-  background: color-mix(in srgb, var(--game-color, var(--game-accent)) 26%, transparent);
-}
-
-html .games-hub .game-card:disabled {
-  cursor: default;
-}
-
-.game-card-badge {
-  align-self: flex-start;
+.games-shelf {
+  --tile: clamp(132px, 19vw, 196px);
+  /* It scrolls sideways, so the page's column would otherwise squash it on a short window */
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
+  display: flex;
+  gap: 18px;
+  /* Room for the ring and the lift, which would otherwise be clipped by the scroll */
+  margin: -18px -18px 0;
+  padding: 18px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 18px;
+  scrollbar-width: none;
+}
+
+.games-shelf::-webkit-scrollbar {
+  display: none;
+}
+
+/* A cover: the game's color, deep at the bottom and lit from the top left, with its 3D icon large
+   in a pale tint of the same color. Raised like every lens: a bright top edge, a shadow below.
+   html prefix: each theme styles every <button>, and this has to outrank it */
+html .games-hub .game-tile,
+html .games-hub .game-tile:hover,
+html .games-hub .game-tile:focus {
+  position: relative;
+  flex: 0 0 var(--tile);
+  width: var(--tile);
+  height: var(--tile);
   display: flex;
   align-items: center;
   justify-content: center;
-  /* --game-color: the game's SNES button color, set on its row in GamesHub.tsx */
-  background: color-mix(in srgb, var(--game-color, var(--game-accent)) 16%, transparent);
-  transition: background-color 0.15s;
-  color: var(--game-color, var(--game-heading));
+  padding: 0;
+  border: none;
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 90% at 22% 8%, color-mix(in srgb, var(--game-color), white 22%) 0%, transparent 55%),
+    linear-gradient(165deg, color-mix(in srgb, var(--game-color), black 8%) 0%, color-mix(in srgb, var(--game-color), black 48%) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.22),
+    0 10px 22px -12px rgba(0, 0, 0, 0.55);
+  color: color-mix(in srgb, var(--game-color), white 38%);
+  outline: 3px solid transparent;
+  outline-offset: 5px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transform: none;
+  transition:
+    transform 0.25s var(--spring, ease-out),
+    outline-color 0.15s,
+    box-shadow 0.25s;
+}
+
+/* Chosen: ringed in a light tint of its color and lifted, like a console's cursor */
+html .games-hub .game-tile.is-selected {
+  outline-color: color-mix(in srgb, var(--game-color), white 35%);
+  transform: translateY(-3px) scale(1.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.22),
+    0 18px 30px -14px rgba(0, 0, 0, 0.6);
+}
+
+html .games-hub .game-tile:focus-visible {
+  outline-color: color-mix(in srgb, var(--game-color), white 35%);
+}
+
+/* Pressed: it sits back down */
+html .games-hub .game-tile:active {
+  transform: translateY(0) scale(1.01);
+}
+
+/* Cover art fills the tile; the lens rim (a bright top edge, a soft dark base) is laid over it,
+   so an image sits in the same raised finish as the drawn covers. The art has its own rounded
+   corners (a quarter of its width), so the tile, its shadow and the ring take the same curve. */
+html .games-hub .game-tile.has-cover,
+html .games-hub .game-tile.has-cover:hover,
+html .games-hub .game-tile.has-cover:focus {
+  overflow: hidden;
+  border-radius: 25%;
+  background: transparent;
+}
+
+.game-tile-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  transition: transform 0.35s var(--spring, ease-out);
+}
+
+.game-tile.has-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
+/* Chosen: the art leans in a little, as the drawn icons do */
+html .games-hub .game-tile.is-selected .game-tile-cover {
+  transform: scale(1.04);
+}
+
+.game-tile-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The icon's own shadow, deepened so it stands off the cover */
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.28));
+}
+
+.game-tile .game-icon-3d {
+  width: calc(var(--tile) * 0.5);
+  height: calc(var(--tile) * 0.5);
+  transition: transform 0.3s var(--spring, ease-out);
+}
+
+html .games-hub .game-tile.is-selected .game-icon-3d {
+  transform: translateY(-2px) rotate(-4deg) scale(1.05);
+}
+
+.game-tile-monogram {
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
-  font-size: 0.85rem;
+  font-size: calc(var(--tile) * 0.22);
   font-weight: 700;
 }
 
-.game-card-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.game-tile-soon {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 600;
 }
 
-.game-card-name {
+html .games-hub .game-tile.is-soon {
+  cursor: default;
+  filter: saturate(0.6);
+}
+
+/* The empty slot: a sunken well the size of a cover, so the shelf reads as having room */
+.game-tile--empty {
+  flex: 0 0 var(--tile);
+  width: var(--tile);
+  height: var(--tile);
+  /* The covers' curve, so the shelf reads as one set */
+  border-radius: 25%;
+  border: 1px solid transparent;
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  scroll-snap-align: start;
+}
+
+/* ---- The chosen game ---- */
+
+.games-detail {
+  margin-top: 18px;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.games-detail-name {
+  margin: 0;
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
-  font-size: 1.08rem;
+  font-size: clamp(1.25rem, 2.6vw, 1.55rem);
   font-weight: 700;
   line-height: 1.2;
   color: var(--game-heading);
+  animation: page-rise 0.25s var(--spring, ease-out) backwards;
 }
 
-.game-card-tagline {
-  font-size: 0.78rem;
+.games-detail-tagline {
+  margin: 0;
+  font-size: 0.86rem;
   font-weight: 600;
-  line-height: 1.35;
   color: var(--game-ink);
 }
 
-.game-card-desc {
-  margin-top: 4px;
+.games-detail-desc {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
   color: var(--game-muted);
 }
 
-/* A bare play symbol in the row's bottom corner; the row around it is the real button */
-.game-card-play,
-.game-card-soon {
-  position: absolute;
-  right: 18px;
-  bottom: 16px;
-}
-
-.game-card-play {
+.games-detail-actions {
   display: flex;
-  color: var(--game-color, var(--game-heading));
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
 }
 
-.game-card-soon {
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--game-muted);
+html .games-hub .games-play,
+html .games-hub .games-play:is(:hover, :active, :focus):not(:disabled) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 18px;
+  padding-right: 22px;
+}
+
+/* On a photo, the words below the shelf lift off the picture with the app's wall shadow */
+html[data-background][data-theme] .games-detail :is(.games-detail-name, .games-detail-tagline, .games-detail-desc),
+html[data-background][data-theme] .games-hub-header :is(.games-hub-title, .games-hub-subline) {
+  text-shadow: var(--wall-text-shadow);
 }
 
 /* ---- Inside a game ---- */
@@ -300,6 +408,19 @@ html .games-hub .game-card:disabled {
     padding-left: 12px;
     padding-right: 12px;
   }
+
+  .games-shelf {
+    --tile: 128px;
+    gap: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html .games-hub .game-tile.is-selected,
+  html .games-hub .game-tile.is-selected .game-icon-3d,
+  html .games-hub .game-tile.is-selected .game-tile-cover {
+    transform: none;
+  }
 }
 
 /* Reopening a save after a refresh */
@@ -311,25 +432,11 @@ html .games-hub .game-card:disabled {
   padding: 48px 16px;
 }
 
-/* A row and its settings gear: the gear sits in the row's top corner but is not inside
-   the row's button, so it opens the settings instead of the game */
-.game-card-wrap {
-  position: relative;
-  display: flex;
-}
-
-.game-card-wrap > .game-card {
-  flex: 1;
-}
-
-/* The gear is one of the app's glass buttons, like the top bar's, at a size that fits a card */
+/* The settings gear beside Play: one of the app's glass buttons */
 html .games-hub .game-card-settings,
 html .games-hub .game-card-settings:hover {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -343,21 +450,17 @@ html .games-hub .game-card-settings:hover {
   color: var(--game-muted);
   cursor: pointer;
   transform: none;
-  transition:
-    color 0.15s,
-    border-color 0.15s,
-    transform 0.15s;
+  transition: color 0.15s;
 }
 
-/* On hover the gear takes the game's color, as the card's badge does */
+/* On hover the gear takes the game's color */
 html .games-hub .game-card-settings:hover {
   color: var(--game-color, var(--game-ink));
   background: var(--lens-bg-hover);
 }
 
-/* Pressed: the bevel flips, like the card's. No shrink: on a photo background the button paints
-   its own copy of the photo pinned to the screen (see App.css), and a transform unpins it, so a
-   stray patch of the picture showed inside the circle while it was held. */
+/* Pressed: the bevel flips. No shrink: on a photo background the button paints its own copy of
+   the photo pinned to the screen (see App.css), and a transform unpins it. */
 html .games-hub .game-card-settings:active {
   box-shadow: var(--shadow-lens-pressed);
   transform: none;

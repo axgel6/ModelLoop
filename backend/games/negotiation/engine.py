@@ -36,7 +36,8 @@ MAX_RESISTANCE = 0.9
 # this a run of low ratings locked the price just under the sticker for the whole haggle.
 MAX_STIFFENING = 0.13
 CONCESSION = 0.30              # share of the gap between asking price and reserve given up per round
-CONCESSION_PER_POINT = 0.10    # ...moved by each point of persuasion
+CONCESSION_DECAY = 0.75        # ...shrinking by this much for every cut already given: grinding slows down
+CONCESSION_PER_POINT = 0.15    # ...moved by each point of persuasion, which never shrinks: a sharp line still lands big
 INSULT_SHARE = 0.6             # an offer below this share of the floor costs extra patience
 SHORT_MESSAGE_WORDS = 5        # fewer words than this cannot count as persuasive
 FREE_QUESTIONS = 4             # questions about the item cost nothing, up to this many; then the seller tires of them
@@ -48,6 +49,11 @@ REPEAT_PERSUASION = -1         # saying the same thing again is pushy, however g
 BLUFF_CONCESSION = 0.5         # share of the gap between asking price and reserve given up
 BLUFF_PATIENCE = 2
 BLUFF_MESSAGE = "I think I'll leave it. Thanks anyway."
+# Patience nearly gone: the seller warns once that someone else is interested. After that, a
+# message that pushes the price (an offer or a bluff) and runs them out of patience may lose it.
+WARN_AT = 1
+LAST_PUSH_RISK = (0.25, 0.75)  # the chance of losing it, from an offer near their price to a lowball
+LAST_BLUFF_RISK = 0.6
 # How the merchant replies gives away how much room is left, as a share of the
 # distance from the floor to the list price.
 TELL_ROOMY = 0.6               # above this they answer at once: plenty left to give
@@ -382,7 +388,8 @@ def public(state: dict) -> dict:
     """The state as the player may see it: the merchant's limits, and any flaw nobody has owned up to,
     stay hidden until the haggle ends."""
     # Whether it is a fake is decided early when it is authenticated, and only told by the verdict
-    hidden = ("resistance", "fake") if state.get("status") != "active" else ("resistance", "floor", "scam", "fake")
+    # Whether they brushed off a question about flaws would give away that there is one
+    hidden = ("resistance", "fake") if state.get("status") != "active" else ("resistance", "floor", "scam", "fake", "dodged")
     out = {k: v for k, v in state.items() if k not in hidden}
     flaw = out.get("flaw")
     if flaw and not flaw.get("revealed") and state.get("status") == "active":
@@ -465,13 +472,55 @@ def summary(state: dict) -> dict:
     }
 
 
+def _insult_line(state: dict) -> float:
+    """An offer under this offends them. A sentimental seller is offended sooner."""
+    sentimental = extras.temperament(state["scenario"]) == "sentimental"
+    return state["floor"] * (extras.SENTIMENTAL_INSULT_SHARE if sentimental else INSULT_SHARE)
+
+
+def _cost(state: dict, offer: Optional[int], bluff: bool, sweetener: Optional[str]) -> int:
+    """The patience a round costs before anything wins some back."""
+    if bluff:
+        return BLUFF_PATIENCE
+    if sweetener in extras.FREE_SWEETENERS:
+        return 0
+    return 2 if offer is not None and offer < _insult_line(state) else 1
+
+
+def _cuts(state: dict) -> int:
+    """How many times the seller has already come down."""
+    cuts, before = 0, state["list_price"]
+    for entry in state["log"]:
+        ask = entry.get("ask", before)
+        cuts += ask < before
+        before = ask
+    return cuts
+
+
+def _last_push_lost(state: dict, offer: Optional[int], bluff: bool) -> bool:
+    """Whether pushing once more, after the warning, loses it to someone else. Fixed for the round,
+    so the model is told the same thing the rules then do. A lowball is riskier than an offer near
+    their price."""
+    if not state.get("warned") or (offer is None and not bluff):
+        return False
+    if bluff:
+        risk = LAST_BLUFF_RISK
+    else:
+        share = (state["ask"] - offer) / max(1, state["ask"] - state["floor"])
+        low, high = LAST_PUSH_RISK
+        risk = low + (high - low) * max(0.0, min(1.0, share))
+    return random.Random(f"last:{state.get('started_at')}:{state['turn']}").random() < risk
+
+
 def _round_kind(state: dict, offer: Optional[int], bluff: bool = False, sweetener: Optional[str] = None) -> str:
     """What the merchant does this round, as far as it can be known before the model answers."""
     if offer is not None and offer >= min(state["ask"], _reserve(state)):
         return "deal"
-    cost = BLUFF_PATIENCE if bluff else 2 if offer is not None and offer < state["floor"] * INSULT_SHARE else 1
+    cost = _cost(state, offer, bluff, sweetener)
     back = 0 if bluff else extras.CALMING.get(sweetener or "", 0)
-    return "final" if min(state["patience_max"], state["patience"] - cost + back) <= 0 else "counter"
+    if min(state["patience_max"], state["patience"] - cost + back) <= 0:
+        return "lost" if _last_push_lost(state, offer, bluff) else "final"
+    return "counter"
 
 
 def can_bluff(state: dict) -> bool:
@@ -488,6 +537,7 @@ def describe_for_model(
         f"You are {scenario['merchant']}, the seller. Personality: {scenario['persona']}.",
         *extras.swearing(scenario, clean),
         *extras.manner(scenario),
+        *extras.temper_lines(scenario),
         f"{scenario['merchant']} is your own name. The buyer is someone else: never call them {scenario['merchant']}.",
         *extras.scam_lines(state.get("scam")),
         "",
@@ -531,16 +581,33 @@ def describe_for_model(
     sweet = extras.sweetener("buy", sweetener)
     if sweet:
         lines.append(extras.told(sweet, sweetener))
-    if extras.asks_about(flaw, message):
+    asked = extras.flaw_question(state, message)
+    if asked == "reveal" and state.get("dodged"):
+        lines.append(
+            f"The buyer has caught you out: they are asking about {flaw['text']}, which you brushed off earlier. "
+            "Own up to it now, a little sheepish, in a few words. Do not make it sound worse or better than it is."
+        )
+    elif asked == "reveal":
         lines.append(
             f"The buyer is asking about something you left out of the listing: {flaw['text']}. "
             "Admit it honestly in your reply, in a few words. Do not make it sound worse or better than it is."
+        )
+    elif asked == "dodge":
+        lines.append(
+            f"The buyer only asks whether anything is wrong with it. You know about {flaw['text']}, but you would "
+            "rather not bring it up: brush the question off casually and believably, the way people do "
+            "(something like it works fine for you). Do not mention it, and do not make claims about that part."
         )
     lines.append("")
     if kind == "deal":
         agreed = _money(min(offer, state["ask"]))
         pay = "send it right now, before anyone else does" if state.get("scam") else "send the payment through the app"
         lines.append(f"Instruction for this round: ACCEPT. You agree to sell at {agreed}. Say yes in character and tell them to {pay}. Do not write {{price}} or any number.")
+    elif kind == "lost":
+        lines.append(
+            "Instruction for this round: SOLD ELSEWHERE. While the buyer kept pushing, someone else came along and "
+            "bought it. Tell them it is gone, in your own way, in one or two sentences. Do not write {price} or any number."
+        )
     elif kind == "final":
         lines.append("Instruction for this round: FINAL PRICE. You have gone as far as you will. Decline the offer if there was one, in your own way, and say {price} is your last price.")
     elif bluff:
@@ -606,6 +673,10 @@ def apply_turn(
     repeated = _repeated(s, message)
     if repeated:
         persuasion = min(persuasion, REPEAT_PERSUASION)
+    temper = extras.temperament(s["scenario"])
+    if temper == "pro":
+        # They have heard every line: words alone move them one notch at most
+        persuasion = min(persuasion, extras.PRO_MAX_PERSUASION)
     # A downside the listing itself admits to is a fair point, whatever the model made of it. Once each.
     cited = [] if bluff or repeated else extras.cited_downsides(s["scenario"], s.get("flaw"), message, s.get("cited") or [])
     # The model meant to hold its price, and was overruled: what it wrote says the price stays put
@@ -621,9 +692,10 @@ def apply_turn(
     if sweet:
         # Better terms count however briefly they are put; kind words only lift the mood
         if extras.moves_price(sweet):
-            persuasion = min(2, max(persuasion, 0) + extras.SWEETENER_BONUS)
+            persuasion = min(2, max(persuasion, 0) + extras.sweetener_bonus(s["scenario"], sweet))
         else:
-            persuasion = 0           # however much they liked hearing it
+            # However much they liked hearing it; a sentimental seller gives a little for it
+            persuasion = 1 if temper == "sentimental" else 0
         s["sweeteners"] = (s.get("sweeteners") or []) + [sweet]
     quotable = (s["list_price"], offer)
 
@@ -633,31 +705,46 @@ def apply_turn(
         "insulted": False, "repeated": repeated, "bluff": bluff, "sweetener": sweet, "at": now(),
     }
     flaw = s.get("flaw")
-    if extras.asks_about(flaw, message):
+    asked = extras.flaw_question(s, message)
+    if asked == "reveal":
         # Owned up to: it is worth less, and the seller knows they cannot hold out for full price
         flaw["revealed"] = True
         s["value"] = max(1, round(s["value"] * (1 - flaw["loss"])))
         s["floor"] = max(1, min(s["floor"], _nice(s["floor"] * (1 - flaw["loss"] / 2), s["list_price"])))
         entry["flaw"] = flaw["text"]
+        if s.get("dodged"):
+            # Caught out after brushing it off: embarrassed, they give real ground
+            entry["caught"] = True
+            persuasion = entry["persuasion"] = 2
+    elif asked == "dodge":
+        s["dodged"] = True
 
     if kind == "deal":
         paid = min(offer, s["ask"])
         s["ask"] = paid
         entry["reply"] = _fill(text, paid, quotable) or "Fine. Send it over and it's yours."
         entry["persuasion"] = 0  # nothing left to persuade
+    elif kind == "lost":
+        # Pushed once more after the warning, and someone else got there first
+        s["patience"] = 0
+        entry["lost"] = True
+        entry["persuasion"] = 0
+        entry["reply"] = _fill(text, s["ask"], quotable) or "Sorry, someone else just came and got it. It's gone."
+        _finish(s, "lost", None)
     elif (
         str(reply.get("move") or "").lower() == "question" and offer is None and not bluff and not repeated
-        and not sweet and kind == "counter" and sum(1 for e in s["log"] if e.get("question")) < FREE_QUESTIONS
+        and not sweet and not entry.get("caught") and kind == "counter"
+        and sum(1 for e in s["log"] if e.get("question")) < FREE_QUESTIONS
     ):
         # Asking about the item is not haggling: it costs nothing and moves nothing
         entry["question"] = True
         entry["persuasion"] = 0
         entry["reply"] = _fill(text, s["ask"], quotable) or "Yes."
     else:
-        if offer is not None and offer < s["floor"] * INSULT_SHARE:
+        if offer is not None and offer < _insult_line(s):
             entry["insulted"] = True
             persuasion = entry["persuasion"] = min(persuasion, 0)  # no argument survives an insulting number
-        s["patience"] = max(0, s["patience"] - (BLUFF_PATIENCE if bluff else 2 if entry["insulted"] else 1))
+        s["patience"] = max(0, s["patience"] - _cost(s, offer, bluff, sweet))
         # A better mood wins some of it back
         entry["calmed"] = extras.calmed(s, sweet) - s["patience"]
         s["patience"] += entry["calmed"]
@@ -674,7 +761,9 @@ def apply_turn(
             before = s["ask"]
             # The price only comes down for a reason: a good argument, an offer to answer, or a bluff
             if bluff or offer is not None or persuasion > 0:
-                concede = BLUFF_CONCESSION if bluff else max(0.1, min(0.5, CONCESSION + CONCESSION_PER_POINT * persuasion))
+                # Each cut is smaller than the last, but a good line always buys the same extra
+                base = CONCESSION * CONCESSION_DECAY ** _cuts(state)
+                concede = BLUFF_CONCESSION if bluff else max(0.05, min(0.65, base + CONCESSION_PER_POINT * persuasion))
                 lowered = _nice(s["ask"] - concede * (s["ask"] - reserve), s["list_price"])
                 if persuasion > -2 and not entry["insulted"]:
                     # Rounding must not swallow the concession: short of rudeness, the price moves a step
@@ -691,6 +780,11 @@ def apply_turn(
                     said = _then(said, f"{_money(s['ask'])} is my final price.")
                 elif s["ask"] < before:
                     said = _then(said, f"I can do {_money(s['ask'])}.")
+            if not s["final"] and 0 < s["patience"] <= WARN_AT and not s.get("warned"):
+                # Fair warning before anything can be lost: one more push could cost them the sale
+                s["warned"] = True
+                entry["warning"] = True
+                said = _then(said, extras.WARNINGS[s["turn"] % len(extras.WARNINGS)])
             entry["reply"] = said
         if kind != "deal":
             entry["tell"] = _tell(s)

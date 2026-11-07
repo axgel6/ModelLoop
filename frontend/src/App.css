@@ -9247,12 +9247,11 @@ html[data-background][data-theme] .topbar-title {
   text-shadow: var(--wall-text-shadow);
 }
 
-/* The games list's rows and gears show the blur baked into a small copy of each photo (made
+/* The games screen's gear buttons show the blur baked into a small copy of each photo (made
    from the full one: resized to 680px wide, saturation 1.4, Gaussian blur radius 6) instead of
    a live backdrop-filter, so the list is frosted from its first frame. Fixed to the viewport and
    sized like the page's own, it lines up with the photo behind, under the theme's wash and the
    lens tint. Opaque has no see-through, so there they take the plain lens. */
-html[data-background="sky"][data-theme] .games-hub .game-card,
 html[data-background="sky"][data-theme] .games-hub .game-card-settings {
   background:
     var(--lens-tint),
@@ -9262,7 +9261,6 @@ html[data-background="sky"][data-theme] .games-hub .game-card-settings {
   -webkit-backdrop-filter: none;
 }
 
-html[data-background="dunes"][data-theme] .games-hub .game-card,
 html[data-background="dunes"][data-theme] .games-hub .game-card-settings {
   background:
     var(--lens-tint),
@@ -9273,7 +9271,6 @@ html[data-background="dunes"][data-theme] .games-hub .game-card-settings {
 }
 
 /* Hover shades the lens over the same picture */
-html[data-background="sky"][data-theme] .games-hub .game-card-wrap:hover > .game-card:not(:disabled),
 html[data-background="sky"][data-theme] .games-hub .game-card-settings:hover {
   background:
     linear-gradient(var(--lens-hover), var(--lens-hover)),
@@ -9282,7 +9279,6 @@ html[data-background="sky"][data-theme] .games-hub .game-card-settings:hover {
     url("./assets/skypublicdomain-blur.jpg") center / cover no-repeat fixed;
 }
 
-html[data-background="dunes"][data-theme] .games-hub .game-card-wrap:hover > .game-card:not(:disabled),
 html[data-background="dunes"][data-theme] .games-hub .game-card-settings:hover {
   background:
     linear-gradient(var(--lens-hover), var(--lens-hover)),
@@ -9291,12 +9287,10 @@ html[data-background="dunes"][data-theme] .games-hub .game-card-settings:hover {
     url("./assets/dune-blur.jpg") center / cover no-repeat fixed;
 }
 
-html[data-panels="opaque"][data-background][data-theme] .games-hub .game-card,
 html[data-panels="opaque"][data-background][data-theme] .games-hub .game-card-settings {
   background: var(--lens-bg);
 }
 
-html[data-panels="opaque"][data-background][data-theme] .games-hub .game-card-wrap:hover > .game-card:not(:disabled),
 html[data-panels="opaque"][data-background][data-theme] .games-hub .game-card-settings:hover {
   background: var(--lens-bg-hover);
 }
