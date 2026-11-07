@@ -15,7 +15,7 @@ class UpdateProfileRequest(BaseModel):
 
 
 class UpdatePreferencesRequest(BaseModel):
-    theme: Optional[str] = Field(default=None, pattern=r"^(ember|frost|dune|meadow|halloween)$")
+    theme: Optional[str] = Field(default=None, pattern=r"^(ember|frost|dune|meadow|halloween|christmas)$")
     font:  Optional[str] = Field(default=None, pattern=r"^(inter|rounded)$")
     # A color as #rrggbb, or "" to go back to the theme's own
     avatar_color: Optional[str] = Field(default=None, pattern=r"^(#[0-9a-fA-F]{6})?$")

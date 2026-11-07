@@ -1123,7 +1123,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
-                UI Scale
+                UI scale
               </div>
               <input
                 type="range"
@@ -1234,7 +1234,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                 )}
                 <div className="pref-account-field pref-account-field-sep">
-                  <div className="pref-field-label">Full Name</div>
+                  <div className="pref-field-label">Full name</div>
                   <div className="pref-name-row">
                     {nameEdit !== null ? (
                       <>
@@ -1292,7 +1292,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               </div>
               <div className="pref-account-card">
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Personal Context</div>
+                  <div className="pref-field-label">Personal context</div>
                   <div className="pref-field-desc">
                     Background about you that the model will always see
                   </div>
@@ -1330,7 +1330,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
               <div className="pref-account-card" style={{ marginTop: 10 }}>
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Icon Color</div>
+                  <div className="pref-field-label">Icon color</div>
                   <div className="pref-avatar-preview-row">
                     <div
                       className="pref-avatar-preview"
@@ -1383,11 +1383,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     <div className="pref-item-icon">
                       <svg
                         viewBox="0 0 24 24"
-                        width="15"
-                        height="15"
+                        width="16"
+                        height="16"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="1.8"
+                        strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
@@ -1412,11 +1412,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <div className="pref-item-icon">
                     <svg
                       viewBox="0 0 24 24"
-                      width="15"
-                      height="15"
+                      width="16"
+                      height="16"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="1.8"
+                      strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
@@ -1440,11 +1440,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <div className="pref-item-icon">
                     <svg
                       viewBox="0 0 24 24"
-                      width="15"
-                      height="15"
+                      width="16"
+                      height="16"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="1.8"
+                      strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
@@ -1509,7 +1509,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
               <div className="pref-account-card">
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Ollama Server</div>
+                  <div className="pref-field-label">Ollama server</div>
                   <div className="pref-field-desc">
                     Leave empty to use the shared test server. To use your own,
                     enter an address reachable from the internet, such as an

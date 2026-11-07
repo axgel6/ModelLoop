@@ -1,9 +1,9 @@
-/** The icons under a chat message (copy, listen, stop, retry, edit). One rounded set with a
- *  thick stroke, so they stay readable at this small size and over a wallpaper. */
+/** The icons under a chat message (copy, listen, stop, retry, edit). One rounded set, 16px
+ *  with a 2px stroke like the rest of the small controls. */
 
 type IconProps = { size?: number };
 
-function Icon({ size = 15, children }: IconProps & { children: React.ReactNode }) {
+function Icon({ size = 16, children }: IconProps & { children: React.ReactNode }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -11,7 +11,7 @@ function Icon({ size = 15, children }: IconProps & { children: React.ReactNode }
       height={size}
       fill="none"
       stroke="currentColor"
-      strokeWidth="2.3"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

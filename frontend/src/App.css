@@ -510,11 +510,12 @@ html[data-theme="meadow"] .connection-banner {
 
 .code-copy-btn {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  border-radius: 5px !important;
-  padding: 4px 5px !important;
-  height: auto !important;
+  top: 8px;
+  right: 8px;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -2058,10 +2059,8 @@ html[data-theme] .voice-overlay .voice-pause-btn.is-paused:hover {
 
 .reader-menu-label {
   margin: 16px 2px 8px;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--reader-ink) / 0.5);
 }
 
@@ -2975,9 +2974,7 @@ html[data-theme="meadow"] .sidebar-skeleton-date {
 }
 
 .sidebar-section-label {
-  font-size: 0.6rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  font-size: 0.72rem;
   display: block;
 }
 
@@ -3729,10 +3726,10 @@ html:where([data-theme="frost"])[data-theme] .pref-avatar-swatch--default:hover 
 }
 
 .pref-field-label {
-  font-size: 0.68rem;
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-size: 0.8rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
   margin-bottom: 5px;
 }
 
@@ -4083,7 +4080,6 @@ html[data-theme] .pref-info-btn.active {
 }
 
 .pref-setting-section-label {
-  text-transform: uppercase;
   margin-bottom: -8px;
 }
 
@@ -6136,50 +6132,34 @@ html[data-theme="meadow"] .assistant-content pre code {
 }
 
 html[data-theme="dune"] .code-copy-btn {
-  background: rgba(231, 224, 214, 0.9) !important;
-  border: 1px solid #d4cdc4 !important;
   color: #78716c !important;
-  box-shadow: none !important;
 }
 
 html[data-theme="ember"] .code-copy-btn {
-  background: rgba(80, 73, 69, 0.9) !important;
-  border: 1px solid #665c54 !important;
   color: #a89984 !important;
-  box-shadow: none !important;
 }
 
 html[data-theme="frost"] .code-copy-btn {
-  background: rgba(73, 83, 102, 0.9) !important;
-  border: 1px solid #556075 !important;
   color: #a3adbf !important;
-  box-shadow: none !important;
 }
 
 html[data-theme="meadow"] .code-copy-btn {
-  background: rgba(214, 231, 219, 0.9) !important;
-  border: 1px solid #c4d4c9 !important;
   color: #52635a !important;
-  box-shadow: none !important;
 }
 
 html[data-theme="dune"] .code-copy-btn:hover {
-  background: #e7e0d6 !important;
   color: #1c1917 !important;
 }
 
 html[data-theme="ember"] .code-copy-btn:hover {
-  background: #504945 !important;
   color: #ebdbb2 !important;
 }
 
 html[data-theme="frost"] .code-copy-btn:hover {
-  background: #495366 !important;
   color: #d8dee9 !important;
 }
 
 html[data-theme="meadow"] .code-copy-btn:hover {
-  background: #d6e7db !important;
   color: #294231 !important;
 }
 
@@ -9330,6 +9310,10 @@ html[data-panels="opaque"][data-background][data-theme] .games-hub .game-card-se
   background-color: var(--page-plain);
   background-size: cover;
   background-position: center;
+  /* Fill the transparent border too, and don't tile: otherwise a 1px strip from the picture's
+     opposite edge wraps around under the border */
+  background-origin: border-box;
+  background-repeat: no-repeat;
 }
 
 .pref-bg-preview-sky {
@@ -9727,7 +9711,9 @@ html[data-theme] .voice-overlay .voice-close-btn:hover,
 html[data-theme] .focused-overlay .voice-close-btn,
 html[data-theme] .focused-overlay .voice-close-btn:hover,
 html[data-theme] .focused-overlay .focused-latest-chip,
-html[data-theme] .focused-overlay .focused-latest-chip:hover {
+html[data-theme] .focused-overlay .focused-latest-chip:hover,
+html[data-theme] .code-copy-btn,
+html[data-theme] .code-copy-btn:hover {
   border: 1px solid transparent;
   background: var(--lens-bg);
   backdrop-filter: var(--float-filter);
@@ -9738,7 +9724,9 @@ html[data-theme] .focused-overlay .focused-latest-chip:hover {
 html[data-theme] .chat-topbar .topbar-icon-btn,
 html[data-theme] .chat-topbar .topbar-icon-btn:hover:not(:disabled),
 html[data-theme] .chat-sidebar .sidebar-brand-btn,
-html[data-theme] .chat-sidebar .sidebar-brand-btn:hover {
+html[data-theme] .chat-sidebar .sidebar-brand-btn:hover,
+html[data-theme] .code-copy-btn,
+html[data-theme] .code-copy-btn:hover {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -9750,7 +9738,8 @@ html[data-theme] .suggestion-chip:hover:not(:disabled),
 html[data-theme] .voice-overlay .voice-pause-btn:hover,
 html[data-theme] .voice-overlay .voice-close-btn:hover,
 html[data-theme] .focused-overlay .voice-close-btn:hover,
-html[data-theme] .focused-overlay .focused-latest-chip:hover {
+html[data-theme] .focused-overlay .focused-latest-chip:hover,
+html[data-theme] .code-copy-btn:hover {
   background: var(--lens-bg-hover);
 }
 
@@ -9761,7 +9750,8 @@ html[data-theme] .suggestion-chip:active:not(:disabled),
 html[data-theme] .voice-overlay .voice-pause-btn:active,
 html[data-theme] .voice-overlay .voice-close-btn:active,
 html[data-theme] .focused-overlay .voice-close-btn:active,
-html[data-theme] .focused-overlay .focused-latest-chip:active {
+html[data-theme] .focused-overlay .focused-latest-chip:active,
+html[data-theme] .code-copy-btn:active {
   box-shadow: var(--shadow-lens-pressed);
 }
 
@@ -10320,9 +10310,10 @@ html[data-theme] .pref-field-label {
 }
 
 html[data-theme] .pref-setting-section-label {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
   font-weight: 700;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
+  font-size: 0.9rem;
   color: var(--game-muted);
 }
 

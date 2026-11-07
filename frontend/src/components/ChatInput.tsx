@@ -446,11 +446,11 @@ function ChatInput({
               >
                 <svg
                   viewBox="0 0 24 24"
-                  width="14"
-                  height="14"
+                  width="16"
+                  height="16"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.8"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
@@ -482,11 +482,11 @@ function ChatInput({
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    width="13"
-                    height="13"
+                    width="16"
+                    height="16"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="1.8"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
@@ -600,11 +600,11 @@ function ChatInput({
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    width="14"
-                    height="14"
+                    width="16"
+                    height="16"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="1.8"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
@@ -641,8 +641,8 @@ function ChatInput({
               >
                 <svg
                   viewBox="0 0 24 24"
-                  width="13"
-                  height="13"
+                  width="16"
+                  height="16"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
@@ -693,11 +693,11 @@ function ChatInput({
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    width="13"
-                    height="13"
+                    width="16"
+                    height="16"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="1.8"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
@@ -741,7 +741,7 @@ function ChatInput({
                 aria-pressed={thinking}
                 type="button"
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 18h6M10 21h4" />
                   <path className="think-bulb" d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" />
                 </svg>
@@ -755,7 +755,7 @@ function ChatInput({
                 title="Focused Mode"
                 type="button"
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="15 3 21 3 21 9" />
                   <polyline points="9 21 3 21 3 15" />
                   <line x1="21" y1="3" x2="14" y2="10" />
@@ -794,11 +794,11 @@ function ChatInput({
                 {!voiceActive && (
                   <svg
                     viewBox="0 0 24 24"
-                    width="14"
-                    height="14"
+                    width="16"
+                    height="16"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="1.8"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
@@ -831,8 +831,8 @@ function ChatInput({
               ) : (
                 <svg
                   viewBox="0 0 24 24"
-                  width="14"
-                  height="14"
+                  width="16"
+                  height="16"
                   fill="currentColor"
                   stroke="none"
                 >

@@ -69,6 +69,8 @@ async def lifespan(_: FastAPI):
             "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_url VARCHAR(300)",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100)",
+            # Ember's id before it was renamed
+            "UPDATE users SET theme = 'ember' WHERE theme = 'gruvbox'",
         ]
         for stmt in migrations:
             await conn.execute(text(stmt))

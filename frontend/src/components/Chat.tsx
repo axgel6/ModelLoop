@@ -99,8 +99,8 @@ function SidebarChatItem({
         title={pinned ? "Unpin chat" : "Pin chat"}
       >
         <svg
-          width="11"
-          height="11"
+          width="14"
+          height="14"
           viewBox="0 0 24 24"
           fill={pinned ? "currentColor" : "none"}
           stroke="currentColor"
@@ -122,8 +122,8 @@ function SidebarChatItem({
           "…"
         ) : (
           <svg
-            width="11"
-            height="11"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1125,8 +1125,8 @@ function Chat({
                   title="Search chats (Ctrl+K)"
                 >
                   <svg
-                    width="16"
-                    height="16"
+                    width="18"
+                    height="18"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -1490,8 +1490,8 @@ function Chat({
                           >
                             <svg
                               className="spotlight-result-icon"
-                              width="13"
-                              height="13"
+                              width="16"
+                              height="16"
                               viewBox="0 0 24 24"
                               fill="none"
                               stroke="currentColor"
@@ -1523,11 +1523,11 @@ function Chat({
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    width="15"
-                    height="15"
+                    width="18"
+                    height="18"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2.25"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
@@ -1547,8 +1547,8 @@ function Chat({
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    width="15"
-                    height="15"
+                    width="18"
+                    height="18"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
@@ -1572,11 +1572,11 @@ function Chat({
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    width="15"
-                    height="15"
+                    width="18"
+                    height="18"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="1.75"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
@@ -1595,8 +1595,8 @@ function Chat({
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    width="15"
-                    height="15"
+                    width="18"
+                    height="18"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
@@ -1717,11 +1717,11 @@ function Chat({
             >
               <svg
                 viewBox="0 0 24 24"
-                width="15"
-                height="15"
+                width="18"
+                height="18"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.5"
+                strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
@@ -1813,7 +1813,7 @@ function Chat({
               viewBox="0 0 18 18"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.2"
+              strokeWidth="2.4"
               strokeLinecap="round"
             >
               <line x1="2" y1="2" x2="16" y2="16" />
@@ -1908,7 +1908,7 @@ function Chat({
               viewBox="0 0 18 18"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.2"
+              strokeWidth="2.4"
               strokeLinecap="round"
             >
               <line x1="2" y1="2" x2="16" y2="16" />
@@ -1995,8 +1995,8 @@ function Chat({
                 {focusNav.hasNew && <span className="focused-latest-dot" aria-hidden="true" />}
                 <svg
                   viewBox="0 0 24 24"
-                  width="13"
-                  height="13"
+                  width="16"
+                  height="16"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2.4"
@@ -2083,7 +2083,7 @@ function Chat({
                     height="16"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="1.9"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >

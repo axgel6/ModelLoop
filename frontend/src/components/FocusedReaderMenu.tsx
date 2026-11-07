@@ -48,11 +48,11 @@ export function FocusedReaderMenu({
             text would ride on its baseline and leave room for descenders below */}
         <svg
           viewBox="0 0 24 24"
-          width="20"
-          height="20"
+          width="18"
+          height="18"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.8"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"

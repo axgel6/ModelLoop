@@ -55,16 +55,7 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("theme");
-    // Ember was called Gruvbox, and had variants before that. Anything else that is
-    // no longer a theme (the retired Ocean theme) falls through to the default.
-    if (
-      stored === "glass" ||
-      stored === "gruvbox-glass" ||
-      stored === "flat" ||
-      stored === "gruvbox-flat" ||
-      stored === "gruvbox"
-    )
-      return "ember";
+    // Anything that is no longer a theme falls through to the default.
     return isTheme(stored) ? inSeason(stored) : "meadow"; // out of season, a festive theme becomes its base
   });
 
@@ -209,9 +200,7 @@ function App() {
       } else {
         // No local changes — apply DB preferences
         const validFonts: Font[] = ["inter", "rounded"];
-        // Accounts saved before the rename still say "gruvbox".
-        const savedTheme = me.theme === "gruvbox" ? "ember" : me.theme;
-        if (isTheme(savedTheme)) setTheme(inSeason(savedTheme));
+        if (isTheme(me.theme)) setTheme(inSeason(me.theme));
         if (validFonts.includes(me.font as Font)) setFont(me.font as Font);
       }
     } catch {

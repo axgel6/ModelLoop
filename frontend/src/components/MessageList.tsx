@@ -52,7 +52,7 @@ function Pre({
         onClick={handleCopy}
         title={copied ? "Copied!" : "Copy code"}
       >
-        {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+        {copied ? <CheckIcon /> : <CopyIcon />}
       </button>
     </div>
   );
