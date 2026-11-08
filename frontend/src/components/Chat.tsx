@@ -16,6 +16,10 @@ import { useChatUI } from "./hooks/useChatUI";
 import { useVoiceConversation } from "./hooks/useVoiceConversation";
 import {
   apiChatStream,
+  apiGetProject,
+  apiGetProjectVersion,
+  apiRestoreProjectVersion,
+  type StoredProject,
   apiCreateChat,
   apiDeleteAccount,
   apiDeleteChat,
@@ -58,7 +62,14 @@ import { GamesHub, GamesIcon } from "../games/GamesHub";
 import { inGamesPath, replacePath } from "../subroute";
 import { FocusedReaderMenu } from "./FocusedReaderMenu";
 import { VoiceMatrix } from "./VoiceMatrix";
-import { WebDevContext } from "../webdev/context";
+import {
+  PROJECT_TOOL_PHRASES,
+  WebDevContext,
+  timeAgo,
+  type StudioMessage,
+  type StudioProject,
+  type WebDevContextValue,
+} from "../webdev/context";
 import { WebDevStudio } from "../webdev/WebDevStudio";
 import { READER_SIZES, useReaderPrefs } from "./readerPrefs";
 import { splitParas, useFocusedNav } from "./useFocusedNav";
@@ -437,7 +448,7 @@ function Chat({
     prompt: string,
     historyOverride?: Message[],
     images?: string[],
-    options?: { forceSearch?: boolean },
+    options?: { forceSearch?: boolean; project?: boolean },
   ) => {
     const rawInput = prompt.trim();
     if (!rawInput || loading) return;
@@ -530,17 +541,20 @@ function Chat({
       setMessages((prev) => [...prev, { role: "assistant", content: info }]);
       return;
     }
-    if (rawInput === "/testweb") {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "Here's a demo project in the web studio. This is a design preview: the site is a sample, and building from chat comes next.",
-          widgets: [{ kind: "project" }],
-        },
-      ]);
-      setWebStudioOpen(true);
+    if (rawInput === "/web" || rawInput.startsWith("/web ")) {
+      const brief = rawInput.slice("/web".length).trim();
+      const reason = isGuest
+        ? "Projects are saved with the chat, so they need an account. Log in to build a website."
+        : privateMode
+          ? "Projects are saved with the chat, so they can't be built in a private chat."
+          : !brief
+            ? "Describe the site to start a project, for example `/web a landing page for a bakery`. After that, every message in this chat works on the project."
+            : null;
+      if (reason) {
+        setMessages((prev) => [...prev, { role: "assistant", content: reason }]);
+        return;
+      }
+      void handleAsk(brief, undefined, undefined, { project: true });
       return;
     }
     if (rawInput === "/help") {
@@ -550,7 +564,7 @@ function Chat({
         {
           role: "assistant",
           content:
-            `Commands: /clear${searchCmd}, /code, /math, /think, /fast, /ratelimit, /testweb, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)`,
+            `Commands: /clear${searchCmd}, /code, /math, /think, /fast, /ratelimit, /web <site>, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)`,
         },
       ]);
       return;
@@ -641,6 +655,7 @@ function Chat({
               think: thinking && canThink,
               festive: festive?.id,
               force_search: options?.forceSearch,
+              project: options?.project,
             },
             ctrl.signal,
           );
@@ -748,6 +763,27 @@ function Chat({
                 };
                 return next;
               });
+            } else if (data.type === "project_turn" || data.type === "project_step") {
+              setMessages((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                next[next.length - 1] = {
+                  ...last,
+                  steps: data.step ? [...(last.steps ?? []), data.step] : (last.steps ?? []),
+                };
+                return next;
+              });
+            } else if (data.type === "project_changes") {
+              // The turn is saved by now, so the card and studio can pick up its files
+              if (data.changes?.version != null) setProjectTick((t) => t + 1);
+              setMessages((prev) => {
+                const next = [...prev];
+                next[next.length - 1] = {
+                  ...next[next.length - 1],
+                  project_changes: data.changes,
+                };
+                return next;
+              });
             } else if (data.type === "search_context") {
               setMessages((prev) => {
                 const next = [...prev];
@@ -837,9 +873,71 @@ function Chat({
 
   // ── Focused mode ─────────────────────────────────────────────────────────
   const [focusedMode, setFocusedMode] = useState(false);
-  const [webStudioOpen, setWebStudioOpen] = useState(false);
-  const openWebStudio = useCallback(() => setWebStudioOpen(true), []);
-  const closeWebStudio = useCallback(() => setWebStudioOpen(false), []);
+  // ── Web studio ───────────────────────────────────────────────────────────
+  // Open on the chat's project, at a file when given one
+  const [studio, setStudio] = useState<{ path?: string } | null>(null);
+  const closeStudio = useCallback(() => setStudio(null), [setStudio]);
+  const openStudio = useCallback((options?: { path?: string }) => setStudio({ path: options?.path }), [setStudio]);
+  // A chat has a project once a reply carries project changes (the turn that starts one always does)
+  const hasProject = useMemo(() => messages.some((m) => m.project_changes), [messages]);
+  const [storedProject, setStoredProject] = useState<{ chatId: string; data: StoredProject } | null>(null);
+  // Bumped when a turn saves a version, to load the new files
+  const [projectTick, setProjectTick] = useState(0);
+  useEffect(() => {
+    if (!activeChatId || !hasProject || isGuest || privateMode) return;
+    let cancelled = false;
+    const chatId = activeChatId;
+    apiGetProject(chatId)
+      .then((data) => !cancelled && setStoredProject({ chatId, data }))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeChatId, hasProject, isGuest, privateMode, projectTick]);
+  // Another chat's studio never stays open over this one
+  const [studioChat, setStudioChat] = useState(activeChatId);
+  if (studioChat !== activeChatId) {
+    setStudioChat(activeChatId);
+    setStudio(null);
+  }
+
+  const project = useMemo<StudioProject | null>(() => {
+    if (!storedProject || storedProject.chatId !== activeChatId || !hasProject) return null;
+    const { data } = storedProject;
+    const last = [...messages].reverse().find((m) => m.project_changes?.files.length);
+    return {
+      name: data.name,
+      version: data.version,
+      files: data.files,
+      versions: data.versions.map((v) => ({ version: v.version, label: v.label, when: timeAgo(v.created_at) })),
+      lastChanges: last?.project_changes?.files ?? [],
+      restoredFrom: data.versions[0]?.restored_from,
+    };
+  }, [storedProject, activeChatId, hasProject, messages]);
+  const studioMessages = useMemo<StudioMessage[]>(
+    () =>
+      messages.map((m) => ({
+        role: m.role,
+        text: m.content,
+        changes: m.project_changes?.files,
+        version: m.project_changes?.version,
+        steps: m.steps,
+        createdAt: m.created_at,
+      })),
+    [messages],
+  );
+  const loadVersion = useCallback(
+    (version: number) => apiGetProjectVersion(activeChatIdRef.current!, version),
+    [activeChatIdRef],
+  );
+  const restoreVersion = useCallback(
+    async (version: number) => {
+      await apiRestoreProjectVersion(activeChatIdRef.current!, version);
+      setProjectTick((t) => t + 1);
+    },
+    [activeChatIdRef],
+  );
+  const webDev = useMemo<WebDevContextValue>(() => ({ project, open: openStudio }), [project, openStudio]);
   const [readerPrefs, setReaderPrefs] = useReaderPrefs();
   const [focusedLines, setFocusedLines] = useState<
     { role: "user" | "assistant"; text: string }[]
@@ -1125,9 +1223,24 @@ function Chat({
   );
 
   return (
-    <WebDevContext.Provider value={openWebStudio}>
+    <WebDevContext.Provider value={webDev}>
       {!isConnected && <ConnectionBanner />}
-      {webStudioOpen && <WebDevStudio onClose={closeWebStudio} />}
+      {studio && project && (
+        <WebDevStudio
+          project={project}
+          messages={studioMessages}
+          busy={loading}
+          activity={
+            activeTool ? (PROJECT_TOOL_PHRASES[activeTool] ?? "Working on it") : isThinking ? "Thinking" : null
+          }
+          onSend={(text) => void handleAsk(text)}
+          onStop={handleStop}
+          loadVersion={loadVersion}
+          onRestore={restoreVersion}
+          initialPath={studio.path}
+          onClose={closeStudio}
+        />
+      )}
 
       {/* Inert under voice mode: the mic button that started Talk would otherwise keep focus
           behind the overlay, and a stray Space or Enter would press it and end the conversation */}
@@ -1689,11 +1802,16 @@ function Chat({
                 (last, m, i) => (m.role === "user" ? i : last),
                 -1,
               );
+              // One project card per chat, on the latest project reply
+              const lastProjectIdx = project
+                ? messages.reduce((last, m, i) => (m.project_changes ? i : last), -1)
+                : -1;
               return messages.map((msg, idx) => (
                 <div key={idx} className={`message-row ${msg.role}`}>
                   {msg.role === "assistant" ? (
                     <AssistantMessage
                       msg={msg}
+                      showProjectCard={idx === lastProjectIdx}
                       isLast={idx === messages.length - 1}
                       canRetry={
                         idx === messages.length - 1 && !!msg.content && !loading

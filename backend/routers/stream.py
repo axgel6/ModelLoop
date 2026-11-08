@@ -29,6 +29,8 @@ from config import (
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
 from actions import execute_tool, get_active_tools, is_known_tool, run_proactive
+from actions import project_files as _project_files
+import project_mode
 from actions import weather as _weather
 from actions.web_search import (
     async_execute as _run_web_search_async,
@@ -229,13 +231,16 @@ async def _chat_stream_response(
     think: bool = False,
     festive: Optional[str] = None,
     user_tz: Optional[str] = None,
+    project: Optional[project_mode.ProjectTurn] = None,
 ) -> StreamingResponse:
     is_guest = user is None
     today = _local_today(user_tz)
-    # A model that can think is always told whether to, so it never thinks unasked
-    think_mode = bool(think) if await ollama_caps.can_think(base_url, model) else None
+    # A model that can think is always told whether to, so it never thinks unasked.
+    # Project turns never think: Ollama is not sent tools while a model thinks.
+    think_mode = (bool(think) and project is None) if await ollama_caps.can_think(base_url, model) else None
 
-    actions_enabled = features["actions"]
+    # A project turn offers only the file tools, so the lookups that guess from the message are off
+    actions_enabled = features["actions"] and project is None
     photo_enabled   = features["photo_upload"]
     # Documents belong to a saved chat, so a private chat has none
     rag_enabled     = features["rag"] and chat is not None
@@ -245,7 +250,9 @@ async def _chat_stream_response(
 
     # No prompt of its own means Olly, the default, who takes on a festive theme's voice (a
     # personality with its own prompt keeps its voice)
-    if not system_prompt:
+    if project:
+        system_prompt = project_mode.SYSTEM_PROMPT
+    elif not system_prompt:
         system_prompt = SYSTEM_PROMPT_WITH_TOOLS if actions_enabled else SYSTEM_PROMPT_NO_TOOLS
         if festive in FESTIVE_PERSONAS:
             system_prompt += "\n\n" + FESTIVE_PERSONAS[festive]
@@ -259,7 +266,7 @@ async def _chat_stream_response(
             or ((weather_asked or _web_search_should_activate(prompt, _search_words)) and bool(active_tools))
         )
     else:
-        active_tools = []
+        active_tools = _project_files.DEFINITIONS if project else []
         weather_asked = False
         proactive_search_enabled = False
 
@@ -386,6 +393,10 @@ async def _chat_stream_response(
         user_msg["images"] = images
     messages.append(user_msg)
 
+    if project:
+        # Like search results, the project goes in the message: some models get no system prompt
+        user_msg["content"] = f"{project_mode.context_block(project, prompt)}\n\n{user_msg['content']}"
+
     _search_block: Optional[str] = None
     if _search_data and _search_data.get("results"):
         _search_block = _format_search_block(_search_data["results"])
@@ -442,10 +453,16 @@ async def _chat_stream_response(
     async def generate():
         full_response = ""
         success       = False
+        # A project turn can work for minutes before it writes a word, so the chat shows its steps
+        if project:
+            yield f"data: {json.dumps({'type': 'project_turn'})}\n\n"
         # Cards first, so they are on screen while the reply is still being written
         if widgets:
             yield f"data: {json.dumps({'type': 'widgets', 'widgets': widgets})}\n\n"
         current_messages: list[dict] = list(messages)
+        # The project's files for this turn: the tools change this copy, saved with the reply
+        workspace = _project_files.Workspace(project.files) if project else None
+        known_tool = (lambda n: n in _project_files.TOOL_NAMES) if project else is_known_tool
         reactive_search_blocks: list[str] = []
         # One rescue per turn: if the reply opens by giving up ("I don't have
         # real-time access..."), drop it, search the web, and answer again.
@@ -454,7 +471,7 @@ async def _chat_stream_response(
 
         try:
             round_content = ""
-            for _round in range(5):
+            for _round in range(project_mode.TOOL_ROUNDS if project else 5):
                 round_content  = ""
                 tool_calls:   list = []
                 peek_buf:     list[str] = []
@@ -605,7 +622,7 @@ async def _chat_stream_response(
 
                     # JSON that merely has a "name" key (an answer the user asked for in
                     # JSON, say) is not a tool call. Release it as the reply instead.
-                    if tool_calls and not all(is_known_tool(tc["function"]["name"]) for tc in tool_calls):
+                    if tool_calls and not all(known_tool(tc["function"]["name"]) for tc in tool_calls):
                         tool_calls = []
                         for t in peek_buf:
                             yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
@@ -631,6 +648,12 @@ async def _chat_stream_response(
                             tool_args = {}
                     if not isinstance(tool_args, dict):
                         tool_args = {}
+                    if workspace is not None:
+                        result = workspace.execute(tool_name, tool_args)
+                        current_messages.append({"role": "tool", "content": result})
+                        step = workspace.step(tool_name, tool_args, result)
+                        yield f"data: {json.dumps({'type': 'project_step', 'step': step})}\n\n"
+                        continue
                     # Set here, never by the model: the search region and the user's timezone
                     tool_args["_region"] = search_region
                     tool_args["_user_tz"] = user_tz
@@ -661,6 +684,9 @@ async def _chat_stream_response(
             # from the last round is the final answer; full_response was never assigned.
             if success and not full_response:
                 full_response = round_content
+            # Small models often end a build on a tool call with nothing to say
+            if success and workspace is not None and workspace.changes() and not full_response.strip():
+                full_response = "Done. The changes are in the preview."
 
             if success and full_response.strip():
                 processed = fix_math_delimiters(_strip_embedded_tool_calls(full_response.strip()))
@@ -672,6 +698,7 @@ async def _chat_stream_response(
                 # Persist before announcing 'done': the client reloads the chat list on
                 # 'done', and a tab closed right after it must not lose the turn.
                 # Guests have no chat record, so their turns are never persisted.
+                project_changes: Optional[dict] = None
                 if chat_id:
                     try:
                         async with AsyncSessionLocal() as write_db:
@@ -682,10 +709,16 @@ async def _chat_stream_response(
                                 images=images or None, image_context=image_context or None,
                                 search_context=_search_ctx,
                             ))
-                            write_db.add(Message(
+                            reply = Message(
                                 chat_id=chat_id, role="assistant", content=processed, model=model,
                                 widgets=widgets or None,
-                            ))
+                            )
+                            write_db.add(reply)
+                            if workspace is not None:
+                                # The version points at the reply, so the reply is written first
+                                await write_db.flush()
+                                project_changes = await project_mode.save(write_db, project, chat_id, workspace, reply.id)
+                                reply.project_changes = project_changes
                             chat_update: dict = {"updated_at": datetime.now(timezone.utc)}
                             if chat_title == "New Chat":
                                 chat_update["title"] = prompt[:60]
@@ -694,8 +727,12 @@ async def _chat_stream_response(
                             )
                             await write_db.commit()
                     except Exception as db_err:
+                        project_changes = None
                         logger.error('db_save_error chat_id=%s error=%s', chat_id, str(db_err))
 
+                # After the save, so the labels only say what was kept
+                if project_changes:
+                    yield f"data: {json.dumps({'type': 'project_changes', 'changes': project_changes})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
             else:
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Empty response from model'})}\n\n"
@@ -741,9 +778,17 @@ async def chat_stream(
         for m in reversed(msgs_result.scalars().all())
     ]
 
+    prompt = body.prompt.strip()
+    model = (body.model or _config.DEFAULT_MODEL).strip()
+    base_url = await effective_ollama_url(user)
+    # One project per chat: once a chat has one, every turn in it works on the project
+    project = await project_mode.prepare(db, chat.id, prompt, base_url, model, start=bool(body.project))
+    if project:
+        model = project.model
+
     return await _chat_stream_response(
-        prompt=body.prompt.strip(),
-        model=(body.model or _config.DEFAULT_MODEL).strip(),
+        prompt=prompt,
+        model=model,
         history=history,
         system_prompt=body.system_prompt,
         temperature=body.temperature if body.temperature is not None else 0.7,
@@ -753,13 +798,14 @@ async def chat_stream(
         features=get_features(guest=False),
         force_search=bool(body.force_search),
         search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
-        base_url=await effective_ollama_url(user),
+        base_url=base_url,
         db=db,
         user=user,
         chat=chat,
         think=bool(body.think),
         festive=body.festive,
         user_tz=request.headers.get("x-timezone"),
+        project=project,
     )
 
 

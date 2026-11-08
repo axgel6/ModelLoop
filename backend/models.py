@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Integer
+from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, JSON, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -81,6 +81,9 @@ class Message(Base):
     model:          Mapped[Optional[str]]    = mapped_column(String(100), nullable=True)
     # Cards shown above an assistant reply, such as a clock: [{"kind": "clock", ...}]
     widgets:        Mapped[Optional[list]]   = mapped_column(JSON, nullable=True)
+    # What a project turn changed, shown under the reply:
+    # {"version": 3, "files": [{"action": "edited", "path": "style.css"}], "note": "..."}
+    project_changes: Mapped[Optional[dict]]  = mapped_column(JSON, nullable=True)
     created_at:     Mapped[datetime]         = mapped_column(DateTime(timezone=True), server_default=func.now())
     chat:           Mapped["Chat"]           = relationship(back_populates="messages")
 
@@ -136,3 +139,47 @@ class DocumentChunk(Base):
     content:     Mapped[str]       = mapped_column(Text, nullable=False)
     embedding:   Mapped[list]      = mapped_column(JSON, nullable=False)
     document:    Mapped["Document"] = relationship(back_populates="chunks")
+
+
+# ----- Web Studio Models -----
+
+# A small website built by chatting. One per chat: the chat is its conversation.
+class Project(Base):
+    __tablename__ = "projects"
+
+    id:              Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    chat_id:         Mapped[uuid.UUID] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, unique=True)
+    name:            Mapped[str]       = mapped_column(String(80), nullable=False)
+    # 0 until the first turn that changes a file
+    current_version: Mapped[int]       = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_at:      Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at:      Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+# The project's files as they are now
+class ProjectFile(Base):
+    __tablename__ = "project_files"
+    __table_args__ = (UniqueConstraint("project_id", "path", name="uq_project_files_path"),)
+
+    id:         Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    path:       Mapped[str]       = mapped_column(String(200), nullable=False)
+    contents:   Mapped[str]       = mapped_column(Text, nullable=False)
+
+
+# Every file as it was after one turn. Small sites are a few kilobytes, so a full
+# snapshot per version is cheap and makes restoring one a plain copy.
+class ProjectVersion(Base):
+    __tablename__ = "project_versions"
+    __table_args__ = (UniqueConstraint("project_id", "version", name="uq_project_versions_version"),)
+
+    id:         Mapped[uuid.UUID]           = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID]           = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    version:    Mapped[int]                 = mapped_column(Integer, nullable=False)
+    # {path: contents}
+    files:      Mapped[dict]                = mapped_column(JSON, nullable=False)
+    # The assistant reply that made it
+    message_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
+    # Set when the user restored an older version, which copies it as a new one
+    restored_from: Mapped[Optional[int]]    = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime]            = mapped_column(DateTime(timezone=True), server_default=func.now())

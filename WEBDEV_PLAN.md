@@ -4,8 +4,15 @@ Build and refine small websites by chatting, with the code saved between turns a
 
 ## Status
 
-- **Done:** a design preview of the UI. Type `/testweb` in any chat. It uses a sample project and a scripted conversation, and building is not wired up yet. The code is in `frontend/src/webdev/`.
-- **Next:** Phase 1 below.
+Phases 1 to 3 are finished, so the studio is usable. Phase 4, polish, is next.
+
+- **Phase 1, foundation:** `/web <description>` starts a project in a chat, and every later message in that chat works on it. The model builds with the file tools, each turn that changes files saves a version, and labels under the reply say what changed. The backend is in `backend/project_mode.py` and `backend/actions/project_files.py`.
+- **Phase 2, real preview:** the studio shows the stored project: its files, a preview that follows each new version, older versions to look at, and the chat, which is the same conversation as the main chat. One project card sits on the latest project reply with a live thumbnail. Tapping a change label opens that file. The code is read-only for now. The frontend is in `frontend/src/webdev/`.
+- **Phase 3, reliability:**
+  - **Fix it:** the preview reports its errors (uncaught errors, failed promises, `console.error` and files that fail to load) to the studio, which shows the first one over the site with a Fix it button. Fix it sends the errors to the model as a message. Errors name the file and line, and clear when the preview reloads.
+  - **Tolerant edits:** when `edit_file`'s text doesn't match exactly, it tries again ignoring spacing, and takes it if that matches once. When nothing matches, a file under 8,000 characters comes back with the error, so the model can retry or rewrite it without another call.
+  - **Restore:** an older version has a Restore button. Restoring saves it as a new version, so nothing is lost, and the next turn tells the model the files were restored.
+- The `/testweb` design demo is gone, now that real projects cover it.
 
 ## Scope
 
@@ -62,7 +69,7 @@ The site is the focus, and the chat floats beside it.
 
 ### Preview
 
-- **How it's built:** the project's files go into one document in the browser, with stylesheets and scripts put inline. It loads in a sandboxed frame (`sandbox="allow-scripts allow-forms"`, without `allow-same-origin`), so generated code can't read the user's login or chats. `buildPreview()` in `frontend/src/webdev/preview.ts` already does this for the demo.
+- **How it's built:** the project's files go into one document in the browser, with stylesheets and scripts put inline. It loads in a sandboxed frame (`sandbox="allow-scripts allow-forms"`, without `allow-same-origin`), so generated code can't read the user's login or chats. `buildPreview()` in `frontend/src/webdev/preview.ts` does this.
 - **Errors:** a small script inside the frame sends errors and console output to the app. That feeds the Fix it button.
 - **Refresh:** the preview reloads after each change.
 
@@ -105,8 +112,8 @@ Phases 1 to 3 make it usable. Phase 4 makes it feel finished.
 | No internet | Libraries served by ModelLoop; local models only |
 | Phone screens | The site full screen, the chat as a sheet, no editor needed |
 
-## Open decisions
+## Decisions
 
-1. **One project per chat, or projects as their own section?** Leaning toward one per chat.
-2. **Errors to the model:** automatically, or only through Fix it? Leaning toward Fix it only at first.
-3. **React in the first version?** Leaning yes, since serving it costs almost nothing.
+1. **One project per chat.** The chat is the project's conversation. A chat becomes a project chat on its first `/web` turn and stays one.
+2. **Errors reach the model only through Fix it.** Nothing is sent automatically.
+3. **React is in the first version, served by ModelLoop.** It arrives with the served library set in Phase 4. Until then the prompt asks for plain HTML, CSS and JavaScript, with jsDelivr for libraries.

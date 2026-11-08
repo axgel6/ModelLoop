@@ -37,7 +37,6 @@
 .wd-older,
 .wd-version-btn,
 .wd-versions-n,
-.wd-change-version,
 .wd-change-verb {
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
@@ -50,7 +49,8 @@
 .wd-code,
 .wd-composer,
 .wd-versions-menu,
-.wd-older {
+.wd-older,
+.wd-problem {
   border: 1px solid transparent;
   background: var(--lens-bg);
   box-shadow: var(--shadow-lens);
@@ -425,6 +425,55 @@
   transform: translateX(-50%);
 }
 
+/* Fix it: what went wrong in the preview, over the bottom of the site */
+.wd-problem {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(560px, calc(100% - 24px));
+  padding: 4px 4px 4px 14px;
+  border-radius: 999px;
+  color: var(--game-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transform: translateX(-50%);
+}
+
+.wd-problem::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e5484d;
+}
+
+.wd-problem-text {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme] body .wd-studio .wd-problem .wd-problem-close {
+  &,
+  &:is(:hover, :active, :focus) {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 50%;
+  }
+}
+
+:root[data-theme] body .wd-studio .wd-fix {
+  flex: none;
+}
+
 /* ---- Code drawer ---- */
 .wd-code {
   position: absolute;
@@ -478,7 +527,7 @@
   min-height: 0;
   overflow: auto;
   border-radius: 18px;
-  background: #0d1117;
+  background: var(--code-bg);
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 0.76rem;
   line-height: 1.6;
@@ -500,8 +549,8 @@
   flex-shrink: 0;
   padding-left: 14px;
   padding-right: 12px;
-  background: #0d1117;
-  color: #4d5562;
+  background: var(--code-bg);
+  color: var(--code-gutter);
   text-align: right;
   user-select: none;
 }
@@ -514,7 +563,7 @@
 
 .wd-source {
   padding-right: 18px;
-  color: #e6edf3;
+  color: var(--code-ink);
   white-space: pre;
 }
 
@@ -625,10 +674,10 @@
 }
 
 .wd-change-version {
+  margin-left: 2px;
   color: var(--game-muted);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- Composer ---- */
@@ -870,5 +919,296 @@
   .wd-code,
   :root[data-theme] body .wd-card {
     animation: none;
+  }
+}
+
+/* ---- Change labels under a project reply in the chat ---- */
+.wd-reply-changes {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 2px;
+  padding: 0 4px;
+}
+
+.wd-reply-files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Sunken while they only say what happened; raised once they open the file in the studio.
+   The themes style every button (border, color, gradient), so these rules outrank them. */
+:root[data-theme] body :is(span, button).wd-reply-file {
+  &,
+  &:is(:hover, :active, :focus, :focus-visible) {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    margin: 0;
+    padding: 0 11px;
+    border: 0;
+    outline: none;
+    border-radius: 999px;
+    background: var(--well-bg);
+    box-shadow: none;
+    color: var(--game-ink);
+    font-family: var(--ui-font);
+    font-size: 0.76rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transform: none;
+  }
+}
+
+:root[data-theme] body button.wd-reply-file {
+  &,
+  &:is(:hover, :active, :focus, :focus-visible) {
+    background: var(--lens-bg);
+    box-shadow: var(--shadow-lens);
+    cursor: pointer;
+  }
+
+  &:hover {
+    background: var(--lens-bg-hover);
+  }
+
+  &:active {
+    box-shadow: var(--shadow-lens-pressed);
+  }
+
+  &:focus-visible {
+    box-shadow:
+      var(--shadow-lens),
+      0 0 0 2px color-mix(in srgb, var(--game-accent) 55%, transparent);
+  }
+}
+
+.wd-reply-note {
+  margin: 0;
+  color: var(--game-muted);
+  font-size: 0.74rem;
+}
+
+/* A deleted file has nothing to open */
+.wd-change-deleted {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--well-bg);
+  color: var(--game-muted);
+  font-size: 0.78rem;
+}
+
+.wd-msg-activity {
+  color: var(--game-muted);
+  font-style: italic;
+}
+
+.wd-code-empty {
+  margin: 0;
+  padding: 24px 18px;
+  color: var(--game-muted);
+  font-size: 0.85rem;
+}
+
+.wd-card-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--game-muted);
+  font-size: 0.85rem;
+}
+
+/* ---- Progress while a project turn runs, in the chat and the studio ---- */
+.wd-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0;
+  padding: 0;
+  list-style: none;
+  color: var(--game-ink);
+  font-size: 0.85rem;
+}
+
+.wd-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: page-rise 0.25s ease-out backwards;
+}
+
+.wd-step-mark {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--game-accent);
+}
+
+.wd-step.is-failed {
+  color: var(--game-muted);
+
+  & .wd-step-mark {
+    background: var(--game-muted);
+  }
+}
+
+.wd-step.is-active {
+  color: var(--game-muted);
+
+  & .wd-step-mark {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--game-accent);
+    animation: wd-step-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+.wd-step-time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+@keyframes wd-step-pulse {
+  50% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wd-step,
+  .wd-step.is-active .wd-step-mark {
+    animation: none;
+  }
+}
+
+/* ---- Code colors ----
+   The drawer has its own light and dark sets instead of the chat's per-theme code colors, which
+   are made for each theme's own background. Auto follows the app: light for Dune and Meadow.
+   :root lifts these above the themes' .hljs rules in App.css. */
+.wd-code-body,
+.wd-code-body[data-code="dark"] {
+  --code-bg: #0d1117;
+  --code-ink: #e6edf3;
+  --code-gutter: #4d5562;
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-number: #79c0ff;
+  --code-title: #d2a8ff;
+  --code-attr: #79c0ff;
+  --code-tag: #7ee787;
+  --code-variable: #ffa657;
+  --code-comment: #8b949e;
+}
+
+.wd-code-body[data-code="light"],
+:is(html[data-theme="dune"], html[data-theme="meadow"]) .wd-code-body[data-code="auto"] {
+  --code-bg: #fbfbfa;
+  --code-ink: #1f2328;
+  --code-gutter: #a0a7b0;
+  --code-keyword: #cf222e;
+  --code-string: #0a3069;
+  --code-number: #0550ae;
+  --code-title: #8250df;
+  --code-attr: #0550ae;
+  --code-tag: #116329;
+  --code-variable: #953800;
+  --code-comment: #6e7781;
+}
+
+:root .wd-code-body .hljs {
+  color: var(--code-ink);
+
+  & :is(.hljs-keyword, .hljs-doctag, .hljs-meta .hljs-keyword, .hljs-selector-pseudo, .hljs-template-tag) {
+    color: var(--code-keyword);
+  }
+  & :is(.hljs-string, .hljs-regexp, .hljs-meta .hljs-string) {
+    color: var(--code-string);
+  }
+  & :is(.hljs-number, .hljs-literal, .hljs-built_in, .hljs-symbol, .hljs-selector-id) {
+    color: var(--code-number);
+  }
+  & :is(.hljs-title, .hljs-section, .hljs-selector-class) {
+    color: var(--code-title);
+  }
+  & :is(.hljs-attr, .hljs-attribute, .hljs-property, .hljs-type) {
+    color: var(--code-attr);
+  }
+  & :is(.hljs-name, .hljs-tag, .hljs-selector-tag, .hljs-bullet) {
+    color: var(--code-tag);
+  }
+  & :is(.hljs-variable, .hljs-params, .hljs-template-variable, .hljs-subst, .hljs-link) {
+    color: var(--code-variable);
+  }
+  & :is(.hljs-comment, .hljs-quote, .hljs-meta) {
+    color: var(--code-comment);
+    font-style: normal;
+  }
+  & :is(.hljs-punctuation, .hljs-operator) {
+    color: var(--code-ink);
+  }
+}
+
+/* The file tabs, and the Auto, Light and Dark switch at their end */
+.wd-code-head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-bottom: 8px;
+
+  & .wd-files {
+    flex: 1;
+    padding-bottom: 2px;
+  }
+}
+
+.wd-code-theme {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-left: auto;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--well-bg);
+}
+
+:root[data-theme] body .wd-studio .wd-code-theme button {
+  &,
+  &:is(:hover, :active, :focus) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--game-muted);
+    transform: none;
+  }
+
+  &:hover {
+    color: var(--game-ink);
+  }
+
+  &.is-on {
+    background: var(--lens-bg);
+    box-shadow: var(--shadow-lens);
+    color: var(--game-ink);
   }
 }

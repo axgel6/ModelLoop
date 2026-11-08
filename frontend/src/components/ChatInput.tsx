@@ -13,7 +13,7 @@ const SLASH_COMMANDS = [
   { cmd: "/think", desc: "Turn thinking on or off" },
   { cmd: "/fast", desc: "Fast mode: thinking off" },
   { cmd: "/ratelimit", desc: "Show rate limit info" },
-  { cmd: "/testweb", desc: "Preview the web studio with a demo site" },
+  { cmd: "/web", desc: "Build a website in this chat" },
   { cmd: "/help", desc: "Show commands" },
 ];
 

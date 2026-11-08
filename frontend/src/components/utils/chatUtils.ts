@@ -192,7 +192,7 @@ export function friendlyError(raw: string): string {
     return "I couldn't find that model on the server. Try picking another one in Preferences.";
   if (m.includes("an error occurred") || m.includes("failed to get response"))
     return "Something got tangled on my end. Want to try again?";
-  if (m.startsWith("i couldn't") || m.startsWith("that ")) return raw;
+  if (m.startsWith("i couldn't") || m.startsWith("that ") || m.startsWith("projects need")) return raw;
   return `That didn't quite work (${raw}). Want to try again?`;
 }
 

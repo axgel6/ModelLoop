@@ -7,6 +7,10 @@ import remarkMath from "remark-math";
 import { type Message } from "./api";
 import { CheckIcon, CopyIcon, EditIcon, RetryIcon, SpeakerIcon, StopIcon } from "./MessageIcons";
 import { MessageWidgets } from "./MessageWidgets";
+import { ProjectChangeLabels } from "../webdev/ProjectChangeLabels";
+import { ProjectCard } from "../webdev/WebDevStudio";
+import { ProjectSteps } from "../webdev/ProjectSteps";
+import { PROJECT_TOOL_PHRASES } from "../webdev/context";
 import { speakWithChosenVoice } from "./speechVoice";
 import { rehypeStreamWords } from "./utils/rehypeStreamWords";
 import { fixMathDelimiters, fixNestedFences, fmtTime } from "./utils/chatUtils";
@@ -118,6 +122,7 @@ const TOOL_PHRASES: Record<string, string> = {
   get_time: "Checking the clock",
   convert_currency: "Checking exchange rates",
   define_word: "Opening the dictionary",
+  ...PROJECT_TOOL_PHRASES,
 };
 
 /** The weather report is stored with search results (backend/routers/stream.py), so name it by what it holds */
@@ -131,6 +136,7 @@ function sourceLabel(context: string): string {
 
 export const AssistantMessage = memo(function AssistantMessage({
   msg,
+  showProjectCard = false,
   isLast,
   canRetry,
   isThinking,
@@ -139,6 +145,8 @@ export const AssistantMessage = memo(function AssistantMessage({
   onRetry,
 }: {
   msg: Message;
+  /** The chat's project card goes above this reply */
+  showProjectCard?: boolean;
   isLast: boolean;
   canRetry: boolean;
   isThinking: boolean;
@@ -192,6 +200,11 @@ export const AssistantMessage = memo(function AssistantMessage({
     <div className="msg-bubble-group">
       {/* Cards from the backend's tools sit above the reply, on their own */}
       {!!msg.widgets?.length && <MessageWidgets widgets={msg.widgets} />}
+      {showProjectCard && (
+        <div className="msg-widgets">
+          <ProjectCard />
+        </div>
+      )}
       <div className="message assistant">
         <div className={`assistant-content${revealing ? " is-revealing" : ""}`}>
           {msg.thinking && (
@@ -269,7 +282,20 @@ export const AssistantMessage = memo(function AssistantMessage({
               )}
             </div>
           )}
-          {showToolUse || showThinking ? (
+          {streaming && msg.steps ? (
+            <>
+              {shownContent && (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={REHYPE_PLUGINS_STREAMING}
+                  components={MD_COMPONENTS}
+                >
+                  {fixMathDelimiters(fixNestedFences(shownContent))}
+                </ReactMarkdown>
+              )}
+              <ProjectSteps steps={msg.steps} startedAt={msg.created_at} />
+            </>
+          ) : showToolUse || showThinking ? (
             <span className="waiting" role="status">
               <span className="waiting-leaves" aria-hidden="true">
                 <i />
@@ -293,6 +319,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           )}
         </div>
       </div>
+      {msg.project_changes && <ProjectChangeLabels changes={msg.project_changes} />}
       <div className="msg-meta">
         {ts && <span className="msg-timestamp">{ts}</span>}
         <div className="msg-actions">

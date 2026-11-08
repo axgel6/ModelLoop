@@ -13,7 +13,7 @@ from sqlalchemy import text
 
 from database import engine, Base
 from config import ALLOWED_ORIGINS, IS_PRODUCTION
-from routers import auth_router, chats, messages, documents, models_router, ollama_status, stream, health
+from routers import auth_router, chats, messages, documents, models_router, ollama_status, stream, health, projects
 from routers.stream import close_ollama_client
 from games import router as games_router
 from rag import close_embed_client
@@ -70,6 +70,9 @@ async def lifespan(_: FastAPI):
             "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_url VARCHAR(300)",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100)",
+            # Web studio: create_all makes the project tables; messages gains the change labels
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS project_changes JSON",
+            "ALTER TABLE project_versions ADD COLUMN IF NOT EXISTS restored_from INTEGER",
             # Ember's id before it was renamed
             "UPDATE users SET theme = 'ember' WHERE theme = 'gruvbox'",
         ]
@@ -113,6 +116,7 @@ app.include_router(models_router.router)
 app.include_router(ollama_status.router)
 app.include_router(stream.router)
 app.include_router(health.router)
+app.include_router(projects.router)
 app.include_router(games_router.router)
 
 

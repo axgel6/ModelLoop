@@ -1,3 +1,5 @@
+import type { FileChange, ProjectStep } from "../webdev/context";
+
 // Centralized API client: all fetch calls go through here so Authorization
 // headers and the base URL are never scattered across components
 
@@ -449,11 +451,17 @@ export interface ConversionWidget {
   /** The rate and its date, a height in feet and inches, or "" */
   note: string;
 }
-/** A web studio project (the /testweb demo for now) */
-export interface ProjectWidget {
-  kind: "project";
+export type Widget = ClockWidget | WeatherWidget | ConversionWidget;
+
+/** What a web studio turn did to the chat's project, shown under the reply */
+export interface ProjectChanges {
+  project_id: string;
+  /** The version the turn saved, or null when it changed no files */
+  version: number | null;
+  files: FileChange[];
+  /** Such as which model the project uses, on the turn that starts it */
+  note?: string;
 }
-export type Widget = ClockWidget | WeatherWidget | ConversionWidget | ProjectWidget;
 
 // A single turn in a conversation
 export interface Message {
@@ -465,6 +473,9 @@ export interface Message {
   image_context?: string;
   search_context?: string;
   widgets?: Widget[];
+  project_changes?: ProjectChanges;
+  /** A project turn's finished steps, while it runs. Never stored. */
+  steps?: ProjectStep[];
 }
 
 // Fetch the full message history for a chat, ordered by creation time
@@ -687,6 +698,8 @@ export async function apiChatStream(
     think?: boolean;
     /** The festive theme in use (see festive.ts): Olly answers in its voice for it */
     festive?: string;
+    /** Start a web studio project in this chat; a chat with one stays in project mode */
+    project?: boolean;
   },
   signal?: AbortSignal,
 ): Promise<Response> {
@@ -703,4 +716,49 @@ export async function apiChatStream(
     throw new Error(err.detail || "I couldn't get a reply. Want to try again?");
   }
   return res;
+}
+
+// ----- Web studio -----
+
+export interface StoredProject {
+  id: string;
+  name: string;
+  /** The latest version, or 0 before any file is written */
+  version: number;
+  files: { path: string; content: string }[];
+  /** Newest first. The label is what the user asked for in that turn. */
+  versions: { version: number; label: string; restored_from: number | null; created_at: string }[];
+}
+
+// The chat's project, as it is now
+export async function apiGetProject(chatId: string): Promise<StoredProject> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/project`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("I couldn't load this project.");
+  return res.json();
+}
+
+// Every file as it was in one version
+export async function apiGetProjectVersion(
+  chatId: string,
+  version: number,
+): Promise<{ path: string; content: string }[]> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/project/versions/${version}`, { headers: authHeaders() }),
+  );
+  if (!res.ok) throw new Error("I couldn't load that version.");
+  return (await res.json()).files;
+}
+
+// Saves an older version as the newest, and returns its number
+export async function apiRestoreProjectVersion(chatId: string, version: number): Promise<number> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/project/versions/${version}/restore`, {
+      method: "POST",
+      headers: authHeaders(),
+    }),
+  );
+  if (!res.ok) throw new Error("I couldn't restore that version.");
+  return (await res.json()).version;
 }

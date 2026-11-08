@@ -50,6 +50,8 @@ class ChatRequest(BaseModel):
     think:         Optional[bool]      = Field(default=False)
     # The festive theme in use (frontend/src/festive.ts): Olly's default prompt gets its voice
     festive:       Optional[str]       = Field(default=None, max_length=32, pattern=r"^[a-z-]+$")
+    # Start a web studio project in this chat. A chat with a project stays in project mode.
+    project:       Optional[bool]      = Field(default=False)
 
 
 class GuestChatRequest(BaseModel):

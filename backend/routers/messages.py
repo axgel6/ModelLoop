@@ -31,6 +31,7 @@ async def get_messages(
             **({"images": m.images} if m.images else {}),
             **({"model": m.model} if m.model else {}),
             **({"widgets": m.widgets} if m.widgets else {}),
+            **({"project_changes": m.project_changes} if m.project_changes else {}),
         }
         for m in msgs.scalars().all()
     ]}
