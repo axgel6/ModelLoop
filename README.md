@@ -23,8 +23,16 @@ A self-hosted AI chat interface powered by Ollama. Full-featured conversational 
 
 ### External Tools
 
-- **Web search** — Real-time DuckDuckGo results (current events, news, prices, weather)
+- **Web search** — Real-time DuckDuckGo results (current events, news, prices)
+- **Weather** — Current conditions and a 3-day forecast from Open-Meteo
+- **Calculator** — Exact arithmetic, percentages, powers and roots
+- **Unit conversion** — Length, weight, volume, temperature, speed, area, data, time and pressure
+- **Time in a place** — The current time anywhere, converting times between places, time differences
+- **Currency conversion** — European Central Bank daily rates via Frankfurter
+- **Dictionary** — Definitions, pronunciation and synonyms from the Free Dictionary API
 - **Extensible** — Architecture supports adding custom tools
+
+None of the tools need an API key. The calculator, conversions, clock and dictionary work out their answer from the message before the model replies, so small models get exact results without having to call a tool.
 
 ### Advanced Features
 
@@ -59,7 +67,14 @@ ModelLoop/
 │   ├── requirements.txt
 │   ├── actions/
 │   │   ├── __init__.py              # Tool registry & executor
-│   │   └── web_search.py            # DuckDuckGo integration
+│   │   ├── _shared.py               # Shared HTTP client & expiring cache
+│   │   ├── web_search.py            # DuckDuckGo integration
+│   │   ├── weather.py               # Open-Meteo weather
+│   │   ├── calculator.py            # Exact arithmetic
+│   │   ├── units.py                 # Unit conversion
+│   │   ├── clock.py                 # Time in a place
+│   │   ├── currency.py              # Exchange rates (Frankfurter)
+│   │   └── dictionary.py            # Free Dictionary API
 │   └── .env                         # Config (JWT_SECRET, DATABASE_URL, OLLAMA_URL, etc.)
 ├── frontend/
 │   ├── src/
@@ -165,7 +180,7 @@ Frontend runs on `http://localhost:5173` by default.
 | `REFRESH_REUSE_GRACE_SECONDS` | —    | `60`                    | Grace period where a just-rotated refresh token still works, so concurrent refreshes don't log the user out |
 | `API_KEY`                 | —        | —                       | Optional key for the guest endpoint (`POST /api/v1/chat/guest/stream`)      |
 | `APP_ENV`                 | —        | `development`           | Set to `production` for strict mode                                         |
-| `ENABLE_ACTIONS`          | —        | `true`                  | Tool-calling actions (web search)                                           |
+| `ENABLE_ACTIONS`          | —        | `true`                  | Tools: web search, weather, calculator, conversions, clock, dictionary      |
 | `ENABLE_PHOTO_UPLOAD`     | —        | `true`                  | Image attachments analyzed by `VISION_MODEL`                                |
 | `ENABLE_RAG`              | —        | `true`                  | Document upload and retrieval                                               |
 | `ENABLE_QUICK_MODELS`     | —        | `false`                 | Fast / Pro / Thinking model switcher in the composer toolbar                |
@@ -394,9 +409,11 @@ CMD ["python", "server.py"]
 
 1. Create file in `backend/actions/my_tool.py`
 2. Define `DEFINITION` (OpenAI function schema)
-3. Define `KEYWORDS` (trigger terms)
-4. Define `execute(arguments: dict) -> str`
-5. Register in `backend/actions/__init__.py`
+3. Define `should_activate(text, words) -> bool`, which decides when the tool is offered
+4. Define `async def async_execute(arguments: dict) -> str`, returning JSON
+5. Optionally define `async def proactive(text, ctx)` to answer before the model replies. It returns the answer, `(answer, widget)` to also show a card above the reply (drawn in `frontend/src/components/MessageWidgets.tsx`), or `None`
+6. For a network lookup, use `http_client()` and `TTLCache` from `backend/actions/_shared.py`
+7. Register in `_ACTIONS` (and `_PROACTIVE` for step 5) in `backend/actions/__init__.py`
 
 ---
 

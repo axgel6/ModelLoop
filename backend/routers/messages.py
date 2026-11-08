@@ -30,6 +30,7 @@ async def get_messages(
             "created_at": m.created_at.isoformat(),
             **({"images": m.images} if m.images else {}),
             **({"model": m.model} if m.model else {}),
+            **({"widgets": m.widgets} if m.widgets else {}),
         }
         for m in msgs.scalars().all()
     ]}

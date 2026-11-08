@@ -3,7 +3,8 @@ import httpx
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, update
@@ -27,7 +28,7 @@ from config import (
 )
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
-from actions import execute_tool, get_active_tools, is_known_tool
+from actions import execute_tool, get_active_tools, is_known_tool, run_proactive
 from actions import weather as _weather
 from actions.web_search import (
     async_execute as _run_web_search_async,
@@ -69,6 +70,14 @@ def _supports_tools(model: str) -> bool:
 
 def _skip_system_prompt(model: str) -> bool:
     return any(p in model.lower() for p in NO_SYSTEM_PROMPT_MODELS)
+
+def _local_today(tz_name: Optional[str]) -> date:
+    """Today in the user's timezone (the browser sends it as X-Timezone), or UTC without one."""
+    try:
+        tz = ZoneInfo(tz_name) if tz_name else timezone.utc
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        tz = timezone.utc
+    return datetime.now(tz).date()
 
 
 # Openings where the model gives up on a question it could have searched for:
@@ -219,8 +228,10 @@ async def _chat_stream_response(
     chat: Optional[Chat] = None,
     think: bool = False,
     festive: Optional[str] = None,
+    user_tz: Optional[str] = None,
 ) -> StreamingResponse:
     is_guest = user is None
+    today = _local_today(user_tz)
     # A model that can think is always told whether to, so it never thinks unasked
     think_mode = bool(think) if await ollama_caps.can_think(base_url, model) else None
 
@@ -254,12 +265,14 @@ async def _chat_stream_response(
 
     # Set when the user asks about the weather without saying where.
     weather_needs_place = False
+    # The weather card, when the lookup finds the place
+    weather_widget: Optional[dict] = None
 
     async def _image_description():
         return await _describe_images(images, base_url) if images else ""
 
     async def _web_search_task():
-        nonlocal weather_needs_place
+        nonlocal weather_needs_place, weather_widget
         if not proactive_search_enabled:
             return None
         # A weather question gets real conditions, not a page of weather-site
@@ -277,6 +290,7 @@ async def _chat_stream_response(
                 try:
                     report = await _weather.lookup(place, search_region)
                     if report:
+                        weather_widget = report["widget"]
                         return {"results": [{
                             "title": f"Weather in {report['place']}",
                             "url": _weather.SOURCE_URL,
@@ -292,16 +306,31 @@ async def _chat_stream_response(
             logger.warning("proactive_web_search_failed error=%s", str(_e))
             return None
 
+    async def _tools_task():
+        # The calculator, conversions, clock and dictionary answer from the message itself
+        if not actions_enabled:
+            return {}, []
+        return await run_proactive(prompt, {"user_tz": user_tz})
+
     async def _rag_task():
         if not rag_enabled:
             return ""
         return await retrieve_rag_context(str(chat.id), str(user.id), prompt, db, base_url)
 
-    image_context, rag_context, _search_data = await asyncio.gather(
+    image_context, rag_context, _search_data, (tool_answers, widgets) = await asyncio.gather(
         _image_description(),
         _rag_task(),
         _web_search_task(),
+        _tools_task(),
     )
+    # A tool that already answered is not offered again: the model would only call it twice.
+    # The weather is answered too when its card was made, since the report is in the search results.
+    answered = set(tool_answers)
+    if weather_widget:
+        widgets = [weather_widget, *widgets]
+        answered.add("get_weather")
+    if answered and active_tools:
+        active_tools = [t for t in active_tools if t["function"]["name"] not in answered] or None
 
     effective_system = system_prompt
     if rag_context:
@@ -330,6 +359,14 @@ async def _chat_stream_response(
             f"where \"{first_name}\" is fine once."
         )
 
+    # The date only, never the time, and as background like the name: told it outright,
+    # small models open every reply with it
+    effective_system += (
+        f"\n\nFor reference, today is {today:%A}, {today:%B} {today.day}, {today.year}. Use it to make sense of "
+        f"words like \"yesterday\" or \"this year\", and to tell when something may have changed since your "
+        f"training. Do not mention the date unless the user asks for it or the answer depends on it."
+    )
+
     messages = []
     if not _skip_system_prompt(model):
         messages.append({"role": "system", "content": effective_system})
@@ -354,7 +391,7 @@ async def _chat_stream_response(
         _search_block = _format_search_block(_search_data["results"])
         last_msg = messages[-1]
         last_msg["content"] = (
-            f"<search_results date=\"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}\">\n"
+            f"<search_results date=\"{today.isoformat()}\">\n"
             f"{_search_block}\n"
             f"</search_results>\n\n"
             f"{last_msg['content']}"
@@ -376,6 +413,24 @@ async def _chat_stream_response(
             f"{last_msg['content']}"
         )
 
+    if tool_answers:
+        last_msg = messages[-1]
+        last_msg["content"] = (
+            "<tool_results>\n" + "\n\n".join(tool_answers.values()) + "\n</tool_results>\n"
+            "[Exact results worked out for this message. Answer from them and do not redo the math or "
+            "conversion yourself. Do not mention tools or tool results.]\n"
+            + f"\n{last_msg['content']}"
+        )
+
+    if widgets:
+        # The card already shows the details, so the reply only has to say it
+        last_msg = messages[-1]
+        last_msg["content"] = (
+            "[The user sees a card above your reply with the details from these results. Answer in one "
+            "or two short sentences, keep to what matters for their question, and do not list every number.]\n\n"
+            + last_msg["content"]
+        )
+
     chat_id    = str(chat.id) if chat else None
     chat_title = chat.title if chat else None
 
@@ -387,6 +442,9 @@ async def _chat_stream_response(
     async def generate():
         full_response = ""
         success       = False
+        # Cards first, so they are on screen while the reply is still being written
+        if widgets:
+            yield f"data: {json.dumps({'type': 'widgets', 'widgets': widgets})}\n\n"
         current_messages: list[dict] = list(messages)
         reactive_search_blocks: list[str] = []
         # One rescue per turn: if the reply opens by giving up ("I don't have
@@ -486,7 +544,7 @@ async def _chat_stream_response(
                         if results:
                             reactive_search_blocks.append(_format_search_block(results))
                             block = (
-                                f"<search_results date=\"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}\">\n"
+                                f"<search_results date=\"{today.isoformat()}\">\n"
                                 f"{reactive_search_blocks[-1]}\n</search_results>\n\n"
                             )
                         else:
@@ -571,8 +629,11 @@ async def _chat_stream_response(
                             tool_args = json.loads(tool_args)
                         except (json.JSONDecodeError, ValueError):
                             tool_args = {}
-                    if tool_name in ("web_search", "get_weather"):
-                        tool_args["_region"] = search_region
+                    if not isinstance(tool_args, dict):
+                        tool_args = {}
+                    # Set here, never by the model: the search region and the user's timezone
+                    tool_args["_region"] = search_region
+                    tool_args["_user_tz"] = user_tz
                     try:
                         tool_result = await execute_tool(tool_name, tool_args)
                     except Exception:
@@ -621,7 +682,10 @@ async def _chat_stream_response(
                                 images=images or None, image_context=image_context or None,
                                 search_context=_search_ctx,
                             ))
-                            write_db.add(Message(chat_id=chat_id, role="assistant", content=processed, model=model))
+                            write_db.add(Message(
+                                chat_id=chat_id, role="assistant", content=processed, model=model,
+                                widgets=widgets or None,
+                            ))
                             chat_update: dict = {"updated_at": datetime.now(timezone.utc)}
                             if chat_title == "New Chat":
                                 chat_update["title"] = prompt[:60]
@@ -695,6 +759,7 @@ async def chat_stream(
         chat=chat,
         think=bool(body.think),
         festive=body.festive,
+        user_tz=request.headers.get("x-timezone"),
     )
 
 
@@ -728,6 +793,7 @@ async def guest_chat_stream(
         db=db,
         think=bool(body.think),
         festive=body.festive,
+        user_tz=request.headers.get("x-timezone"),
     )
 
 
@@ -756,4 +822,5 @@ async def private_chat_stream(
         user=user,
         think=bool(body.think),
         festive=body.festive,
+        user_tz=request.headers.get("x-timezone"),
     )

@@ -38,6 +38,7 @@ async def lifespan(_: FastAPI):
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS images JSON",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_context TEXT",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_context TEXT",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS widgets JSON",
             "ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE",
             "ALTER TABLE documents ADD COLUMN IF NOT EXISTS chat_id UUID REFERENCES chats(id) ON DELETE CASCADE",
             "ALTER TABLE documents ADD COLUMN IF NOT EXISTS filename TEXT",

@@ -1652,7 +1652,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <img className="pref-about-logo" src={logoUrl} alt="" />
                 <div className="pref-about-wordmark">ModelLoop</div>
                 <div className="pref-about-build">
-                  Latest Build Date: Nov 6, 2026
+                  Latest Build Date: Nov 8, 2026
                 </div>
                 <div className="pref-about-tagline">
                   Self-hosted AI chat powered by your local LLM
@@ -1661,7 +1661,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-account-card">
                 <div className="pref-account-field">
                   <div className="pref-field-label">Version</div>
-                  <div className="pref-about-meta-value">v2.0.0</div>
+                  <div className="pref-about-meta-value">v2.1.0</div>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
                   <div className="pref-field-label">Built by</div>

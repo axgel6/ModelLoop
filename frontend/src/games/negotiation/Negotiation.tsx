@@ -2020,25 +2020,27 @@ function Play({
           </div>
           <div className="neg-price">
             <span className="neg-stat-value">{money(state.ask)}</span>
-            {selling ? (
-              <span className="pref-item-desc">
-                {result?.paid != null ? "They paid" : "Offering"}
-                {state.opening_bid != null && state.ask > state.opening_bid && (
-                  <>
-                    , up from <s>{money(state.opening_bid)}</s>
-                  </>
-                )}
-              </span>
-            ) : (
-              <span className="pref-item-desc">
-                {result?.paid != null ? "You paid" : "Asking"}
-                {state.ask < state.list_price && (
-                  <>
-                    , down from <s>{money(state.list_price)}</s>
-                  </>
-                )}
-              </span>
-            )}
+            <PriceCaption
+              label={
+                result?.paid != null
+                  ? selling
+                    ? "They paid"
+                    : "You paid"
+                  : selling
+                    ? "Offering"
+                    : "Asking"
+              }
+              direction={selling ? "up" : "down"}
+              from={
+                selling
+                  ? state.opening_bid != null && state.ask > state.opening_bid
+                    ? state.opening_bid
+                    : null
+                  : state.ask < state.list_price
+                    ? state.list_price
+                    : null
+              }
+            />
           </div>
           {trading && (
             <TradePicker
@@ -2795,103 +2797,116 @@ function Play({
           </div>
         ) : (
           <>
-            <div
-              className="neg-extras"
-              role="group"
-              aria-label="More you can offer"
-            >
-              {sweeteners
-                .filter((x) => !(state.sweeteners ?? []).includes(x.id))
-                // Covering shipping only means something on a listing that ships
-                .filter(
-                  (x) =>
-                    x.id !== "shipping" || /shipping/i.test(scenario.setting),
-                )
-                // ...and coming to collect it, only on one that is picked up: not a house, a ticket or a jet
-                .filter(
-                  (x) => x.id !== "pickup" || /pickup/i.test(scenario.setting),
-                )
-                .map((x) => (
+            <div className="neg-extras-bar">
+              <div
+                className="neg-extras"
+                role="group"
+                aria-label="More you can offer"
+              >
+                {sweeteners
+                  .filter((x) => !(state.sweeteners ?? []).includes(x.id))
+                  // Covering shipping only means something on a listing that ships
+                  .filter(
+                    (x) =>
+                      x.id !== "shipping" || /shipping/i.test(scenario.setting),
+                  )
+                  // ...and coming to collect it, only on one that is picked up: not a house, a ticket or a jet
+                  .filter(
+                    (x) => x.id !== "pickup" || /pickup/i.test(scenario.setting),
+                  )
+                  .map((x) => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      className="neg-extra"
+                      onClick={() => play({ sweetener: x.id })}
+                      disabled={busy}
+                      title={
+                        x.words
+                          ? "Costs no patience and wins back two. It will not lower the price, unless they are sentimental about it. Works once."
+                          : x.calms
+                            ? "Better terms count for something, and win back some patience. Each works once."
+                            : "Better terms count for something. Each works once."
+                      }
+                    >
+                      <ExtraIcon name={x.id} />
+                      {x.label}
+                    </button>
+                  ))}
+                {/* A tactic like the others, played once: not a way out, so not beside taking the price */}
+                {!state.bluffed && (
                   <button
-                    key={x.id}
                     type="button"
                     className="neg-extra"
-                    onClick={() => play({ sweetener: x.id })}
+                    onClick={() => play({ bluff: true })}
                     disabled={busy}
                     title={
-                      x.words
-                        ? "Costs no patience and wins back two. It will not lower the price, unless they are sentimental about it. Works once."
-                        : x.calms
-                          ? "Better terms count for something, and win back some patience. Each works once."
-                          : "Better terms count for something. Each works once."
+                      selling
+                        ? "Mention someone else is interested and see if their offer moves. Works once, and costs patience."
+                        : "Say you are leaving and see if the price moves. Works once, and costs patience."
                     }
                   >
-                    <ExtraIcon name={x.id} />
-                    {x.label}
+                    <ExtraIcon name="bluff" />
+                    {selling ? "Mention another buyer" : "Bluff leaving"}
                   </button>
-                ))}
-              {/* A tactic like the others, played once: not a way out, so not beside taking the price */}
-              {!state.bluffed && (
-                <button
-                  type="button"
-                  className="neg-extra"
-                  onClick={() => play({ bluff: true })}
-                  disabled={busy}
-                  title={
-                    selling
-                      ? "Mention someone else is interested and see if their offer moves. Works once, and costs patience."
-                      : "Say you are leaving and see if the price moves. Works once, and costs patience."
-                  }
-                >
-                  <ExtraIcon name="bluff" />
-                  {selling ? "Mention another buyer" : "Bluff leaving"}
-                </button>
-              )}
-              {!selling && (
-                <button
-                  type="button"
-                  className="neg-extra"
-                  onClick={() => setTrading(true)}
-                  disabled={busy}
-                  title="Offer one of your things, and cash if you like, instead of paying the price"
-                >
-                  <ExtraIcon name="trade" />
-                  Trade
-                </button>
-              )}
-              {/* Finding something out, not offering anything: last, and dashed */}
-              {!selling && !state.auth && canAuthenticate(scenario) && (
-                <button
-                  type="button"
-                  className="neg-extra neg-extra--research"
-                  onClick={() => edit("authenticate")}
-                  disabled={busy}
-                  title="A third party checks it before you pay: fakes and tampering, not ordinary wear"
-                >
-                  <ExtraIcon name="auth" />
-                  Authenticate
-                  <span className="neg-extra-cost">
-                    {money(authFee(state.ask))}
-                  </span>
-                </button>
-              )}
-              {!selling && !state.research && (
-                <button
-                  type="button"
-                  className="neg-extra neg-extra--research"
-                  onClick={() => edit("research")}
-                  disabled={busy}
-                  title="See what tends to go wrong with these, so you know what to ask about"
-                >
-                  <ExtraIcon name="research" />
-                  Sold listings
-                  {inRun && (
+                )}
+                {!selling && (
+                  <button
+                    type="button"
+                    className="neg-extra"
+                    onClick={() => setTrading(true)}
+                    disabled={busy}
+                    title="Offer one of your things, and cash if you like, instead of paying the price"
+                  >
+                    <ExtraIcon name="trade" />
+                    Trade
+                  </button>
+                )}
+                {/* Finding something out, not offering anything: last, and dashed */}
+                {!selling && !state.auth && canAuthenticate(scenario) && (
+                  <button
+                    type="button"
+                    className="neg-extra neg-extra--research"
+                    onClick={() => edit("authenticate")}
+                    disabled={busy}
+                    title="A third party checks it before you pay: fakes and tampering, not ordinary wear"
+                  >
+                    <ExtraIcon name="auth" />
+                    Authenticate
                     <span className="neg-extra-cost">
-                      {money(RESEARCH_FEE)}
+                      {money(authFee(state.ask))}
                     </span>
-                  )}
-                </button>
-              )}
+                  </button>
+                )}
+                {!selling && !state.research && (
+                  <button
+                    type="button"
+                    className="neg-extra neg-extra--research"
+                    onClick={() => edit("research")}
+                    disabled={busy}
+                    title="See what tends to go wrong with these, so you know what to ask about"
+                  >
+                    <ExtraIcon name="research" />
+                    Sold listings
+                    {inRun && (
+                      <span className="neg-extra-cost">
+                        {money(RESEARCH_FEE)}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+              {/* On a phone, walking away moves here from the message box, which has no room for it.
+                  Outside the scrolling chips, so it stays in view at the end of the row. */}
+              <button
+                type="button"
+                className="neg-extra neg-extra--walk"
+                onClick={() => close("walk")}
+                disabled={busy}
+              >
+                <ExtraIcon name="walk" />
+                {selling ? "Reject" : "Walk away"}
+              </button>
             </div>
             <form className="input-wrapper neg-composer" onSubmit={send}>
               <input
@@ -2941,15 +2956,20 @@ function Play({
                     </span>
                   </label>
                   {/* What you have to spend, beside what you are offering; opens the bank */}
-                  {(run || freeBank) && (
+                  {balance != null && (
                     <button
                       type="button"
                       className="neg-wallet"
                       onClick={() => setBankOpen(true)}
                       title="Bank account"
                     >
+                      <ExtraIcon name="wallet" className="neg-wallet-icon" />
                       <span>{run ? `Day ${run.day}/${run.days} · Cash` : "Balance"}</span>
-                      <strong>{money(run ? run.cash : freeBank!.cash)}</strong>
+                      {/* The full figure, or a short one like $37.5M on a phone */}
+                      <strong className="neg-wallet-full">{money(balance)}</strong>
+                      <strong className="neg-wallet-short">
+                        {shortMoney(balance)}
+                      </strong>
                     </button>
                   )}
                 </div>
@@ -2969,7 +2989,11 @@ function Play({
                     onClick={() => setPaying(true)}
                     disabled={busy}
                   >
-                    {selling ? "Sell" : "Take it"} at{" "}
+                    {selling ? "Sell" : "Take"}
+                    {/* "Take it at", cut to "Take" on a phone */}
+                    <span className="neg-take-long">
+                      {selling ? " at" : " it at"}
+                    </span>{" "}
                     <strong>{money(state.ask)}</strong>
                   </button>
                   <button
@@ -3214,12 +3238,57 @@ const EXTRA_ICONS: Record<string, React.ReactNode> = {
       <path d="M10 8l4 4-4 4M14 12H4" />
     </>
   ),
+  walk: <path d="M6 6l12 12M18 6L6 18" />,
+  wallet: (
+    <>
+      <path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6" />
+      <path d="M16 14h.01" />
+    </>
+  ),
 };
 
-function ExtraIcon({ name }: { name: string }) {
+/** Under the price in the header: what it is, and what it moved from. A phone shows only the old figure, struck through. */
+function PriceCaption({
+  label,
+  direction,
+  from,
+}: {
+  label: string;
+  direction: "up" | "down";
+  from: number | null;
+}) {
+  return (
+    <span className="pref-item-desc">
+      {from == null ? (
+        label
+      ) : (
+        <>
+          <span className="neg-price-words">
+            {label}, {direction} from{" "}
+          </span>
+          <s>{money(from)}</s>
+        </>
+      )}
+    </span>
+  );
+}
+
+/** A balance cut short for a narrow screen: $37.5M, $12.4K, or the whole figure under ten thousand */
+function shortMoney(amount: number): string {
+  const n = Math.abs(amount);
+  if (n < 10_000) return money(amount);
+  const [div, unit] =
+    n >= 1e9 ? [1e9, "B"] : n >= 1e6 ? [1e6, "M"] : [1e3, "K"];
+  const v = n / div;
+  const shown =
+    v >= 100 ? Math.round(v).toString() : v.toFixed(1).replace(/\.0$/, "");
+  return `${amount < 0 ? "-" : ""}$${shown}${unit}`;
+}
+
+function ExtraIcon({ name, className }: { name: string; className?: string }) {
   return (
     <svg
-      className="neg-extra-icon"
+      className={`neg-extra-icon${className ? ` ${className}` : ""}`}
       viewBox="0 0 24 24"
       width="14"
       height="14"

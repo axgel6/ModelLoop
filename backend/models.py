@@ -79,6 +79,8 @@ class Message(Base):
     search_context: Mapped[Optional[str]]    = mapped_column(Text, nullable=True)
     # Which model wrote an assistant message; NULL for user turns and older rows
     model:          Mapped[Optional[str]]    = mapped_column(String(100), nullable=True)
+    # Cards shown above an assistant reply, such as a clock: [{"kind": "clock", ...}]
+    widgets:        Mapped[Optional[list]]   = mapped_column(JSON, nullable=True)
     created_at:     Mapped[datetime]         = mapped_column(DateTime(timezone=True), server_default=func.now())
     chat:           Mapped["Chat"]           = relationship(back_populates="messages")
 

@@ -6,9 +6,10 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { type Message } from "./api";
 import { CheckIcon, CopyIcon, EditIcon, RetryIcon, SpeakerIcon, StopIcon } from "./MessageIcons";
+import { MessageWidgets } from "./MessageWidgets";
 import { speakWithChosenVoice } from "./speechVoice";
 import { rehypeStreamWords } from "./utils/rehypeStreamWords";
-import { fixMathDelimiters, fmtTime } from "./utils/chatUtils";
+import { fixMathDelimiters, fixNestedFences, fmtTime } from "./utils/chatUtils";
 
 function stripMarkdown(text: string): string {
   return text
@@ -108,6 +109,26 @@ const THINKING_PHRASES = [
   "Mulling that over",
 ];
 
+// What each backend tool (backend/actions) is doing while the model waits on it
+const TOOL_PHRASES: Record<string, string> = {
+  web_search: "Looking that up",
+  get_weather: "Checking the weather",
+  calculate: "Doing the math",
+  convert_units: "Converting that",
+  get_time: "Checking the clock",
+  convert_currency: "Checking exchange rates",
+  define_word: "Opening the dictionary",
+};
+
+/** The weather report is stored with search results (backend/routers/stream.py), so name it by what it holds */
+function sourceLabel(context: string): string {
+  const weatherOnly =
+    context.startsWith("**Weather in ") &&
+    context.includes("(https://open-meteo.com/)") &&
+    !context.includes("\n\n---\n\n");
+  return weatherOnly ? "Weather" : "Web Search";
+}
+
 export const AssistantMessage = memo(function AssistantMessage({
   msg,
   isLast,
@@ -169,6 +190,8 @@ export const AssistantMessage = memo(function AssistantMessage({
 
   return (
     <div className="msg-bubble-group">
+      {/* Cards from the backend's tools sit above the reply, on their own */}
+      {!!msg.widgets?.length && <MessageWidgets widgets={msg.widgets} />}
       <div className="message assistant">
         <div className={`assistant-content${revealing ? " is-revealing" : ""}`}>
           {msg.thinking && (
@@ -239,7 +262,7 @@ export const AssistantMessage = memo(function AssistantMessage({
                 >
                   <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
                 </svg>
-                Web Search
+                {sourceLabel(msg.search_context)}
               </button>
               {searchContextOpen && (
                 <div className="reasoning-content">{msg.search_context}</div>
@@ -256,11 +279,7 @@ export const AssistantMessage = memo(function AssistantMessage({
               <span className="thinking-phrase">
                 {!showToolUse
                   ? thinkingPhrase.current
-                  : activeTool === "web_search"
-                    ? "Looking that up"
-                    : activeTool === "get_weather"
-                      ? "Checking the weather"
-                      : "Fetching what I need"}
+                  : (TOOL_PHRASES[activeTool ?? ""] ?? "Fetching what I need")}
               </span>
             </span>
           ) : (
@@ -269,7 +288,7 @@ export const AssistantMessage = memo(function AssistantMessage({
               rehypePlugins={revealing ? REHYPE_PLUGINS_STREAMING : REHYPE_PLUGINS}
               components={MD_COMPONENTS}
             >
-              {fixMathDelimiters(shownContent)}
+              {fixMathDelimiters(fixNestedFences(shownContent))}
             </ReactMarkdown>
           )}
         </div>

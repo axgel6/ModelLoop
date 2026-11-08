@@ -342,6 +342,23 @@ html .neg .neg-composer .neg-wallet:hover {
   transform: none;
 }
 
+/* The short figure, the wallet icon and walking away as a chip are for a phone only */
+.neg-composer .neg-wallet-short,
+.neg-composer .neg-wallet-icon,
+html .neg .neg-extra.neg-extra--walk {
+  display: none;
+}
+
+/* The notes under a bubble are sentences, not times: the plain face, not the timestamp's bold wide one */
+:root[data-theme] body .neg-feed .msg-meta .msg-timestamp {
+  font-family: var(--ui-font);
+  font-stretch: 100%;
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+
 .neg-composer .neg-wallet strong {
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
@@ -1224,13 +1241,125 @@ html .neg .neg-take:active:not(:disabled) {
     gap: 10px;
   }
 
-  /* On a narrow message box the figure says enough on its own */
-  .neg-composer .neg-wallet span {
+  .neg--stage {
+    --neg-gutter: 10px;
+  }
+
+  /* The message box keeps one toolbar row on a phone: the offer, your money as a wallet and a
+     short figure, then "Take $165" and send. Walking away moves to the chips above. */
+  .neg-composer .input-toolbar {
+    gap: 6px;
+  }
+
+  .neg-composer .toolbar-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .neg-composer .toolbar-right {
+    flex-shrink: 0;
+    gap: 6px;
+  }
+
+  .neg-composer .neg-walk,
+  .neg-composer .neg-take-long,
+  .neg-composer .neg-wallet > span,
+  .neg-composer .neg-wallet-full {
     display: none;
   }
 
-  .neg--stage {
-    --neg-gutter: 10px;
+  html .neg .neg-extra.neg-extra--walk {
+    display: inline-flex;
+  }
+
+  .neg-composer .neg-wallet-short,
+  .neg-composer .neg-wallet-icon {
+    display: inline;
+  }
+
+  .neg-composer .neg-wallet-icon {
+    color: inherit;
+  }
+
+  /* Your money in the plain face and muted, so it reads as a side note to the offer */
+  .neg-composer .neg-wallet strong {
+    font-family: var(--ui-font);
+    font-stretch: 100%;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--game-muted);
+  }
+
+  html .neg .neg-composer .neg-wallet,
+  html .neg .neg-composer .neg-wallet:hover {
+    gap: 4px;
+    margin: 0 4px 0 auto;
+  }
+
+  .neg-composer .neg-offer {
+    gap: 6px;
+    margin-left: 2px;
+  }
+
+  .neg-composer .neg-offer-sign,
+  .neg-composer .neg-offer input {
+    font-size: 0.88rem;
+  }
+
+  :root[data-theme] body .neg .neg-composer .neg-take {
+    &,
+    &:is(:hover, :active, :focus):not(:disabled) {
+      padding: 4px 13px;
+    }
+  }
+
+  /* The header: only the old price, struck through, under the new one */
+  .neg-price-words {
+    display: none;
+  }
+
+  .neg-composer {
+    container-type: inline-size;
+  }
+
+  .neg-dock {
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  /* The header: a smaller title on one line (the listing card below has the full name),
+     and the face, ring and price a size down */
+  .neg-top .neg-who .neg-title {
+    font-size: 0.95rem;
+    font-stretch: 100%;
+  }
+
+  .neg-patience-ring {
+    width: 44px;
+    height: 44px;
+  }
+
+  .neg-top .neg-face--head {
+    width: 35px;
+    height: 35px;
+  }
+
+  .neg-price .neg-stat-value {
+    font-size: 1.08rem;
+  }
+
+  .neg-price .pref-item-desc {
+    font-size: 0.7rem;
+  }
+
+  .neg-listing {
+    padding: 12px 14px;
+  }
+}
+
+/* On the smallest phones there is no room for your money beside the offer; the bank still has it */
+@container (max-width: 320px) {
+  html .neg .neg-composer .neg-wallet {
+    display: none;
   }
 }
 
@@ -2138,29 +2267,35 @@ html .neg .neg-extra:disabled {
   color: var(--game-accent);
 }
 
-/* Research is a different kind of move: it finds something out instead of offering something */
+/* Research is a different kind of move: it finds something out instead of offering something.
+   The same glass as the other chips, so it holds up over a wallpaper, with a dashed rim. */
 html .neg .neg-extra--research,
 html .neg .neg-extra--research:hover,
 html .neg .neg-extra--research:disabled {
-  border-style: dashed;
-  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--game-muted) 55%, transparent);
   box-shadow: none;
-  color: var(--game-muted);
 }
 
 /* Flat, with no shadow under it, a lift only reads as being out of line with the chips beside it */
 html .neg .neg-extra--research:hover:not(:disabled) {
-  color: var(--game-ink);
+  border-color: var(--game-muted);
   transform: none;
 }
 
+/* What it costs, set apart by a thin rule instead of a second pill inside the pill */
 .neg-extra-cost {
-  margin-left: 1px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--game-accent) 18%, transparent);
-  color: var(--game-ink);
-  font-size: 0.64rem;
+  margin-left: 2px;
+  padding-left: 7px;
+  border-left: 1px solid color-mix(in srgb, var(--game-muted) 40%, transparent);
+  color: var(--game-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Laid out by the chips' own row on a wide screen; on a phone it holds the scrolling chips and walking away */
+.neg-extras-bar {
+  display: contents;
 }
 
 /* Something the game says, not either side: centered, like the persona line */
@@ -2265,13 +2400,15 @@ html .neg-report-badge.is-down {
 }
 
 /* On a phone: the chips are one row that scrolls sideways, fading out at the edge so it reads as
-   more to see. Walking away keeps to one line beside taking the price. */
+   more to see. Walking away sits at the end of the row, outside the scroll. */
 @media (max-width: 640px) {
   .neg-extras {
     flex-wrap: nowrap;
     overflow-x: auto;
-    margin: 0 -10px 8px;
-    padding: 2px 10px 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 2px 8px 4px 10px;
     scroll-padding-inline: 10px;
     scrollbar-width: none;
     -webkit-mask-image: linear-gradient(
@@ -2286,6 +2423,18 @@ html .neg-report-badge.is-down {
     display: none;
   }
 
+  /* The chips scroll and fade out at their end; walking away stays put beside them */
+  .neg-extras-bar {
+    display: flex;
+    align-items: center;
+    margin: 0 -10px 8px;
+    padding-right: 10px;
+  }
+
+  .neg-extras-bar .neg-extra--walk {
+    margin-bottom: 2px;
+  }
+
   html .neg .neg-extra,
   html .neg .neg-extra:hover,
   html .neg .neg-extra:disabled {
@@ -2298,9 +2447,6 @@ html .neg-report-badge.is-down {
     transform: none;
   }
 
-  .neg-composer .neg-walk {
-    white-space: nowrap;
-  }
 }
 
 .neg-research {

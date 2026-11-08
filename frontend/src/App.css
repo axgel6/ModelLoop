@@ -3350,6 +3350,297 @@ html[data-theme] .topbar-rename-input::placeholder {
   align-items: flex-end;
 }
 
+/* ---- Cards above a reply (MessageWidgets.tsx) ----
+   What a tool found, shown on its own above the model's words, on the app's floating glass */
+.msg-widgets {
+  align-self: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  margin-bottom: 8px;
+}
+
+/* Laid out like a bedside clock: everything on the center line, the time filling the card */
+.clock-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 300px;
+  max-width: 100%;
+  padding: 14px 28px 16px;
+  text-align: center;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: var(--lens-bg-dense);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  animation: page-rise 0.25s ease-out backwards;
+}
+
+.clock-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.clock-card-sky {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--game-accent);
+}
+
+.clock-card.is-night .clock-card-sky {
+  color: var(--game-muted);
+}
+
+.clock-card-place {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clock-card-time {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  margin: 4px 0 6px;
+  /* Round, heavy and wide, like a bedside clock */
+  font-family: "Fredoka", var(--ui-font);
+  font-stretch: 110%;
+  font-weight: 700;
+  font-size: 4.75rem;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-heading);
+}
+
+.clock-card-colon {
+  margin: 0 0.04em;
+}
+
+.clock-card-period {
+  margin-left: 0.3em;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--game-muted);
+}
+
+.clock-card-date {
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.clock-card-zone {
+  color: var(--game-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+/* Conversions reuse the clock card, with a smaller figure since amounts run longer than a time */
+.conversion-card-from {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--game-muted);
+}
+
+.clock-card-time.conversion-card-value {
+  flex-wrap: wrap;
+  margin-top: 2px;
+  font-size: 3rem;
+  row-gap: 4px;
+}
+
+.conversion-card-figure {
+  overflow-wrap: anywhere;
+}
+
+/* Weather: the card is the sky, so the gradient follows the conditions and the daylight */
+.weather-card {
+  --sky-top: #3a8ee6;
+  --sky-bottom: #79bdf2;
+  --sky-glow: transparent;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-width: 100%;
+  padding: 16px 18px 14px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 88% 0%, var(--sky-glow), transparent 55%),
+    linear-gradient(170deg, var(--sky-top), var(--sky-bottom));
+  box-shadow: var(--shadow-lens);
+  color: #fff;
+  font-family: var(--ui-font);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  animation: page-rise 0.25s ease-out backwards;
+}
+
+.weather-card.sky-clear.is-day { --sky-top: #2f86e0; --sky-bottom: #7cc0f3; --sky-glow: rgba(255, 228, 150, 0.5); }
+.weather-card.sky-partly.is-day { --sky-top: #4a82c4; --sky-bottom: #93b8dc; --sky-glow: rgba(255, 228, 150, 0.25); }
+.weather-card.sky-cloudy.is-day { --sky-top: #6c7c90; --sky-bottom: #a2adba; }
+.weather-card.sky-fog.is-day { --sky-top: #848e98; --sky-bottom: #b6bdc4; }
+.weather-card.sky-rain.is-day { --sky-top: #46566b; --sky-bottom: #718398; }
+.weather-card.sky-snow.is-day { --sky-top: #6a86a5; --sky-bottom: #a6bacd; }
+.weather-card.sky-storm.is-day { --sky-top: #383c52; --sky-bottom: #5f6179; }
+.weather-card.sky-clear.is-night { --sky-top: #0c1a3c; --sky-bottom: #2b3f70; --sky-glow: rgba(190, 205, 255, 0.18); }
+.weather-card.sky-partly.is-night { --sky-top: #182340; --sky-bottom: #3a4b70; }
+.weather-card.sky-cloudy.is-night { --sky-top: #252c39; --sky-bottom: #48515f; }
+.weather-card.sky-fog.is-night { --sky-top: #2e3339; --sky-bottom: #545b63; }
+.weather-card.sky-rain.is-night { --sky-top: #1b2432; --sky-bottom: #3b4757; }
+.weather-card.sky-snow.is-night { --sky-top: #2b394e; --sky-bottom: #5a6c84; }
+.weather-card.sky-storm.is-night { --sky-top: #16162a; --sky-bottom: #36344e; }
+
+.weather-card-now {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.weather-card-where {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.weather-card-place {
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weather-card-region {
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weather-card-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.weather-card-temp {
+  display: flex;
+  align-items: flex-start;
+  margin: 6px 0 4px;
+  font-family: "Fredoka", var(--ui-font);
+  font-stretch: 110%;
+  font-weight: 700;
+  font-size: 4rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-card-deg {
+  margin: 0.12em 0 0 0.04em;
+  font-size: 1.4rem;
+  opacity: 0.85;
+}
+
+.weather-card-condition {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.weather-card-range {
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
+.weather-card-days {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.weather-card-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 7px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.weather-card-day-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.weather-card-day-temps {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-card-low {
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.weather-card-day-rain {
+  font-size: 0.66rem;
+  font-weight: 500;
+  line-height: 1.2;
+  opacity: 0.8;
+}
+
+.weather-card-foot {
+  margin-top: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clock-card,
+  .weather-card {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .clock-card,
+  .weather-card {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .clock-card-time {
+    font-size: 3.75rem;
+  }
+}
+
 .msg-bubble-group .message {
   max-width: 100%;
 }
@@ -3441,13 +3732,18 @@ html[data-theme] .topbar-rename-input::placeholder {
 
 /* ============================================================
    Slash command autocomplete dropdown
+   Laid out like the account menu: rows inset from the menu's edge with no dividers, so the
+   row under the pointer or the arrow keys can rise as a lens (see "Lens finish").
    ============================================================ */
 
 .slash-dropdown {
   position: absolute;
-  bottom: calc(100% + 2px);
+  bottom: calc(100% + 8px);
   left: 10px;
   right: 10px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
   overflow: hidden;
   z-index: 50;
   animation: dropdown-up 0.26s var(--spring) backwards;
@@ -3457,34 +3753,26 @@ html[data-theme] .topbar-rename-input::placeholder {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   cursor: pointer;
-  transition: background 0.1s;
-}
-
-.slash-item:not(:last-child) {
-  border-bottom: 1px solid rgba(80, 73, 69, 0.25);
-}
-
-:where(html[data-theme="frost"]) .slash-item:not(:last-child) {
-  border-bottom: 1px solid rgba(76, 86, 106, 0.25);
-}
-
-.slash-item-cmd {
-  font-size: 0.8rem;
-  font-weight: 600;
-  min-width: 56px;
   font-family: var(--ui-font);
+}
+
+/* The command is what you pick, so it carries the weight; what it does is the muted aside */
+.slash-item-cmd {
+  min-width: 64px;
+  color: var(--game-ink);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .slash-item-desc {
-  color: #665c54;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--game-muted);
   font-size: 0.76rem;
-  font-family: var(--ui-font);
-}
-
-:where(html[data-theme="frost"]) .slash-item-desc {
-  color: #5d687e;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ============================================================
@@ -6537,21 +6825,7 @@ html[data-theme="meadow"] .toolbar-dock-label::after {
   border-top-color: rgba(41, 66, 49, 0.88);
 }
 
-html[data-theme="dune"] .slash-dropdown {
-  border-radius: 12px;
-}
-
-html[data-theme="ember"] .slash-dropdown,
-html[data-theme="frost"] .slash-dropdown {
-  border-radius: 12px;
-}
-
-html[data-theme="meadow"] .slash-dropdown {
-  border-radius: 12px;
-}
-
-html[data-theme="dune"] .tools-dropdown-item,
-html[data-theme="dune"] .slash-item {
+html[data-theme="dune"] .tools-dropdown-item {
   color: #78716c;
   outline: none;
   border: 1px solid transparent !important;
@@ -6559,8 +6833,7 @@ html[data-theme="dune"] .slash-item {
   box-shadow: none !important;
 }
 
-html[data-theme="ember"] .tools-dropdown-item,
-html[data-theme="ember"] .slash-item {
+html[data-theme="ember"] .tools-dropdown-item {
   color: #a89984;
   outline: none;
   border: 1px solid transparent !important;
@@ -6568,8 +6841,7 @@ html[data-theme="ember"] .slash-item {
   box-shadow: none !important;
 }
 
-html[data-theme="frost"] .tools-dropdown-item,
-html[data-theme="frost"] .slash-item {
+html[data-theme="frost"] .tools-dropdown-item {
   color: #a3adbf;
   outline: none;
   border: 1px solid transparent !important;
@@ -6577,8 +6849,7 @@ html[data-theme="frost"] .slash-item {
   box-shadow: none !important;
 }
 
-html[data-theme="meadow"] .tools-dropdown-item,
-html[data-theme="meadow"] .slash-item {
+html[data-theme="meadow"] .tools-dropdown-item {
   color: #52635a;
   outline: none;
   border: 1px solid transparent !important;
@@ -6588,8 +6859,6 @@ html[data-theme="meadow"] .slash-item {
 
 html[data-theme="dune"] .tools-dropdown-item:focus,
 html[data-theme="dune"] .tools-dropdown-item:focus-visible,
-html[data-theme="dune"] .slash-item:focus,
-html[data-theme="dune"] .slash-item:focus-visible,
 html[data-theme="dune"] .docs-item-delete:focus,
 html[data-theme="dune"] .docs-item-delete:focus-visible {
   outline: none;
@@ -6598,14 +6867,10 @@ html[data-theme="dune"] .docs-item-delete:focus-visible {
 
 html[data-theme="ember"] .tools-dropdown-item:focus,
 html[data-theme="ember"] .tools-dropdown-item:focus-visible,
-html[data-theme="ember"] .slash-item:focus,
-html[data-theme="ember"] .slash-item:focus-visible,
 html[data-theme="ember"] .docs-item-delete:focus,
 html[data-theme="ember"] .docs-item-delete:focus-visible,
 html[data-theme="frost"] .tools-dropdown-item:focus,
 html[data-theme="frost"] .tools-dropdown-item:focus-visible,
-html[data-theme="frost"] .slash-item:focus,
-html[data-theme="frost"] .slash-item:focus-visible,
 html[data-theme="frost"] .docs-item-delete:focus,
 html[data-theme="frost"] .docs-item-delete:focus-visible {
   outline: none;
@@ -6614,8 +6879,6 @@ html[data-theme="frost"] .docs-item-delete:focus-visible {
 
 html[data-theme="meadow"] .tools-dropdown-item:focus,
 html[data-theme="meadow"] .tools-dropdown-item:focus-visible,
-html[data-theme="meadow"] .slash-item:focus,
-html[data-theme="meadow"] .slash-item:focus-visible,
 html[data-theme="meadow"] .docs-item-delete:focus,
 html[data-theme="meadow"] .docs-item-delete:focus-visible {
   outline: none;
@@ -6623,82 +6886,62 @@ html[data-theme="meadow"] .docs-item-delete:focus-visible {
 }
 
 html[data-theme="dune"] .tools-dropdown-item:hover,
-html[data-theme="dune"] .tools-dropdown-item.active,
-html[data-theme="dune"] .slash-item:hover,
-html[data-theme="dune"] .slash-item.active {
+html[data-theme="dune"] .tools-dropdown-item.active {
   background: rgba(231, 224, 214, 0.6) !important;
   border-color: rgba(231, 224, 214, 0.95) !important;
 }
 
 html[data-theme="ember"] .tools-dropdown-item:hover,
-html[data-theme="ember"] .tools-dropdown-item.active,
-html[data-theme="ember"] .slash-item:hover,
-html[data-theme="ember"] .slash-item.active {
+html[data-theme="ember"] .tools-dropdown-item.active {
   background: rgba(80, 73, 69, 0.6) !important;
   border-color: rgba(80, 73, 69, 0.95) !important;
 }
 
 html[data-theme="frost"] .tools-dropdown-item:hover,
-html[data-theme="frost"] .tools-dropdown-item.active,
-html[data-theme="frost"] .slash-item:hover,
-html[data-theme="frost"] .slash-item.active {
+html[data-theme="frost"] .tools-dropdown-item.active {
   background: rgba(73, 83, 102, 0.6) !important;
   border-color: rgba(73, 83, 102, 0.95) !important;
 }
 
 html[data-theme="meadow"] .tools-dropdown-item:hover,
-html[data-theme="meadow"] .tools-dropdown-item.active,
-html[data-theme="meadow"] .slash-item:hover,
-html[data-theme="meadow"] .slash-item.active {
+html[data-theme="meadow"] .tools-dropdown-item.active {
   background: rgba(214, 231, 219, 0.6) !important;
   border-color: rgba(214, 231, 219, 0.95) !important;
 }
 
 html[data-theme="dune"] .tools-dropdown-item:hover,
-html[data-theme="dune"] .tools-dropdown-item.active,
-html[data-theme="dune"] .slash-item:hover,
-html[data-theme="dune"] .slash-item.active {
+html[data-theme="dune"] .tools-dropdown-item.active {
   color: #1c1917;
 }
 
 html[data-theme="ember"] .tools-dropdown-item:hover,
-html[data-theme="ember"] .tools-dropdown-item.active,
-html[data-theme="ember"] .slash-item:hover,
-html[data-theme="ember"] .slash-item.active {
+html[data-theme="ember"] .tools-dropdown-item.active {
   color: #ebdbb2;
 }
 
 html[data-theme="frost"] .tools-dropdown-item:hover,
-html[data-theme="frost"] .tools-dropdown-item.active,
-html[data-theme="frost"] .slash-item:hover,
-html[data-theme="frost"] .slash-item.active {
+html[data-theme="frost"] .tools-dropdown-item.active {
   color: #d8dee9;
 }
 
 html[data-theme="meadow"] .tools-dropdown-item:hover,
-html[data-theme="meadow"] .tools-dropdown-item.active,
-html[data-theme="meadow"] .slash-item:hover,
-html[data-theme="meadow"] .slash-item.active {
+html[data-theme="meadow"] .tools-dropdown-item.active {
   color: #294231;
 }
 
-html[data-theme="dune"] .tools-dropdown-item-desc,
-html[data-theme="dune"] .slash-item-cmd {
+html[data-theme="dune"] .tools-dropdown-item-desc {
   color: #a8a29e;
 }
 
-html[data-theme="ember"] .tools-dropdown-item-desc,
-html[data-theme="ember"] .slash-item-cmd {
+html[data-theme="ember"] .tools-dropdown-item-desc {
   color: #928374;
 }
 
-html[data-theme="frost"] .tools-dropdown-item-desc,
-html[data-theme="frost"] .slash-item-cmd {
+html[data-theme="frost"] .tools-dropdown-item-desc {
   color: #8f99ad;
 }
 
-html[data-theme="meadow"] .tools-dropdown-item-desc,
-html[data-theme="meadow"] .slash-item-cmd {
+html[data-theme="meadow"] .tools-dropdown-item-desc {
   color: #68766d;
 }
 
@@ -8217,6 +8460,7 @@ html[data-theme="meadow"] .pref-about-link:hover {
 html[data-theme] .message,
 html[data-theme] .input-wrapper,
 html[data-theme] .tools-dropdown-menu,
+html[data-theme] .slash-dropdown,
 html[data-theme] .pref-modal,
 html[data-theme] .landing-theme-modal,
 html[data-theme] .pref-theme-card,
@@ -8265,10 +8509,11 @@ html[data-theme] .pref-font-card {
   }
 }
 
-/* Only the dropdown settles. Windows keep their own bouncy modal-in (and the
+/* Only the dropdowns settle. Windows keep their own bouncy modal-in (and the
    sheet-up slide on phones), which an animation set here would replace. */
 @media (prefers-reduced-motion: no-preference) {
-  html[data-theme] .tools-dropdown-menu {
+  html[data-theme] .tools-dropdown-menu,
+  html[data-theme] .slash-dropdown {
     animation: settle 0.42s var(--spring) backwards;
   }
 }
@@ -9913,6 +10158,24 @@ html[data-theme] .sidebar-user-menu-item:hover {
 }
 
 html[data-theme] .sidebar-user-menu-item:active {
+  box-shadow: var(--shadow-lens-pressed);
+}
+
+/* The slash-command menu's rows, the same: flat at rest, a lens under the pointer or the
+   arrow keys, pressed in as one is picked */
+html[data-theme] .slash-item {
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme] .slash-item:hover,
+html[data-theme] .slash-item.active {
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
+}
+
+html[data-theme] .slash-item:active {
   box-shadow: var(--shadow-lens-pressed);
 }
 

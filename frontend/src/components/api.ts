@@ -12,11 +12,16 @@ export function setUnauthorizedHandler(fn: () => void) {
   unauthorizedHandler = fn;
 }
 
+// The browser's timezone, so the server can tell the model what day it is where the user is
+const TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const TZ_HEADER: Record<string, string> = TIMEZONE ? { "X-Timezone": TIMEZONE } : {};
+
 function authHeaders(
   extraHeaders: Record<string, string> = {},
 ): Record<string, string> {
   const token = localStorage.getItem("token");
   return {
+    ...TZ_HEADER,
     ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extraHeaders,
@@ -394,6 +399,58 @@ export async function apiDeleteChat(chatId: string): Promise<void> {
 
 // ----- Messages -----
 
+// A card shown above an assistant reply, from a backend tool (backend/actions)
+export interface ClockWidget {
+  kind: "clock";
+  /** "Tokyo, Japan", or "Your time" */
+  place: string;
+  /** IANA zone name, e.g. "Asia/Tokyo": the card keeps time from it in the browser */
+  tz: string;
+}
+export interface WeatherDay {
+  /** The place's local date, "2026-11-08" */
+  date: string;
+  high: number;
+  low: number;
+  /** WMO weather code */
+  code: number;
+  /** Chance of rain or snow, in percent */
+  rain: number | null;
+}
+export interface WeatherWidget {
+  kind: "weather";
+  place: string;
+  /** State or country, or "" */
+  region: string;
+  unit: "F" | "C";
+  temp: number;
+  feels: number;
+  /** WMO weather code */
+  code: number;
+  condition: string;
+  /** Daylight at the place when it was read */
+  day: boolean;
+  humidity: number;
+  wind: string;
+  /** When the conditions were read, ISO with the place's offset: the card is a snapshot */
+  observed: string;
+  tz: string;
+  days: WeatherDay[];
+}
+/** A currency or unit conversion */
+export interface ConversionWidget {
+  kind: "conversion";
+  /** "US Dollar to Euro", or the kind of measure, "Length" */
+  title: string;
+  /** What was asked about, "100.00 USD" or "5 miles" */
+  from: string;
+  value: string;
+  unit: string;
+  /** The rate and its date, a height in feet and inches, or "" */
+  note: string;
+}
+export type Widget = ClockWidget | WeatherWidget | ConversionWidget;
+
 // A single turn in a conversation
 export interface Message {
   role: "user" | "assistant";
@@ -403,6 +460,7 @@ export interface Message {
   thinking?: string;
   image_context?: string;
   search_context?: string;
+  widgets?: Widget[];
 }
 
 // Fetch the full message history for a chat, ordered by creation time
@@ -543,7 +601,11 @@ export async function apiGuestChatStream(
 ): Promise<Response> {
   const res = await fetch(`${API_URL}/api/v1/chat/guest/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(API_KEY ? { "X-API-Key": API_KEY } : {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...TZ_HEADER,
+      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
+    },
     body: JSON.stringify(payload),
     signal,
   });

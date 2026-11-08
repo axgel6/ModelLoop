@@ -1,10 +1,11 @@
 import json
 import re
-import time
 from html.parser import HTMLParser
 from typing import Optional
 
 import httpx
+
+from ._shared import MISSING, TTLCache
 
 DEFINITION = {
     "type": "function",
@@ -51,6 +52,10 @@ _SEARCH_TRIGGERS = re.compile(
     r"search (for|about|the|up)|look up|lookup|"
     # Time-sensitive queries
     r"(latest|current|today'?s?|recent|live) (news|updates?|version|release|scores?|weather|price|results?)|"
+    # "The latest iPhone", "the newest Pixel": the answer moves with time. Not "the latest
+    # item in a list" and the like, which are about code.
+    r"(latest|newest|most recent) (?!(item|element|entry|entries|commit|file|row|record|value|node|message|one|ones)\b)[\w-]+|"
+    r"(who is|who'?s) (the )?(current|new) |"
     r"(news|headlines?) (about|on|regarding)|"
     r"weather (in|for|today|tonight|tomorrow)|"
     r"(stock|share) price|"
@@ -128,31 +133,8 @@ _DDG_HTML_URL = "https://html.duckduckgo.com/html/"
 # Module-level persistent client — reuses TCP connections across requests.
 _async_client: Optional[httpx.AsyncClient] = None
 
-# Simple TTL cache: query_key -> (json_str, timestamp)
-_cache: dict[str, tuple[str, float]] = {}
-_CACHE_TTL = 300.0   # 5 minutes
-_CACHE_MAX = 200
-
-
-def _cache_get(key: str) -> Optional[str]:
-    entry = _cache.get(key)
-    if entry and time.monotonic() - entry[1] < _CACHE_TTL:
-        return entry[0]
-    if entry:
-        del _cache[key]
-    return None
-
-
-def _cache_set(key: str, value: str) -> None:
-    if len(_cache) >= _CACHE_MAX:
-        cutoff = time.monotonic() - _CACHE_TTL
-        for k in [k for k, (_, ts) in _cache.items() if ts < cutoff]:
-            del _cache[k]
-        # A burst of distinct queries inside one TTL window expires nothing, so fall
-        # back to oldest-first (dict preserves insertion order) to hold the ceiling.
-        while len(_cache) >= _CACHE_MAX:
-            del _cache[next(iter(_cache))]
-    _cache[key] = (value, time.monotonic())
+# Search results by query, kept 5 minutes
+_cache = TTLCache(ttl=300.0)
 
 
 def _get_async_client() -> httpx.AsyncClient:
@@ -309,8 +291,8 @@ async def async_execute(arguments: dict) -> str:
     query, max_results, region, cache_key = _parse_search_args(arguments)
     if not query:
         return json.dumps({"error": "No query provided"})
-    cached = _cache_get(cache_key)
-    if cached:
+    cached = _cache.get(cache_key)
+    if cached is not MISSING:
         return cached
     client = _get_async_client()
     results = None
@@ -327,5 +309,5 @@ async def async_execute(arguments: dict) -> str:
             return json.dumps({"error": str(e)})
     out = _build_output(query, results)
     if results:
-        _cache_set(cache_key, out)
+        _cache.set(cache_key, out)
     return out

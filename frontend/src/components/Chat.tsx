@@ -724,6 +724,15 @@ function Chat({
                 };
                 return next;
               });
+            } else if (data.type === "widgets") {
+              setMessages((prev) => {
+                const next = [...prev];
+                next[next.length - 1] = {
+                  ...next[next.length - 1],
+                  widgets: data.widgets,
+                };
+                return next;
+              });
             } else if (data.type === "search_context") {
               setMessages((prev) => {
                 const next = [...prev];

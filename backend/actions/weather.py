@@ -6,11 +6,12 @@ with placeholders. This looks the place up and returns real conditions instead.
 """
 import json
 import re
-import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
+
+from ._shared import MISSING, TTLCache, http_client
 
 DEFINITION = {
     "type": "function",
@@ -79,17 +80,8 @@ _CONDITIONS = {
 _GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
-_client: Optional[httpx.AsyncClient] = None
-_cache: dict[str, tuple[dict, float]] = {}
-_CACHE_TTL = 600.0   # conditions are refreshed every 15 minutes upstream
-_CACHE_MAX = 100
-
-
-def _get_client() -> httpx.AsyncClient:
-    global _client
-    if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(timeout=6)
-    return _client
+# Conditions are refreshed every 15 minutes upstream
+_cache = TTLCache(ttl=600.0, max_size=100)
 
 
 def should_activate(text: str, words: set) -> bool:
@@ -137,10 +129,10 @@ async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
         return None
     key = f"{location.lower()}:{region}"
     cached = _cache.get(key)
-    if cached and time.monotonic() - cached[1] < _CACHE_TTL:
-        return cached[0]
+    if cached is not MISSING:
+        return cached
 
-    client = _get_client()
+    client = http_client()
     place = await _geocode(client, location)
     if not place:
         return None
@@ -149,7 +141,7 @@ async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
     resp = await client.get(_FORECAST_URL, params={
         "latitude": place["latitude"],
         "longitude": place["longitude"],
-        "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m",
+        "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
         "temperature_unit": "fahrenheit" if imperial else "celsius",
         "wind_speed_unit": "mph" if imperial else "kmh",
@@ -177,10 +169,39 @@ async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
             + (f", {round(rain)}% chance of precipitation." if rain is not None else ".")
         )
 
-    result = {"place": place_name, "report": "\n".join(lines)}
-    if len(_cache) >= _CACHE_MAX:
-        del _cache[next(iter(_cache))]
-    _cache[key] = (result, time.monotonic())
+    # The card above the reply. Unlike the clock it is a snapshot, so it carries the time it was read.
+    offset = timedelta(seconds=data.get("utc_offset_seconds") or 0)
+    observed = datetime.fromisoformat(now["time"]).replace(tzinfo=timezone(offset))
+    widget = {
+        "kind": "weather",
+        "place": place.get("name") or place_name,
+        # "Tokyo, Tokyo" reads as a mistake, so a region named like the city is left out
+        "region": next((r for r in (place.get("admin1"), place.get("country")) if r and r != place.get("name")), ""),
+        "unit": "F" if imperial else "C",
+        "temp": round(now["temperature_2m"]),
+        "feels": round(now["apparent_temperature"]),
+        "code": now["weather_code"],
+        "condition": _describe(now["weather_code"]).capitalize(),
+        "day": bool(now.get("is_day", 1)),
+        "humidity": round(now["relative_humidity_2m"]),
+        "wind": f"{round(now['wind_speed_10m'])} {wind}",
+        "observed": observed.isoformat(),
+        "tz": data.get("timezone") or "UTC",
+        "days": [
+            {
+                "date": day,
+                "high": round(daily["temperature_2m_max"][i]),
+                "low": round(daily["temperature_2m_min"][i]),
+                "code": daily["weather_code"][i],
+                "rain": None if daily["precipitation_probability_max"][i] is None
+                else round(daily["precipitation_probability_max"][i]),
+            }
+            for i, day in enumerate(daily["time"])
+        ],
+    }
+
+    result = {"place": place_name, "report": "\n".join(lines), "widget": widget}
+    _cache.set(key, result)
     return result
 
 
@@ -194,4 +215,4 @@ async def async_execute(arguments: dict) -> str:
         return json.dumps({"error": f"Weather lookup failed: {e}. Do not invent weather data."})
     if not result:
         return json.dumps({"error": f"No place found called '{location}'. Ask the user to clarify the location."})
-    return json.dumps({**result, "source": SOURCE_URL})
+    return json.dumps({"place": result["place"], "report": result["report"], "source": SOURCE_URL})

@@ -28,6 +28,41 @@ export function fixMathDelimiters(text: string): string {
   return text;
 }
 
+const FENCE_RE = /^(\s*)(`{3,}|~{3,})(.*)$/;
+
+/**
+ * Models nest code blocks with plain ``` fences, as in a README holding a ```bash block. In
+ * markdown the first inner fence closes the outer block, so the rest of the reply spills into
+ * the wrong boxes and a code box's copy button copies prose. This lengthens the outer fences
+ * so they hold what is inside them. A fence with a language opens a block; a bare one closes.
+ */
+export function fixNestedFences(text: string): string {
+  if (!text.includes("```") && !text.includes("~~~")) return text;
+  const lines = text.split("\n");
+  const open: { line: number; char: string }[] = [];
+  let longest = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(FENCE_RE);
+    if (!m) continue;
+    const [, , run, info] = m;
+    const char = run[0];
+    if (open.length && char !== open[0].char) continue;
+    if (!open.length || info.trim()) {
+      open.push({ line: i, char });
+      if (open.length > 1) longest = Math.max(longest, run.length);
+      continue;
+    }
+    const start = open.pop()!;
+    if (open.length || !longest) continue;
+    // The outermost block had blocks inside it: give it fences longer than any of theirs
+    const fence = char.repeat(longest + 1);
+    lines[start.line] = lines[start.line].replace(/`{3,}|~{3,}/, fence);
+    lines[i] = lines[i].replace(/`{3,}|~{3,}/, fence);
+    longest = 0;
+  }
+  return lines.join("\n");
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "Today";
   const d = new Date(iso);
