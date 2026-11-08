@@ -1,0 +1,874 @@
+/* ============================================================
+   Web studio: the site fills the screen, the chat floats beside it
+   as a lens panel, and the code opens as a drawer on the left.
+   Button rules start with :root[data-theme] body so they outrank
+   the per-theme button styles, as in controls.css.
+   ============================================================ */
+
+.wd-studio {
+  --wd-gap: 12px;
+  --wd-bar: 44px;
+  --wd-top: calc(var(--wd-gap) + var(--wd-bar) + var(--wd-gap));
+  --wd-chat-w: 380px;
+  --wd-code-w: min(560px, 40vw);
+  --wd-composer: 52px;
+
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  overflow: hidden;
+  background: var(--page-plain);
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  animation: wd-enter 0.3s ease-out backwards;
+}
+
+@keyframes wd-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+/* ---- Type: the wide bold Archivo for names and titles, as in the chat's top bar and Preferences,
+   and its small bold form for labels like the version, as under chat messages ---- */
+.wd-project-name,
+.wd-card-name,
+.wd-older,
+.wd-version-btn,
+.wd-versions-n,
+.wd-change-version,
+.wd-change-verb {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+}
+
+/* ---- Shared surfaces ---- */
+.wd-bar-group,
+.wd-devices,
+.wd-chat,
+.wd-code,
+.wd-composer,
+.wd-versions-menu,
+.wd-older {
+  border: 1px solid transparent;
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+}
+
+/* ---- Top bar ---- */
+.wd-bar {
+  position: absolute;
+  top: var(--wd-gap);
+  left: var(--wd-gap);
+  right: var(--wd-gap);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: var(--wd-bar);
+  pointer-events: none;
+}
+
+.wd-bar > * {
+  pointer-events: auto;
+}
+
+.wd-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: var(--wd-bar);
+  padding: 0 6px;
+  border-radius: 999px;
+}
+
+.wd-project {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-right: 4px;
+}
+
+.wd-project-name {
+  overflow: hidden;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wd-versions-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 300px;
+  padding: 4px;
+  border-radius: 22px;
+  background: var(--lens-bg-dense, var(--lens-bg));
+  animation: settle 0.42s var(--spring, ease) backwards;
+}
+
+.wd-versions-n {
+  font-weight: 700;
+}
+
+.wd-versions-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wd-versions-when {
+  color: var(--game-muted);
+  font-size: 0.72rem;
+}
+
+.wd-devices {
+  display: flex;
+  gap: 2px;
+  height: var(--wd-bar);
+  padding: 5px;
+  border-radius: 999px;
+}
+
+/* ---- Buttons ---- */
+:root[data-theme] body .wd-studio {
+  & :is(.wd-icon-btn, .wd-device, .wd-pill, .wd-version-btn, .wd-versions-item, .wd-change, .wd-file, .wd-older-btn, .wd-send) {
+    &,
+    &:is(:hover, :active, :focus) {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-width: 0;
+      margin: 0;
+      border: 1px solid transparent;
+      background: transparent;
+      box-shadow: none;
+      color: var(--game-ink);
+      font-family: var(--ui-font);
+      font-weight: 600;
+      line-height: 1.2;
+      text-shadow: none;
+      cursor: pointer;
+      transform: none;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--lens-bg);
+      box-shadow: var(--shadow-lens);
+    }
+
+    &:active:not(:disabled) {
+      box-shadow: var(--shadow-lens-pressed);
+    }
+
+    &:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: 2px;
+    }
+  }
+
+  & :is(.wd-icon-btn, .wd-device) {
+    &,
+    &:is(:hover, :active, :focus) {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border-radius: 50%;
+    }
+  }
+
+  & .wd-pill {
+    &,
+    &:is(:hover, :active, :focus) {
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+    }
+  }
+
+  & .wd-version-btn {
+    &,
+    &:is(:hover, :active, :focus) {
+      height: 28px;
+      padding: 0 8px 0 10px;
+      border-radius: 999px;
+      color: var(--game-muted);
+      font-family: "Archivo", var(--ui-font);
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    &:hover,
+    &.is-open {
+      color: var(--game-ink);
+    }
+  }
+
+  & .wd-versions-item {
+    &,
+    &:is(:hover, :active, :focus) {
+      justify-content: flex-start;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 18px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+  }
+
+  & .wd-file {
+    &,
+    &:is(:hover, :active, :focus) {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      color: var(--game-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    &:hover {
+      color: var(--game-ink);
+    }
+  }
+
+  & .wd-change {
+    &,
+    &:is(:hover, :active, :focus) {
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--lens-bg);
+      box-shadow: var(--shadow-lens);
+      color: var(--game-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    &:hover {
+      color: var(--game-ink);
+    }
+  }
+
+  & .wd-older-btn {
+    &,
+    &:is(:hover, :active, :focus) {
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: var(--game-accent);
+      font-size: 0.76rem;
+    }
+  }
+
+  /* The composer's chat button only shows while the chat is hidden */
+  &.chat-open .wd-composer-chat {
+    display: none;
+  }
+
+  /* On or chosen (Code, Chat, the preview size, the open file, the version): pushed into the glass,
+     in the accent, like Read aloud in the Arena, with a faint wash of the accent so on and off
+     tell apart at a glance in the cool themes too */
+  & :is(.wd-pill, .wd-file, .wd-device, .wd-versions-item).is-on {
+    &,
+    &:is(:hover, :active, :focus) {
+      background:
+        linear-gradient(
+          color-mix(in srgb, var(--game-accent) 14%, transparent),
+          color-mix(in srgb, var(--game-accent) 14%, transparent)
+        ),
+        var(--row-selected, var(--lens-bg));
+      box-shadow: var(--shadow-lens-pressed);
+      color: var(--game-accent);
+    }
+  }
+
+  & .wd-versions-item.is-on .wd-versions-when {
+    color: inherit;
+    opacity: 0.8;
+  }
+
+  & :is(.wd-icon-btn, .wd-device):disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  & .wd-send {
+    &,
+    &:is(:hover, :active, :focus) {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-color: var(--game-press-border);
+      border-radius: 50%;
+      background: var(--game-press);
+      box-shadow: var(--game-press-shadow);
+      color: var(--game-accent-ink);
+    }
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0.07)), var(--game-press);
+      box-shadow: var(--game-press-shadow);
+    }
+
+    &:active:not(:disabled) {
+      background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), var(--game-press);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.22);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
+}
+
+/* ---- Preview ---- */
+.wd-canvas {
+  position: absolute;
+  top: var(--wd-top);
+  left: var(--wd-gap);
+  right: var(--wd-gap);
+  bottom: calc(var(--wd-gap) * 2 + var(--wd-composer));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    left 0.35s cubic-bezier(0.3, 0.7, 0.3, 1),
+    right 0.35s cubic-bezier(0.3, 0.7, 0.3, 1),
+    bottom 0.35s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+
+/* The composer sits under the chat when it's open, so the site gets the full height */
+.wd-studio.chat-open .wd-canvas {
+  right: calc(var(--wd-chat-w) + var(--wd-gap) * 2);
+  bottom: var(--wd-gap);
+}
+
+.wd-studio.code-open .wd-canvas {
+  left: calc(var(--wd-code-w) + var(--wd-gap) * 2);
+}
+
+.wd-canvas[hidden] {
+  display: none;
+}
+
+.wd-frame {
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  /* No fill of its own: a white one showed as a hairline around the site's rounded corners */
+  background: transparent;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  transition:
+    width 0.35s cubic-bezier(0.3, 0.7, 0.3, 1),
+    height 0.35s cubic-bezier(0.3, 0.7, 0.3, 1),
+    border-radius 0.35s;
+}
+
+.wd-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+}
+
+.wd-frame-tablet {
+  width: min(820px, 100%);
+  height: min(1100px, 100%);
+  border-radius: 26px;
+}
+
+.wd-frame-phone {
+  width: min(390px, 100%);
+  height: min(844px, 100%);
+  border: 9px solid #111;
+  border-radius: 46px;
+}
+
+.wd-older {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  transform: translateX(-50%);
+}
+
+/* ---- Code drawer ---- */
+.wd-code {
+  position: absolute;
+  top: var(--wd-top);
+  left: var(--wd-gap);
+  bottom: var(--wd-gap);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: var(--wd-code-w);
+  padding: 6px;
+  border-radius: 24px;
+  animation: wd-drawer 0.35s cubic-bezier(0.3, 0.7, 0.3, 1) backwards;
+}
+
+/* Clear of the floating composer when the chat is hidden */
+.wd-studio:not(.chat-open) .wd-code {
+  bottom: calc(var(--wd-gap) * 2 + var(--wd-composer));
+}
+
+/* With the preview off, the code takes its place */
+.wd-studio.no-preview .wd-code {
+  right: var(--wd-gap);
+  width: auto;
+}
+
+.wd-studio.no-preview.chat-open .wd-code {
+  right: calc(var(--wd-chat-w) + var(--wd-gap) * 2);
+}
+
+@keyframes wd-drawer {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+
+.wd-files {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 2px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.wd-code-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 18px;
+  background: #0d1117;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.wd-gutter,
+.wd-source,
+.wd-input {
+  margin: 0;
+  padding: 14px 0;
+  font: inherit;
+  line-height: inherit;
+  tab-size: 2;
+}
+
+.wd-gutter {
+  position: sticky;
+  left: 0;
+  flex-shrink: 0;
+  padding-left: 14px;
+  padding-right: 12px;
+  background: #0d1117;
+  color: #4d5562;
+  text-align: right;
+  user-select: none;
+}
+
+.wd-editor {
+  position: relative;
+  flex: 1;
+  min-width: max-content;
+}
+
+.wd-source {
+  padding-right: 18px;
+  color: #e6edf3;
+  white-space: pre;
+}
+
+/* Lies exactly over the colored code: its own text is invisible, only the caret and selection show */
+.wd-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding-right: 18px;
+  overflow: hidden;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--game-accent);
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.wd-input::selection {
+  background: color-mix(in srgb, var(--game-accent) 30%, transparent);
+  color: transparent;
+}
+
+.wd-source code.hljs {
+  padding: 0;
+  background: transparent;
+  font: inherit;
+}
+
+/* ---- Chat ---- */
+.wd-chat {
+  --wd-inset: 8px;
+
+  position: absolute;
+  top: var(--wd-top);
+  right: var(--wd-gap);
+  bottom: var(--wd-gap);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: var(--wd-chat-w);
+  border-radius: 24px;
+  transition:
+    opacity 0.25s ease,
+    transform 0.35s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+
+.wd-studio:not(.chat-open) .wd-chat {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(24px);
+}
+
+.wd-feed {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  /* Room at the bottom for the input, which sits inside the panel */
+  padding: 16px 14px calc(var(--wd-composer) + var(--wd-inset) * 2 + 4px);
+}
+
+/* A short conversation sits at the bottom, by the input, as in the main chat. The auto margin
+   (not flex-end) still lets a long one scroll back to its start. */
+.wd-feed > :first-child {
+  margin-top: auto;
+}
+
+.wd-msg p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.wd-msg-user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-radius: 18px 18px 6px 18px;
+  background: var(--game-press);
+  box-shadow: var(--game-press-shadow);
+  color: var(--game-accent-ink);
+}
+
+.wd-msg-assistant {
+  align-self: flex-start;
+  max-width: 95%;
+}
+
+.wd-changes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.wd-change-verb {
+  color: var(--game-accent);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.wd-change-version {
+  color: var(--game-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Composer ---- */
+.wd-composer {
+  position: absolute;
+  /* The app gives forms a bottom margin, which would lift this off its spot */
+  margin: 0;
+  right: var(--wd-gap);
+  bottom: var(--wd-gap);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: var(--wd-chat-w);
+  height: var(--wd-composer);
+  padding: 0 8px;
+  border-radius: 999px;
+  transition:
+    width 0.35s cubic-bezier(0.3, 0.7, 0.3, 1),
+    right 0.35s cubic-bezier(0.3, 0.7, 0.3, 1),
+    bottom 0.35s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+
+/* With the chat open, the input is a sunken field inside the bottom of the panel. The panel
+   behind it is already frosted, so it needs no blur of its own. */
+.wd-studio.chat-open .wd-composer {
+  right: calc(var(--wd-gap) + 8px);
+  bottom: calc(var(--wd-gap) + 8px);
+  width: calc(var(--wd-chat-w) - 16px);
+  height: calc(var(--wd-composer) - 4px);
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* With the chat hidden, the composer floats over the bottom of the site */
+.wd-studio:not(.chat-open) .wd-composer {
+  right: 50%;
+  width: min(560px, calc(100% - var(--wd-gap) * 2));
+  transform: translateX(50%);
+}
+
+.wd-composer input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 8px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--game-ink);
+  font-family: var(--ui-font);
+  font-size: 0.9rem;
+}
+
+.wd-composer input::placeholder {
+  color: var(--game-muted);
+}
+
+/* ---- The project card in the chat ---- */
+:root[data-theme] body .wd-card {
+  &,
+  &:is(:hover, :active, :focus) {
+    display: flex;
+    flex-direction: column;
+    width: 340px;
+    max-width: 100%;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    background: var(--lens-bg-dense, var(--lens-bg));
+    box-shadow: var(--shadow-lens);
+    /* Frosted like the clock and weather cards above other replies */
+    backdrop-filter: var(--float-filter);
+    -webkit-backdrop-filter: var(--float-filter);
+    color: var(--game-ink);
+    font-family: var(--ui-font);
+    text-align: left;
+    cursor: pointer;
+    transform: none;
+    animation: page-rise 0.25s ease-out backwards;
+  }
+
+  &:hover {
+    background: var(--lens-bg-hover);
+  }
+
+  &:active {
+    box-shadow: var(--shadow-lens-pressed);
+  }
+}
+
+.wd-card-thumb {
+  position: relative;
+  height: 190px;
+  overflow: hidden;
+  margin: 6px 6px 0;
+  border-radius: 15px;
+  background: #121212;
+}
+
+/* The site drawn at desktop width, shrunk to fit */
+.wd-card-thumb iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 800px;
+  border: 0;
+  pointer-events: none;
+  transform: scale(0.255);
+  transform-origin: 0 0;
+}
+
+.wd-card-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 14px;
+}
+
+.wd-card-info > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wd-card-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.wd-card-meta {
+  overflow: hidden;
+  color: var(--game-muted);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wd-card-open {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--game-press-border);
+  border-radius: 999px;
+  background: var(--game-press);
+  box-shadow: var(--game-press-shadow);
+  color: var(--game-accent-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* Pressing the card sinks its Open button too, like a primary button */
+.wd-card:active .wd-card-open {
+  background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), var(--game-press);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.22);
+}
+
+/* ---- Phones: the site fills the screen, the chat is a sheet over it ---- */
+@media (max-width: 720px) {
+  .wd-studio {
+    --wd-gap: 8px;
+    --wd-code-w: auto;
+  }
+
+  .wd-devices,
+  .wd-chat-toggle {
+    display: none;
+  }
+
+  :root[data-theme] body .wd-studio .wd-pill {
+    &,
+    &:is(:hover, :active, :focus) {
+      width: 34px;
+      padding: 0;
+      font-size: 0;
+      gap: 0;
+    }
+  }
+
+  .wd-canvas,
+  .wd-studio.chat-open .wd-canvas,
+  .wd-studio.code-open .wd-canvas {
+    left: var(--wd-gap);
+    right: var(--wd-gap);
+    bottom: calc(var(--wd-gap) * 2 + var(--wd-composer));
+  }
+
+  .wd-frame {
+    border-radius: 16px;
+  }
+
+  .wd-code {
+    right: var(--wd-gap);
+    bottom: calc(var(--wd-gap) * 2 + var(--wd-composer));
+    z-index: 4;
+  }
+
+  .wd-chat {
+    top: auto;
+    left: var(--wd-gap);
+    width: auto;
+    height: min(64vh, 580px);
+  }
+
+  .wd-studio:not(.chat-open) .wd-chat {
+    transform: translateY(24px);
+  }
+
+  .wd-composer,
+  .wd-studio:not(.chat-open) .wd-composer {
+    right: var(--wd-gap);
+    left: var(--wd-gap);
+    width: auto;
+    transform: none;
+  }
+
+  .wd-studio.chat-open .wd-composer {
+    right: calc(var(--wd-gap) + 8px);
+    left: calc(var(--wd-gap) + 8px);
+    width: auto;
+  }
+
+  :root[data-theme] body .wd-studio.chat-open .wd-composer-chat {
+    display: inline-flex;
+  }
+
+  .wd-versions-menu {
+    width: min(300px, calc(100vw - 24px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wd-studio,
+  .wd-code,
+  :root[data-theme] body .wd-card {
+    animation: none;
+  }
+}

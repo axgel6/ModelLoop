@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptics } from "../haptics";
 import { sounds } from "../sounds";
@@ -58,6 +58,8 @@ import { GamesHub, GamesIcon } from "../games/GamesHub";
 import { inGamesPath, replacePath } from "../subroute";
 import { FocusedReaderMenu } from "./FocusedReaderMenu";
 import { VoiceMatrix } from "./VoiceMatrix";
+import { WebDevContext } from "../webdev/context";
+import { WebDevStudio } from "../webdev/WebDevStudio";
 import { READER_SIZES, useReaderPrefs } from "./readerPrefs";
 import { splitParas, useFocusedNav } from "./useFocusedNav";
 
@@ -528,6 +530,19 @@ function Chat({
       setMessages((prev) => [...prev, { role: "assistant", content: info }]);
       return;
     }
+    if (rawInput === "/testweb") {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Here's a demo project in the web studio. This is a design preview: the site is a sample, and building from chat comes next.",
+          widgets: [{ kind: "project" }],
+        },
+      ]);
+      setWebStudioOpen(true);
+      return;
+    }
     if (rawInput === "/help") {
       const searchCmd = features.actions ? ", /search <query>" : "";
       setMessages((prev) => [
@@ -535,7 +550,7 @@ function Chat({
         {
           role: "assistant",
           content:
-            `Commands: /clear${searchCmd}, /code, /math, /think, /fast, /ratelimit, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)`,
+            `Commands: /clear${searchCmd}, /code, /math, /think, /fast, /ratelimit, /testweb, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)`,
         },
       ]);
       return;
@@ -822,6 +837,9 @@ function Chat({
 
   // ── Focused mode ─────────────────────────────────────────────────────────
   const [focusedMode, setFocusedMode] = useState(false);
+  const [webStudioOpen, setWebStudioOpen] = useState(false);
+  const openWebStudio = useCallback(() => setWebStudioOpen(true), []);
+  const closeWebStudio = useCallback(() => setWebStudioOpen(false), []);
   const [readerPrefs, setReaderPrefs] = useReaderPrefs();
   const [focusedLines, setFocusedLines] = useState<
     { role: "user" | "assistant"; text: string }[]
@@ -1107,8 +1125,9 @@ function Chat({
   );
 
   return (
-    <>
+    <WebDevContext.Provider value={openWebStudio}>
       {!isConnected && <ConnectionBanner />}
+      {webStudioOpen && <WebDevStudio onClose={closeWebStudio} />}
 
       {/* Inert under voice mode: the mic button that started Talk would otherwise keep focus
           behind the overlay, and a stray Space or Enter would press it and end the conversation */}
@@ -2157,7 +2176,7 @@ function Chat({
           }}
         />
       )}
-    </>
+    </WebDevContext.Provider>
   );
 }
 

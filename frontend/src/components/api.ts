@@ -449,7 +449,11 @@ export interface ConversionWidget {
   /** The rate and its date, a height in feet and inches, or "" */
   note: string;
 }
-export type Widget = ClockWidget | WeatherWidget | ConversionWidget;
+/** A web studio project (the /testweb demo for now) */
+export interface ProjectWidget {
+  kind: "project";
+}
+export type Widget = ClockWidget | WeatherWidget | ConversionWidget | ProjectWidget;
 
 // A single turn in a conversation
 export interface Message {

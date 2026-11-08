@@ -1,4 +1,5 @@
 import { memo, useEffect, useState, type ReactElement, type ReactNode } from "react";
+import { ProjectCard } from "../webdev/WebDevStudio";
 import type { ClockWidget, ConversionWidget, WeatherWidget, Widget } from "./api";
 
 /** Cards above an assistant reply, from the backend's tools (backend/actions) */
@@ -16,6 +17,8 @@ export const MessageWidgets = memo(function MessageWidgets({
           <WeatherCard key={i} widget={w} />
         ) : w.kind === "conversion" ? (
           <ConversionCard key={i} widget={w} />
+        ) : w.kind === "project" ? (
+          <ProjectCard key={i} />
         ) : null,
       )}
     </div>
