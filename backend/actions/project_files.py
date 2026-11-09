@@ -134,6 +134,46 @@ def calls_in_text(text: str) -> list[dict]:
     return calls
 
 
+_FENCE_RE = re.compile(r"```[ \t]*([^\n`]*)\n(.*?)\n?[ \t]*```", re.S)
+_FILE_NAME_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./\-]*\.(?:html|css|js|mjs|json|svg|txt|md)\b", re.I)
+_LANG_FILES = {"html": "index.html", "css": "style.css", "js": "app.js", "javascript": "app.js"}
+# A block this much shorter than the file it names is a snippet, not the whole file
+SNIPPET_SHARE = 0.6
+
+
+def calls_in_code_blocks(text: str, files: dict[str, str]) -> list[dict]:
+    """write_file calls for whole files a model pasted as code blocks instead of calling the tool.
+
+    The file is named in the fence ("```css style.css"), in the text just before it ("Writing
+    `index.html`"), or in a comment on its first line. Without a name, a project's one html, css
+    or js block goes to index.html, style.css or app.js. A block much shorter than the existing
+    file it names is a snippet and is left alone."""
+    found: dict[str, str] = {}
+    blocks = list(_FENCE_RE.finditer(text))
+    langs = [m.group(1).strip().split()[0].lower() if m.group(1).strip() else "" for m in blocks]
+    prev_end = 0
+    for match, lang in zip(blocks, langs):
+        info, code = match.group(1), match.group(2)
+        before = text[prev_end:match.start()][-200:]
+        prev_end = match.end()
+        first_line = code.lstrip().split("\n", 1)[0] if code.strip() else ""
+        named = (
+            _FILE_NAME_RE.findall(info)
+            or _FILE_NAME_RE.findall(before)[-1:]
+            or (_FILE_NAME_RE.findall(first_line) if re.match(r"\s*(//|/\*|<!--|#)", first_line) else [])
+        )
+        path = clean_path(named[-1]) if named else None
+        if path is None and lang in _LANG_FILES and sum(_LANG_FILES.get(l) == _LANG_FILES[lang] for l in langs) == 1:
+            path = _LANG_FILES[lang]
+        if path is None or not code.strip():
+            continue
+        existing = files.get(path)
+        if existing and len(code) < len(existing) * SNIPPET_SHARE:
+            continue
+        found[path] = code.rstrip() + "\n"
+    return [{"function": {"name": "write_file", "arguments": {"path": p, "content": c}}} for p, c in found.items()]
+
+
 def _decode(decoder: json.JSONDecoder, text: str, start: int):
     """(object, end) for the JSON object at `start`, or (None, start) when there isn't one.
     An object a model left unclosed is closed with up to three braces, and the string it was in

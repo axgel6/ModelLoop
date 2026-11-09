@@ -208,7 +208,7 @@ _SPEC_HEADINGS = ("FEATURES:", "FILES:", "NAMES:", "NOTES:")
 def needs_plan(turn: ProjectTurn, prompt: str) -> bool:
     """Whether this turn should plan first: it starts a project and asks for something to be built.
     Later turns keep the spec they have, and a question gets an answer, not a plan."""
-    return turn.project_id is None and not turn.files and not turn.spec and _wants_change(prompt)
+    return turn.project_id is None and not turn.files and not turn.spec and wants_change(prompt)
 
 
 def clean_spec(text: str) -> Optional[str]:
@@ -265,7 +265,7 @@ _NO_CHANGES_NUDGE = (
 _QUESTION_START = re.compile(r"^(?:what|why|how|which|who|where|when|is|are|does|do|can|could|should)\b", re.I)
 
 
-def _wants_change(prompt: str) -> bool:
+def wants_change(prompt: str) -> bool:
     """The request asks for a change, not a question answered in words."""
     text = prompt.strip()
     return not (text.endswith("?") or _QUESTION_START.match(text))
@@ -281,7 +281,7 @@ def nudge(workspace: Workspace, prompt: str, sent: set[str]) -> Optional[str]:
             f"index.html links {', '.join(missing)}, which {'does' if len(missing) == 1 else 'do'} not exist yet. "
             "Create them now with write_file, then say what you built."
         )
-    if not workspace.changes() and _wants_change(prompt) and "changes" not in sent:
+    if not workspace.changes() and wants_change(prompt) and "changes" not in sent:
         sent.add("changes")
         return _NO_CHANGES_NUDGE
     return None

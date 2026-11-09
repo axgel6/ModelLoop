@@ -618,6 +618,11 @@ async def _chat_stream_response(
                 elif not tool_calls and peek_buf and project is not None:
                     # Released below once the turn is known to be over
                     tool_calls = _project_files.calls_in_text(round_content)
+                    # Small models often paste the files as code blocks instead; saved as writes
+                    if not tool_calls and project_mode.wants_change(prompt):
+                        tool_calls = _project_files.calls_in_code_blocks(round_content, workspace.files)
+                        if tool_calls:
+                            logger.info("project_code_blocks_rescued chat_id=%s files=%d", chat_id, len(tool_calls))
                 elif not tool_calls and peek_buf:
                     try:
                         raw = round_content.strip()
