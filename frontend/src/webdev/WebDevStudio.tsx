@@ -177,7 +177,7 @@ export function WebDevStudio({
   // Only the latest version reports errors: that's the one Fix it changes
   const preview = useMemo(() => buildPreview(files, { reportErrors: !isOlder }), [files, isOlder]);
   // Each load of the preview, so errors from a page that's gone don't linger
-  const frameId = `${latest}:${viewing}:${reloadKey}`;
+  const frameId = `${reloadKey}:${preview}`;
   const frameIdRef = useRef(frameId);
   useEffect(() => {
     frameIdRef.current = frameId;
@@ -197,7 +197,8 @@ export function WebDevStudio({
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
-  const shownProblems = problems?.frame === frameId && !problems.dismissed && !isOlder ? problems.list : [];
+  // Not while a reply is written: the site is mid-change, and Fix it can't send yet
+  const shownProblems = problems?.frame === frameId && !problems.dismissed && !isOlder && !busy ? problems.list : [];
   const active: ProjectFile | undefined = files.find((f) => f.path === activePath) ?? files[0];
   const highlighted = useMemo(
     () => (active ? hljs.highlight(active.content, { language: language(active.path) }).value : ""),

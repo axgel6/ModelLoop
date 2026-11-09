@@ -700,6 +700,8 @@ export async function apiChatStream(
     festive?: string;
     /** Start a web studio project in this chat; a chat with one stays in project mode */
     project?: boolean;
+    /** The model project turns use; left out, the server picks one */
+    project_model?: string;
   },
   signal?: AbortSignal,
 ): Promise<Response> {

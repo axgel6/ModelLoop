@@ -10,18 +10,8 @@ const DONE: Record<ProjectStep["verb"], string> = {
   read: "Read",
   listed: "Looked over the files",
 };
-const FAILED: Record<ProjectStep["verb"], string> = {
-  created: "Couldn't create",
-  replaced: "Couldn't write",
-  edited: "Couldn't edit",
-  deleted: "Couldn't delete",
-  read: "Couldn't read",
-  listed: "Couldn't list the files",
-};
-
-function label(step: ProjectStep): string {
-  const words = (step.ok ? DONE : FAILED)[step.verb];
-  return step.verb === "listed" || !step.path ? words : `${words} ${step.path}`;
+function label({ verb, path }: ProjectStep): string {
+  return verb === "listed" || !path ? DONE[verb] : `${DONE[verb]} ${path}`;
 }
 
 /** "0:42", "1:05" */
@@ -30,7 +20,8 @@ function clock(seconds: number): string {
 }
 
 /** While a project turn runs: each step as it finishes, then the one in progress with a timer.
- *  A small model can spend a minute writing one file, so the timer shows it's still going. */
+ *  A small model can spend a minute writing one file, so the timer shows it's still going.
+ *  Only steps that worked arrive (see backend/routers/stream.py). */
 export function ProjectSteps({ steps, startedAt }: { steps: ProjectStep[]; startedAt?: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -42,7 +33,7 @@ export function ProjectSteps({ steps, startedAt }: { steps: ProjectStep[]; start
   return (
     <ol className="wd-steps" aria-label="Progress">
       {steps.map((s, i) => (
-        <li key={i} className={`wd-step${s.ok ? "" : " is-failed"}`}>
+        <li key={i} className="wd-step">
           <span className="wd-step-mark" aria-hidden="true" />
           {label(s)}
         </li>

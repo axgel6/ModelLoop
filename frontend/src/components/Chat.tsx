@@ -66,6 +66,8 @@ import {
   PROJECT_TOOL_PHRASES,
   WebDevContext,
   timeAgo,
+  withLiveFiles,
+  type LiveFiles,
   type StudioMessage,
   type StudioProject,
   type WebDevContextValue,
@@ -218,6 +220,8 @@ function Chat({
     modelCapabilities,
     gameModel,
     setGameModel,
+    studioModel,
+    setStudioModel,
     serverDefaults,
     thinking,
     setThinking,
@@ -656,6 +660,7 @@ function Chat({
               festive: festive?.id,
               force_search: options?.forceSearch,
               project: options?.project,
+              project_model: studioModel || undefined,
             },
             ctrl.signal,
           );
@@ -764,6 +769,15 @@ function Chat({
                 return next;
               });
             } else if (data.type === "project_turn" || data.type === "project_step") {
+              if (data.type === "project_turn") liveSavedRef.current = false;
+              const file = data.file as { path: string; content: string | null } | undefined;
+              if (file) {
+                const chatId = activeChatIdRef.current;
+                setLiveFiles((live) => ({
+                  chatId,
+                  files: { ...(live?.chatId === chatId ? live.files : {}), [file.path]: file.content },
+                }));
+              }
               setMessages((prev) => {
                 const next = [...prev];
                 const last = next[next.length - 1];
@@ -775,7 +789,11 @@ function Chat({
               });
             } else if (data.type === "project_changes") {
               // The turn is saved by now, so the card and studio can pick up its files
-              if (data.changes?.version != null) setProjectTick((t) => t + 1);
+              if (data.changes?.version != null) {
+                // The live files stay on screen until the saved ones load
+                liveSavedRef.current = true;
+                setProjectTick((t) => t + 1);
+              }
               setMessages((prev) => {
                 const next = [...prev];
                 next[next.length - 1] = {
@@ -849,6 +867,8 @@ function Chat({
       setIsThinking(false);
       setActiveTool(null);
       setLoading(false);
+      // A turn that saved nothing (stopped, failed or no changes) leaves the project as it was
+      if (!liveSavedRef.current) setLiveFiles(null);
       setMessages((prev) => {
         if (activeChatIdRef.current)
           messageCache.current.set(activeChatIdRef.current, prev);
@@ -883,12 +903,24 @@ function Chat({
   const [storedProject, setStoredProject] = useState<{ chatId: string; data: StoredProject } | null>(null);
   // Bumped when a turn saves a version, to load the new files
   const [projectTick, setProjectTick] = useState(0);
+  // Files the running turn has changed so far ({path: contents, or null when deleted}), so the
+  // preview follows each step instead of waiting for the turn to end
+  const [liveFiles, setLiveFiles] = useState<{ chatId: string | null; files: LiveFiles } | null>(null);
+  // The running turn saved a version, so its live files give way once the saved ones load
+  const liveSavedRef = useRef(false);
   useEffect(() => {
     if (!activeChatId || !hasProject || isGuest || privateMode) return;
     let cancelled = false;
     const chatId = activeChatId;
     apiGetProject(chatId)
-      .then((data) => !cancelled && setStoredProject({ chatId, data }))
+      .then((data) => {
+        if (cancelled) return;
+        setStoredProject({ chatId, data });
+        if (liveSavedRef.current) {
+          liveSavedRef.current = false;
+          setLiveFiles(null);
+        }
+      })
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -908,12 +940,12 @@ function Chat({
     return {
       name: data.name,
       version: data.version,
-      files: data.files,
+      files: liveFiles?.chatId === activeChatId ? withLiveFiles(data.files, liveFiles.files) : data.files,
       versions: data.versions.map((v) => ({ version: v.version, label: v.label, when: timeAgo(v.created_at) })),
       lastChanges: last?.project_changes?.files ?? [],
       restoredFrom: data.versions[0]?.restored_from,
     };
-  }, [storedProject, activeChatId, hasProject, messages]);
+  }, [storedProject, activeChatId, hasProject, messages, liveFiles]);
   const studioMessages = useMemo<StudioMessage[]>(
     () =>
       messages.map((m) => ({
@@ -2274,6 +2306,8 @@ function Chat({
           setSelectedModel={setSelectedModel}
           gameModel={gameModel}
           setGameModel={setGameModel}
+          studioModel={studioModel}
+          setStudioModel={setStudioModel}
           serverGameModel={serverDefaults.game}
           initialSection={prefSection}
           onNameChange={(name) => setUserName(name)}

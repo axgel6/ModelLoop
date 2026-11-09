@@ -20,11 +20,23 @@ export interface StudioProject {
   restoredFrom?: number | null;
 }
 
-/** One finished tool call in a project turn, shown while the turn runs */
+/** One tool call that worked in a project turn, shown while the turn runs */
 export interface ProjectStep {
   verb: "created" | "replaced" | "edited" | "deleted" | "read" | "listed";
   path: string | null;
-  ok: boolean;
+}
+
+/** Files a running turn has changed so far: {path: contents, or null when deleted} */
+export type LiveFiles = Record<string, string | null>;
+
+/** The saved files with a running turn's changes on top, in path order */
+export function withLiveFiles(files: ProjectFile[], live: LiveFiles): ProjectFile[] {
+  const merged = new Map(files.map((f) => [f.path, f.content]));
+  for (const [path, content] of Object.entries(live)) {
+    if (content == null) merged.delete(path);
+    else merged.set(path, content);
+  }
+  return [...merged].map(([path, content]) => ({ path, content })).sort((a, b) => a.path.localeCompare(b.path));
 }
 
 /** One turn in the studio's chat */

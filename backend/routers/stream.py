@@ -377,7 +377,8 @@ async def _chat_stream_response(
     messages = []
     if not _skip_system_prompt(model):
         messages.append({"role": "system", "content": effective_system})
-    for m in history:
+    # A project turn gets its earlier requests in the context block instead (see ProjectTurn.earlier)
+    for m in ([] if project else history):
         content = m["content"]
         if m["role"] == "user" and m.get("image_context"):
             content = f"<image_context>\n{m['image_context']}\n</image_context>\n\n{content}"
@@ -451,6 +452,8 @@ async def _chat_stream_response(
     await db.close()
 
     async def generate():
+        # A weather lookup the model makes adds its card mid-stream
+        nonlocal widgets
         full_response = ""
         success       = False
         # A project turn can work for minutes before it writes a word, so the chat shows its steps
@@ -468,10 +471,15 @@ async def _chat_stream_response(
         # real-time access..."), drop it, search the web, and answer again.
         watch_giving_up = actions_enabled and not images
         searched = bool(_search_block)
+        # Reminders already sent this project turn (see project_mode.nudge)
+        nudges_sent: set[str] = set()
 
         try:
             round_content = ""
             for _round in range(project_mode.TOOL_ROUNDS if project else 5):
+                # A model repeating the same calls won't get further with more rounds
+                if workspace is not None and workspace.stuck:
+                    break
                 round_content  = ""
                 tool_calls:   list = []
                 peek_buf:     list[str] = []
@@ -501,8 +509,11 @@ async def _chat_stream_response(
                                 # { ... }  standard JSON tool call
                                 # [{ ...   JSON array of tool calls
                                 # [TOOL_CALLS] ...  Mistral-style prefix
+                                # A project turn's reply is short, and its calls can come anywhere in
+                                # the text, so all of it is held and read when the round ends
                                 is_tool_like = hold_for_tools and (
-                                    stripped.startswith("{")
+                                    project is not None
+                                    or stripped.startswith("{")
                                     or stripped.startswith("[{")
                                     or stripped.upper().startswith("[TOOL_CALLS]")
                                 )
@@ -583,6 +594,9 @@ async def _chat_stream_response(
                 if not tool_calls and peek_buf and not hold_for_tools:
                     for t in peek_buf:
                         yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
+                elif not tool_calls and peek_buf and project is not None:
+                    # Released below once the turn is known to be over
+                    tool_calls = _project_files.calls_in_text(round_content)
                 elif not tool_calls and peek_buf:
                     try:
                         raw = round_content.strip()
@@ -628,6 +642,14 @@ async def _chat_stream_response(
                             yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
 
                 if not tool_calls:
+                    if workspace is not None:
+                        reminder = project_mode.nudge(workspace, prompt, nudges_sent)
+                        if reminder:
+                            current_messages.append({"role": "assistant", "content": round_content})
+                            current_messages.append({"role": "user", "content": reminder})
+                            continue
+                        for t in peek_buf:
+                            yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
                     full_response = round_content
                     break
 
@@ -651,8 +673,14 @@ async def _chat_stream_response(
                     if workspace is not None:
                         result = workspace.execute(tool_name, tool_args)
                         current_messages.append({"role": "tool", "content": result})
+                        # Only what worked is shown: the model retries what failed, and a repeat did nothing
                         step = workspace.step(tool_name, tool_args, result)
-                        yield f"data: {json.dumps({'type': 'project_step', 'step': step})}\n\n"
+                        if step["ok"] and not workspace.last_was_repeat:
+                            event: dict = {"type": "project_step", "step": step}
+                            # The file as it is now, so the preview updates without waiting for the turn
+                            if step["verb"] in ("created", "replaced", "edited", "deleted"):
+                                event["file"] = {"path": step["path"], "content": workspace.files.get(step["path"])}
+                            yield f"data: {json.dumps(event)}\n\n"
                         continue
                     # Set here, never by the model: the search region and the user's timezone
                     tool_args["_region"] = search_region
@@ -662,6 +690,16 @@ async def _chat_stream_response(
                     except Exception:
                         tool_result = json.dumps({"error": f"Tool '{tool_name}' failed. Do NOT fabricate results. Answer from training knowledge and be transparent that live data could not be retrieved."})
                     current_messages.append({"role": "tool", "content": tool_result})
+                    # The model looked up the weather itself: show the card for it too. The
+                    # lookup was just cached, so this reads it back without a second request.
+                    if tool_name == "get_weather" and not any(w.get("kind") == "weather" for w in widgets):
+                        try:
+                            report = await _weather.lookup(str(tool_args.get("location") or ""), search_region)
+                        except Exception:
+                            report = None
+                        if report:
+                            widgets = [report["widget"], *widgets]
+                            yield f"data: {json.dumps({'type': 'widgets', 'widgets': widgets})}\n\n"
                     # Collect web_search results so they can be persisted with the message
                     if tool_name == "web_search":
                         searched = True
@@ -682,11 +720,14 @@ async def _chat_stream_response(
 
             # If all 5 rounds were tool calls (loop exhausted without break), round_content
             # from the last round is the final answer; full_response was never assigned.
-            if success and not full_response:
+            # (A project round's text is its tool calls, never a reply.)
+            if success and not full_response and workspace is None:
                 full_response = round_content
-            # Small models often end a build on a tool call with nothing to say
-            if success and workspace is not None and workspace.changes() and not full_response.strip():
-                full_response = "Done. The changes are in the preview."
+            # Small models often end a build on a tool call with nothing to say. The reply was
+            # never streamed, so it is sent here.
+            if success and workspace is not None and not full_response.strip():
+                full_response = workspace.fallback_reply()
+                yield f"data: {json.dumps({'type': 'token', 'token': full_response})}\n\n"
 
             if success and full_response.strip():
                 processed = fix_math_delimiters(_strip_embedded_tool_calls(full_response.strip()))
@@ -782,9 +823,13 @@ async def chat_stream(
     model = (body.model or _config.DEFAULT_MODEL).strip()
     base_url = await effective_ollama_url(user)
     # One project per chat: once a chat has one, every turn in it works on the project
-    project = await project_mode.prepare(db, chat.id, prompt, base_url, model, start=bool(body.project))
+    project = await project_mode.prepare(
+        db, chat.id, prompt, base_url, model, start=bool(body.project),
+        preferred_model=(body.project_model or "").strip() or None,
+    )
     if project:
         model = project.model
+        project.earlier = [m["content"] for m in history if m["role"] == "user"][-6:]
 
     return await _chat_stream_response(
         prompt=prompt,

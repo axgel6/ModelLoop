@@ -60,6 +60,9 @@ interface ChatPreferencesProps {
   setGameModel: (model: string) => void;
   /** The server's default for games (GAME_MODEL), to name in the picker */
   serverGameModel?: string;
+  /** The web studio's model; empty means Auto */
+  studioModel: string;
+  setStudioModel: (model: string) => void;
   onDeleteAccount: () => Promise<void>;
   onClearAllChats: () => Promise<void>;
   onNameChange?: (name: string | null) => void;
@@ -199,6 +202,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   gameModel,
   setGameModel,
   serverGameModel,
+  studioModel,
+  setStudioModel,
   onDeleteAccount,
   onClearAllChats,
   onNameChange,
@@ -1502,6 +1507,37 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   {gameModel && !models.includes(gameModel) && models.length > 0 && (
                     <div className="pref-ollama-msg pref-ollama-msg--error">
                       {gameModel} is not on this server, so the games use the server default.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pref-account-card">
+                <div className="pref-account-field">
+                  <div className="pref-field-label">Web studio model</div>
+                  <div className="pref-field-desc">
+                    The model that builds sites with /web. It needs one that can use tools, so only those are
+                    listed. Auto picks an installed coding model, such as qwen2.5-coder, and otherwise the
+                    model you chat with. A bigger model is slower but makes fewer mistakes.
+                  </div>
+                  <select
+                    className="pref-name-input pref-game-model"
+                    value={studioModel && models.includes(studioModel) ? studioModel : ""}
+                    onChange={(e) => setStudioModel(e.target.value)}
+                    aria-label="Web studio model"
+                  >
+                    <option value="">Auto</option>
+                    {models
+                      .filter((m) => modelCapabilities[m]?.includes("web"))
+                      .map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                  </select>
+                  {studioModel && !models.includes(studioModel) && models.length > 0 && (
+                    <div className="pref-ollama-msg pref-ollama-msg--error">
+                      {studioModel} is not on this server, so the studio picks one automatically.
                     </div>
                   )}
                 </div>

@@ -48,9 +48,7 @@
 .wd-chat,
 .wd-code,
 .wd-composer,
-.wd-versions-menu,
-.wd-older,
-.wd-problem {
+.wd-versions-menu {
   border: 1px solid transparent;
   background: var(--lens-bg);
   box-shadow: var(--shadow-lens);
@@ -425,6 +423,39 @@
   transform: translateX(-50%);
 }
 
+/* Bars over the site (an older version, an error): solid and dark, not glass, since the site under
+   them can be any color and a white page washed the glass out */
+.wd-older,
+.wd-problem {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(22 22 24 / 0.92);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.28);
+  color: #f4f4f5;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+:root[data-theme] body .wd-studio :is(.wd-older, .wd-problem) :is(.wd-older-btn, .wd-problem-close) {
+  &,
+  &:is(:hover, :active, :focus) {
+    background: rgb(255 255 255 / 0.1);
+    color: #fff;
+  }
+
+  &:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
 /* Fix it: what went wrong in the preview, over the bottom of the site */
 .wd-problem {
   position: absolute;
@@ -437,7 +468,6 @@
   max-width: min(560px, calc(100% - 24px));
   padding: 4px 4px 4px 14px;
   border-radius: 999px;
-  color: var(--game-ink);
   font-size: 0.78rem;
   font-weight: 600;
   transform: translateX(-50%);
@@ -629,6 +659,12 @@
   overflow-y: auto;
   /* Room at the bottom for the input, which sits inside the panel */
   padding: 16px 14px calc(var(--wd-composer) + var(--wd-inset) * 2 + 4px);
+  /* Scrolls without a bar: in a panel this narrow, a bar takes the messages' room */
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* A short conversation sits at the bottom, by the input, as in the main chat. The auto margin
@@ -1052,14 +1088,6 @@
   height: 7px;
   border-radius: 50%;
   background: var(--game-accent);
-}
-
-.wd-step.is-failed {
-  color: var(--game-muted);
-
-  & .wd-step-mark {
-    background: var(--game-muted);
-  }
 }
 
 .wd-step.is-active {

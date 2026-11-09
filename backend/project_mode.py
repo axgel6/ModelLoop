@@ -38,7 +38,8 @@ SYSTEM_PROMPT = """You are Olly, building a small website together with the user
 How to work:
 - Change the project only with the tools: write_file creates a file or replaces one whole, edit_file changes part of a file, read_file shows a file this message does not include, delete_file removes one.
 - Edit, don't regenerate. To change an existing file, use edit_file with a short old_text copied exactly from the file. Rewrite a whole file only when most of it changes.
-- Keep the file structure. Keep using the files the project already has and do not rename, split or merge them unless the user asks.
+- Keep the file structure. Keep using the files the project already has and do not rename, split or merge them unless the user asks. Style changes go in the existing stylesheet, never a new one.
+- To change a CSS rule, edit the property lines inside it, keeping its { and } as they are.
 - A new project starts as three files: index.html, style.css and app.js. index.html links them with <link rel="stylesheet" href="style.css"> and <script src="app.js"></script>, using those exact relative paths.
 - Use plain HTML, CSS and JavaScript. When a library really helps, load it with a script tag from https://cdn.jsdelivr.net/npm/ and a pinned version.
 - Make it look finished: responsive down to phone width, with real-sounding content instead of lorem ipsum.
@@ -63,6 +64,9 @@ class ProjectTurn:
     note: Optional[str] = None
     # The version the user restored, when the latest version is a restore
     restored_from: Optional[int] = None
+    # What the user asked for in earlier turns, oldest first. Sent instead of the chat history:
+    # with the earlier replies in front of it, a small model answers in words and changes nothing.
+    earlier: list[str] = field(default_factory=list)
 
 
 def _is_coder(name: str) -> bool:
@@ -83,12 +87,17 @@ async def _installed(base_url: str) -> list[str]:
         return []
 
 
-async def choose_model(base_url: str, requested: str) -> tuple[str, Optional[str]]:
+async def choose_model(
+    base_url: str, requested: str, preferred: Optional[str] = None,
+) -> tuple[str, Optional[str]]:
     """The model for a project turn, and a note when it swaps in a coding model for the picked one.
 
-    An installed coding model that can call tools wins, the picked one first. Without one,
-    the picked model is used if it can call tools. Raises 400 when nothing can.
+    The studio model chosen in Preferences comes first, when it can call tools. Otherwise an
+    installed coding model that can call tools wins, the picked chat model first. Without one,
+    the picked chat model is used if it can call tools. Raises 400 when nothing can.
     """
+    if preferred and await _can_use_tools(base_url, preferred):
+        return preferred, None
     requested_tools = await _can_use_tools(base_url, requested)
     if _is_coder(requested) and requested_tools:
         return requested, None
@@ -118,12 +127,13 @@ def project_name(prompt: str) -> str:
 
 async def prepare(
     db: AsyncSession, chat_id: uuid.UUID, prompt: str, base_url: str, requested_model: str, start: bool,
+    preferred_model: Optional[str] = None,
 ) -> Optional[ProjectTurn]:
     """The turn's project, or None when the chat has none and this turn does not start one."""
     project = (await db.execute(select(Project).where(Project.chat_id == chat_id))).scalar_one_or_none()
     if project is None and not start:
         return None
-    model, note = await choose_model(base_url, requested_model)
+    model, note = await choose_model(base_url, requested_model, preferred_model)
     if project is None:
         return ProjectTurn(model=model, name=project_name(prompt), files={}, note=note)
 
@@ -148,6 +158,36 @@ async def prepare(
     return ProjectTurn(
         model=model, name=project.name, files=files, project_id=project.id, recent=recent, restored_from=restored_from,
     )
+
+
+_NO_CHANGES_NUDGE = (
+    "No file was changed: the project is exactly as it was, so the user sees no difference. "
+    "Make the change now by calling edit_file or write_file. Write your short reply only after the tools have run."
+)
+
+_QUESTION_START = re.compile(r"^(?:what|why|how|which|who|where|when|is|are|does|do|can|could|should)\b", re.I)
+
+
+def _wants_change(prompt: str) -> bool:
+    """The request asks for a change, not a question answered in words."""
+    text = prompt.strip()
+    return not (text.endswith("?") or _QUESTION_START.match(text))
+
+
+def nudge(workspace: Workspace, prompt: str, sent: set[str]) -> Optional[str]:
+    """What to tell a model that tried to end the turn too early, or None to let it end.
+    Each reminder is sent at most once per turn (`sent` holds those already sent)."""
+    missing = workspace.missing_links()
+    if missing and "links" not in sent:
+        sent.add("links")
+        return (
+            f"index.html links {', '.join(missing)}, which {'does' if len(missing) == 1 else 'do'} not exist yet. "
+            "Create them now with write_file, then say what you built."
+        )
+    if not workspace.changes() and _wants_change(prompt) and "changes" not in sent:
+        sent.add("changes")
+        return _NO_CHANGES_NUDGE
+    return None
 
 
 def context_block(turn: ProjectTurn, prompt: str) -> str:
@@ -175,12 +215,16 @@ def context_block(turn: ProjectTurn, prompt: str) -> str:
             f"The user restored version {turn.restored_from}, so changes made after it are undone. "
             "Work from the files as they are now."
         )
+    if turn.earlier:
+        lines.append("Earlier requests:")
+        lines.extend(f"- {' '.join(r.split())[:200]}" for r in turn.earlier)
     lines.append("Files:")
     for path in sorted(files):
         lines.append(f"- {path} ({len(files[path])} characters){'' if path in shown else ', not shown: read_file to see it'}")
     for path in shown:
         lines.append(f'\n<file path="{path}">\n{files[path]}\n</file>')
     lines.append("</project>")
+    lines.append("Make the request below by calling the file tools, then say what you changed.")
     return "\n".join(lines)
 
 

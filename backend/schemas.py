@@ -52,6 +52,8 @@ class ChatRequest(BaseModel):
     festive:       Optional[str]       = Field(default=None, max_length=32, pattern=r"^[a-z-]+$")
     # Start a web studio project in this chat. A chat with a project stays in project mode.
     project:       Optional[bool]      = Field(default=False)
+    # The model project turns use, from Preferences. Empty means pick one (see project_mode.choose_model).
+    project_model: Optional[str]       = Field(default=None, max_length=100)
 
 
 class GuestChatRequest(BaseModel):

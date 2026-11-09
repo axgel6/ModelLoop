@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { WebDevContext, type StudioProject } from "./context";
+import { WebDevContext, withLiveFiles, type StudioProject } from "./context";
 import { ProjectCard, WebDevStudio } from "./WebDevStudio";
 
 beforeAll(() => {
@@ -209,15 +209,14 @@ describe("ProjectSteps in the studio", () => {
             text: "",
             createdAt: "2026-11-08T12:00:00Z",
             steps: [
-              { verb: "created", path: "index.html", ok: true },
-              { verb: "edited", path: "style.css", ok: false },
+              { verb: "created", path: "index.html" },
             ],
           },
         ]}
       />,
     );
     const items = [...screen.getByLabelText("Progress").querySelectorAll("li")].map((li) => li.textContent);
-    expect(items).toEqual(["Created index.html", "Couldn't edit style.css", "Working on the next step0:42"]);
+    expect(items).toEqual(["Created index.html", "Working on the next step0:42"]);
     act(() => {
       vi.advanceTimersByTime(2000);
     });
@@ -237,5 +236,15 @@ describe("Code colors", () => {
     unmount();
     const again = render(<WebDevStudio {...props} initialPath="index.html" />);
     expect(again.container.querySelector(".wd-code-body")!.getAttribute("data-code")).toBe("light");
+  });
+});
+
+describe("withLiveFiles", () => {
+  it("puts a running turn's changes over the saved files", () => {
+    const merged = withLiveFiles(project.files, { "style.css": null, "app.js": "go()", "index.html": "<h1>New</h1>" });
+    expect(merged).toEqual([
+      { path: "app.js", content: "go()" },
+      { path: "index.html", content: "<h1>New</h1>" },
+    ]);
   });
 });

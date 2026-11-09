@@ -6,6 +6,7 @@ import { sounds } from "../../sounds";
 const DEFAULT_SYSTEM_PROMPT = "";
 const GAME_MODEL_KEY = "game_model";
 const THINK_KEY = "think_mode";
+const STUDIO_MODEL_KEY = "studio_model";
 
 export function useChatSettings() {
   const [models, setModels] = useState<string[]>([]);
@@ -26,6 +27,14 @@ export function useChatSettings() {
   const [gameModel, setGameModelState] = useState<string>(() => {
     try {
       return localStorage.getItem(GAME_MODEL_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  // The web studio's model: empty means Auto, a coding model when one is installed. Remembered here.
+  const [studioModel, setStudioModelState] = useState<string>(() => {
+    try {
+      return localStorage.getItem(STUDIO_MODEL_KEY) ?? "";
     } catch {
       return "";
     }
@@ -106,6 +115,16 @@ export function useChatSettings() {
     }
   };
 
+  const setStudioModel = (model: string) => {
+    setStudioModelState(model);
+    try {
+      if (model) localStorage.setItem(STUDIO_MODEL_KEY, model);
+      else localStorage.removeItem(STUDIO_MODEL_KEY);
+    } catch {
+      // private mode: it lasts until the page closes
+    }
+  };
+
   const setSpeechRate = (rate: number) => {
     localStorage.setItem("voice_speech_rate", String(rate));
     setSpeechRateState(rate);
@@ -116,6 +135,8 @@ export function useChatSettings() {
     modelCapabilities,
     gameModel,
     setGameModel,
+    studioModel,
+    setStudioModel,
     serverDefaults,
     thinking,
     setThinking,

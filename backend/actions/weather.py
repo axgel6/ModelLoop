@@ -104,22 +104,56 @@ def _describe(code) -> str:
     return _CONDITIONS.get(code, "unknown conditions")
 
 
-async def _geocode(client: httpx.AsyncClient, location: str) -> Optional[dict]:
-    # The geocoder matches on the city name alone, so "Atlanta, Georgia" has to be
-    # searched as "Atlanta" and the rest used to pick among the matches.
-    name, _, rest = location.partition(",")
-    resp = await client.get(_GEOCODE_URL, params={"name": name.strip(), "count": 5, "language": "en"})
+_US_STATES = {
+    "al": "alabama", "ak": "alaska", "az": "arizona", "ar": "arkansas", "ca": "california",
+    "co": "colorado", "ct": "connecticut", "de": "delaware", "fl": "florida", "ga": "georgia",
+    "hi": "hawaii", "id": "idaho", "il": "illinois", "in": "indiana", "ia": "iowa",
+    "ks": "kansas", "ky": "kentucky", "la": "louisiana", "me": "maine", "md": "maryland",
+    "ma": "massachusetts", "mi": "michigan", "mn": "minnesota", "ms": "mississippi",
+    "mo": "missouri", "mt": "montana", "ne": "nebraska", "nv": "nevada", "nh": "new hampshire",
+    "nj": "new jersey", "nm": "new mexico", "ny": "new york", "nc": "north carolina",
+    "nd": "north dakota", "oh": "ohio", "ok": "oklahoma", "or": "oregon", "pa": "pennsylvania",
+    "ri": "rhode island", "sc": "south carolina", "sd": "south dakota", "tn": "tennessee",
+    "tx": "texas", "ut": "utah", "vt": "vermont", "va": "virginia", "wa": "washington",
+    "wv": "west virginia", "wi": "wisconsin", "wy": "wyoming", "dc": "district of columbia",
+}
+
+
+async def _search_places(client: httpx.AsyncClient, name: str) -> list:
+    resp = await client.get(_GEOCODE_URL, params={"name": name, "count": 10, "language": "en"})
     resp.raise_for_status()
-    places = resp.json().get("results") or []
-    if not places:
-        return None
-    hint = rest.strip().lower()
+    return resp.json().get("results") or []
+
+
+def _pick(places: list, hint: str) -> dict:
+    hint = hint.strip(" .,").lower()
+    hint = _US_STATES.get(hint, hint)
     if hint:
         for place in places:
             fields = (place.get("admin1"), place.get("country"), place.get("country_code"))
             if any(f and f.lower() == hint for f in fields):
                 return place
     return places[0]
+
+
+async def _geocode(client: httpx.AsyncClient, location: str) -> Optional[dict]:
+    # The geocoder matches on the city name alone, so "Atlanta, Georgia" has to be
+    # searched as "Atlanta" and the rest used to pick among the matches.
+    name, comma, rest = location.partition(",")
+    name = name.strip()
+    places = await _search_places(client, name)
+    if places:
+        return _pick(places, rest)
+    # "Mount Vernon wa", "Paris France": no comma, so the region is the last word or two
+    if not comma:
+        words = name.split()
+        for cut in (1, 2):
+            if len(words) <= cut:
+                break
+            places = await _search_places(client, " ".join(words[:-cut]))
+            if places:
+                return _pick(places, " ".join(words[-cut:]))
+    return None
 
 
 async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
