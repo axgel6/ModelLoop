@@ -136,8 +136,8 @@ def calls_in_text(text: str) -> list[dict]:
 
 def _decode(decoder: json.JSONDecoder, text: str, start: int):
     """(object, end) for the JSON object at `start`, or (None, start) when there isn't one.
-    An object a model left unclosed is closed with up to three braces, where it stops: at the
-    next call, a code fence or the end of the text."""
+    An object a model left unclosed is closed with up to three braces, and the string it was in
+    when one is open, where it stops: at the next call, a code fence or the end of the text."""
     try:
         return decoder.raw_decode(text, start)
     except ValueError:
@@ -145,12 +145,13 @@ def _decode(decoder: json.JSONDecoder, text: str, start: int):
     stops = [i for i in (text.find("```", start), _next_call(text, start)) if i != -1]
     stop = min(stops, default=len(text))
     piece = text[start:stop].rstrip()
-    for missing in range(1, 4):
-        try:
-            obj, _ = decoder.raw_decode(piece + "}" * missing)
-            return obj, stop
-        except ValueError:
-            continue
+    for quote in ("", '"'):
+        for missing in range(1, 4):
+            try:
+                obj, _ = decoder.raw_decode(piece + quote + "}" * missing)
+                return obj, stop
+            except ValueError:
+                continue
     return None, start
 
 
@@ -228,23 +229,45 @@ def _error(message: str) -> str:
     return json.dumps({"error": message})
 
 
+def _rule_end(css: str, at: int) -> Optional[int]:
+    """Just past the } that closes the rule open at `at`, or None when no rule is open there."""
+    depth = 0
+    for i in range(at, len(css)):
+        if css[i] == "{":
+            depth += 1
+        elif css[i] == "}":
+            if depth == 0:
+                return i + 1
+            depth -= 1
+    return None
+
+
+def _one_declaration(text: str) -> bool:
+    """text is a single CSS declaration or value on one line, such as 'color: #333;'."""
+    text = text.strip()
+    return "\n" not in text and not any(c in text for c in "{}") and text.count(";") <= 1
+
+
 # A rule's declarations, with no rule nested inside, and one declaration in it
 _CSS_BLOCK_RE = re.compile(r"\{([^{}]*)\}")
 _CSS_DECL_RE = re.compile(r"([-A-Za-z]+)\s*:[^;{}]*;?")
 
 
-def _drop_overridden(css: str, start: int, end: int) -> str:
-    """css with the old copies of each property that css[start:end], the text an edit put in,
-    sets in the same rule. Small models add new values at the top of a rule and leave the old
-    ones below, where they win, so the edit seems to change nothing."""
+def _drop_overridden(css: str, spans: list[tuple[int, int]]) -> str:
+    """css with the old copies of each property that the text an edit put in (the (start, end)
+    spans) sets in the same rule. Small models add new values at the top of a rule and leave the
+    old ones below, where they win, so the edit seems to change nothing."""
     cuts = []
     for block in _CSS_BLOCK_RE.finditer(css):
         b_start, b_end = block.span(1)
-        if b_end <= start or b_start >= end:
+        inside = [(start, end) for start, end in spans if start < b_end and end > b_start]
+        if not inside:
             continue
         decls = [(m.group(1).lower(), m.start(), m.end()) for m in _CSS_DECL_RE.finditer(css, b_start, b_end)]
-        added = {name for name, s, e in decls if s >= start and e <= end}
-        cuts += [(s, e) for name, s, e in decls if name in added and (e <= start or s >= end)]
+        new = lambda s, e: any(s >= start and e <= end for start, end in inside)
+        added = {name for name, s, e in decls if new(s, e)}
+        cuts += [(s, e) for name, s, e in decls if name in added and not new(s, e)
+                 and not any(s < end and e > start for start, end in inside)]
     for s, e in sorted(cuts, reverse=True):
         # Take the whole line when the declaration was all that was on it
         line_start = css.rfind("\n", 0, s) + 1
@@ -422,7 +445,15 @@ class Workspace:
         note = None
         if count == 1:
             start = content.index(old_text)
-            end = start + len(old_text)
+            matches = [(start, start + len(old_text))]
+        elif count > 1 and path.endswith(".css") and _one_declaration(old_text) and not any(c in new_text for c in "{}"):
+            # A small model changing a value, such as one color, means every place it is used,
+            # and asking it for more lines only gets the same call back
+            matches, at = [], content.find(old_text)
+            while at != -1:
+                matches.append((at, at + len(old_text)))
+                at = content.find(old_text, at + len(old_text))
+            note = f"old_text appeared {count} times in {path}, so all {count} were changed."
         elif count == 0:
             # Local models often get indentation or line breaks wrong, so try again ignoring spacing
             spans = _loose_matches(content, old_text)
@@ -430,11 +461,35 @@ class Workspace:
                 return self._no_match(path, content, old_text)
             if len(spans) > 1:
                 return _error(f"old_text matches {len(spans)} places in {path}. Include more surrounding lines so it is unique.")
-            start, end = _widen(content, old_text, *spans[0])
+            matches = [_widen(content, old_text, *spans[0])]
             note = "old_text matched once the spacing was ignored."
         else:
             return _error(f"old_text appears {count} times in {path}. Include more surrounding lines so it is unique.")
-        updated = content[:start] + new_text + content[end:]
+        # The file with each match replaced, and where new_text landed each time
+        parts, added, last = [], [], 0
+        for start, end in matches:
+            parts.append(content[last:start])
+            at = sum(map(len, parts))
+            added.append((at, at + len(new_text)))
+            parts.append(new_text)
+            last = end
+        updated = "".join(parts) + content[last:]
+        start, end = matches[0]
+        opened = _braces(content[start:end])
+        if path.endswith(".css") and len(matches) == 1 and opened >= 1 and _braces(new_text) < opened:
+            # old_text opens a rule and new_text is the whole rule: small models write '.card {' and
+            # then the rule with its }, meaning to replace it, so take the match to the rule's end.
+            # They often close it twice, so drop extra } from the end.
+            whole = new_text.rstrip()
+            while _braces(whole) < opened - 1 and whole.endswith("}"):
+                whole = whole[:-1].rstrip()
+            close = _rule_end(content, end) if _braces(whole) == opened - 1 else None
+            if close is not None:
+                new_text = whole
+                matches = [(start, close)]
+                end = close
+                updated = content[:start] + new_text + content[close:]
+                added = [(start, start + len(new_text))]
         if path.endswith((".css", ".js", ".mjs")) and _braces(new_text) != _braces(content[start:end]):
             return _error(
                 f"That edit would break {path}: new_text must open and close as many {{ and }} as the text it "
@@ -442,7 +497,7 @@ class Workspace:
                 "use old_text '.navbar {' and new_text '.navbar {\n    background-color: red;'."
             )
         if path.endswith(".css"):
-            updated = _drop_overridden(updated, start, start + len(new_text))
+            updated = _drop_overridden(updated, added)
         broken = self._drops_links(path, updated)
         if broken:
             return broken
