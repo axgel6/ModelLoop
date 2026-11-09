@@ -4563,6 +4563,14 @@ html[data-theme] .pref-info-btn.active {
   font-weight: 500;
 }
 
+/* The temperature unit cards: °F and °C in bold wide Archivo, like the chat title */
+.pref-unit-preview {
+  font-family: "Archivo", var(--ui-font);
+  font-stretch: 125%;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
 /* ---- Account / danger section ---- */
 
 .pref-danger-item .pref-item-icon {

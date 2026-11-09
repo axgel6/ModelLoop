@@ -1,4 +1,5 @@
 import type { ProjectChanges, ProjectStep } from "../webdev/context";
+import { tempUnit } from "../tempUnit";
 
 // Centralized API client: all fetch calls go through here so Authorization
 // headers and the base URL are never scattered across components
@@ -18,12 +19,18 @@ export function setUnauthorizedHandler(fn: () => void) {
 const TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const TZ_HEADER: Record<string, string> = TIMEZONE ? { "X-Timezone": TIMEZONE } : {};
 
+// The weather's unit from Preferences, read per request so a change applies right away
+function unitHeader(): Record<string, string> {
+  return { "X-Temp-Unit": tempUnit.get() };
+}
+
 function authHeaders(
   extraHeaders: Record<string, string> = {},
 ): Record<string, string> {
   const token = localStorage.getItem("token");
   return {
     ...TZ_HEADER,
+    ...unitHeader(),
     ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extraHeaders,
@@ -609,6 +616,7 @@ export async function apiGuestChatStream(
     headers: {
       "Content-Type": "application/json",
       ...TZ_HEADER,
+      ...unitHeader(),
       ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
     },
     body: JSON.stringify(payload),

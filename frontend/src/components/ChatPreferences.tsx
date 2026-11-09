@@ -4,6 +4,7 @@ import { sounds, SOUND_GROUPS, type SoundGroup } from "../sounds";
 import { background, backgroundsFor } from "../background";
 import { uiScale, UI_SCALES } from "../uiScale";
 import { panels, PANELS } from "../panels";
+import { tempUnit } from "../tempUnit";
 import { openFestiveThemes, type Theme } from "../festive";
 import logoUrl from "../assets/ModelLoop.png";
 import {
@@ -218,6 +219,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   );
   const [bg, setBg] = useState(() => background.get());
   const [scale, setScale] = useState(() => uiScale.get());
+  const [unit, setUnit] = useState(() => tempUnit.get());
   const [panelsId, setPanelsId] = useState(() => panels.get());
   const voiceChoice = useVoiceChoice();
   // The voice being previewed: a voiceURI, "auto" for the automatic row, or null
@@ -1147,6 +1149,32 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 <span>Smaller</span>
                 <span>{Math.round(scale * 100)}%</span>
                 <span>Larger</span>
+              </div>
+              <div
+                className="pref-setting-section-label"
+                style={{ marginTop: "20px" }}
+              >
+                Temperature
+              </div>
+              <div className="pref-font-cards">
+                {(
+                  [
+                    { id: "F", label: "Fahrenheit" },
+                    { id: "C", label: "Celsius" },
+                  ] as const
+                ).map((u) => (
+                  <div
+                    key={u.id}
+                    className={`pref-font-card${unit === u.id ? " active" : ""}`}
+                    onClick={() => {
+                      tempUnit.set(u.id);
+                      setUnit(u.id);
+                    }}
+                  >
+                    <span className="pref-font-preview pref-unit-preview">°{u.id}</span>
+                    <span className="pref-font-label">{u.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </>

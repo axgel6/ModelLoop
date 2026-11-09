@@ -232,6 +232,7 @@ async def _chat_stream_response(
     think: bool = False,
     festive: Optional[str] = None,
     user_tz: Optional[str] = None,
+    temp_unit: Optional[str] = None,
     project: Optional[project_mode.ProjectTurn] = None,
 ) -> StreamingResponse:
     is_guest = user is None
@@ -286,17 +287,21 @@ async def _chat_stream_response(
         # A weather question gets real conditions, not a page of weather-site
         # links, which hold no numbers for the model to answer from.
         if weather_asked:
-            place = _weather.extract_location(prompt) or next(
-                (found for m in reversed(history[-6:]) if m["role"] == "user"
-                 for found in [_weather.extract_location(m["content"])] if found),
-                None,
-            )
+            # A follow-up like "and tomorrow?" means the place asked about before.
+            # A message that names a place we can't read does not: the model looks it up instead.
+            place = _weather.extract_location(prompt)
+            if not place and not _weather.names_place(prompt):
+                place = next(
+                    (found for m in reversed(history[-6:]) if m["role"] == "user"
+                     for found in [_weather.extract_location(m["content"])] if found),
+                    None,
+                )
             if not place and not force_search:
                 weather_needs_place = True
                 return None
             if place:
                 try:
-                    report = await _weather.lookup(place, search_region)
+                    report = await _weather.lookup(place, search_region, temp_unit)
                     if report:
                         weather_widget = report["widget"]
                         return {"results": [{
@@ -730,9 +735,10 @@ async def _chat_stream_response(
                                 event["file"] = {"path": step["path"], "content": workspace.files.get(step["path"])}
                             yield f"data: {json.dumps(event)}\n\n"
                         continue
-                    # Set here, never by the model: the search region and the user's timezone
+                    # Set here, never by the model: the search region, the user's timezone and unit
                     tool_args["_region"] = search_region
                     tool_args["_user_tz"] = user_tz
+                    tool_args["_unit"] = temp_unit
                     try:
                         tool_result = await execute_tool(tool_name, tool_args)
                     except Exception:
@@ -742,7 +748,7 @@ async def _chat_stream_response(
                     # lookup was just cached, so this reads it back without a second request.
                     if tool_name == "get_weather" and not any(w.get("kind") == "weather" for w in widgets):
                         try:
-                            report = await _weather.lookup(str(tool_args.get("location") or ""), search_region)
+                            report = await _weather.lookup(str(tool_args.get("location") or ""), search_region, temp_unit)
                         except Exception:
                             report = None
                         if report:
@@ -903,6 +909,7 @@ async def chat_stream(
         think=bool(body.think),
         festive=body.festive,
         user_tz=request.headers.get("x-timezone"),
+        temp_unit=request.headers.get("x-temp-unit"),
         project=project,
     )
 
@@ -938,6 +945,7 @@ async def guest_chat_stream(
         think=bool(body.think),
         festive=body.festive,
         user_tz=request.headers.get("x-timezone"),
+        temp_unit=request.headers.get("x-temp-unit"),
     )
 
 
@@ -967,4 +975,5 @@ async def private_chat_stream(
         think=bool(body.think),
         festive=body.festive,
         user_tz=request.headers.get("x-timezone"),
+        temp_unit=request.headers.get("x-temp-unit"),
     )

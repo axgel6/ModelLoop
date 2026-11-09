@@ -69,7 +69,12 @@ _NOT_A_PLACE = re.compile(
     re.IGNORECASE,
 )
 
-_FAHRENHEIT_COUNTRIES = {"US", "BS", "KY", "LR", "PW", "FM", "MH"}
+# A typo'd "a" or "an" before a place: "weather in a Atlanta GA"
+_STRAY_ARTICLE_RE = re.compile(r"^(?i:a|an)\s+(?=[A-Z])")
+# A capitalized word after "in", "for" and the like, past an article: "in Atlanta", "in the Bronx"
+_NAMED_PLACE_RE = re.compile(r"\b(?i:in|for|at|near|around)\s+(?:(?i:a|an|the)\s+)?[A-Z]")
+
+_FAHRENHEIT_COUNTRIES ={"US", "BS", "KY", "LR", "PW", "FM", "MH"}
 
 # WMO weather interpretation codes
 _CONDITIONS = {
@@ -120,12 +125,21 @@ def extract_location(text: str) -> Optional[str]:
     """Pull a place name out of a weather question, or None if it names none."""
     for match in _PLACE_AFTER_RE.finditer(text):
         place = match.group(1).strip(" .,'-")
+        place = _STRAY_ARTICLE_RE.sub("", place, count=1)
         if place and not _NOT_A_PLACE.match(place):
             return place
     match = _PLACE_BEFORE_RE.search(text)
     if match and not _NOT_A_PLACE.match(match.group(1)):
         return match.group(1)
     return None
+
+
+def names_place(text: str) -> bool:
+    """True when the text names a place after "in", "for" and the like, even one extract_location can't read.
+
+    Then the place from an earlier message is not the one being asked about.
+    """
+    return bool(_NAMED_PLACE_RE.search(text))
 
 
 def _describe(code) -> str:
@@ -314,12 +328,16 @@ async def _forecast(client: httpx.AsyncClient, place: dict, imperial: bool) -> d
     return await _met_forecast(client, place, imperial)
 
 
-async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
-    """Return {"place": ..., "report": ...} for a place, or None if it cannot be found."""
+async def lookup(location: str, region: str = "us-en", unit: Optional[str] = None) -> Optional[dict]:
+    """Return {"place": ..., "report": ...} for a place, or None if it cannot be found.
+
+    unit is "F" or "C" from the user's preferences; without one, the place's own country decides.
+    """
     location = location.strip()
     if not location:
         return None
-    key = f"{location.lower()}:{region}"
+    unit = unit if unit in ("F", "C") else None
+    key = f"{location.lower()}:{region}:{unit or 'local'}"
     cached = _cache.get(key)
     if cached is not MISSING:
         return cached
@@ -329,7 +347,7 @@ async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
     if not place:
         return None
 
-    imperial = place.get("country_code") in _FAHRENHEIT_COUNTRIES
+    imperial = unit == "F" if unit else place.get("country_code") in _FAHRENHEIT_COUNTRIES
     data = await _forecast(client, place, imperial)
     now, daily = data["current"], data["daily"]
     deg = "°F" if imperial else "°C"
@@ -394,7 +412,7 @@ async def async_execute(arguments: dict) -> str:
     if not location:
         return json.dumps({"error": "No location provided. Ask the user which city they mean."})
     try:
-        result = await lookup(location, arguments.get("_region", "us-en"))
+        result = await lookup(location, arguments.get("_region", "us-en"), arguments.get("_unit"))
     except Exception as e:
         return json.dumps({"error": f"Weather lookup failed: {e}. Do not invent weather data."})
     if not result:
