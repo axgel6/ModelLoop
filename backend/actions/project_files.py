@@ -228,6 +228,34 @@ def _error(message: str) -> str:
     return json.dumps({"error": message})
 
 
+# A rule's declarations, with no rule nested inside, and one declaration in it
+_CSS_BLOCK_RE = re.compile(r"\{([^{}]*)\}")
+_CSS_DECL_RE = re.compile(r"([-A-Za-z]+)\s*:[^;{}]*;?")
+
+
+def _drop_overridden(css: str, start: int, end: int) -> str:
+    """css with the old copies of each property that css[start:end], the text an edit put in,
+    sets in the same rule. Small models add new values at the top of a rule and leave the old
+    ones below, where they win, so the edit seems to change nothing."""
+    cuts = []
+    for block in _CSS_BLOCK_RE.finditer(css):
+        b_start, b_end = block.span(1)
+        if b_end <= start or b_start >= end:
+            continue
+        decls = [(m.group(1).lower(), m.start(), m.end()) for m in _CSS_DECL_RE.finditer(css, b_start, b_end)]
+        added = {name for name, s, e in decls if s >= start and e <= end}
+        cuts += [(s, e) for name, s, e in decls if name in added and (e <= start or s >= end)]
+    for s, e in sorted(cuts, reverse=True):
+        # Take the whole line when the declaration was all that was on it
+        line_start = css.rfind("\n", 0, s) + 1
+        line_end = css.find("\n", e)
+        line_end = len(css) if line_end == -1 else line_end
+        if not (css[line_start:s] + css[e:line_end]).strip():
+            s, e = line_start, min(line_end + 1, len(css))
+        css = css[:s] + css[e:]
+    return css
+
+
 class Workspace:
     """A project's files during one turn, and what the turn did to them."""
 
@@ -413,6 +441,8 @@ class Workspace:
                 "replaces. To change a rule, edit the lines inside it. For example, to make the nav red, "
                 "use old_text '.navbar {' and new_text '.navbar {\n    background-color: red;'."
             )
+        if path.endswith(".css"):
+            updated = _drop_overridden(updated, start, start + len(new_text))
         broken = self._drops_links(path, updated)
         if broken:
             return broken
