@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type ReactElement, type ReactNode } from "react";
+import { memo, useEffect, useId, useState, type ReactElement, type ReactNode } from "react";
 import type { ClockWidget, ConversionWidget, WeatherWidget, Widget } from "./api";
 
 /** Cards above an assistant reply, from the backend's tools (backend/actions) */
@@ -189,7 +189,7 @@ function WeatherCard({ widget }: { widget: WeatherWidget }) {
           {widget.region && <span className="weather-card-region">{widget.region}</span>}
         </div>
         <span className="weather-card-icon" aria-hidden="true">
-          <SkyIcon sky={sky} night={!widget.day} size={34} />
+          <FilledSkyIcon sky={sky} night={!widget.day} size={34} />
         </span>
       </div>
 
@@ -207,7 +207,7 @@ function WeatherCard({ widget }: { widget: WeatherWidget }) {
           {widget.days.map((d, i) => (
             <li key={d.date} className="weather-card-day">
               <span className="weather-card-day-name">{dayLabel(d.date, i)}</span>
-              <SkyIcon sky={skyOf(d.code)} size={22} />
+              <FilledSkyIcon sky={skyOf(d.code)} size={22} />
               <span className="weather-card-day-temps">
                 {d.high}°<span className="weather-card-low"> {d.low}°</span>
               </span>
@@ -284,6 +284,71 @@ function SkyIcon({
         </>
       )}
     </Icon>
+  );
+}
+
+// Filled shapes for the weather card: solid bodies, with a thin cut where the cloud covers the sun
+const SUN_RAYS = "M12 2.4v1.1M12 20.5v1.1M2.4 12h1.1M20.5 12h1.1M5.2 5.2l.8.8M18 18l.8.8M5.2 18.8l.8-.8M18 6l.8-.8";
+const SMALL_SUN_RAYS = "M8.5 1.8v.8M4.1 3.6l.6.6M2.3 8h.8M12.9 3.6l-.6.6";
+const RAIN_DROP = (x: number, y: number) =>
+  `M${x} ${y}c-.9 1.3-1.4 2.2-1.4 2.9a1.4 1.4 0 0 0 2.8 0c0-.7-.5-1.6-1.4-2.9z`;
+
+const FILLED_FALLING: Record<"fog" | "rain" | "snow" | "storm", ReactElement> = {
+  fog: <path d="M4 18h16M6.5 21.5h11" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />,
+  rain: <path d={`${RAIN_DROP(8, 16.8)}${RAIN_DROP(12, 18.2)}${RAIN_DROP(16, 16.8)}`} />,
+  snow: (
+    <>
+      <circle cx="8" cy="18" r="1.3" />
+      <circle cx="12" cy="18" r="1.3" />
+      <circle cx="16" cy="18" r="1.3" />
+      <circle cx="10" cy="21.5" r="1.3" />
+      <circle cx="14" cy="21.5" r="1.3" />
+    </>
+  ),
+  storm: <path d="M13.4 15.6h-3.1l-1.7 4.1h2.5l-1 3.6 4.6-5.3h-2.6z" strokeLinejoin="round" />,
+};
+
+/** The weather card's sky icons, filled in the card's own color */
+function FilledSkyIcon({ sky, night = false, size }: { sky: Sky; night?: boolean; size: number }) {
+  const cut = useId();
+  const smallSun = night ? (
+    SMALL_MOON
+  ) : (
+    <>
+      <circle cx="8.5" cy="8" r="3.2" />
+      <path d={SMALL_SUN_RAYS} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+    </>
+  );
+
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      {sky === "clear" ? (
+        night ? (
+          MOON
+        ) : (
+          <>
+            <circle cx="12" cy="12" r="5.2" />
+            <path d={SUN_RAYS} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" />
+          </>
+        )
+      ) : sky === "partly" ? (
+        <>
+          <mask id={cut} maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+            <rect width="24" height="24" fill="#fff" />
+            <path d={CLOUD_SMALL} fill="#000" stroke="#000" strokeWidth={3} strokeLinejoin="round" />
+          </mask>
+          <g mask={`url(#${cut})`}>{smallSun}</g>
+          <path d={CLOUD_SMALL} />
+        </>
+      ) : sky === "cloudy" ? (
+        <path d={CLOUD} />
+      ) : (
+        <>
+          <path d={CLOUD_HIGH} />
+          {FILLED_FALLING[sky]}
+        </>
+      )}
+    </svg>
   );
 }
 
