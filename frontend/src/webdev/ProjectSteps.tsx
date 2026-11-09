@@ -9,8 +9,11 @@ const DONE: Record<ProjectStep["verb"], string> = {
   deleted: "Deleted",
   read: "Read",
   listed: "Looked over the files",
+  planned: "Planned the site",
+  checked: "Checked the site",
 };
-function label({ verb, path }: ProjectStep): string {
+function label({ verb, path, count }: ProjectStep): string {
+  if (verb === "checked" && count) return `Found ${count === 1 ? "a problem" : `${count} problems`} to fix`;
   return verb === "listed" || !path ? DONE[verb] : `${DONE[verb]} ${path}`;
 }
 

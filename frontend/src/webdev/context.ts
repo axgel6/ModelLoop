@@ -20,10 +20,12 @@ export interface StudioProject {
   restoredFrom?: number | null;
 }
 
-/** One tool call that worked in a project turn, shown while the turn runs */
+/** One step that worked in a project turn, shown while the turn runs: a tool call, the plan,
+ *  or a check of the site (with how many problems it found) */
 export interface ProjectStep {
-  verb: "created" | "replaced" | "edited" | "deleted" | "read" | "listed";
+  verb: "created" | "replaced" | "edited" | "deleted" | "read" | "listed" | "planned" | "checked";
   path: string | null;
+  count?: number;
 }
 
 /** Files a running turn has changed so far: {path: contents, or null when deleted} */

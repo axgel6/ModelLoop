@@ -223,6 +223,37 @@ describe("ProjectSteps in the studio", () => {
     expect(screen.getByRole("status").textContent).toContain("0:44");
     vi.useRealTimers();
   });
+
+  it("names the plan and the checks", () => {
+    render(
+      <WebDevStudio
+        {...props}
+        busy
+        messages={[
+          { role: "user", text: "Develop a snake game" },
+          {
+            role: "assistant",
+            text: "",
+            steps: [
+              { verb: "planned", path: null },
+              { verb: "created", path: "app.js" },
+              { verb: "checked", path: null, count: 2 },
+              { verb: "edited", path: "app.js" },
+              { verb: "checked", path: null, count: 0 },
+            ],
+          },
+        ]}
+      />,
+    );
+    const items = [...screen.getByLabelText("Progress").querySelectorAll("li")].map((li) => li.textContent);
+    expect(items.slice(0, 5)).toEqual([
+      "Planned the site",
+      "Created app.js",
+      "Found 2 problems to fix",
+      "Edited app.js",
+      "Checked the site",
+    ]);
+  });
 });
 
 describe("Code colors", () => {

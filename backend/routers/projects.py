@@ -1,11 +1,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from pydantic import BaseModel, Field
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Chat, Message, Project, ProjectFile, ProjectVersion
+from models import Chat, Message, Project, ProjectCheck, ProjectFile, ProjectVersion
 from dependencies import get_user_id
 import project_mode
 
@@ -121,3 +122,32 @@ async def restore_project_version(
     await project_mode.write_version(db, project.id, new_version, files, restored_from=version)
     await db.commit()
     return {"version": new_version}
+
+
+class CheckReport(BaseModel):
+    # The preview caps what it reports, so a long list is not from it
+    errors: list[str] = Field(default_factory=list, max_length=20)
+
+
+@router.post("/{chat_id}/project/checks/{check_id}")
+async def report_project_check(
+    chat_id: uuid.UUID,
+    check_id: uuid.UUID,
+    body: CheckReport,
+    user_id: str = Depends(get_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """The errors the chat's hidden preview saw for a running turn's check (see project_checks.py).
+    A check is answered once; the stream reads the answer and deletes it."""
+    owned = await db.execute(select(Chat.id).where(Chat.id == chat_id, Chat.user_id == user_id))
+    if owned.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    result = await db.execute(
+        update(ProjectCheck)
+        .where(ProjectCheck.id == check_id, ProjectCheck.chat_id == chat_id, ProjectCheck.errors.is_(None))
+        .values(errors=[e[:400] for e in body.errors])
+    )
+    await db.commit()
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="No such check")
+    return {"ok": True}

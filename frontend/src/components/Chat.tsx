@@ -18,6 +18,7 @@ import {
   apiChatStream,
   apiGetProject,
   apiGetProjectVersion,
+  apiReportProjectCheck,
   apiRestoreProjectVersion,
   type StoredProject,
   apiCreateChat,
@@ -73,6 +74,7 @@ import {
   type WebDevContextValue,
 } from "../webdev/context";
 import { WebDevStudio } from "../webdev/WebDevStudio";
+import { runPreviewCheck } from "../webdev/check";
 import { READER_SIZES, useReaderPrefs } from "./readerPrefs";
 import { splitParas, useFocusedNav } from "./useFocusedNav";
 
@@ -768,6 +770,13 @@ function Chat({
                 };
                 return next;
               });
+            } else if (data.type === "project_check" && chatId) {
+              // The turn's checker waits for this: run the new files hidden and report their errors.
+              // Not awaited, so the stream keeps reading meanwhile.
+              const checkChat = chatId;
+              void runPreviewCheck(data.files ?? [])
+                .then((errors) => apiReportProjectCheck(checkChat, data.check_id, errors))
+                .catch(() => {});
             } else if (data.type === "project_turn" || data.type === "project_step") {
               if (data.type === "project_turn") liveSavedRef.current = false;
               const file = data.file as { path: string; content: string | null } | undefined;

@@ -31,6 +31,7 @@ from rate_limit import limiter
 from actions import execute_tool, get_active_tools, is_known_tool, run_proactive
 from actions import project_files as _project_files
 import project_mode
+import project_checks
 from actions import weather as _weather
 from actions.web_search import (
     async_execute as _run_web_search_async,
@@ -394,9 +395,11 @@ async def _chat_stream_response(
         user_msg["images"] = images
     messages.append(user_msg)
 
+    project_block = ""
     if project:
         # Like search results, the project goes in the message: some models get no system prompt
-        user_msg["content"] = f"{project_mode.context_block(project, prompt)}\n\n{user_msg['content']}"
+        project_block = project_mode.context_block(project, prompt)
+        user_msg["content"] = f"{project_block}\n\n{user_msg['content']}"
 
     _search_block: Optional[str] = None
     if _search_data and _search_data.get("results"):
@@ -459,6 +462,15 @@ async def _chat_stream_response(
         # A project turn can work for minutes before it writes a word, so the chat shows its steps
         if project:
             yield f"data: {json.dumps({'type': 'project_turn'})}\n\n"
+        # A new project is planned before it is built: the spec goes in the request, and is
+        # saved with the project for the turns after it
+        if project and project_mode.needs_plan(project, prompt):
+            project.spec = await project_mode.write_spec(base_url, model, prompt)
+            if project.spec:
+                user_msg["content"] = user_msg["content"].replace(
+                    project_block, project_mode.context_block(project, prompt), 1,
+                )
+                yield f"data: {json.dumps({'type': 'project_step', 'step': {'verb': 'planned', 'path': None, 'ok': True}})}\n\n"
         # Cards first, so they are on screen while the reply is still being written
         if widgets:
             yield f"data: {json.dumps({'type': 'widgets', 'widgets': widgets})}\n\n"
@@ -473,10 +485,19 @@ async def _chat_stream_response(
         searched = bool(_search_block)
         # Reminders already sent this project turn (see project_mode.nudge)
         nudges_sent: set[str] = set()
+        # The checker: after the model finishes, the files are checked and it is sent back to fix
+        # what was found, a few times at most. The reply is held until then, so it can say how it went.
+        build_reply = ""
+        checks_left = project_mode.CHECK_ROUNDS
+        checked_files: Optional[dict] = None
+        problems_found = 0
+        problems_left: list[str] = []
 
         try:
             round_content = ""
-            for _round in range(project_mode.TOOL_ROUNDS if project else 5):
+            rounds_left = project_mode.TOOL_ROUNDS if project else 5
+            while rounds_left > 0:
+                rounds_left -= 1
                 # A model repeating the same calls won't get further with more rounds
                 if workspace is not None and workspace.stuck:
                     break
@@ -648,8 +669,30 @@ async def _chat_stream_response(
                             current_messages.append({"role": "assistant", "content": round_content})
                             current_messages.append({"role": "user", "content": reminder})
                             continue
-                        for t in peek_buf:
-                            yield f"data: {json.dumps({'type': 'token', 'token': t})}\n\n"
+                        # The first reply says what was built; a fix round's reply only adds to it
+                        if not build_reply.strip():
+                            build_reply = round_content.strip() or workspace.fallback_reply()
+                        # Checked again only when a fix changed something since the last check
+                        if success and checks_left and workspace.changes() and workspace.files != checked_files:
+                            checks_left -= 1
+                            checked_files = dict(workspace.files)
+                            # The chat runs the new files in a hidden preview and reports its errors
+                            check_id = await project_checks.open_check(chat_id) if chat_id else None
+                            if check_id:
+                                yield f"data: {json.dumps({'type': 'project_check', 'check_id': str(check_id), 'files': [{'path': p, 'content': c} for p, c in sorted(workspace.files.items())]})}\n\n"
+                            static = project_checks.static_problems(workspace.files)
+                            errors = await project_checks.wait_for_errors(check_id) if check_id else None
+                            problems_left = project_checks.combine(static, project_checks.runtime_problems(errors or []))
+                            problems_found = problems_found or len(problems_left)
+                            yield f"data: {json.dumps({'type': 'project_step', 'step': {'verb': 'checked', 'path': None, 'ok': True, 'count': len(problems_left)}})}\n\n"
+                            if problems_left:
+                                logger.info("project_check_found chat_id=%s problems=%d", chat_id, len(problems_left))
+                                current_messages.append({"role": "assistant", "content": round_content})
+                                current_messages.append({"role": "user", "content": project_checks.fix_request(problems_left)})
+                                workspace.start_fix()
+                                rounds_left = project_mode.FIX_TOOL_ROUNDS
+                                continue
+                        break
                     full_response = round_content
                     break
 
@@ -723,10 +766,15 @@ async def _chat_stream_response(
             # (A project round's text is its tool calls, never a reply.)
             if success and not full_response and workspace is None:
                 full_response = round_content
-            # Small models often end a build on a tool call with nothing to say. The reply was
-            # never streamed, so it is sent here.
-            if success and workspace is not None and not full_response.strip():
-                full_response = workspace.fallback_reply()
+            # A project reply is sent once the checks are done. Small models often end a build on
+            # a tool call with nothing to say, so the workspace says what happened instead.
+            if success and workspace is not None:
+                if problems_left and workspace.files != checked_files:
+                    # A fix ran out of rounds before it was checked: see what is still wrong
+                    problems_left = project_checks.static_problems(workspace.files)
+                full_response = project_checks.reply(
+                    build_reply.strip() or workspace.fallback_reply(), problems_found, problems_left,
+                )
                 yield f"data: {json.dumps({'type': 'token', 'token': full_response})}\n\n"
 
             if success and full_response.strip():

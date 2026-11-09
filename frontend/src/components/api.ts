@@ -753,6 +753,17 @@ export async function apiGetProjectVersion(
   return (await res.json()).files;
 }
 
+// Answers a running turn's check with the errors its hidden preview saw
+export async function apiReportProjectCheck(chatId: string, checkId: string, errors: string[]): Promise<void> {
+  await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/chats/${chatId}/project/checks/${checkId}`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ errors }),
+    }),
+  );
+}
+
 // Saves an older version as the newest, and returns its number
 export async function apiRestoreProjectVersion(chatId: string, version: number): Promise<number> {
   const res = await withRefresh(() =>

@@ -152,8 +152,22 @@ class Project(Base):
     name:            Mapped[str]       = mapped_column(String(80), nullable=False)
     # 0 until the first turn that changes a file
     current_version: Mapped[int]       = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # The planner's spec: features, files and shared names every later turn follows
+    spec:            Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at:      Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at:      Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+# A runtime check the stream is waiting on: the chat loads the new files in a hidden preview
+# and fills in the errors it saw (see project_checks.py). Deleted once read.
+class ProjectCheck(Base):
+    __tablename__ = "project_checks"
+
+    id:         Mapped[uuid.UUID]      = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
+    chat_id:    Mapped[uuid.UUID]      = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Null until the browser answers
+    errors:     Mapped[Optional[list]] = mapped_column(JSON(none_as_null=True), nullable=True)
+    created_at: Mapped[datetime]       = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # The project's files as they are now

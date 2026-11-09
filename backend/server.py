@@ -73,6 +73,7 @@ async def lifespan(_: FastAPI):
             # Web studio: create_all makes the project tables; messages gains the change labels
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS project_changes JSON",
             "ALTER TABLE project_versions ADD COLUMN IF NOT EXISTS restored_from INTEGER",
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS spec TEXT",
             # Ember's id before it was renamed
             "UPDATE users SET theme = 'ember' WHERE theme = 'gruvbox'",
         ]

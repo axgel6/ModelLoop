@@ -301,6 +301,13 @@ class Workspace:
         is now failing at extras nobody asked for."""
         return self.repeats >= MAX_REPEATS or (self.misses >= MAX_REPEATS and bool(self.changes()))
 
+    def start_fix(self) -> None:
+        """Before the model goes back to fix what the checker found: a fix is a fresh task, so
+        the repeats and misses that end a turn start over. Calls already made still count as
+        repeats, so a fix can't redo a change that was already made."""
+        self.repeats = 0
+        self.misses = 0
+
     def changes(self) -> list[dict]:
         """[{"action": "created" | "edited" | "deleted", "path": ...}], in path order.
         A file written back to what it was, or created and then deleted, is no change."""
