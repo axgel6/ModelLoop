@@ -149,6 +149,7 @@ export function WebDevStudio({
   const [problems, setProblems] = useState<{ frame: string; list: string[]; dismissed: boolean } | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const versionsRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -230,6 +231,14 @@ export function WebDevStudio({
   useEffect(() => {
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, chatOpen]);
+
+  // The open file's tab scrolls into view, as when a change label opens a file past the row's end
+  const activeTab = active?.path;
+  useEffect(() => {
+    tabsRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [activeTab, codeOpen]);
 
   const openFile = (path: string) => {
     setActivePath(path);
@@ -390,7 +399,7 @@ export function WebDevStudio({
       {codeOpen && (
         <section className="wd-code" aria-label="Code">
           <div className="wd-code-head">
-            <div className="wd-files" role="tablist">
+            <div className="wd-files" role="tablist" ref={tabsRef}>
               {files.map((f) => (
                 <button
                   key={f.path}
@@ -398,7 +407,6 @@ export function WebDevStudio({
                   aria-selected={f.path === active?.path}
                   className={`wd-file${f.path === active?.path ? " is-on" : ""}`}
                   onClick={() => setActivePath(f.path)}
-                  ref={f.path === active?.path ? (el) => el?.scrollIntoView?.({ block: "nearest", inline: "nearest" }) : undefined}
                 >
                   {f.path}
                 </button>
