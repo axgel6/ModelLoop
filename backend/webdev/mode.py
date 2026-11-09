@@ -2,7 +2,7 @@
 
 A chat becomes a project chat on its first project turn and stays one (one project per
 chat). Each turn the model gets the file list and the files that matter, changes a copy
-of the project through actions/project_files.py, and the copy is saved with the reply,
+of the project through webdev/files.py, and the copy is saved with the reply,
 along with a version holding every file.
 """
 import logging
@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import ollama_caps
 import ollama_http
-from actions.project_files import Workspace
+from webdev.files import Workspace
 from config import NGROK_HEADERS, TOOL_CAPABLE_MODELS
 from models import Message, Project, ProjectFile, ProjectVersion
 
@@ -51,6 +51,13 @@ How to work:
 - Make it look finished: responsive down to phone width, with real-sounding content instead of lorem ipsum.
 - When the project has a spec, follow it: build every feature it lists and use its ids, classes and function names exactly. When the user's request asks for something the spec doesn't say, the request wins.
 - If the user only asks a question, answer it and change nothing.
+
+What the preview can't do (work around it instead of leaving it broken):
+- No image files and no image generation. Draw visuals with CSS, inline SVG or emoji, and never link to outside image URLs.
+- No server, database or build step. The site is static files run as-is; fake any data inside app.js instead of calling outside APIs.
+- No browser storage: localStorage and sessionStorage throw errors here. Keep state in JavaScript variables.
+- No alert(), confirm() or prompt(), and no popups or new tabs. Show messages in the page, and call preventDefault() when a form submits.
+- When the user asks for one of these, build the closest thing that works and say what you used instead in one short sentence.
 
 Your reply:
 - Never paste file contents or code blocks into the reply. The user sees the changes in the preview.
@@ -199,6 +206,7 @@ NOTES:
 
 Rules:
 - Under NAMES, list every id and class that app.js or style.css uses, and say which file defines it, plus the main functions in app.js. Leave out variables. Use short, plain names in kebab-case for ids and classes and camelCase for functions.
+- The site is static and has no image files, server, database, browser storage or outside APIs. Plan visuals as CSS or SVG drawings and data as values in app.js.
 - Keep it small enough to build well: the features the user asked for, plus what any finished site of this kind needs, and nothing more.
 - Write only the plan, with no introduction and no code."""
 

@@ -6,6 +6,16 @@ export type FileChange = { action: "created" | "edited" | "deleted"; path: strin
 /** A change's label: "Edited" style.css */
 export const CHANGE_VERBS: Record<FileChange["action"], string> = { created: "Created", edited: "Edited", deleted: "Deleted" };
 
+/** What a web studio turn did to the chat's project, shown under the reply */
+export interface ProjectChanges {
+  project_id: string;
+  /** The version the turn saved, or null when it changed no files */
+  version: number | null;
+  files: FileChange[];
+  /** Such as which model the project uses, on the turn that starts it */
+  note?: string;
+}
+
 /** What the studio and the project card show: the chat's stored project */
 export interface StudioProject {
   name: string;

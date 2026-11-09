@@ -5,6 +5,8 @@ The system prompt gives the model the user's date, but not the clock in Tokyo or
 cities in the timezone database), then through Open-Meteo's geocoder, which the
 weather action already uses and which returns each place's timezone.
 """
+from __future__ import annotations
+
 import json
 import re
 from datetime import datetime, timezone

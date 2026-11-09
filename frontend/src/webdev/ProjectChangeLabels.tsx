@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import type { ProjectChanges } from "../components/api";
+import type { ProjectChanges } from "./context";
 import { CHANGE_VERBS, WebDevContext } from "./context";
 import "./webdev.css";
 

@@ -319,6 +319,230 @@ def _drop_overridden(css: str, spans: list[tuple[int, int]]) -> str:
     return css
 
 
+# A top-level JavaScript declaration and its name: (kind, name)
+_JS_DECL_RES = (
+    ("function", re.compile(r"(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(")),
+    ("class", re.compile(r"class\s+([A-Za-z_$][\w$]*)\b")),
+    ("variable", re.compile(r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=")),
+)
+# A line that carries on the statement above it rather than starting a new one
+_JS_CONTINUES = tuple(".)]}?:+-*/,&|=")
+
+
+def _js_line_depths(js: str) -> list[tuple[int, int, bool]]:
+    """For each line: (where it starts, the { ( [ depth there, whether a string, comment or
+    regex is open there). A rough scan, enough to find where top-level statements start."""
+    out, depth, i, n = [(0, 0, False)], 0, 0, len(js)
+    prev = ""  # the last code character, to tell a regex from a division
+    while i < n:
+        ch = js[i]
+        if ch == "\n":
+            out.append((i + 1, depth, False))
+        elif ch in "\"'`":
+            end = i + 1
+            while end < n and js[end] != ch:
+                if js[end] == "\\":
+                    end += 1
+                elif js[end] == "\n" and ch != "`":
+                    break
+                end += 1
+            for k in range(i + 1, min(end, n)):
+                if js[k] == "\n":
+                    out.append((k + 1, depth, True))
+            i, prev = end + 1, ch
+            continue
+        elif js.startswith("//", i):
+            end = js.find("\n", i)
+            i = n if end == -1 else end
+            continue
+        elif js.startswith("/*", i):
+            end = js.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            for k in range(i, end):
+                if js[k] == "\n":
+                    out.append((k + 1, depth, True))
+            i = end
+            continue
+        elif ch == "/" and (not prev or prev in "(,=:[!&|?{};+-*%<>~^"):
+            end = i + 1
+            in_class = False
+            while end < n and js[end] != "\n" and (in_class or js[end] != "/"):
+                if js[end] == "\\":
+                    end += 1
+                elif js[end] == "[":
+                    in_class = True
+                elif js[end] == "]":
+                    in_class = False
+                end += 1
+            i, prev = end + 1, "/"
+            continue
+        elif ch in "{([":
+            depth += 1
+        elif ch in "})]":
+            depth -= 1
+        if not ch.isspace():
+            prev = ch
+        i += 1
+    return out
+
+
+def _js_statements(js: str) -> list[tuple[int, int, int]]:
+    """The top-level statements of a script as (start, code_start, end): start takes in the
+    comments just above it, code_start is where its own first line begins. A statement starts
+    on an unindented line at depth 0; the lines after it, up to the next such line, are its own."""
+    starts: list[tuple[int, int]] = []
+    comment_from = None
+    for at, depth, in_text in _js_line_depths(js):
+        line = js[at:js.find("\n", at) if js.find("\n", at) != -1 else len(js)]
+        if in_text or depth != 0 or not line.strip():
+            if not line.strip():
+                comment_from = None
+            continue
+        if line[0].isspace() or line.startswith(_JS_CONTINUES) and not line.startswith(("//", "/*")):
+            continue
+        if line.startswith(("//", "/*")):
+            comment_from = at if comment_from is None else comment_from
+            continue
+        starts.append((at if comment_from is None else comment_from, at))
+        comment_from = None
+    out = []
+    for k, (start, code_start) in enumerate(starts):
+        end = starts[k + 1][0] if k + 1 < len(starts) else len(js)
+        # Trailing blank lines belong to the gap, not the statement
+        while end > code_start and js[end - 1] in " \t\r\n":
+            end -= 1
+        out.append((start, code_start, end))
+    return out
+
+
+def _js_kind(statement: str) -> Optional[tuple[str, str]]:
+    for kind, pattern in _JS_DECL_RES:
+        match = pattern.match(statement)
+        if match:
+            return kind, match.group(1)
+    return None
+
+
+def _merge_js(content: str, snippet: str) -> Optional[tuple[str, list[str], list[str]]]:
+    """content with the declarations in snippet merged in by name, as (script, replaced, added),
+    or None when snippet is not made only of whole top-level declarations. Small models often
+    send an edit whose old_text isn't in the file, such as a comment they made up to add after,
+    with whole functions as new_text: a function with a name the file has replaces it, and a new
+    one goes after the file's last function. New variables go after the ones at the top."""
+    if not snippet.strip() or _braces(snippet) != 0:
+        return None
+    first = next((l for l in snippet.splitlines() if l.strip() and not l.lstrip().startswith(("//", "/*", "*"))), "")
+    if not first or first[0].isspace():
+        return None  # an indented piece is from inside a function
+    pieces = _js_statements(snippet)
+    if not pieces:
+        return None
+    existing: dict[str, tuple[str, int, int]] = {}
+    statements = _js_statements(content)
+    for _, code_start, end in statements:
+        found = _js_kind(content[code_start:end])
+        if found:
+            existing.setdefault(found[1], (found[0], code_start, end))
+    # Where new declarations go: variables after the run of them at the top, the rest after
+    # the last function or class
+    top_vars = 0
+    for start, code_start, end in statements:
+        found = _js_kind(content[code_start:end])
+        if not found or found[0] != "variable":
+            break
+        top_vars = end
+    last_decl = max((e for _, cs, e in statements if (_js_kind(content[cs:e]) or ("", ""))[0] in ("function", "class")),
+                    default=len(content.rstrip()))
+    edits: list[tuple[int, int, str]] = []
+    replaced, added = [], []
+    for start, code_start, end in pieces:
+        code = snippet[code_start:end]
+        found = _js_kind(code)
+        if not found:
+            if code.strip() in content:
+                continue  # a line the file already has, sent as context
+            return None
+        kind, name = found
+        if name in existing:
+            old_kind, old_start, old_end = existing[name]
+            if old_kind != kind:
+                return None
+            if content[old_start:old_end] != code:
+                edits.append((old_start, old_end, code))
+                replaced.append(name)
+            continue
+        piece = snippet[start:end]
+        if kind != "variable":
+            edits.append((last_decl, last_decl, "\n\n" + piece))
+        elif top_vars:
+            edits.append((top_vars, top_vars, "\n" + piece))
+        else:
+            edits.append((0, 0, piece + "\n\n"))
+        added.append(name)
+    if not edits:
+        return None
+    # Applied from the end, so earlier positions stay right; insertions at one spot keep their order
+    merged = content
+    for _, (at, end, text) in sorted(enumerate(edits), key=lambda e: (e[1][0], e[0]), reverse=True):
+        merged = merged[:at] + text + merged[end:]
+    if _braces(merged) != _braces(content):
+        return None
+    return merged, replaced, added
+
+
+def js_redeclared(js: str) -> list[tuple[str, tuple[int, int, int], tuple[int, int, int]]]:
+    """Top-level names a script declares twice where one of the two is let, const or class, which
+    is a syntax error that stops the whole script, as (name, first, again) with the statements'
+    (start, code_start, end). Small models add 'let score = 0;' again above code that uses it."""
+    seen: dict[str, tuple[bool, tuple[int, int, int]]] = {}
+    out = []
+    for statement in _js_statements(js):
+        code = js[statement[1]:statement[2]]
+        found = _js_kind(code)
+        if not found:
+            continue
+        lexical = found[0] == "class" or code.startswith(("let", "const"))
+        if found[1] in seen:
+            first_lexical, first = seen[found[1]]
+            if lexical or first_lexical:
+                out.append((found[1], first, statement))
+            continue
+        seen[found[1]] = (lexical, statement)
+    return out
+
+
+def _settle_js(path: str, before: str, after: str) -> tuple[Optional[str], Optional[str]]:
+    """(script, note) for a change that leaves `after`, or (None, error). A name the change
+    declares a second time is dropped when the second copy is the same as the first, and is
+    an error when it differs, since only the model knows which one it meant."""
+    if not path.endswith((".js", ".mjs")):
+        return after, None
+    already = {name for name, _, _ in js_redeclared(before)}
+    found = [d for d in js_redeclared(after) if d[0] not in already]
+    if not found:
+        return after, None
+    differ = [name for name, first, again in found
+              if after[first[1]:first[2]].strip() != after[again[1]:again[2]].strip()]
+    if differ:
+        return None, _error(
+            f"That change declares {', '.join(dict.fromkeys(differ))} twice in {path}, which stops the whole "
+            "script with a syntax error. The file already declares it: change that declaration in place, or "
+            "use a new name."
+        )
+    # Each repeat goes, with the comments above it and the blank line after it, from the end
+    for _, _, (start, _, end) in sorted(found, key=lambda d: d[2][0], reverse=True):
+        while end < len(after) and after[end] in " \t\r":
+            end += 1
+        if after.startswith("\n", end):
+            end += 1
+        # A blank line after it goes too when one is already above it, or it is the first line
+        if after.startswith("\n", end) and (start == 0 or after[max(0, start - 2):start] == "\n\n"):
+            end += 1
+        after = after[:start] + after[end:]
+    names = ", ".join(dict.fromkeys(name for name, _, _ in found))
+    return after, f"{path} already declared {names}, so the copy this change added was left out."
+
+
 class Workspace:
     """A project's files during one turn, and what the turn did to them."""
 
@@ -477,8 +701,12 @@ class Workspace:
         broken = self._drops_links(path, content)
         if broken:
             return broken
+        content, note = _settle_js(path, self.files.get(path, ""), content)
+        if content is None:
+            return note
         self.files[path] = content
-        return json.dumps({"ok": True, "path": path, "action": "replaced" if existed else "created"})
+        return json.dumps({"ok": True, "path": path, "action": "replaced" if existed else "created",
+                           **({"note": note} if note else {})})
 
     def _edit(self, path: str, old_text, new_text) -> str:
         if path not in self.files:
@@ -505,7 +733,20 @@ class Workspace:
             # Local models often get indentation or line breaks wrong, so try again ignoring spacing
             spans = _loose_matches(content, old_text)
             if not spans:
-                return self._no_match(path, content, old_text)
+                merged = _merge_js(content, new_text) if path.endswith((".js", ".mjs")) else None
+                if merged is None:
+                    return self._no_match(path, content, old_text)
+                updated, replaced, added = merged
+                if len(updated) > MAX_FILE_CHARS:
+                    return _error(f"That edit makes {path} too large (the limit is {MAX_FILE_CHARS} characters).")
+                updated, settled = _settle_js(path, content, updated)
+                if updated is None:
+                    return settled
+                self.files[path] = updated
+                done = [f"replaced {', '.join(replaced)}"] * bool(replaced) + [f"added {', '.join(added)}"] * bool(added)
+                return json.dumps({"ok": True, "path": path, "note": " ".join(filter(None, [
+                    f"old_text was not in {path}, so new_text was merged in by name: {' and '.join(done)}.", settled,
+                ]))})
             if len(spans) > 1:
                 return _error(f"old_text matches {len(spans)} places in {path}. Include more surrounding lines so it is unique.")
             matches = [_widen(content, old_text, *spans[0])]
@@ -550,7 +791,11 @@ class Workspace:
             return broken
         if len(updated) > MAX_FILE_CHARS:
             return _error(f"That edit makes {path} too large (the limit is {MAX_FILE_CHARS} characters).")
+        updated, settled = _settle_js(path, content, updated)
+        if updated is None:
+            return settled
         self.files[path] = updated
+        note = " ".join(filter(None, [note, settled])) or None
         return json.dumps({"ok": True, "path": path, **({"note": note} if note else {})})
 
     def _no_match(self, path: str, content: str, old_text: str) -> str:

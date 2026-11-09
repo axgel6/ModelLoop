@@ -159,7 +159,7 @@ class Project(Base):
 
 
 # A runtime check the stream is waiting on: the chat loads the new files in a hidden preview
-# and fills in the errors it saw (see project_checks.py). Deleted once read.
+# and fills in the errors it saw (see webdev/checks.py). Deleted once read.
 class ProjectCheck(Base):
     __tablename__ = "project_checks"
 

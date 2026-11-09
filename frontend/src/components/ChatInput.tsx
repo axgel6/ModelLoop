@@ -13,7 +13,7 @@ const SLASH_COMMANDS = [
   { cmd: "/think", desc: "Turn thinking on or off" },
   { cmd: "/fast", desc: "Fast mode: thinking off" },
   { cmd: "/ratelimit", desc: "Show rate limit info" },
-  { cmd: "/web", desc: "Build a website in this chat" },
+  { cmd: "/web", desc: "Build a static website in this chat" },
   { cmd: "/help", desc: "Show commands" },
 ];
 
@@ -98,7 +98,8 @@ function ChatInput({
   const historyIdxRef = useRef(-1);
   const draftRef = useRef("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
+  // The toolbar's / button opens the same menu typing "/" does, listing every command
+  const [commandsOpen, setCommandsOpen] = useState(false);
   const [docsDropdownOpen, setDocsDropdownOpen] = useState(false);
   const [tokenPopupOpen, setTokenPopupOpen] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
@@ -107,7 +108,8 @@ function ChatInput({
   const dragCounterRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const modelDropdownRef = useRef<HTMLDivElement | null>(null);
-  const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
+  const commandsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const slashDropdownRef = useRef<HTMLDivElement | null>(null);
   const docsDropdownRef = useRef<HTMLDivElement | null>(null);
   const tokenPopupRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -134,11 +136,25 @@ function ChatInput({
 
   const slashMatches = useMemo(
     () =>
-      input.startsWith("/") && !loading
-        ? SLASH_COMMANDS.filter((c) => c.cmd.startsWith(input.split(" ")[0]))
-        : [],
-    [input, loading],
+      loading
+        ? []
+        : // Typed: only while the command itself is being typed, since after a space it's the command's text
+          input.startsWith("/") && !/\s/.test(input)
+          ? SLASH_COMMANDS.filter((c) => c.cmd.startsWith(input))
+          : commandsOpen
+            ? SLASH_COMMANDS
+            : [],
+    [input, loading, commandsOpen],
   );
+
+  // Picking a command replaces a typed "/…"; picked from the button, it goes in front of any text
+  const pickCommand = (cmd: string) => {
+    const rest = input.startsWith("/") ? "" : input.trim();
+    setInput(rest ? `${cmd} ${rest}` : `${cmd} `);
+    setSlashIdx(-1);
+    setCommandsOpen(false);
+    textareaRef.current?.focus();
+  };
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -169,15 +185,15 @@ function ChatInput({
   }, [modelDropdownOpen]);
 
   useEffect(() => {
-    if (!toolsDropdownOpen) return;
+    if (!commandsOpen) return;
     const onClickOutside = (e: MouseEvent) => {
-      if (!toolsDropdownRef.current?.contains(e.target as Node)) {
-        setToolsDropdownOpen(false);
-      }
+      const target = e.target as Node;
+      const inside = [commandsButtonRef, slashDropdownRef, textareaRef].some((r) => r.current?.contains(target));
+      if (!inside) setCommandsOpen(false);
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [toolsDropdownOpen]);
+  }, [commandsOpen]);
 
   useEffect(() => {
     if (!docsDropdownOpen) return;
@@ -294,6 +310,7 @@ function ChatInput({
     draftRef.current = "";
     setInput("");
     setSlashIdx(-1);
+    setCommandsOpen(false);
     setAttachedImage(null);
     resetTextareaHeight();
     sounds.play("send");
@@ -312,14 +329,16 @@ function ChatInput({
         setSlashIdx((i) => (i >= slashMatches.length - 1 ? 0 : i + 1));
         return;
       }
-      if ((e.key === "Tab" || e.key === "Enter") && slashIdx >= 0) {
+      // A command typed out in full sends on Enter, like any message
+      const typedInFull = e.key === "Enter" && slashMatches[slashIdx]?.cmd === input;
+      if ((e.key === "Tab" || e.key === "Enter") && slashIdx >= 0 && !typedInFull) {
         e.preventDefault();
-        setInput(slashMatches[slashIdx].cmd);
-        setSlashIdx(-1);
+        pickCommand(slashMatches[slashIdx].cmd);
         return;
       }
       if (e.key === "Escape") {
         setSlashIdx(-1);
+        setCommandsOpen(false);
         return;
       }
     }
@@ -354,16 +373,14 @@ function ChatInput({
   return (
     <div className="input-area">
       {slashMatches.length > 0 && (
-        <div className="slash-dropdown">
+        <div className="slash-dropdown" ref={slashDropdownRef}>
           {slashMatches.map((item, i) => (
             <div
               key={item.cmd}
               className={`slash-item${slashIdx === i ? " active" : ""}`}
               onMouseDown={(e) => {
                 e.preventDefault();
-                setInput(item.cmd);
-                setSlashIdx(-1);
-                textareaRef.current?.focus();
+                pickCommand(item.cmd);
               }}
               onMouseEnter={() => setSlashIdx(i)}
             >
@@ -431,6 +448,7 @@ function ChatInput({
           onChange={(e) => {
             if (voiceActive && voiceStatus === "listening") return;
             setInput(e.target.value);
+            setCommandsOpen(false);
             if (!e.target.value.startsWith("/")) setSlashIdx(-1);
           }}
           onKeyDown={handleKeyDown}
@@ -633,54 +651,31 @@ function ChatInput({
                 )}
               </div>
             )}
-            <div className="tools-dropdown-wrapper" ref={toolsDropdownRef}>
-              <button
-                className="toolbar-chip-btn"
-                onClick={() => setToolsDropdownOpen((v) => !v)}
-                title="Slash commands"
-                type="button"
+            <button
+              className="toolbar-chip-btn"
+              ref={commandsButtonRef}
+              onClick={() => {
+                setSlashIdx(-1);
+                setCommandsOpen((v) => !v);
+                textareaRef.current?.focus();
+              }}
+              title="Slash commands"
+              type="button"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="16" y1="4" x2="8" y2="20" />
-                </svg>
-                <span className="toolbar-dock-label">Commands</span>
-              </button>
-              {toolsDropdownOpen && (
-                <div className="tools-dropdown-menu">
-                  {SLASH_COMMANDS.map((item) => (
-                    <button
-                      key={item.cmd}
-                      className="tools-dropdown-item"
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setToolsDropdownOpen(false);
-                        setInput(item.cmd);
-                        setTimeout(() => textareaRef.current?.focus(), 0);
-                      }}
-                    >
-                      <span className="tools-dropdown-item-text">
-                        <span className="tools-dropdown-item-label">
-                          {item.cmd}
-                        </span>
-                        <span className="tools-dropdown-item-desc">
-                          {item.desc}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                <line x1="16" y1="4" x2="8" y2="20" />
+              </svg>
+              <span className="toolbar-dock-label">Commands</span>
+            </button>
           </div>
 
           <div className="toolbar-right">

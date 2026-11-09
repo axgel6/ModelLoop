@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptics } from "../haptics";
 import { sounds } from "../sounds";
@@ -16,11 +16,6 @@ import { useChatUI } from "./hooks/useChatUI";
 import { useVoiceConversation } from "./hooks/useVoiceConversation";
 import {
   apiChatStream,
-  apiGetProject,
-  apiGetProjectVersion,
-  apiReportProjectCheck,
-  apiRestoreProjectVersion,
-  type StoredProject,
   apiCreateChat,
   apiDeleteAccount,
   apiDeleteChat,
@@ -63,18 +58,9 @@ import { GamesHub, GamesIcon } from "../games/GamesHub";
 import { inGamesPath, replacePath } from "../subroute";
 import { FocusedReaderMenu } from "./FocusedReaderMenu";
 import { VoiceMatrix } from "./VoiceMatrix";
-import {
-  PROJECT_TOOL_PHRASES,
-  WebDevContext,
-  timeAgo,
-  withLiveFiles,
-  type LiveFiles,
-  type StudioMessage,
-  type StudioProject,
-  type WebDevContextValue,
-} from "../webdev/context";
+import { PROJECT_TOOL_PHRASES, WebDevContext } from "../webdev/context";
 import { WebDevStudio } from "../webdev/WebDevStudio";
-import { runPreviewCheck } from "../webdev/check";
+import { useWebDevProject } from "../webdev/useWebDevProject";
 import { READER_SIZES, useReaderPrefs } from "./readerPrefs";
 import { splitParas, useFocusedNav } from "./useFocusedNav";
 
@@ -771,22 +757,11 @@ function Chat({
                 return next;
               });
             } else if (data.type === "project_check" && chatId) {
-              // The turn's checker waits for this: run the new files hidden and report their errors.
-              // Not awaited, so the stream keeps reading meanwhile.
-              const checkChat = chatId;
-              void runPreviewCheck(data.files ?? [])
-                .then((errors) => apiReportProjectCheck(checkChat, data.check_id, errors))
-                .catch(() => {});
+              runCheck(chatId, data.check_id, data.files ?? []);
             } else if (data.type === "project_turn" || data.type === "project_step") {
-              if (data.type === "project_turn") liveSavedRef.current = false;
+              if (data.type === "project_turn") onTurnStart();
               const file = data.file as { path: string; content: string | null } | undefined;
-              if (file) {
-                const chatId = activeChatIdRef.current;
-                setLiveFiles((live) => ({
-                  chatId,
-                  files: { ...(live?.chatId === chatId ? live.files : {}), [file.path]: file.content },
-                }));
-              }
+              if (file) onFileChanged(file);
               setMessages((prev) => {
                 const next = [...prev];
                 const last = next[next.length - 1];
@@ -798,11 +773,7 @@ function Chat({
               });
             } else if (data.type === "project_changes") {
               // The turn is saved by now, so the card and studio can pick up its files
-              if (data.changes?.version != null) {
-                // The live files stay on screen until the saved ones load
-                liveSavedRef.current = true;
-                setProjectTick((t) => t + 1);
-              }
+              if (data.changes?.version != null) onVersionSaved();
               setMessages((prev) => {
                 const next = [...prev];
                 next[next.length - 1] = {
@@ -876,8 +847,7 @@ function Chat({
       setIsThinking(false);
       setActiveTool(null);
       setLoading(false);
-      // A turn that saved nothing (stopped, failed or no changes) leaves the project as it was
-      if (!liveSavedRef.current) setLiveFiles(null);
+      onTurnEnd();
       setMessages((prev) => {
         if (activeChatIdRef.current)
           messageCache.current.set(activeChatIdRef.current, prev);
@@ -903,82 +873,20 @@ function Chat({
   // ── Focused mode ─────────────────────────────────────────────────────────
   const [focusedMode, setFocusedMode] = useState(false);
   // ── Web studio ───────────────────────────────────────────────────────────
-  // Open on the chat's project, at a file when given one
-  const [studio, setStudio] = useState<{ path?: string } | null>(null);
-  const closeStudio = useCallback(() => setStudio(null), [setStudio]);
-  const openStudio = useCallback((options?: { path?: string }) => setStudio({ path: options?.path }), [setStudio]);
-  // A chat has a project once a reply carries project changes (the turn that starts one always does)
-  const hasProject = useMemo(() => messages.some((m) => m.project_changes), [messages]);
-  const [storedProject, setStoredProject] = useState<{ chatId: string; data: StoredProject } | null>(null);
-  // Bumped when a turn saves a version, to load the new files
-  const [projectTick, setProjectTick] = useState(0);
-  // Files the running turn has changed so far ({path: contents, or null when deleted}), so the
-  // preview follows each step instead of waiting for the turn to end
-  const [liveFiles, setLiveFiles] = useState<{ chatId: string | null; files: LiveFiles } | null>(null);
-  // The running turn saved a version, so its live files give way once the saved ones load
-  const liveSavedRef = useRef(false);
-  useEffect(() => {
-    if (!activeChatId || !hasProject || isGuest || privateMode) return;
-    let cancelled = false;
-    const chatId = activeChatId;
-    apiGetProject(chatId)
-      .then((data) => {
-        if (cancelled) return;
-        setStoredProject({ chatId, data });
-        if (liveSavedRef.current) {
-          liveSavedRef.current = false;
-          setLiveFiles(null);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [activeChatId, hasProject, isGuest, privateMode, projectTick]);
-  // Another chat's studio never stays open over this one
-  const [studioChat, setStudioChat] = useState(activeChatId);
-  if (studioChat !== activeChatId) {
-    setStudioChat(activeChatId);
-    setStudio(null);
-  }
-
-  const project = useMemo<StudioProject | null>(() => {
-    if (!storedProject || storedProject.chatId !== activeChatId || !hasProject) return null;
-    const { data } = storedProject;
-    const last = [...messages].reverse().find((m) => m.project_changes?.files.length);
-    return {
-      name: data.name,
-      version: data.version,
-      files: liveFiles?.chatId === activeChatId ? withLiveFiles(data.files, liveFiles.files) : data.files,
-      versions: data.versions.map((v) => ({ version: v.version, label: v.label, when: timeAgo(v.created_at) })),
-      lastChanges: last?.project_changes?.files ?? [],
-      restoredFrom: data.versions[0]?.restored_from,
-    };
-  }, [storedProject, activeChatId, hasProject, messages, liveFiles]);
-  const studioMessages = useMemo<StudioMessage[]>(
-    () =>
-      messages.map((m) => ({
-        role: m.role,
-        text: m.content,
-        changes: m.project_changes?.files,
-        version: m.project_changes?.version,
-        steps: m.steps,
-        createdAt: m.created_at,
-      })),
-    [messages],
-  );
-  const loadVersion = useCallback(
-    (version: number) => apiGetProjectVersion(activeChatIdRef.current!, version),
-    [activeChatIdRef],
-  );
-  const restoreVersion = useCallback(
-    async (version: number) => {
-      await apiRestoreProjectVersion(activeChatIdRef.current!, version);
-      setProjectTick((t) => t + 1);
-    },
-    [activeChatIdRef],
-  );
-  const webDev = useMemo<WebDevContextValue>(() => ({ project, open: openStudio }), [project, openStudio]);
+  const {
+    project,
+    studio,
+    closeStudio,
+    studioMessages,
+    loadVersion,
+    restoreVersion,
+    webDev,
+    onTurnStart,
+    onFileChanged,
+    onVersionSaved,
+    onTurnEnd,
+    runCheck,
+  } = useWebDevProject({ messages, activeChatId, activeChatIdRef, enabled: !isGuest && !privateMode });
   const [readerPrefs, setReaderPrefs] = useReaderPrefs();
   const [focusedLines, setFocusedLines] = useState<
     { role: "user" | "assistant"; text: string }[]

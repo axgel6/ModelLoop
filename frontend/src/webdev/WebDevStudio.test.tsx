@@ -279,3 +279,31 @@ describe("withLiveFiles", () => {
     ]);
   });
 });
+
+describe("Stop", () => {
+  it("takes every preview off the page until Run, and ends a running check", async () => {
+    const { runPreviewCheck } = await import("./check");
+    const { runPreviews } = await import("./stop");
+    try {
+      const check = runPreviewCheck(project.files);
+      expect(document.querySelectorAll('iframe[aria-hidden="true"]')).toHaveLength(1);
+      render(
+        <WebDevContext.Provider value={{ project, open: () => {} }}>
+          <WebDevStudio {...props} />
+          <ProjectCard />
+        </WebDevContext.Provider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Stop the preview" }));
+      expect(await check).toEqual([]);
+      expect(document.querySelectorAll("iframe")).toHaveLength(0);
+      expect(screen.getByText("Preview stopped")).toBeTruthy();
+      expect(await runPreviewCheck(project.files)).toEqual([]);
+
+      fireEvent.click(screen.getByRole("button", { name: "Run the preview" }));
+      expect(frame().srcdoc).toContain("Crumb");
+      expect(screen.queryByText("Preview stopped")).toBeNull();
+    } finally {
+      act(() => runPreviews());
+    }
+  });
+});

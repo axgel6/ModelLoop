@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models import Chat, Message, Project, ProjectCheck, ProjectFile, ProjectVersion
 from dependencies import get_user_id
-import project_mode
+from webdev import mode as project_mode
 
 router = APIRouter(prefix="/api/v1/chats", tags=["projects"])
 
@@ -137,7 +137,7 @@ async def report_project_check(
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """The errors the chat's hidden preview saw for a running turn's check (see project_checks.py).
+    """The errors the chat's hidden preview saw for a running turn's check (see webdev/checks.py).
     A check is answered once; the stream reads the answer and deletes it."""
     owned = await db.execute(select(Chat.id).where(Chat.id == chat_id, Chat.user_id == user_id))
     if owned.scalar_one_or_none() is None:

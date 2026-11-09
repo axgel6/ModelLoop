@@ -20,7 +20,7 @@ from typing import Optional
 
 from sqlalchemy import delete, select
 
-from actions.project_files import _linked
+from webdev.files import _linked, js_redeclared
 from database import AsyncSessionLocal
 from models import ProjectCheck
 
@@ -256,6 +256,15 @@ def _unclosed_js(path: str, js: str) -> Optional[str]:
     return None
 
 
+def _redeclared_js(path: str, js: str) -> Optional[str]:
+    """The first top-level name declared twice where one is let, const or class, or None."""
+    for name, _, (_, code_start, _) in js_redeclared(js):
+        line = js.count("\n", 0, code_start) + 1
+        return (f"{path} line {line}: {name} is declared again, so the script stops with a syntax error. "
+                "Remove this declaration and keep the first one.")
+    return None
+
+
 def _uses_jsx(files: dict[str, str]) -> bool:
     """The project's scripts are compiled in the browser (JSX through Babel), so they aren't
     plain JavaScript and the syntax check would misread them."""
@@ -275,7 +284,7 @@ def static_problems(files: dict[str, str]) -> list[str]:
         if path.endswith(".css"):
             found = _unclosed_css(path, content)
         elif path.endswith((".js", ".mjs")) and not jsx:
-            found = _unclosed_js(path, content)
+            found = _unclosed_js(path, content) or _redeclared_js(path, content)
         else:
             found = None
         if found:

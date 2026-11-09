@@ -14,6 +14,7 @@ import xml from "highlight.js/lib/languages/xml";
 import { CHANGE_VERBS, WebDevContext, type FileChange, type StudioMessage, type StudioProject } from "./context";
 import { buildPreview, fixPrompt, type PreviewProblem, type ProjectFile } from "./preview";
 import { ProjectSteps } from "./ProjectSteps";
+import { runPreviews, stopPreviews, usePreviewsStopped } from "./stop";
 import "./webdev.css";
 
 hljs.registerLanguage("css", css);
@@ -84,7 +85,7 @@ function savedCodeTheme(): CodeTheme {
 
 function language(path: string): string {
   if (path.endsWith(".css")) return "css";
-  if (path.endsWith(".js")) return "javascript";
+  if (/\.m?js$/.test(path)) return "javascript";
   return "xml";
 }
 
@@ -133,6 +134,11 @@ export function WebDevStudio({
   // The version that failed to load, if one did
   const [failed, setFailed] = useState<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const stopped = usePreviewsStopped();
+  const reload = () => {
+    runPreviews();
+    setReloadKey((k) => k + 1);
+  };
   const [codeTheme, setCodeTheme] = useState<CodeTheme>(savedCodeTheme);
   const pickCodeTheme = (theme: CodeTheme) => {
     setCodeTheme(theme);
@@ -199,7 +205,8 @@ export function WebDevStudio({
     return () => window.removeEventListener("message", onMessage);
   }, []);
   // Not while a reply is written: the site is mid-change, and Fix it can't send yet
-  const shownProblems = problems?.frame === frameId && !problems.dismissed && !isOlder && !busy ? problems.list : [];
+  const shownProblems =
+    problems?.frame === frameId && !problems.dismissed && !isOlder && !busy && !stopped ? problems.list : [];
   const active: ProjectFile | undefined = files.find((f) => f.path === activePath) ?? files[0];
   const highlighted = useMemo(
     () => (active ? hljs.highlight(active.content, { language: language(active.path) }).value : ""),
@@ -266,9 +273,11 @@ export function WebDevStudio({
     onSend(text);
   };
 
+  const dismissProblems = () => setProblems((p) => p && { ...p, dismissed: true });
+
   const fixIt = () => {
     if (busy || !shownProblems.length) return;
-    setProblems((p) => p && { ...p, dismissed: true });
+    dismissProblems();
     setChatOpen(true);
     onSend(fixPrompt(shownProblems));
   };
@@ -357,7 +366,7 @@ export function WebDevStudio({
         <div className="wd-bar-group">
           <button
             className="wd-icon-btn"
-            onClick={() => setReloadKey((k) => k + 1)}
+            onClick={reload}
             disabled={!previewOn}
             aria-label="Reload preview"
             title="Reload"
@@ -366,6 +375,14 @@ export function WebDevStudio({
               <path d="M19.36 8.25A8.5 8.5 0 1 1 12 4" />
               <path d="M9.4 1.4L12 4 9.4 6.6" />
             </Icon>
+          </button>
+          <button
+            className="wd-icon-btn"
+            onClick={stopped ? reload : stopPreviews}
+            aria-label={stopped ? "Run the preview" : "Stop the preview"}
+            title={stopped ? "Run" : "Stop: ends the site's scripts and frees its memory"}
+          >
+            <Icon>{stopped ? <path d="M8 5.5v13l10.5-6.5z" /> : <rect x="6" y="6" width="12" height="12" rx="2" />}</Icon>
           </button>
           <button className={`wd-pill${codeOpen ? " is-on" : ""}`} onClick={toggleCode} aria-pressed={codeOpen}>
             <Icon>
@@ -486,7 +503,7 @@ export function WebDevStudio({
             </button>
             <button
               className="wd-icon-btn wd-problem-close"
-              onClick={() => setProblems((p) => p && { ...p, dismissed: true })}
+              onClick={dismissProblems}
               aria-label="Dismiss the error"
             >
               <Icon size={14}>
@@ -496,13 +513,22 @@ export function WebDevStudio({
           </div>
         )}
         <div className={`wd-frame wd-frame-${device}`}>
-          <iframe
-            ref={frameRef}
-            key={reloadKey}
-            title="Site preview"
-            srcDoc={preview}
-            sandbox="allow-scripts allow-forms"
-          />
+          {stopped ? (
+            <div className="wd-stopped">
+              <p>Preview stopped. The site's scripts aren't running.</p>
+              <button className="wd-older-btn" onClick={reload}>
+                Run it again
+              </button>
+            </div>
+          ) : (
+            <iframe
+              ref={frameRef}
+              key={reloadKey}
+              title="Site preview"
+              srcDoc={preview}
+              sandbox="allow-scripts allow-forms"
+            />
+          )}
         </div>
       </main>
 
@@ -613,6 +639,7 @@ export function ProjectCard() {
   const project = ctx?.project;
   const files = project?.files;
   const preview = useMemo(() => (files?.length ? buildPreview(files) : ""), [files]);
+  const stopped = usePreviewsStopped();
   if (!ctx || !project) return null;
   const summary = project.restoredFrom ? `Restored v${project.restoredFrom}` : changeSummary(project.lastChanges);
   const count = project.files.length;
@@ -623,7 +650,9 @@ export function ProjectCard() {
       aria-label={`Open ${project.name} in the studio`}
     >
       <div className="wd-card-thumb" aria-hidden="true">
-        {preview ? (
+        {stopped && preview ? (
+          <span className="wd-card-empty">Preview stopped</span>
+        ) : preview ? (
           <iframe title="" srcDoc={preview} sandbox="allow-scripts" tabIndex={-1} loading="lazy" />
         ) : (
           <span className="wd-card-empty">Nothing built yet</span>

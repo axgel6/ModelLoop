@@ -29,9 +29,9 @@ from config import (
 from ollama_target import effective_ollama_url
 from rate_limit import limiter
 from actions import execute_tool, get_active_tools, is_known_tool, run_proactive
-from actions import project_files as _project_files
-import project_mode
-import project_checks
+from webdev import files as _project_files
+from webdev import mode as project_mode
+from webdev import checks as project_checks
 from actions import weather as _weather
 from actions.web_search import (
     async_execute as _run_web_search_async,

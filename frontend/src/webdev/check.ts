@@ -1,4 +1,5 @@
 import { buildPreview, type ProjectFile, type PreviewProblem } from "./preview";
+import { onPreviewsChange, previewsStopped } from "./stop";
 
 /** How long the page runs after it loads, and the longest a check may take in all */
 const SETTLE_MS = 2500;
@@ -6,8 +7,11 @@ const LIMIT_MS = 7000;
 
 /** Runs a project in a hidden preview and resolves with the errors it reported, for the
  *  checker in a running project turn (see backend/project_checks.py). The frame has the same
- *  sandbox as the studio's preview, so the code can't reach the app. */
+ *  sandbox as the studio's preview, so the code can't reach the app. While previews are stopped
+ *  nothing runs, and stopping them ends a check that is running; either way the turn goes on
+ *  with the backend's own checks. */
 export function runPreviewCheck(files: ProjectFile[]): Promise<string[]> {
+  if (previewsStopped()) return Promise.resolve([]);
   return new Promise((resolve) => {
     const frame = document.createElement("iframe");
     frame.setAttribute("sandbox", "allow-scripts allow-forms");
@@ -27,10 +31,14 @@ export function runPreviewCheck(files: ProjectFile[]): Promise<string[]> {
       window.clearTimeout(settle);
       window.clearTimeout(limit);
       window.removeEventListener("message", onMessage);
+      unsubscribe();
       frame.remove();
       resolve(errors.slice(0, 20));
     };
     const limit = window.setTimeout(finish, LIMIT_MS);
+    const unsubscribe = onPreviewsChange(() => {
+      if (previewsStopped()) finish();
+    });
     frame.addEventListener("load", () => {
       settle = window.setTimeout(finish, SETTLE_MS);
     });
