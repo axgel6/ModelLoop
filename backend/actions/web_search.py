@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 from html.parser import HTMLParser
 from typing import Optional
@@ -130,6 +131,11 @@ _HEADERS = {
 
 _DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
 _DDG_HTML_URL = "https://html.duckduckgo.com/html/"
+
+# DuckDuckGo blocks most datacenter IPs (Render, Fly, AWS...), so hosted instances
+# need a keyed search API. Tavily's free tier (no card) is used when this key is set.
+_TAVILY_URL = "https://api.tavily.com/search"
+_TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "").strip()
 
 logger = logging.getLogger(__name__)
 
@@ -265,6 +271,20 @@ def _parse_html_results(html: str, max_results: int) -> list:
     return _filter_ads(parser.results)[:max_results]
 
 
+async def _tavily_search(client: httpx.AsyncClient, query: str, max_results: int) -> list:
+    resp = await client.post(
+        _TAVILY_URL,
+        json={"query": query, "max_results": max_results, "search_depth": "basic"},
+        headers={"Accept": "application/json", "Authorization": f"Bearer {_TAVILY_API_KEY}"},
+    )
+    resp.raise_for_status()
+    return [
+        {"title": r.get("title", ""), "url": r.get("url", ""), "snippet": r.get("content", "")}
+        for r in (resp.json().get("results") or [])[:max_results]
+        if r.get("url")
+    ]
+
+
 def _parse_search_args(arguments: dict) -> tuple[str, int, str, str]:
     query = arguments.get("query", "").strip()
     region = arguments.get("_region", "us-en")
@@ -315,6 +335,13 @@ async def async_execute(arguments: dict) -> str:
         except Exception as e:
             error = e
             logger.warning("web_search_failed url=%s error=%s", url, e)
+    if not results and _TAVILY_API_KEY:
+        try:
+            results = await _tavily_search(client, query, max_results)
+            error = None
+        except Exception as e:
+            error = e
+            logger.warning("web_search_failed url=%s error=%s", _TAVILY_URL, e)
     if not results and error is not None:
         return json.dumps({"error": str(error)})
     out = _build_output(query, results)

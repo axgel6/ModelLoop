@@ -23,7 +23,7 @@ async def capabilities(base_url: str, model: str) -> list[str]:
             resp.raise_for_status()
             _known[key] = list(resp.json().get("capabilities") or [])
         except Exception as e:
-            logger.warning("model_show_failed model=%s error=%s", model, str(e))
+            logger.warning("model_show_failed model=%s error=%r", model, e)
             # Not remembered: the next call asks again
             return ["thinking"] if any(p in model.lower() for p in THINKING_MODELS) else []
     return _known[key]

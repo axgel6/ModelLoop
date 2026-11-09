@@ -61,7 +61,7 @@ async def get_models(user: Optional[User] = Depends(get_optional_user)):
         }
 
     except Exception as e:
-        logger.error('ollama_fetch_failed error=%s', str(e))
+        logger.error('ollama_fetch_failed error=%r', e)
         if shared and _cached_models:
             capabilities = await _all_capabilities(base_url, _cached_models)
             return {
