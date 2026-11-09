@@ -113,7 +113,7 @@ ModelLoop/
 
 ### Prerequisites
 
-- **Python 3.10+** (backend)
+- **Python 3.12+** and **[uv](https://docs.astral.sh/uv/)** (backend): `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - **Node.js 18+** (frontend)
 - **PostgreSQL 14+** (database)
 - **Ollama** (local or remote inference)
@@ -123,19 +123,15 @@ ModelLoop/
 ```bash
 cd backend
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Create the virtual environment and install the exact locked versions
+uv sync
 
 # Create .env file (see Environment Variables section below)
 cp .env.example .env
 # Edit .env with your settings
 
 # Run server
-python server.py
+uv run python server.py
 ```
 
 Server starts on `http://localhost:8000` by default.
@@ -361,8 +357,7 @@ on Netlify, Vercel, or Cloudflare Pages).
 ```bash
 # Terminal 1: Backend
 cd backend
-source .venv/bin/activate
-python server.py
+uv run python server.py
 
 # Terminal 2: Frontend
 cd frontend
@@ -388,12 +383,13 @@ ollama serve
 
 ```dockerfile
 # backend/Dockerfile
-FROM python:3.11-slim
+FROM python:3.14-slim
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /bin/uv
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY pyproject.toml uv.lock .python-version ./
+RUN uv sync --locked --no-dev
 COPY . .
-CMD ["python", "server.py"]
+CMD ["uv", "run", "--no-sync", "python", "server.py"]
 ```
 
 ---

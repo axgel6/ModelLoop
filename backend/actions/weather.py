@@ -119,10 +119,23 @@ _US_STATES = {
 }
 
 
+async def _get_json(client: httpx.AsyncClient, url: str, params: dict) -> dict:
+    # One retry: a kept-open connection can be dead (after the machine sleeps, say),
+    # and one dropped request should not cost the user their answer.
+    for attempt in (1, 2):
+        try:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            return resp.json()
+        except (httpx.TransportError, httpx.HTTPStatusError) as e:
+            retryable = isinstance(e, httpx.TransportError) or e.response.status_code >= 500
+            if attempt == 2 or not retryable:
+                raise
+
+
 async def _search_places(client: httpx.AsyncClient, name: str) -> list:
-    resp = await client.get(_GEOCODE_URL, params={"name": name, "count": 10, "language": "en"})
-    resp.raise_for_status()
-    return resp.json().get("results") or []
+    data = await _get_json(client, _GEOCODE_URL, {"name": name, "count": 10, "language": "en"})
+    return data.get("results") or []
 
 
 def _pick(places: list, hint: str) -> dict:
@@ -172,7 +185,7 @@ async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
         return None
 
     imperial = place.get("country_code") in _FAHRENHEIT_COUNTRIES
-    resp = await client.get(_FORECAST_URL, params={
+    data = await _get_json(client, _FORECAST_URL, {
         "latitude": place["latitude"],
         "longitude": place["longitude"],
         "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day",
@@ -182,8 +195,6 @@ async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
         "timezone": "auto",
         "forecast_days": 3,
     })
-    resp.raise_for_status()
-    data = resp.json()
     now, daily = data["current"], data["daily"]
     deg = "°F" if imperial else "°C"
     wind = "mph" if imperial else "km/h"

@@ -1,0 +1,25 @@
+[project]
+name = "modelloop-backend"
+version = "0.1.0"
+description = "FastAPI backend for ModelLoop"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.143.2",
+    "uvicorn[standard]>=0.54.0",
+    "gunicorn>=26.2.0",
+    "httpx>=0.28.1",
+    "python-dotenv>=1.2.4",
+    "slowapi>=0.1.10",
+    "pydantic[email]>=2.14.1",
+    "sqlalchemy[asyncio]>=2.1.4",
+    "asyncpg>=0.32.0",
+    "python-jose[cryptography]>=3.5.0",
+    "bcrypt>=5.0.0",
+    "python-multipart>=0.0.32",
+    "numpy>=2.5.4",
+    "pypdf>=6.20.1",
+]
+
+# An app, not a library: uv installs its dependencies but does not build it as a package
+[tool.uv]
+package = false
