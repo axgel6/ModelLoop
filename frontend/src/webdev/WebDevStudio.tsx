@@ -398,6 +398,7 @@ export function WebDevStudio({
                   aria-selected={f.path === active?.path}
                   className={`wd-file${f.path === active?.path ? " is-on" : ""}`}
                   onClick={() => setActivePath(f.path)}
+                  ref={f.path === active?.path ? (el) => el?.scrollIntoView?.({ block: "nearest", inline: "nearest" }) : undefined}
                 >
                   {f.path}
                 </button>
