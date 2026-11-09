@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from html.parser import HTMLParser
 from typing import Optional
@@ -129,6 +130,8 @@ _HEADERS = {
 
 _DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
 _DDG_HTML_URL = "https://html.duckduckgo.com/html/"
+
+logger = logging.getLogger(__name__)
 
 # Module-level persistent client — reuses TCP connections across requests.
 _async_client: Optional[httpx.AsyncClient] = None
@@ -296,17 +299,24 @@ async def async_execute(arguments: dict) -> str:
         return cached
     client = _get_async_client()
     results = None
-    try:
-        resp = await client.post(_DDG_LITE_URL, data={"q": query, "kl": region})
-        resp.raise_for_status()
-        results = _parse_results(resp.text, max_results)
-    except Exception:
+    error: Optional[Exception] = None
+    # DuckDuckGo answers a request it takes for a bot with "202 Accepted" and a challenge
+    # page, not an error, so anything but a 200 with results moves on to the next endpoint.
+    for url, parse in ((_DDG_LITE_URL, _parse_results), (_DDG_HTML_URL, _parse_html_results)):
         try:
-            resp = await client.post(_DDG_HTML_URL, data={"q": query, "kl": region})
+            resp = await client.post(url, data={"q": query, "kl": region})
             resp.raise_for_status()
-            results = _parse_html_results(resp.text, max_results)
+            if resp.status_code != 200:
+                logger.warning("web_search_blocked url=%s status=%s", url, resp.status_code)
+                continue
+            results = parse(resp.text, max_results)
+            if results:
+                break
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            error = e
+            logger.warning("web_search_failed url=%s error=%s", url, e)
+    if not results and error is not None:
+        return json.dumps({"error": str(error)})
     out = _build_output(query, results)
     if results:
         _cache.set(cache_key, out)

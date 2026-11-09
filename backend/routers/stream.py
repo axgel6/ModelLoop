@@ -301,7 +301,7 @@ async def _chat_stream_response(
                         weather_widget = report["widget"]
                         return {"results": [{
                             "title": f"Weather in {report['place']}",
-                            "url": _weather.SOURCE_URL,
+                            "url": report["source"],
                             "snippet": report["report"],
                         }]}
                 except Exception as _e:

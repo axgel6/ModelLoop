@@ -1,13 +1,20 @@
-"""Live weather from Open-Meteo (free, no API key).
+"""Live weather from Open-Meteo, with MET Norway as the backup (both free, no API key).
 
 Web search results for a weather question are only page titles and blurbs, with
 no numbers in them, so the model had nothing to answer from and filled the gaps
 with placeholders. This looks the place up and returns real conditions instead.
+
+Open-Meteo limits requests per IP address, and a cloud host's shared IP can run
+out for reasons that have nothing to do with us. When it refuses, the forecast
+comes from MET Norway instead, reshaped to look like an Open-Meteo answer.
 """
 import json
+import logging
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -35,6 +42,7 @@ DEFINITION = {
 }
 
 SOURCE_URL = "https://open-meteo.com/"
+MET_SOURCE_URL = "https://www.met.no/en"
 
 _WEATHER_RE = re.compile(
     r"\bweather\b"
@@ -79,6 +87,26 @@ _CONDITIONS = {
 
 _GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+_MET_URL = "https://api.met.no/weatherapi/locationforecast/2.0/complete"
+# MET Norway turns away requests that do not say who is asking
+_MET_HEADERS = {"User-Agent": "ModelLoop/1.0 (+https://github.com/axgel6/ModelLoop)"}
+
+logger = logging.getLogger(__name__)
+
+# After Open-Meteo says "too many requests", it is left alone this long
+_REST_AFTER_429 = 600.0
+_open_meteo_resting_until = 0.0
+
+# MET Norway symbol codes (with _day/_night left off) as WMO codes, which the card's icons use
+_MET_SYMBOLS = {
+    "clearsky": 0, "fair": 1, "partlycloudy": 2, "cloudy": 3, "fog": 45,
+    "lightrain": 61, "rain": 63, "heavyrain": 65,
+    "lightrainshowers": 80, "rainshowers": 81, "heavyrainshowers": 82,
+    "lightsleet": 66, "sleet": 67, "heavysleet": 67,
+    "lightsleetshowers": 66, "sleetshowers": 67, "heavysleetshowers": 67,
+    "lightsnow": 71, "snow": 73, "heavysnow": 75,
+    "lightsnowshowers": 85, "snowshowers": 85, "heavysnowshowers": 86,
+}
 
 # Conditions are refreshed every 15 minutes upstream
 _cache = TTLCache(ttl=600.0, max_size=100)
@@ -119,12 +147,12 @@ _US_STATES = {
 }
 
 
-async def _get_json(client: httpx.AsyncClient, url: str, params: dict) -> dict:
+async def _get_json(client: httpx.AsyncClient, url: str, params: dict, headers: Optional[dict] = None) -> dict:
     # One retry: a kept-open connection can be dead (after the machine sleeps, say),
     # and one dropped request should not cost the user their answer.
     for attempt in (1, 2):
         try:
-            resp = await client.get(url, params=params)
+            resp = await client.get(url, params=params, headers=headers)
             resp.raise_for_status()
             return resp.json()
         except (httpx.TransportError, httpx.HTTPStatusError) as e:
@@ -169,6 +197,123 @@ async def _geocode(client: httpx.AsyncClient, location: str) -> Optional[dict]:
     return None
 
 
+def _met_code(symbol: Optional[str]) -> Optional[int]:
+    if not symbol:
+        return None
+    if "thunder" in symbol:
+        return 95
+    return _MET_SYMBOLS.get(symbol.split("_")[0])
+
+
+async def _met_forecast(client: httpx.AsyncClient, place: dict, imperial: bool) -> dict:
+    """MET Norway's forecast in the shape of an Open-Meteo answer, so the rest reads it the same way."""
+    data = await _get_json(client, _MET_URL, {
+        # More than four decimals is refused
+        "lat": round(place["latitude"], 4),
+        "lon": round(place["longitude"], 4),
+    }, headers=_MET_HEADERS)
+    series = data["properties"]["timeseries"]
+    tz_name = place.get("timezone") or "UTC"
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz, tz_name = ZoneInfo("UTC"), "UTC"
+
+    def temp(c: float) -> float:
+        return c * 9 / 5 + 32 if imperial else c
+
+    def symbol_of(entry: dict, *spans: str) -> Optional[str]:
+        for span in spans:
+            symbol = (entry["data"].get(span) or {}).get("summary", {}).get("symbol_code")
+            if symbol:
+                return symbol
+        return None
+
+    # MET lists the hour now under way first
+    first = series[0]
+    at = datetime.fromisoformat(first["time"].replace("Z", "+00:00")).astimezone(tz)
+    details = first["data"]["instant"]["details"]
+    symbol = symbol_of(first, "next_1_hours", "next_6_hours")
+    if symbol and symbol.endswith("_night"):
+        is_day = 0
+    elif symbol and "_" in symbol:
+        is_day = 1
+    else:
+        # Cloud and rain symbols do not say, so go by the local hour
+        is_day = int(6 <= at.hour < 18)
+    wind_ms = details.get("wind_speed", 0.0)
+
+    # Group the hours by local date. Today only has the hours still to come, so its
+    # low can read a little high late in the day.
+    days: dict[str, dict] = {}
+    for entry in series:
+        when = datetime.fromisoformat(entry["time"].replace("Z", "+00:00")).astimezone(tz)
+        day = days.setdefault(when.date().isoformat(), {"temps": [], "symbols": [], "rain": []})
+        if len(days) > 3:
+            del days[when.date().isoformat()]
+            break
+        instant = entry["data"]["instant"]["details"]
+        if "air_temperature" in instant:
+            day["temps"].append(instant["air_temperature"])
+        six = (entry["data"].get("next_6_hours") or {}).get("details", {})
+        day["temps"] += [six[k] for k in ("air_temperature_max", "air_temperature_min") if k in six]
+        code = _met_code(symbol_of(entry, "next_6_hours", "next_1_hours"))
+        if code is not None:
+            # The one nearest midday stands for the day
+            day["symbols"].append((abs(when.hour - 12), code))
+        if "probability_of_precipitation" in six:
+            day["rain"].append(six["probability_of_precipitation"])
+
+    dates = [d for d, v in days.items() if v["temps"]]
+    return {
+        # Their terms ask for credit, so the answer links to them, not to Open-Meteo
+        "source": MET_SOURCE_URL,
+        "timezone": tz_name,
+        "utc_offset_seconds": int(at.utcoffset().total_seconds()),
+        "current": {
+            "time": at.strftime("%Y-%m-%dT%H:%M"),
+            "temperature_2m": temp(details["air_temperature"]),
+            "apparent_temperature": temp(details.get("apparent_air_temperature", details["air_temperature"])),
+            "relative_humidity_2m": details.get("relative_humidity", 0.0),
+            "weather_code": _met_code(symbol) if _met_code(symbol) is not None else 3,
+            "wind_speed_10m": wind_ms * (2.23694 if imperial else 3.6),
+            "is_day": is_day,
+        },
+        "daily": {
+            "time": dates,
+            "temperature_2m_max": [temp(max(days[d]["temps"])) for d in dates],
+            "temperature_2m_min": [temp(min(days[d]["temps"])) for d in dates],
+            "weather_code": [min(days[d]["symbols"])[1] if days[d]["symbols"] else 3 for d in dates],
+            # Only given for some regions, mostly the Nordic countries
+            "precipitation_probability_max": [max(days[d]["rain"]) if days[d]["rain"] else None for d in dates],
+        },
+    }
+
+
+async def _forecast(client: httpx.AsyncClient, place: dict, imperial: bool) -> dict:
+    """Open-Meteo's forecast, or MET Norway's when Open-Meteo is refusing or down."""
+    global _open_meteo_resting_until
+    if time.monotonic() >= _open_meteo_resting_until:
+        try:
+            return await _get_json(client, _FORECAST_URL, {
+                "latitude": place["latitude"],
+                "longitude": place["longitude"],
+                "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "temperature_unit": "fahrenheit" if imperial else "celsius",
+                "wind_speed_unit": "mph" if imperial else "kmh",
+                "timezone": "auto",
+                "forecast_days": 3,
+            })
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                _open_meteo_resting_until = time.monotonic() + _REST_AFTER_429
+            logger.warning("open_meteo_failed status=%s, using MET Norway", e.response.status_code)
+        except httpx.TransportError as e:
+            logger.warning("open_meteo_failed error=%s, using MET Norway", e)
+    return await _met_forecast(client, place, imperial)
+
+
 async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
     """Return {"place": ..., "report": ...} for a place, or None if it cannot be found."""
     location = location.strip()
@@ -185,16 +330,7 @@ async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
         return None
 
     imperial = place.get("country_code") in _FAHRENHEIT_COUNTRIES
-    data = await _get_json(client, _FORECAST_URL, {
-        "latitude": place["latitude"],
-        "longitude": place["longitude"],
-        "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day",
-        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-        "temperature_unit": "fahrenheit" if imperial else "celsius",
-        "wind_speed_unit": "mph" if imperial else "kmh",
-        "timezone": "auto",
-        "forecast_days": 3,
-    })
+    data = await _forecast(client, place, imperial)
     now, daily = data["current"], data["daily"]
     deg = "°F" if imperial else "°C"
     wind = "mph" if imperial else "km/h"
@@ -245,7 +381,10 @@ async def lookup(location: str, region: str = "us-en") -> Optional[dict]:
         ],
     }
 
-    result = {"place": place_name, "report": "\n".join(lines), "widget": widget}
+    result = {
+        "place": place_name, "report": "\n".join(lines), "widget": widget,
+        "source": data.get("source", SOURCE_URL),
+    }
     _cache.set(key, result)
     return result
 
@@ -260,4 +399,4 @@ async def async_execute(arguments: dict) -> str:
         return json.dumps({"error": f"Weather lookup failed: {e}. Do not invent weather data."})
     if not result:
         return json.dumps({"error": f"No place found called '{location}'. Ask the user to clarify the location."})
-    return json.dumps({"place": result["place"], "report": result["report"], "source": SOURCE_URL})
+    return json.dumps({"place": result["place"], "report": result["report"], "source": result["source"]})
