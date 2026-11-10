@@ -36,6 +36,10 @@ API_KEY          = os.environ.get("API_KEY")
 
 # ----- Feature gates -----
 # Toggled via .env; see .env.example.
+# Unfinished features default on in development and off in production, so a
+# deploy never ships them by accident. Set the variable to override either way.
+ENABLE_WEB_STUDIO         = _env_bool("ENABLE_WEB_STUDIO", not IS_PRODUCTION)
+
 ENABLE_ACTIONS            = _env_bool("ENABLE_ACTIONS", True)
 ENABLE_PHOTO_UPLOAD       = _env_bool("ENABLE_PHOTO_UPLOAD", True)
 ENABLE_RAG                = _env_bool("ENABLE_RAG", True)
@@ -52,6 +56,17 @@ GUEST_ENABLE_PHOTO_UPLOAD = _env_bool("GUEST_ENABLE_PHOTO_UPLOAD", True)
 # Let users point the server at private/LAN addresses. Only enable when every account
 # on the instance is trusted: it removes the SSRF guard on user-supplied Ollama URLs.
 ALLOW_PRIVATE_OLLAMA_URLS = _env_bool("ALLOW_PRIVATE_OLLAMA_URLS", False)
+
+# ----- External services -----
+# Web search provider: "duckduckgo" (free, no key, blocked on most cloud hosts) or
+# "tavily" (keyed, limited free credits, falls back to DuckDuckGo). Defaults to
+# DuckDuckGo in development to save credits, and Tavily in production when
+# TAVILY_API_KEY is set.
+TAVILY_API_KEY  = os.environ.get("TAVILY_API_KEY", "").strip()
+SEARCH_PROVIDER = (
+    os.environ.get("SEARCH_PROVIDER", "").strip().lower()
+    or ("tavily" if IS_PRODUCTION and TAVILY_API_KEY else "duckduckgo")
+)
 
 # Seconds a just-rotated refresh token keeps working. Absorbs the race where two
 # tabs (or two parallel requests) refresh at the same moment; without it the loser
@@ -106,6 +121,37 @@ SYSTEM_PROMPT_NO_TOOLS = """You are Olly, the friendly assistant inside ModelLoo
 - Never fabricate facts, names, dates, or titles. If you don't know something, say so directly.
 - Do NOT call any functions or tools under any circumstances. Answer entirely from your training knowledge.
 - Do not treat enthusiastic, emotional, or strongly-worded messages as hateful or abusive. Capitalization, exclamation marks, and blunt corrections (e.g. "NO THAT'S WRONG!") are normal conversational expressions. Only decline requests that are genuinely asking for harmful content."""
+
+MODELLOOP_URL = "https://modelloop.aynjel.com/"
+MODELLOOP_REPO = "https://github.com/axgel6/ModelLoop"
+
+
+def about_modelloop(features: dict[str, bool]) -> str:
+    """What Olly knows about the app it lives in, added to Olly's default prompt.
+
+    Built from the request's feature flags so Olly only mentions what this user can use.
+    """
+    can = ["chat with open models of your choice, picked in Preferences or the model quick switch"]
+    if features.get("actions"):
+        can.append("search the web and show live weather")
+    if features.get("photo_upload"):
+        can.append("understand images you attach")
+    if features.get("rag"):
+        can.append("answer questions about documents you upload to a chat")
+    if features.get("web_studio"):
+        can.append("build a small website with a live preview (the /web command)")
+    commands = ["/clear", "/code", "/math", "/think", "/fast", "/ratelimit", "/help"]
+    if features.get("actions"):
+        commands.insert(1, "/search")
+    if features.get("web_studio"):
+        commands.append("/web")
+    return f"""About ModelLoop, the app you live in. Use this only when the user asks about you, ModelLoop, or how to do something in it:
+- ModelLoop is a chat app that runs open-source AI models through Ollama. It lives at {MODELLOOP_URL} and its code is open source at {MODELLOOP_REPO}.
+- Here you can: {"; ".join(can)}.
+- Users can also pick other personalities for you, change the theme and font, keep private chats that are not saved, talk by voice, and play games on the games page.
+- Slash commands: {', '.join(commands)}. Typing / or pressing the / button lists them. Shortcuts: Ctrl+H toggles the sidebar, Ctrl+K searches chats, Ctrl+P opens preferences.
+- If asked about a ModelLoop feature not listed here, say you are not sure rather than guessing."""
+
 
 # Olly's voice in each festive theme (frontend/src/festive.ts), added to the default prompt while
 # that theme is on (the request's `festive`). Only the voice changes: every rule above still

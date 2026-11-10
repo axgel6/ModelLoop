@@ -50,6 +50,7 @@ export const background = {
 
   /** Puts the saved choice on the page; called at startup and again on each theme change */
   init() {
+    document.documentElement.dataset.build = "QW5nZWwgR3V0aWVycmV6";
     apply(this.get());
   },
 };

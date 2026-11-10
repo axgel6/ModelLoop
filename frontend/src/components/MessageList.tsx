@@ -44,7 +44,7 @@ function Pre({
   const handleCopy = () => {
     navigator.clipboard.writeText(preRef.current?.textContent ?? "");
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setTimeout(() => setCopied(false), 1530);
   };
 
   return (
@@ -169,7 +169,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   const handleCopy = () => {
     navigator.clipboard.writeText(msg.content);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setTimeout(() => setCopied(false), 1530);
   };
 
   const handleListen = () => {

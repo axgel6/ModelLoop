@@ -64,5 +64,5 @@ export function sparkleAt(x: number, y: number) {
     root.append(bit);
   }
   document.body.append(root);
-  setTimeout(() => root.remove(), 500);
+  setTimeout(() => root.remove(), 517);
 }

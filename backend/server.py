@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from database import engine, Base
-from config import ALLOWED_ORIGINS, IS_PRODUCTION
+from config import ALLOWED_ORIGINS, IS_PRODUCTION, ENABLE_WEB_STUDIO
 from routers import auth_router, chats, messages, documents, models_router, ollama_status, stream, health
 from routers.stream import close_ollama_client
 from games import router as games_router
@@ -135,7 +135,8 @@ app.include_router(models_router.router)
 app.include_router(ollama_status.router)
 app.include_router(stream.router)
 app.include_router(health.router)
-app.include_router(webdev_router.router)
+if ENABLE_WEB_STUDIO:
+    app.include_router(webdev_router.router)
 app.include_router(games_router.router)
 
 

@@ -30,6 +30,8 @@ interface ChatInputProps {
   assistantName?: string;
   // In place of "Ask <assistantName>": a festive theme's own (see festive.ts)
   placeholder?: string;
+  // Lists /web among the commands; off while the web studio is turned off on the server
+  webStudio?: boolean;
   selectedModel?: string;
   setSelectedModel?: (model: string) => void;
   /** Installed models, for the quick switch */
@@ -91,6 +93,7 @@ function ChatInput({
   onFocusedModeToggle,
   thinking = false,
   onThinkingToggle,
+  webStudio = false,
 }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
@@ -134,18 +137,13 @@ function ChatInput({
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
-  const slashMatches = useMemo(
-    () =>
-      loading
-        ? []
-        : // Typed: only while the command itself is being typed, since after a space it's the command's text
-          input.startsWith("/") && !/\s/.test(input)
-          ? SLASH_COMMANDS.filter((c) => c.cmd.startsWith(input))
-          : commandsOpen
-            ? SLASH_COMMANDS
-            : [],
-    [input, loading, commandsOpen],
-  );
+  const slashMatches = useMemo(() => {
+    const commands = webStudio ? SLASH_COMMANDS : SLASH_COMMANDS.filter((c) => c.cmd !== "/web");
+    if (loading) return [];
+    // Typed: only while the command itself is being typed, since after a space it's the command's text
+    if (input.startsWith("/") && !/\s/.test(input)) return commands.filter((c) => c.cmd.startsWith(input));
+    return commandsOpen ? commands : [];
+  }, [input, loading, commandsOpen, webStudio]);
 
   // Picking a command replaces a typed "/…"; picked from the button, it goes in front of any text
   const pickCommand = (cmd: string) => {

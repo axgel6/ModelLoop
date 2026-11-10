@@ -1089,6 +1089,12 @@ _CATALOGUE = [
         "Size 9 sample pair with the sample stamp inside the tongue. Colourway was never released. Worn once indoors. Comes in a plain box.",
         "Still got em. Sample stamp inside, never released. {price}.",
     ),
+    _listing(
+        "thinkloopssd", "Samsung T7 1TB SSD with the ThinkLoop source code", 1200, GOOD, "Reid",
+        "a former startup contractor who was never paid, vague about how he got it, nervous",
+        "Portable 1TB drive. Has the full ThinkLoop source code from before it shipped, with the git history. Drive itself works perfectly. Wiped of everything else.",
+        "Yeah it's still here. Everything's on it, full history. {price}. Cash only.",
+    ),
 
     # Dupes
     "Dupes",
@@ -2954,10 +2960,16 @@ _CATALOGUE = [
     _listing(
         "cessna172", "1979 Cessna 172N, 4,800 hours", 95000, GOOD, "Renee",
         "a flight instructor upgrading, patient, very safety minded",
-        "Engine 600 hours since overhaul. Garmin GPS, new paint in 2019. Logbooks complete. Annual done in March.",
+        "Engine 600 hours since overhaul. NineLeft GPS, new paint in 2019. Logbooks complete. Annual done in March.",
         "Hi! Yes, still for sale. Great trainer. {price}.",
         "Hangar viewing",
         floor=(0.7, 0.9),
+    ),
+    _listing(
+        "nl9gps", "NineLeft NL9 portable aviation GPS", 650, GOOD, "Dale",
+        "a private pilot whose new plane came with a panel mount, easygoing, loves a fuel stop story",
+        "7 inch sunlight readable screen, synthetic vision and ADS-B traffic. Yoke mount, suction mount and the car charger included. Charts updated last month.",
+        "Yep, still have it. Flew it for three years, never let me down. {price}.",
     ),
     _listing(
         "cirrussr22", "2020 Cirrus SR22T", 780000, LIKE_NEW, "Marvin",

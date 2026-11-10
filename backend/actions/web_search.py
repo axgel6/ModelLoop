@@ -1,11 +1,12 @@
 import json
 import logging
-import os
 import re
 from html.parser import HTMLParser
 from typing import Optional
 
 import httpx
+
+from config import SEARCH_PROVIDER, TAVILY_API_KEY
 
 from ._shared import MISSING, TTLCache
 
@@ -14,7 +15,7 @@ DEFINITION = {
     "function": {
         "name": "web_search",
         "description": (
-            "Search the web with DuckDuckGo and return the top results. "
+            "Search the web and return the top results. "
             "Use this for current events, news, prices, sports scores, weather, or any factual question "
             "where your training data may be outdated. Returns titles, URLs, and snippets."
         ),
@@ -133,9 +134,8 @@ _DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
 _DDG_HTML_URL = "https://html.duckduckgo.com/html/"
 
 # DuckDuckGo blocks most datacenter IPs (Render, Fly, AWS...), so hosted instances
-# need a keyed search API. Tavily's free tier (no card) is used when this key is set.
+# need a keyed search API. SEARCH_PROVIDER picks which is used (see config.py).
 _TAVILY_URL = "https://api.tavily.com/search"
-_TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "").strip()
 
 logger = logging.getLogger(__name__)
 
@@ -271,11 +271,33 @@ def _parse_html_results(html: str, max_results: int) -> list:
     return _filter_ads(parser.results)[:max_results]
 
 
-async def _tavily_search(client: httpx.AsyncClient, query: str, max_results: int) -> list:
+async def _duckduckgo_search(client: httpx.AsyncClient, query: str, max_results: int, region: str) -> list:
+    # DuckDuckGo answers a request it takes for a bot with "202 Accepted" and a challenge
+    # page, not an error, so anything but a 200 with results moves on to the next endpoint.
+    error: Optional[Exception] = None
+    for url, parse in ((_DDG_LITE_URL, _parse_results), (_DDG_HTML_URL, _parse_html_results)):
+        try:
+            resp = await client.post(url, data={"q": query, "kl": region})
+            resp.raise_for_status()
+            if resp.status_code != 200:
+                logger.warning("web_search_blocked url=%s status=%s", url, resp.status_code)
+                continue
+            results = parse(resp.text, max_results)
+            if results:
+                return results
+        except Exception as e:
+            error = e
+            logger.warning("web_search_failed url=%s error=%s", url, e)
+    if error is not None:
+        raise error
+    return []
+
+
+async def _tavily_search(client: httpx.AsyncClient, query: str, max_results: int, region: str = "") -> list:
     resp = await client.post(
         _TAVILY_URL,
         json={"query": query, "max_results": max_results, "search_depth": "basic"},
-        headers={"Accept": "application/json", "Authorization": f"Bearer {_TAVILY_API_KEY}"},
+        headers={"Accept": "application/json", "Authorization": f"Bearer {TAVILY_API_KEY}"},
     )
     resp.raise_for_status()
     return [
@@ -320,28 +342,17 @@ async def async_execute(arguments: dict) -> str:
     client = _get_async_client()
     results = None
     error: Optional[Exception] = None
-    # DuckDuckGo answers a request it takes for a bot with "202 Accepted" and a challenge
-    # page, not an error, so anything but a 200 with results moves on to the next endpoint.
-    for url, parse in ((_DDG_LITE_URL, _parse_results), (_DDG_HTML_URL, _parse_html_results)):
+    # Tavily falls back to DuckDuckGo (out of credits, say); DuckDuckGo alone never spends Tavily credits
+    providers = [_tavily_search, _duckduckgo_search] if SEARCH_PROVIDER == "tavily" and TAVILY_API_KEY else [_duckduckgo_search]
+    for search in providers:
         try:
-            resp = await client.post(url, data={"q": query, "kl": region})
-            resp.raise_for_status()
-            if resp.status_code != 200:
-                logger.warning("web_search_blocked url=%s status=%s", url, resp.status_code)
-                continue
-            results = parse(resp.text, max_results)
+            results = await search(client, query, max_results, region)
+            error = None
             if results:
                 break
         except Exception as e:
             error = e
-            logger.warning("web_search_failed url=%s error=%s", url, e)
-    if not results and _TAVILY_API_KEY:
-        try:
-            results = await _tavily_search(client, query, max_results)
-            error = None
-        except Exception as e:
-            error = e
-            logger.warning("web_search_failed url=%s error=%s", _TAVILY_URL, e)
+            logger.warning("web_search_failed provider=%s error=%s", search.__name__, e)
     if not results and error is not None:
         return json.dumps({"error": str(error)})
     out = _build_output(query, results)

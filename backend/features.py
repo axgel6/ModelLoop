@@ -3,7 +3,7 @@
 Flags are read once at import time; change a value in .env and restart.
 """
 from config import (
-    ENABLE_ACTIONS, ENABLE_PHOTO_UPLOAD, ENABLE_RAG, ENABLE_QUICK_MODELS,
+    ENABLE_ACTIONS, ENABLE_PHOTO_UPLOAD, ENABLE_RAG, ENABLE_QUICK_MODELS, ENABLE_WEB_STUDIO,
     GUEST_ENABLE_ACTIONS, GUEST_ENABLE_PHOTO_UPLOAD,
 )
 
@@ -13,6 +13,7 @@ _AUTHENTICATED = {
     "photo_upload": ENABLE_PHOTO_UPLOAD,
     "rag":          ENABLE_RAG,
     "quick_models": ENABLE_QUICK_MODELS,
+    "web_studio":   ENABLE_WEB_STUDIO,
 }
 
 # Guests have no chat records, so RAG (which is scoped to a stored chat) is never available.
@@ -21,6 +22,8 @@ _GUEST = {
     "photo_upload": GUEST_ENABLE_PHOTO_UPLOAD,
     "rag":          False,
     "quick_models": ENABLE_QUICK_MODELS,
+    # Projects are saved with a chat, so guests never have them
+    "web_studio":   False,
 }
 
 

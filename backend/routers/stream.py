@@ -22,6 +22,7 @@ import ollama_caps
 from config import (
     IS_PRODUCTION, NGROK_HEADERS,
     SYSTEM_PROMPT_WITH_TOOLS, SYSTEM_PROMPT_NO_TOOLS, PROPRIETARY_INSTRUCTIONS, FESTIVE_PERSONAS,
+    about_modelloop,
     TOOL_CAPABLE_MODELS, NO_SYSTEM_PROMPT_MODELS, API_KEY,
     ENABLE_GUEST_CHAT, CHAT_RATE_LIMIT, GUEST_CHAT_RATE_LIMIT, GUEST_CHAT_DAILY_LIMIT,
     fix_math_delimiters,
@@ -256,6 +257,7 @@ async def _chat_stream_response(
         system_prompt = project_mode.SYSTEM_PROMPT
     elif not system_prompt:
         system_prompt = SYSTEM_PROMPT_WITH_TOOLS if actions_enabled else SYSTEM_PROMPT_NO_TOOLS
+        system_prompt += "\n\n" + about_modelloop(features)
         if festive in FESTIVE_PERSONAS:
             system_prompt += "\n\n" + FESTIVE_PERSONAS[festive]
 
@@ -882,10 +884,12 @@ async def chat_stream(
     model = (body.model or _config.DEFAULT_MODEL).strip()
     base_url = await effective_ollama_url(user)
     # One project per chat: once a chat has one, every turn in it works on the project
+    # With the studio off, a chat that has a project answers as a normal chat
+    features = get_features(guest=False)
     project = await project_mode.prepare(
         db, chat.id, prompt, base_url, model, start=bool(body.project),
         preferred_model=(body.project_model or "").strip() or None,
-    )
+    ) if features["web_studio"] else None
     if project:
         model = project.model
         project.earlier = [m["content"] for m in history if m["role"] == "user"][-6:]
@@ -899,7 +903,7 @@ async def chat_stream(
         top_p=body.top_p if body.top_p is not None else 0.9,
         num_predict=body.num_predict if body.num_predict is not None else -1,
         images=body.images or [],
-        features=get_features(guest=False),
+        features=features,
         force_search=bool(body.force_search),
         search_region=_accept_language_to_region(request.headers.get("accept-language", "")),
         base_url=base_url,

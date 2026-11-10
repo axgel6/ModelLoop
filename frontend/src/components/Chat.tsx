@@ -535,7 +535,9 @@ function Chat({
     }
     if (rawInput === "/web" || rawInput.startsWith("/web ")) {
       const brief = rawInput.slice("/web".length).trim();
-      const reason = isGuest
+      const reason = !features.web_studio && !isGuest
+        ? "The web studio isn't available yet."
+        : isGuest
         ? "Projects are saved with the chat, so they need an account. Log in to build a website."
         : privateMode
           ? "Projects are saved with the chat, so they can't be built in a private chat."
@@ -556,7 +558,7 @@ function Chat({
         {
           role: "assistant",
           content:
-            `Commands: /clear${searchCmd}, /code, /math, /think, /fast, /ratelimit, /web <site>, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)`,
+            `Commands: /clear${searchCmd}, /code, /math, /think, /fast, /ratelimit${features.web_studio ? ", /web <site>" : ""}, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)`,
         },
       ]);
       return;
@@ -886,7 +888,7 @@ function Chat({
     onVersionSaved,
     onTurnEnd,
     runCheck,
-  } = useWebDevProject({ messages, activeChatId, activeChatIdRef, enabled: !isGuest && !privateMode });
+  } = useWebDevProject({ messages, activeChatId, activeChatIdRef, enabled: !isGuest && !privateMode && !!features.web_studio });
   const [readerPrefs, setReaderPrefs] = useReaderPrefs();
   const [focusedLines, setFocusedLines] = useState<
     { role: "user" | "assistant"; text: string }[]
@@ -1829,6 +1831,7 @@ function Chat({
             loading={loading}
             assistantName={assistantName}
             placeholder={festive?.placeholder(assistantName)}
+            webStudio={!!features.web_studio}
             onAsk={(prompt, images) => handleAsk(prompt, undefined, images)}
             onStop={handleStop}
             onRegisterFocus={(focusFn) => {
@@ -2225,6 +2228,7 @@ function Chat({
           setGameModel={setGameModel}
           studioModel={studioModel}
           setStudioModel={setStudioModel}
+          webStudio={!!features.web_studio}
           serverGameModel={serverDefaults.game}
           initialSection={prefSection}
           onNameChange={(name) => setUserName(name)}

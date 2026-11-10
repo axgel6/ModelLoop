@@ -9803,7 +9803,7 @@ html[data-theme="frost"][data-festive="christmas"] body::after {
 }
 
 /* ============================================================
-   Lens finish (from NineLeft)
+   Lens finish
    Every floating button and panel is a lens: a see-through
    radial tint, darker in the middle, with a soft rounded bevel
    round the rim (light on the top-left edge, shade along the
@@ -10425,7 +10425,7 @@ html[data-theme] .pref-kbd-plus {
 }
 
 /* ============================================================
-   Popups, in NineLeft's finish
+   Popups, in the lens finish
    Preferences, the welcome and game windows and the confirm
    dialogs share one look (see "Windows" above): a clean side bar
    on the same surface, the active tab on the press surface, and a

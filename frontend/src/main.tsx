@@ -19,6 +19,8 @@ background.init();
 uiScale.init();
 panels.init();
 
+console.log("%cModelLoop%c by Angel Gutierrez · github.com/axgel6/ModelLoop", "color:#fabd2f;font-weight:700", "color:#a89984");
+
 // Sound, haptics and the sparkle for a press. They run the moment the pointer goes down, before
 // React re-renders anything: on "click" they waited for the whole screen to update first, which a
 // heavy screen turned into an audible lag.

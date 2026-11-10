@@ -10,7 +10,7 @@ export default function ConnectionBanner({
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 700);
+    const t = setTimeout(() => setVisible(true), 730);
     return () => clearTimeout(t);
   }, []);
 

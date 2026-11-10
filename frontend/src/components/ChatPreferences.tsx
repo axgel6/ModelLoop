@@ -63,6 +63,8 @@ interface ChatPreferencesProps {
   serverGameModel?: string;
   /** The web studio's model; empty means Auto */
   studioModel: string;
+  /** Whether the web studio is on (the server's web_studio feature) */
+  webStudio?: boolean;
   setStudioModel: (model: string) => void;
   onDeleteAccount: () => Promise<void>;
   onClearAllChats: () => Promise<void>;
@@ -205,6 +207,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   serverGameModel,
   studioModel,
   setStudioModel,
+  webStudio = false,
   onDeleteAccount,
   onClearAllChats,
   onNameChange,
@@ -1540,6 +1543,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 </div>
               </div>
 
+              {webStudio && (
               <div className="pref-account-card">
                 <div className="pref-account-field">
                   <div className="pref-field-label">Web studio model</div>
@@ -1570,6 +1574,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   )}
                 </div>
               </div>
+              )}
 
               <div className="pref-account-card">
                 <div className="pref-account-field">

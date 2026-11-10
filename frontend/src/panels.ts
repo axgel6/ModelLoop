@@ -1,5 +1,5 @@
 // How see-through the popup windows (Preferences, the welcome and game windows, the confirm
-// dialogs) and the chat sidebar are, chosen per device. Ported from NineLeft's Panels setting. It sets --frosting on
+// dialogs) and the chat sidebar are, chosen per device. It sets --frosting on
 // <html>, which App.css turns into the windows' tint and blur. Opaque also sets
 // data-panels="opaque", which turns the blur off entirely: a blur is the costliest thing to draw
 // in Chromium, so this is the setting to reach for when it stutters.
