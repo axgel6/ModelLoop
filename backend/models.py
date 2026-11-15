@@ -15,8 +15,11 @@ class User(Base):
     __tablename__ = "users"
 
     id:               Mapped[uuid.UUID]      = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    email:            Mapped[str]            = mapped_column(String, unique=True, nullable=False)
-    full_name:        Mapped[Optional[str]]  = mapped_column(String(120), nullable=False)
+    # Lowercase [a-z0-9_]{3,30}; what people sign in with
+    username:         Mapped[str]            = mapped_column(String(30), unique=True, index=True, nullable=False)
+    # Optional; sign-in also accepts it, matched without regard to case
+    email:            Mapped[Optional[str]]  = mapped_column(String, unique=True, nullable=True)
+    full_name:        Mapped[str]            = mapped_column(String(120), nullable=False)
     password_hash:    Mapped[str]            = mapped_column(Text, nullable=False)
     theme:            Mapped[str]            = mapped_column(String(20), nullable=False, default="meadow", server_default="meadow")
     font:             Mapped[str]            = mapped_column(String(20), nullable=False, default="rounded", server_default="rounded")
@@ -26,8 +29,9 @@ class User(Base):
     # Optional per-user Ollama endpoint; NULL means use the shared server default
     ollama_url:       Mapped[Optional[str]]  = mapped_column(String(300), nullable=True)
     created_at:       Mapped[datetime]       = mapped_column(DateTime(timezone=True), server_default=func.now())
-    # Cascade delete removes all chats when the user is deleted
-    chats:            Mapped[list["Chat"]]   = relationship(back_populates="user", cascade="all, delete")
+    # The database cascades the delete to chats and everything under them, so the
+    # ORM does not load every chat and message just to delete them one by one
+    chats:            Mapped[list["Chat"]]   = relationship(back_populates="user", cascade="all, delete", passive_deletes=True)
 
 # ----- Chat Model -----
 
@@ -36,15 +40,16 @@ class Chat(Base):
     __tablename__ = "chats"
 
     id:         Mapped[uuid.UUID] = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    user_id:    Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    user_id:    Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title:      Mapped[str]       = mapped_column(Text, default="New Chat")
     created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     user:       Mapped["User"]          = relationship(back_populates="chats")
-    # Cascade delete removes all messages when the chat is deleted
+    # The database cascades the delete to messages (see User.chats)
     messages:   Mapped[list["Message"]] = relationship(
         back_populates="chat",
         cascade="all, delete",
+        passive_deletes=True,
         order_by="Message.created_at",
     )
 
@@ -71,7 +76,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     id:             Mapped[uuid.UUID]        = mapped_column(PG_UUID, primary_key=True, default=uuid.uuid4)
-    chat_id:        Mapped[uuid.UUID]        = mapped_column(ForeignKey("chats.id"), nullable=False, index=True)
+    chat_id:        Mapped[uuid.UUID]        = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
     role:           Mapped[str]              = mapped_column(String(20), nullable=False)
     content:        Mapped[str]              = mapped_column(Text, nullable=False)
     images:         Mapped[Optional[list]]   = mapped_column(JSON, nullable=True)
@@ -126,7 +131,7 @@ class Document(Base):
     chat_id:    Mapped[uuid.UUID] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
     filename:   Mapped[str]       = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
-    chunks:     Mapped[list["DocumentChunk"]] = relationship(back_populates="document", cascade="all, delete")
+    chunks:     Mapped[list["DocumentChunk"]] = relationship(back_populates="document", cascade="all, delete", passive_deletes=True)
 
 
 class DocumentChunk(Base):

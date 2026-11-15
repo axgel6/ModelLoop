@@ -1,11 +1,10 @@
-// Minimal History API router. Four routes did not justify a routing dependency, but
-// they do deserve real URLs so /welcome can be linked, bookmarked, and shared.
+// Minimal History API router. Three routes did not justify a routing dependency, but
+// they do deserve real URLs so /login can be linked, bookmarked, and shared.
 import { useCallback, useEffect, useState } from "react";
 
-type View = "welcome" | "login" | "chat" | "terms";
+type View = "login" | "chat" | "terms";
 
 const PATH_FOR: Record<View, string> = {
-  welcome: "/welcome",
   login: "/login",
   chat: "/chat",
   terms: "/terms",
@@ -17,12 +16,12 @@ function pathForView(view: View): string {
 
 function viewForPath(pathname: string): View {
   const path = pathname.replace(/\/+$/, "") || "/";
-  if (path === "/" || path === "/welcome") return "welcome";
-  if (path === "/login") return "login";
+  // /welcome was the landing page; old links to it land on sign-in
+  if (path === "/" || path === "/login" || path === "/welcome") return "login";
   // Deeper paths say where you are inside the chat view: a conversation, the games, a game
   if (path === "/chat" || path.startsWith("/chat/") || path === "/games" || path.startsWith("/games/")) return "chat";
   if (path === "/terms") return "terms";
-  return "welcome"; // unknown path: show the explainer rather than a blank screen
+  return "login"; // unknown path: show sign-in rather than a blank screen
 }
 
 /** Current view plus a setter that keeps the address bar and Back button in sync. */

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { apiGetMessages, type Message } from "../api";
 
-export function useChatSession(activeChatId: string | null) {
-  const [messages, setMessages] = useState<Message[]>([]);
+/** `initialMessages`: a conversation to start with (a guest coming back from the sign-in page). */
+export function useChatSession(activeChatId: string | null, initialMessages?: () => Message[] | null) {
+  const [messages, setMessages] = useState<Message[]>(() => initialMessages?.() ?? []);
   const [loading, setLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -13,13 +14,18 @@ export function useChatSession(activeChatId: string | null) {
   const justCreatedChatRef = useRef(false);
 
   activeChatIdRef.current = activeChatId;
+  // The chat shown before this one. Messages are cleared only on leaving a chat: on mount there
+  // is nothing to clear, and clearing then would wipe a restored guest conversation.
+  const prevChatIdRef = useRef<string | null>(activeChatId);
 
   useEffect(() => {
     if (!activeChatId) {
-      setMessages([]);
+      if (prevChatIdRef.current !== null) setMessages([]);
+      prevChatIdRef.current = null;
       setMessagesLoading(false);
       return;
     }
+    prevChatIdRef.current = activeChatId;
     if (justCreatedChatRef.current) {
       justCreatedChatRef.current = false;
       return;

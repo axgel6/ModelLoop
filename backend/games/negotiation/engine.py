@@ -61,7 +61,6 @@ TELL_TIGHT = 0.3               # below this they take their time
 TELL_EDGE = 0.12               # below this they start typing and stop
 LOG_LIMIT = 40
 MODEL_CONTEXT_ROUNDS = 6       # how much of the conversation the model is shown
-MAX_MESSAGE = 400
 MAX_REPLY = 600
 
 DIFFICULTIES = {

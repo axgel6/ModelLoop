@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import WelcomePage from "./components/WelcomePage";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
 import DownPage from "./components/DownPage";
@@ -21,13 +20,14 @@ import { chatIdFromPath } from "./subroute";
 import { dayPart } from "./components/utils/chatUtils";
 import { background } from "./background";
 import { baseTheme, festiveTheme, inSeason, isTheme } from "./festive";
+import { clearGuestConversation } from "./components/guestConversation";
 
 const IS_DOWN = import.meta.env.VITE_IS_DOWN === "true";
 
 function App() {
   // The URL decides the view; a bare "/" falls back to the session (chat when signed in).
   const [view, setView] = useRoute(
-    localStorage.getItem("token") ? "chat" : "welcome",
+    localStorage.getItem("token") ? "chat" : "login",
   );
   const [activeChatId, setActiveChatId] = useState<string | null>(() => chatIdFromPath());
   const [isGuest, setIsGuest] = useState(false);
@@ -165,9 +165,8 @@ function App() {
     // It lives on the account now; left here, the next account to sign in would take it
     applyAvatarColor(null);
     setActiveChatId(null);
-    const wasGuest = isGuest;
     setIsGuest(false);
-    setView(wasGuest ? "login" : "welcome");
+    setView("login");
   };
 
   // Register the unauthorized handler so the refresh interceptor can trigger logout
@@ -184,6 +183,8 @@ function App() {
 
   const handleLogin = async () => {
     setIsGuest(false);
+    // Signed in now: a kept guest conversation must not resurface for the next guest
+    clearGuestConversation();
     scheduleProactiveRefresh();
     try {
       const me = await apiGetMe();
@@ -236,30 +237,18 @@ function App() {
   return (
     <>
       {view === "terms" ? (
-        <TermsOfService onBack={() => setView("welcome")} />
+        <TermsOfService onBack={() => setView("login")} />
       ) : view === "login" ? (
         <Login
           onLogin={handleLogin}
           onGuest={handleGuest}
-          onBack={() => setView("welcome")}
-        />
-      ) : view === "welcome" ? (
-        <WelcomePage
-          onStart={() => {
-            // If already logged in go straight to chat, otherwise require login
-            if (localStorage.getItem("token")) {
-              setView("chat");
-            } else {
-              setView("login");
-            }
-          }}
           onTerms={() => setView("terms")}
           theme={theme}
           onThemeChange={handleSetTheme}
         />
       ) : (
         <Chat
-          onBack={() => setView("welcome")}
+          onBack={() => setView("login")}
           onLogout={handleLogout}
           activeChatId={activeChatId}
           onChatCreated={handleChatCreated}

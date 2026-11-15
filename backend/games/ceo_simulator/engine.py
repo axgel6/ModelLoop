@@ -37,11 +37,9 @@ DEMAND_BOOST = 1.5             # how much harder a good decision lands than the 
 # Growth gets harder as a product outgrows its launch market: at 1 + MARKET_ROOM
 # times its launch demand, a boost lands at half strength. Stops weekly gains compounding without end.
 MARKET_ROOM = 1.0
-# Spending the player did not put a number on: the model's figure, kept to a
-# share of what the company can afford so one vague decision cannot sink it.
-UNPROMPTED_COST_CASH_SHARE = 0.15
+# Spending the player did not put a number on: the model's figure, kept to the
+# difficulty's "spend" share of cash so one vague decision cannot sink it...
 UNPROMPTED_COST_WEEKS = 1.5    # ...or this many weeks of revenue, if that is less
-OVERDRAFT_WEEKS = 2            # weeks the bank tolerates a negative balance before the company folds
 
 MAX_PRODUCTS = 8
 
@@ -166,7 +164,7 @@ LOAN_INTEREST = 0.15           # of the amount borrowed, over the whole term
 MAX_LOANS = 3
 MIN_LOAN = 5_000
 CREDIT_FLOOR = 25_000          # any company can borrow this much
-CREDIT_WEEKS = 6               # ...or this many weeks of revenue, if that is more
+CREDIT_WEEKS = 6               # ...or this many weeks of revenue, if that is less
 EARLY_REPAY_INTEREST = 0.5     # share of the remaining interest still charged when a loan is paid off early
 
 BUYERS = ["Harland Group", "Meridian Holdings", "Blue Anchor Brands", "Castellan & Co", "Vireo Industries"]
@@ -290,12 +288,10 @@ _NUMBER_WORDS = {
     "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
     "seven": 7, "eight": 8, "nine": 9, "ten": 10, "twelve": 12, "fifteen": 15, "twenty": 20,
 }
-_COUNT = r"(\d{1,3}|" + "|".join(_NUMBER_WORDS) + r")\b"
 # Verbs that are only ever about staff, and looser ones that need a staff word nearby
 # ("add 2 people" is a hire, "add a product" is not).
 _HIRE_VERB = re.compile(r"\b(?:(hire|hiring|recruit\w*|onboard\w*)|(bring(?:ing)? on|add(?:ing)?|grow|expand))\b", re.I)
 _FIRE_VERB = re.compile(r"\b(?:(lay(?:ing)? ?off|fire|firing|let(?:ting)? go(?: of)?|dismiss\w*|sack\w*)|(cut(?:ting)?|drop|shed|reduce))\b", re.I)
-_CLAUSE_END = re.compile(r"[.;!?]|,|\b(?:and|then|but|while)\b", re.I)
 _STAFF_NOUN = re.compile(
     r"\b(people|person|staff|employees?|workers?|team|hires?|engineers?|developers?|designers?|baristas?|"
     r"sales\w*|reps?|managers?|assistants?|drivers?|cooks?|chefs?|marketers?|interns?|technicians?|agents?|"

@@ -160,16 +160,17 @@ export function apiFetch(path: string, init: RequestInit = {}): Promise<Response
 
 // ----- Auth -----
 
-// Register a new account: returns access + refresh tokens on success
+// Register a new account: returns access + refresh tokens on success. Email is optional.
 export async function apiRegister(
-  email: string,
+  username: string,
   password: string,
-  fullName?: string,
+  fullName: string,
+  email?: string,
 ): Promise<{ token: string; refresh_token: string }> {
   const res = await fetch(`${API_URL}/api/v1/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, full_name: fullName || undefined }),
+    body: JSON.stringify({ username, password, full_name: fullName, email: email || undefined }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -180,20 +181,20 @@ export async function apiRegister(
   return res.json();
 }
 
-// Authenticate with existing credentials: returns access + refresh tokens on success
+// Sign in with a username or the account's email: returns access + refresh tokens on success
 export async function apiLogin(
-  email: string,
+  identifier: string,
   password: string,
 ): Promise<{ token: string; refresh_token: string }> {
   const res = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ identifier, password }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const detail =
-      typeof err.detail === "string" ? err.detail : "That email or password doesn't match. Try again?";
+      typeof err.detail === "string" ? err.detail : "That username or password doesn't match. Try again?";
     throw new Error(detail);
   }
   return res.json();
@@ -263,10 +264,12 @@ export async function apiRenameChat(
   if (!res.ok) throw new Error("I couldn't rename that chat.");
 }
 
-// Fetch the current user's id, email, full_name, theme, font, avatar_color, and personal_context
+// Fetch the current user's id, username, email, full_name, theme, font, avatar_color, and personal_context
 export async function apiGetMe(): Promise<{
   id: string;
-  email: string;
+  username: string;
+  /** Optional; null when the account has none */
+  email: string | null;
   full_name: string | null;
   theme: string;
   font: string;
@@ -292,6 +295,28 @@ export async function apiUpdatePreferences(prefs: { theme?: string; font?: strin
     }),
   );
   if (!res.ok) throw new Error("I couldn't save your preferences.");
+}
+
+// Add or change the account's optional email; null removes it. Returns the saved email.
+export async function apiUpdateEmail(email: string | null): Promise<string | null> {
+  const res = await withRefresh(() =>
+    fetch(`${API_URL}/api/v1/auth/me/email`, {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ email }),
+    }),
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      res.status === 409
+        ? "That email is already on another account."
+        : res.status === 422
+          ? "That doesn't look like an email address."
+          : typeof err.detail === "string" ? err.detail : "I couldn't save that email.",
+    );
+  }
+  return (await res.json()).email;
 }
 
 export async function apiUpdateProfile(fullName: string): Promise<void> {
@@ -473,6 +498,8 @@ export interface Message {
   project_changes?: ProjectChanges;
   /** A project turn's finished steps, while it runs. Never stored. */
   steps?: ProjectStep[];
+  /** A guest asked something that needs current info: invite them to sign in. Never stored. */
+  sign_in_hint?: boolean;
 }
 
 // Fetch the full message history for a chat, ordered by creation time

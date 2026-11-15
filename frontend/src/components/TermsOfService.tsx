@@ -2,7 +2,7 @@ interface TermsOfServiceProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "April 27, 2025";
+const LAST_UPDATED = "November 15, 2026";
 
 function TermsOfService({ onBack }: TermsOfServiceProps) {
   return (
@@ -143,7 +143,8 @@ function TermsOfService({ onBack }: TermsOfServiceProps) {
           <Section num="07" title="Privacy">
             <p>
               We store the minimum data needed to provide the service - your
-              email address, hashed password, and chat history. We do not sell
+              username, name, hashed password, and chat history, plus your email
+              address if you choose to add one. We do not sell
               your data to third parties. Chat history is associated with your
               account and can be deleted by deleting your account.
             </p>

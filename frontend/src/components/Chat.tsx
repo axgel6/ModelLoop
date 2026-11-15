@@ -36,6 +36,12 @@ import {
 } from "./api";
 import { AssistantMessage, UserMessage } from "./MessageList";
 import {
+  claimSignInHint,
+  clearGuestConversation,
+  readGuestConversation,
+  saveGuestConversation,
+} from "./guestConversation";
+import {
   chatInteractionReducer,
   initialChatInteractionState,
   type EditState,
@@ -201,7 +207,12 @@ function Chat({
     abortControllerRef,
     activeChatIdRef,
     justCreatedChatRef,
-  } = useChatSession(activeChatId);
+  } = useChatSession(activeChatId, isGuest ? readGuestConversation : undefined);
+
+  // Restored by now (see useChatSession), so the kept copy can go
+  useEffect(() => {
+    if (isGuest) clearGuestConversation();
+  }, [isGuest]);
 
   const {
     models,
@@ -302,7 +313,7 @@ function Chat({
   useEffect(() => {
     scrollToBottom();
   }, [activeTool, scrollToBottom]);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const [limits, setLimits] = useState<RateLimits | null>(null);
@@ -320,7 +331,7 @@ function Chat({
     }
     apiGetMe()
       .then((me) => {
-        setUserEmail(me.email);
+        setUsername(me.username);
         setUserName(me.full_name);
       })
       .catch(() => {});
@@ -668,6 +679,20 @@ function Chat({
       let localIsThinking = true;
       let localActiveTool: string | null = null;
 
+      // The reply being written is always the last message
+      const patchLastMessage = (
+        patch: Partial<Message> | ((last: Message) => Partial<Message>),
+      ) =>
+        setMessages((prev) => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          next[next.length - 1] = {
+            ...last,
+            ...(typeof patch === "function" ? patch(last) : patch),
+          };
+          return next;
+        });
+
       const flushBufferedTokens = () => {
         const hasContent = !!bufferedTokens;
         const hasThinking = !!bufferedThinking;
@@ -680,14 +705,9 @@ function Chat({
           accumulatedThinking += bufferedThinking;
           bufferedThinking = "";
         }
-        setMessages((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = {
-            ...next[next.length - 1],
-            content: accumulatedResponse,
-            ...(accumulatedThinking ? { thinking: accumulatedThinking } : {}),
-          };
-          return next;
+        patchLastMessage({
+          content: accumulatedResponse,
+          ...(accumulatedThinking ? { thinking: accumulatedThinking } : {}),
         });
       };
 
@@ -707,12 +727,15 @@ function Chat({
         flushBufferedTokens();
       };
 
+      // An event can arrive split across network chunks, so the unfinished last
+      // line is kept and finished by the next chunk instead of being parsed in halves
+      let pending = "";
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
-        for (const line of decoder
-          .decode(value, { stream: true })
-          .split("\n")) {
+        pending += done ? decoder.decode() : decoder.decode(value, { stream: true });
+        const lines = pending.split("\n");
+        pending = done ? "" : (lines.pop() ?? "");
+        for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           try {
             const data = JSON.parse(line.slice(6));
@@ -741,58 +764,26 @@ function Chat({
               setActiveTool(data.tool ?? null);
               haptics.trigger("selection");
             } else if (data.type === "image_context") {
-              setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = {
-                  ...next[next.length - 1],
-                  image_context: data.context,
-                };
-                return next;
-              });
+              patchLastMessage({ image_context: data.context });
             } else if (data.type === "widgets") {
-              setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = {
-                  ...next[next.length - 1],
-                  widgets: data.widgets,
-                };
-                return next;
-              });
+              patchLastMessage({ widgets: data.widgets });
             } else if (data.type === "project_check" && chatId) {
               runCheck(chatId, data.check_id, data.files ?? []);
             } else if (data.type === "project_turn" || data.type === "project_step") {
               if (data.type === "project_turn") onTurnStart();
               const file = data.file as { path: string; content: string | null } | undefined;
               if (file) onFileChanged(file);
-              setMessages((prev) => {
-                const next = [...prev];
-                const last = next[next.length - 1];
-                next[next.length - 1] = {
-                  ...last,
-                  steps: data.step ? [...(last.steps ?? []), data.step] : (last.steps ?? []),
-                };
-                return next;
-              });
+              patchLastMessage((last) => ({
+                steps: data.step ? [...(last.steps ?? []), data.step] : (last.steps ?? []),
+              }));
             } else if (data.type === "project_changes") {
               // The turn is saved by now, so the card and studio can pick up its files
               if (data.changes?.version != null) onVersionSaved();
-              setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = {
-                  ...next[next.length - 1],
-                  project_changes: data.changes,
-                };
-                return next;
-              });
+              patchLastMessage({ project_changes: data.changes });
+            } else if (data.type === "sign_in_hint") {
+              if (claimSignInHint()) patchLastMessage({ sign_in_hint: true });
             } else if (data.type === "search_context") {
-              setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = {
-                  ...next[next.length - 1],
-                  search_context: data.context,
-                };
-                return next;
-              });
+              patchLastMessage({ search_context: data.context });
             } else if (data.type === "done") {
               setActiveTool(null);
               setIsThinking(false);
@@ -811,6 +802,7 @@ function Chat({
             throw e;
           }
         }
+        if (done) break;
       }
       flushAndCancelPendingFrame();
       setLoading(false);
@@ -1097,6 +1089,12 @@ function Chat({
     onLogout();
   };
 
+  // A guest heading to the sign-in page keeps their conversation for "Back to chat"
+  const handleGuestSignIn = () => {
+    saveGuestConversation(messages);
+    handleLogout();
+  };
+
   const handleDeleteChat = async (id: string) => {
     dispatchInteraction({ type: "delete_start", id });
     if (id === activeChatId) handleNewChat();
@@ -1348,7 +1346,7 @@ function Chat({
               </div>
             </div>
 
-            {(userEmail || userName) && (
+            {(username || userName) && (
               <div className="sidebar-footer-wrapper" ref={footerWrapperRef}>
                 {showUserMenu &&
                   (() => {
@@ -1449,13 +1447,13 @@ function Chat({
                         : undefined
                     }
                   >
-                    {(userName ?? userEmail ?? "?")[0].toUpperCase()}
+                    {(userName ?? username ?? "?")[0].toUpperCase()}
                   </div>
                   <span
                     className="sidebar-user-email"
-                    title={userName ?? userEmail ?? ""}
+                    title={userName ?? username ?? ""}
                   >
-                    {userName ?? userEmail ?? ""}
+                    {userName ?? username ?? ""}
                   </span>
                 </div>
               </div>
@@ -1681,7 +1679,7 @@ function Chat({
               {isGuest && (
                 <button
                   className="topbar-icon-btn"
-                  onClick={handleLogout}
+                  onClick={handleGuestSignIn}
                   title=""
                   aria-label="Sign In"
                 >
@@ -1760,20 +1758,47 @@ function Chat({
               return messages.map((msg, idx) => (
                 <div key={idx} className={`message-row ${msg.role}`}>
                   {msg.role === "assistant" ? (
-                    <AssistantMessage
-                      msg={msg}
-                      showProjectCard={idx === lastProjectIdx}
-                      isLast={idx === messages.length - 1}
-                      canRetry={
-                        idx === messages.length - 1 && !!msg.content && !loading
-                      }
-                      isThinking={idx === messages.length - 1 && isThinking}
-                      activeTool={
-                        idx === messages.length - 1 ? activeTool : null
-                      }
-                      streaming={idx === messages.length - 1 && loading}
-                      onRetry={handleRetry}
-                    />
+                    <>
+                      <AssistantMessage
+                        msg={msg}
+                        showProjectCard={idx === lastProjectIdx}
+                        isLast={idx === messages.length - 1}
+                        canRetry={
+                          idx === messages.length - 1 && !!msg.content && !loading
+                        }
+                        isThinking={idx === messages.length - 1 && isThinking}
+                        activeTool={
+                          idx === messages.length - 1 ? activeTool : null
+                        }
+                        streaming={idx === messages.length - 1 && loading}
+                        onRetry={handleRetry}
+                      />
+                      {isGuest && msg.sign_in_hint && (
+                        <button
+                          type="button"
+                          className="suggestion-chip guest-sign-in-chip"
+                          onClick={handleGuestSignIn}
+                        >
+                          <svg
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <circle cx="11" cy="11" r="7" />
+                            <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                          </svg>
+                          <span className="guest-sign-in-chip-label">
+                            Sign in to let Olly search the web for the latest
+                          </span>
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <UserMessage
                       msg={msg}

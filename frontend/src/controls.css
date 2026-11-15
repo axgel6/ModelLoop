@@ -377,7 +377,7 @@
 }
 
 /* ---- Text links ---- */
-:root[data-theme] body :is(.ceo-link, .neg-link, .arena-link, .login-toggle-btn, .pref-voice-more) {
+:root[data-theme] body :is(.ceo-link, .neg-link, .arena-link, .login-toggle-btn, .login-reveal-btn, .pref-voice-more) {
   &,
   &:is(:hover, :active, :focus) {
     border: none;

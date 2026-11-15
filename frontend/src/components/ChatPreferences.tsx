@@ -19,6 +19,7 @@ import {
 } from "./speechVoice";
 import {
   apiGetMe,
+  apiUpdateEmail,
   apiUpdateProfile,
   apiSavePersonalContext,
   apiSetOllamaUrl,
@@ -320,11 +321,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   const [presetSearch, setPresetSearch] = useState("");
   const [userInfo, setUserInfo] = useState<{
     id: string;
-    email: string;
+    username: string;
+    email: string | null;
     full_name: string | null;
   } | null>(null);
   const [nameEdit, setNameEdit] = useState<string | null>(null);
   const [nameSaving, setNameSaving] = useState(false);
+  const [emailEdit, setEmailEdit] = useState<string | null>(null);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [personalContext, setPersonalContext] = useState<string>("");
   const [personalContextSaving, setPersonalContextSaving] = useState(false);
   useEffect(() => {
@@ -451,7 +456,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     const trimmed = nameEdit.trim();
     setNameSaving(true);
     try {
-      await apiUpdateProfile(trimmed || (userInfo?.email ?? ""));
+      await apiUpdateProfile(trimmed || (userInfo?.username ?? ""));
       const newName = trimmed || null;
       setUserInfo((prev) => (prev ? { ...prev, full_name: newName } : prev));
       onNameChange?.(newName);
@@ -461,6 +466,27 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     } finally {
       setNameSaving(false);
     }
+  };
+
+  // Saving it blank removes the email
+  const handleSaveEmail = async () => {
+    if (emailEdit === null) return;
+    setEmailSaving(true);
+    setEmailError(null);
+    try {
+      const saved = await apiUpdateEmail(emailEdit.trim() || null);
+      setUserInfo((prev) => (prev ? { ...prev, email: saved } : prev));
+      setEmailEdit(null);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "I couldn't save that email.");
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const cancelEmailEdit = () => {
+    setEmailEdit(null);
+    setEmailError(null);
   };
 
   const handlePresetClick = (label: string, prompt: string) => {
@@ -1261,12 +1287,74 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-account-card">
                 {userInfo && (
                   <div className="pref-account-field">
-                    <div className="pref-field-label">Email</div>
+                    <div className="pref-field-label">Username</div>
                     <div className="pref-field-row">
                       <span className="pref-account-email">
-                        {userInfo.email}
+                        {userInfo.username}
                       </span>
                     </div>
+                  </div>
+                )}
+                {userInfo && (
+                  <div className="pref-account-field pref-account-field-sep">
+                    <div className="pref-field-label">Email</div>
+                    <div className="pref-field-desc">
+                      Optional. You can sign in with it instead of your username.
+                    </div>
+                    <div className="pref-name-row">
+                      {emailEdit !== null ? (
+                        <>
+                          <input
+                            className="pref-name-input"
+                            type="email"
+                            value={emailEdit}
+                            maxLength={254}
+                            placeholder="you@example.com"
+                            onChange={(e) => setEmailEdit(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveEmail();
+                              if (e.key === "Escape") cancelEmailEdit();
+                            }}
+                            autoFocus
+                            autoComplete="email"
+                            disabled={emailSaving}
+                          />
+                          <button
+                            className="pref-name-save-btn"
+                            onClick={handleSaveEmail}
+                            disabled={emailSaving}
+                          >
+                            {emailSaving ? <span className="btn-spinner" /> : "Save"}
+                          </button>
+                          <button
+                            className="pref-name-cancel-btn"
+                            onClick={cancelEmailEdit}
+                            disabled={emailSaving}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="pref-name-value">
+                            {userInfo.email ?? (
+                              <span className="pref-name-placeholder">None added</span>
+                            )}
+                          </span>
+                          <button
+                            className="pref-name-edit-btn"
+                            onClick={() => setEmailEdit(userInfo.email ?? "")}
+                          >
+                            {userInfo.email ? "Edit" : "Add"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {emailError && (
+                      <div className="pref-ollama-msg pref-ollama-msg--error">
+                        {emailError}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="pref-account-field pref-account-field-sep">
@@ -1278,7 +1366,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                           className="pref-name-input"
                           value={nameEdit}
                           maxLength={120}
-                          placeholder={userInfo?.email ?? ""}
+                          placeholder={userInfo?.username ?? ""}
                           onChange={(e) => setNameEdit(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleSaveName();
@@ -1311,7 +1399,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         <span className="pref-name-value">
                           {userInfo?.full_name ?? (
                             <span className="pref-name-placeholder">
-                              {userInfo?.email}
+                              {userInfo?.username}
                             </span>
                           )}
                         </span>
@@ -1377,7 +1465,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       }
                     >
                       {(userInfo?.full_name ??
-                        userInfo?.email ??
+                        userInfo?.username ??
                         "?")[0].toUpperCase()}
                     </div>
                     <div className="pref-avatar-swatches">

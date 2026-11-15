@@ -16,7 +16,6 @@ from typing import Optional
 
 GAME_TYPE = "model-arena"
 
-MODES = ("argument", "debate")
 ROUNDS = 5                 # argument: arguments each, before the closing remarks
 DEBATE_ROUNDS = 3          # debate: rounds, each ending on a question from the moderator
 DEBATE_EXCHANGES = 2       # debate: speeches each per round, an answer and then a rebuttal

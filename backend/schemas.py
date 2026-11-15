@@ -1,17 +1,32 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from pydantic import AfterValidator, BaseModel, EmailStr, Field, StringConstraints
+from typing import Annotated, Optional
 import uuid
 from config import MAX_PROMPT_LENGTH, MAX_SYSTEM_PROMPT_LENGTH, MAX_TITLE_LENGTH, MAX_GUEST_HISTORY, MODEL_NAME_PATTERN
 
 
+# Trimmed before the length check, so a name of only spaces is rejected
+FullName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+
+
+# Stored lowercased, so "Ana" and "ana" are the same account. The pattern is checked
+# before lowercasing, so it has to accept capitals too.
+Username = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, pattern=r"^[A-Za-z0-9_]{3,30}$")]
+
+
+# Stored lowercased, so sign-in and the taken check need not care about case
+Email = Annotated[EmailStr, AfterValidator(str.lower)]
+
+
 class RegisterRequest(BaseModel):
-    email:     EmailStr        = Field(..., max_length=254)
-    password:  str             = Field(..., min_length=8, max_length=128)
-    full_name: Optional[str]   = Field(default=None, max_length=120)
+    username:  Username
+    email:     Optional[Email] = Field(default=None, max_length=254)
+    password:  str                = Field(..., min_length=8, max_length=128)
+    # users.full_name is NOT NULL, so registering needs one
+    full_name: FullName
 
 
 class UpdateProfileRequest(BaseModel):
-    full_name: str = Field(..., min_length=1, max_length=120)
+    full_name: FullName
 
 
 class UpdatePreferencesRequest(BaseModel):
@@ -26,8 +41,14 @@ class UpdatePersonalContextRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email:    EmailStr = Field(..., max_length=254)
-    password: str      = Field(..., max_length=128)
+    # A username, or the email on the account
+    identifier: str = Field(..., min_length=1, max_length=254)
+    password:   str = Field(..., max_length=128)
+
+
+class UpdateEmailRequest(BaseModel):
+    # null removes it
+    email: Optional[Email] = Field(default=None, max_length=254)
 
 
 # "system" role excluded to prevent prompt injection via guest history
@@ -86,7 +107,7 @@ class PrivateChatRequest(BaseModel):
 
 
 class RenameChatRequest(BaseModel):
-    title: str = Field(..., min_length=1, max_length=MAX_TITLE_LENGTH)
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_TITLE_LENGTH)]
 
 
 class UpdateOllamaUrlRequest(BaseModel):

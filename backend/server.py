@@ -30,62 +30,86 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Schema migrations (idempotent; safe to run on every startup)
+MIGRATIONS = [
+    "ALTER TABLE messages ADD COLUMN IF NOT EXISTS images JSON",
+    "ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_context TEXT",
+    "ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_context TEXT",
+    "ALTER TABLE messages ADD COLUMN IF NOT EXISTS widgets JSON",
+    "ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE",
+    "ALTER TABLE documents ADD COLUMN IF NOT EXISTS chat_id UUID REFERENCES chats(id) ON DELETE CASCADE",
+    "ALTER TABLE documents ADD COLUMN IF NOT EXISTS filename TEXT",
+    "CREATE INDEX IF NOT EXISTS ix_documents_user_id ON documents (user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_documents_chat_id ON documents (chat_id)",
+    "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS document_id UUID REFERENCES documents(id) ON DELETE CASCADE",
+    "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS content TEXT",
+    # Drop embedding column if it exists as non-JSON (pgvector migration)
+    """DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'document_chunks'
+              AND column_name = 'embedding'
+              AND data_type <> 'json'
+        ) THEN
+            ALTER TABLE document_chunks DROP COLUMN embedding;
+        END IF;
+    END $$""",
+    "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS embedding JSON",
+    "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS chunk_index INTEGER",
+    "CREATE INDEX IF NOT EXISTS ix_document_chunks_document_id ON document_chunks (document_id)",
+    "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS chat_id UUID REFERENCES chats(id) ON DELETE CASCADE",
+    "CREATE INDEX IF NOT EXISTS ix_document_chunks_chat_id ON document_chunks (chat_id)",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'meadow'",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'rounded'",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_color VARCHAR(7)",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_context TEXT",
+    "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_url VARCHAR(300)",
+    "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100)",
+    # Web studio: create_all makes the project tables; messages gains the change labels
+    "ALTER TABLE messages ADD COLUMN IF NOT EXISTS project_changes JSON",
+    "ALTER TABLE project_versions ADD COLUMN IF NOT EXISTS restored_from INTEGER",
+    "ALTER TABLE projects ADD COLUMN IF NOT EXISTS spec TEXT",
+    # Usernames replace email as the sign-in name; email becomes optional. Existing
+    # accounts get the part of their email before the @, made valid and unique.
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(30)",
+    """WITH base AS (
+        SELECT id, created_at, left(coalesce(nullif(
+            regexp_replace(lower(split_part(email, '@', 1)), '[^a-z0-9_]', '_', 'g'), ''), 'user'), 26) AS b
+        FROM users WHERE username IS NULL
+    ), named AS (
+        SELECT id, b || repeat('_', greatest(0, 3 - length(b))) AS name,
+               row_number() OVER (PARTITION BY b ORDER BY created_at, id) AS n
+        FROM base
+    )
+    UPDATE users SET username = CASE WHEN named.n = 1 THEN named.name ELSE named.name || '_' || named.n END
+    FROM named WHERE users.id = named.id""",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users (username)",
+    "ALTER TABLE users ALTER COLUMN username SET NOT NULL",
+    "ALTER TABLE users ALTER COLUMN email DROP NOT NULL",
+    # The model has always declared these; tables created before it did never got them
+    "CREATE INDEX IF NOT EXISTS ix_chats_user_id ON chats (user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_messages_chat_id ON messages (chat_id)",
+    # Retired preferences: Ember's id before it was renamed, the Ocean theme and the
+    # mono font. Older tables also still carry the original column defaults.
+    "UPDATE users SET theme = 'ember' WHERE theme = 'gruvbox'",
+    "UPDATE users SET theme = 'meadow' WHERE theme = 'ocean'",
+    "UPDATE users SET font = 'rounded' WHERE font = 'mono'",
+    "ALTER TABLE users ALTER COLUMN theme SET DEFAULT 'meadow'",
+    "ALTER TABLE users ALTER COLUMN font SET DEFAULT 'rounded'",
+    # Expired refresh tokens can never be used again, and nothing else removes them
+    "DELETE FROM refresh_tokens WHERE expires_at < now()",
+]
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
-    # Schema migrations (idempotent; safe to run on every startup)
-    migrations = [
-        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS images JSON",
-        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_context TEXT",
-        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_context TEXT",
-        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS widgets JSON",
-        "ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE",
-        "ALTER TABLE documents ADD COLUMN IF NOT EXISTS chat_id UUID REFERENCES chats(id) ON DELETE CASCADE",
-        "ALTER TABLE documents ADD COLUMN IF NOT EXISTS filename TEXT",
-        "CREATE INDEX IF NOT EXISTS ix_documents_user_id ON documents (user_id)",
-        "CREATE INDEX IF NOT EXISTS ix_documents_chat_id ON documents (chat_id)",
-        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS document_id UUID REFERENCES documents(id) ON DELETE CASCADE",
-        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS content TEXT",
-        # Drop embedding column if it exists as non-JSON (pgvector migration)
-        """DO $$
-        BEGIN
-            IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_name = 'document_chunks'
-                  AND column_name = 'embedding'
-                  AND data_type <> 'json'
-            ) THEN
-                ALTER TABLE document_chunks DROP COLUMN embedding;
-            END IF;
-        END $$""",
-        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS embedding JSON",
-        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS chunk_index INTEGER",
-        "CREATE INDEX IF NOT EXISTS ix_document_chunks_document_id ON document_chunks (document_id)",
-        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS chat_id UUID REFERENCES chats(id) ON DELETE CASCADE",
-        "CREATE INDEX IF NOT EXISTS ix_document_chunks_chat_id ON document_chunks (chat_id)",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'meadow'",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS font VARCHAR(20) NOT NULL DEFAULT 'rounded'",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_color VARCHAR(7)",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_context TEXT",
-        "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_url VARCHAR(300)",
-        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100)",
-        # Web studio: create_all makes the project tables; messages gains the change labels
-        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS project_changes JSON",
-        "ALTER TABLE project_versions ADD COLUMN IF NOT EXISTS restored_from INTEGER",
-        "ALTER TABLE projects ADD COLUMN IF NOT EXISTS spec TEXT",
-        # Ember's id before it was renamed
-        "UPDATE users SET theme = 'ember' WHERE theme = 'gruvbox'",
-    ]
+async def _migrate() -> None:
     # Each statement commits on its own. Run as one transaction, the locks piled up: a deploy
     # held users while waiting on refresh_tokens, the old instance's token refresh held
     # refresh_tokens while waiting on users, and Postgres killed the refresh as a deadlock.
     # Even IF NOT EXISTS takes the table lock, so each one also gives up quickly and retries
     # rather than queueing behind live requests and stalling every query on that table.
-    for stmt in migrations:
+    for stmt in MIGRATIONS:
         for attempt in range(1, 6):
             try:
                 async with engine.begin() as conn:
@@ -97,6 +121,13 @@ async def lifespan(_: FastAPI):
                     raise
                 logger.warning("migration_lock_busy attempt=%s stmt=%s", attempt, stmt.split("\n")[0][:80])
                 await asyncio.sleep(attempt)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await _migrate()
 
     yield
 

@@ -567,13 +567,6 @@ def flaw_question(state: dict, message: str) -> Optional[str]:
     return None
 
 
-def asks_about(flaw: Optional[dict], message: str) -> bool:
-    """Whether the buyer's message names the flaw itself."""
-    if not flaw or flaw.get("revealed"):
-        return False
-    return bool(set(re.findall(r"[a-z/]+", message.lower())) & set(flaw["words"]))
-
-
 # Patience nearly gone: the seller warns the buyer once that someone else is interested
 WARNINGS = (
     "Just so you know, someone else is asking about it too, so I need an answer soon.",

@@ -51,7 +51,7 @@ async def upload_document(
     elif ext in ("txt", "md"):
         raw_text = content.decode("utf-8", errors="ignore")
     else:
-        raise HTTPException(status_code=415, detail="Unsupported file type — use PDF, TXT, or MD")
+        raise HTTPException(status_code=415, detail="Unsupported file type. Use PDF, TXT, or MD.")
 
     raw_text = raw_text.strip()
     if not raw_text:
@@ -69,7 +69,7 @@ async def upload_document(
         embeddings = await asyncio.gather(*[get_embedding(c, base_url) for c in chunks])
     except Exception as e:
         logger.error("embed_chunk_failed doc_id=%s error=%s", doc.id, str(e))
-        raise HTTPException(status_code=502, detail="Embedding model unavailable — is nomic-embed-text pulled?")
+        raise HTTPException(status_code=502, detail="Embedding model unavailable. Is nomic-embed-text pulled?")
 
     for i, (chunk_text_item, embedding) in enumerate(zip(chunks, embeddings)):
         db.add(DocumentChunk(

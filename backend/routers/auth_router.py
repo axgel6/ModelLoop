@@ -1,7 +1,9 @@
 import logging
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from config import REFRESH_REUSE_GRACE_SECONDS
 from rate_limit import limiter
@@ -15,7 +17,10 @@ from auth import (
     get_current_user_id, generate_refresh_token,
     hash_refresh_token, REFRESH_EXPIRE_DAYS,
 )
-from schemas import RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest, UpdatePreferencesRequest, UpdatePersonalContextRequest, UpdateOllamaUrlRequest
+from schemas import (
+    RegisterRequest, LoginRequest, RefreshRequest, LogoutRequest, UpdateProfileRequest, UpdatePreferencesRequest,
+    UpdatePersonalContextRequest, UpdateOllamaUrlRequest, UpdateEmailRequest,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -32,16 +37,44 @@ async def _issue_tokens(user_id: str, db: AsyncSession) -> dict:
     return {"token": create_token(user_id), "refresh_token": raw_refresh}
 
 
+def _profile(user: User) -> dict:
+    return {
+        "id":               str(user.id),
+        "username":         user.username,
+        "email":            user.email,
+        "full_name":        user.full_name,
+        "theme":            user.theme,
+        "font":             user.font,
+        "avatar_color":     user.avatar_color,
+        "personal_context": user.personal_context,
+        "ollama_url":       user.ollama_url,
+    }
+
+
+async def _email_taken(email: str, db: AsyncSession, except_user: Optional[User] = None) -> bool:
+    """Emails from before they were lowercased can have capitals, so compare without case."""
+    query = select(User.id).where(func.lower(User.email) == email)
+    if except_user is not None:
+        query = query.where(User.id != except_user.id)
+    return (await db.execute(query)).first() is not None
+
+
 @router.post("/register", status_code=201)
 @limiter.limit("5/minute")
 async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(select(User).where(User.email == body.email))
-    if existing.scalar_one_or_none():
+    if (await db.execute(select(User.id).where(User.username == body.username))).first():
+        logger.warning('register_conflict username=%s', body.username)
+        raise HTTPException(status_code=409, detail="That username is taken")
+    if body.email and await _email_taken(body.email, db):
         logger.warning('register_conflict email=%s', body.email)
         raise HTTPException(status_code=409, detail="Email already registered")
-    user = User(email=body.email, password_hash=hash_password(body.password), full_name=body.full_name or None)
+    user = User(username=body.username, email=body.email, password_hash=hash_password(body.password), full_name=body.full_name)
     db.add(user)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # Someone registered the same name between the check and here
+        raise HTTPException(status_code=409, detail="That username or email is taken")
     logger.info('user_registered user_id=%s', user.id)
     return await _issue_tokens(str(user.id), db)
 
@@ -49,10 +82,13 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
 @router.post("/login")
 @limiter.limit("10/minute")
 async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email))
+    identifier = body.identifier.strip().lower()
+    # Usernames cannot hold "@", so it tells the two apart
+    column = func.lower(User.email) if "@" in identifier else User.username
+    result = await db.execute(select(User).where(column == identifier))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password_hash):
-        logger.warning('login_failed email=%s', body.email)
+        logger.warning('login_failed identifier=%s', identifier)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     logger.info('login_success user_id=%s', user.id)
     return await _issue_tokens(str(user.id), db)
@@ -115,7 +151,7 @@ async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)
 
 @router.get("/me")
 async def get_me(user: User = Depends(get_user)):
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "theme": user.theme, "font": user.font, "avatar_color": user.avatar_color, "personal_context": user.personal_context, "ollama_url": user.ollama_url}
+    return _profile(user)
 
 
 @router.patch("/me")
@@ -124,9 +160,26 @@ async def update_profile(
     user: User = Depends(get_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user.full_name = body.full_name.strip()
+    user.full_name = body.full_name
     await db.commit()
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name, "theme": user.theme, "font": user.font, "avatar_color": user.avatar_color, "personal_context": user.personal_context, "ollama_url": user.ollama_url}
+    return _profile(user)
+
+
+@router.patch("/me/email")
+async def update_email(
+    body: UpdateEmailRequest,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add, change or remove the optional email on the account."""
+    if body.email and await _email_taken(body.email, db, except_user=user):
+        raise HTTPException(status_code=409, detail="Email already registered")
+    user.email = body.email
+    try:
+        await db.commit()
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Email already registered")
+    return {"email": user.email}
 
 
 @router.patch("/me/context")
@@ -189,12 +242,13 @@ async def guest_features():
 
 @router.post("/logout")
 async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)):
-    token_hash = hash_refresh_token(body.refresh_token)
-    result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
-    rt = result.scalar_one_or_none()
-    if rt:
-        rt.revoked = True
-        await db.commit()
+    # revoked_at stays unset: a logged-out token must not get the rotation grace in refresh_token
+    await db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.token_hash == hash_refresh_token(body.refresh_token))
+        .values(revoked=True)
+    )
+    await db.commit()
     return {"ok": True}
 
 

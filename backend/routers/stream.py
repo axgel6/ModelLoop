@@ -261,18 +261,22 @@ async def _chat_stream_response(
         if festive in FESTIVE_PERSONAS:
             system_prompt += "\n\n" + FESTIVE_PERSONAS[festive]
 
+    # Whether the message asks for something current (the weather, news, prices). A chat with
+    # actions on searches for it; guests never search (the quota is the owner's) and are
+    # invited to sign in instead.
+    prompt_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
+    weather_asked = _weather.should_activate(prompt, prompt_words)
+    wants_live = weather_asked or _web_search_should_activate(prompt, prompt_words)
+
     if actions_enabled:
         active_tools = get_active_tools(prompt)
-        _search_words = set(re.sub(r"[^\w\s]", "", prompt.lower()).split())
-        weather_asked = _weather.should_activate(prompt, _search_words)
-        proactive_search_enabled = bool(
-            force_search
-            or ((weather_asked or _web_search_should_activate(prompt, _search_words)) and bool(active_tools))
-        )
+        proactive_search_enabled = bool(force_search or (wants_live and active_tools))
     else:
         active_tools = _project_files.DEFINITIONS if project else []
-        weather_asked = False
         proactive_search_enabled = False
+
+    # Only where a signed-in chat would have searched, so the invitation is never an empty promise
+    suggest_sign_in = is_guest and wants_live and get_features(guest=False)["actions"]
 
     # Set when the user asks about the weather without saying where.
     weather_needs_place = False
@@ -332,143 +336,153 @@ async def _chat_stream_response(
             return ""
         return await retrieve_rag_context(str(chat.id), str(user.id), prompt, db, base_url)
 
-    image_context, rag_context, _search_data, (tool_answers, widgets) = await asyncio.gather(
-        _image_description(),
-        _rag_task(),
-        _web_search_task(),
-        _tools_task(),
-    )
-    # A tool that already answered is not offered again: the model would only call it twice.
-    # The weather is answered too when its card was made, since the report is in the search results.
-    answered = set(tool_answers)
-    if weather_widget:
-        widgets = [weather_widget, *widgets]
-        answered.add("get_weather")
-    if answered and active_tools:
-        active_tools = [t for t in active_tools if t["function"]["name"] not in answered] or None
-
-    effective_system = system_prompt
-    if rag_context:
-        effective_system = (
-            system_prompt
-            + "\n\n<rag_context>\nThe following excerpts are from documents the user has uploaded. "
-            "Use them to answer questions when relevant, and cite [Chunk N] if you quote directly.\n\n"
-            + rag_context
-            + "\n</rag_context>"
-        )
-
-    if user and user.personal_context:
-        effective_system += f"\n\n<user_context>\n{user.personal_context}\n</user_context>"
-
-    if not is_guest and PROPRIETARY_INSTRUCTIONS:
-        effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
-
-    full_name = user.full_name if user else None
-    if full_name:
-        # Phrased as background, not an instruction: told to "address them as X",
-        # small models put the name in nearly every reply.
-        first_name = full_name.split()[0]
-        effective_system += (
-            f"\n\nFor reference, the user's name is {full_name}. Do not use their name in your replies. "
-            f"The only exceptions are when they ask what their name is, or a greeting at the very start of a conversation, "
-            f"where \"{first_name}\" is fine once."
-        )
-
-    # The date only, never the time, and as background like the name: told it outright,
-    # small models open every reply with it
-    effective_system += (
-        f"\n\nFor reference, today is {today:%A}, {today:%B} {today.day}, {today.year}. Use it to make sense of "
-        f"words like \"yesterday\" or \"this year\", and to tell when something may have changed since your "
-        f"training. Do not mention the date unless the user asks for it or the answer depends on it."
-    )
-
-    messages = []
-    if not _skip_system_prompt(model):
-        messages.append({"role": "system", "content": effective_system})
-    # A project turn gets its earlier requests in the context block instead (see ProjectTurn.earlier)
-    for m in ([] if project else history):
-        content = m["content"]
-        if m["role"] == "user" and m.get("image_context"):
-            content = f"<image_context>\n{m['image_context']}\n</image_context>\n\n{content}"
-        if m["role"] == "user" and m.get("search_context"):
-            content = f"<search_results>\n{m['search_context']}\n</search_results>\n\n{content}"
-        messages.append({"role": m["role"], "content": content})
-
-    user_content = prompt
-    if image_context:
-        user_content = f"<image_context>\n{image_context}\n</image_context>\n\n{prompt}"
-    user_msg: dict = {"role": "user", "content": user_content}
-    if images:
-        user_msg["images"] = images
-    messages.append(user_msg)
-
-    project_block = ""
-    if project:
-        # Like search results, the project goes in the message: some models get no system prompt
-        project_block = project_mode.context_block(project, prompt)
-        user_msg["content"] = f"{project_block}\n\n{user_msg['content']}"
-
-    _search_block: Optional[str] = None
-    if _search_data and _search_data.get("results"):
-        _search_block = _format_search_block(_search_data["results"])
-        last_msg = messages[-1]
-        last_msg["content"] = (
-            f"<search_results date=\"{today.isoformat()}\">\n"
-            f"{_search_block}\n"
-            f"</search_results>\n\n"
-            f"{last_msg['content']}"
-        )
-    elif weather_needs_place:
-        last_msg = messages[-1]
-        last_msg["content"] = (
-            "[No location was given for the weather. If the user's location is known from this conversation "
-            "or their profile, call get_weather with it. Otherwise ask which city they mean, in one short "
-            "sentence. Do not guess a location and do not invent weather data.]\n\n"
-            f"{last_msg['content']}"
-        )
-    elif proactive_search_enabled:
-        # Search was triggered but returned no results; tell the model explicitly so it
-        # doesn't fabricate results or claim to have retrieved live data.
-        last_msg = messages[-1]
-        last_msg["content"] = (
-            f"[Web search returned no results. Do not invent URLs or claim to have retrieved live data.]\n\n"
-            f"{last_msg['content']}"
-        )
-
-    if tool_answers:
-        last_msg = messages[-1]
-        last_msg["content"] = (
-            "<tool_results>\n" + "\n\n".join(tool_answers.values()) + "\n</tool_results>\n"
-            "[Exact results worked out for this message. Answer from them and do not redo the math or "
-            "conversion yourself. Do not mention tools or tool results.]\n"
-            + f"\n{last_msg['content']}"
-        )
-
-    if widgets:
-        # The card already shows the details, so the reply only has to say it
-        last_msg = messages[-1]
-        last_msg["content"] = (
-            "[The user sees a card above your reply with the details from these results. Answer in one "
-            "or two short sentences, keep to what matters for their question, and do not list every number.]\n\n"
-            + last_msg["content"]
-        )
-
-    chat_id    = str(chat.id) if chat else None
-    chat_title = chat.title if chat else None
-
-    # Everything read from the request session is in plain values by now. Release its
-    # connection here: the session otherwise stays open until the stream ends, and a
-    # handful of long generations would drain the pool.
-    await db.close()
-
     async def generate():
-        # A weather lookup the model makes adds its card mid-stream
-        nonlocal widgets
+        # The prepare step below narrows the tools offered to the model
+        nonlocal active_tools
         full_response = ""
         success       = False
         # A project turn can work for minutes before it writes a word, so the chat shows its steps
         if project:
             yield f"data: {json.dumps({'type': 'project_turn'})}\n\n"
+        # The lookups below run before the model starts. The response is already open by now,
+        # so say what is happening instead of leaving the chat silent until they finish.
+        if proactive_search_enabled:
+            yield f"data: {json.dumps({'type': 'tool_use', 'tool': 'get_weather' if weather_asked else 'web_search'})}\n\n"
+        try:
+            image_context, rag_context, _search_data, (tool_answers, widgets) = await asyncio.gather(
+                _image_description(),
+                _rag_task(),
+                _web_search_task(),
+                _tools_task(),
+            )
+            # A tool that already answered is not offered again: the model would only call it twice.
+            # The weather is answered too when its card was made, since the report is in the search results.
+            answered = set(tool_answers)
+            if weather_widget:
+                widgets = [weather_widget, *widgets]
+                answered.add("get_weather")
+            if answered and active_tools:
+                active_tools = [t for t in active_tools if t["function"]["name"] not in answered] or None
+
+            effective_system = system_prompt
+            if rag_context:
+                effective_system = (
+                    system_prompt
+                    + "\n\n<rag_context>\nThe following excerpts are from documents the user has uploaded. "
+                    "Use them to answer questions when relevant, and cite [Chunk N] if you quote directly.\n\n"
+                    + rag_context
+                    + "\n</rag_context>"
+                )
+
+            if user and user.personal_context:
+                effective_system += f"\n\n<user_context>\n{user.personal_context}\n</user_context>"
+
+            if not is_guest and PROPRIETARY_INSTRUCTIONS:
+                effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
+
+            full_name = user.full_name if user else None
+            if full_name:
+                # Phrased as background, not an instruction: told to "address them as X",
+                # small models put the name in nearly every reply.
+                first_name = full_name.split()[0]
+                effective_system += (
+                    f"\n\nFor reference, the user's name is {full_name}. Do not use their name in your replies. "
+                    f"The only exceptions are when they ask what their name is, or a greeting at the very start of a conversation, "
+                    f"where \"{first_name}\" is fine once."
+                )
+
+            # The date only, never the time, and as background like the name: told it outright,
+            # small models open every reply with it
+            effective_system += (
+                f"\n\nFor reference, today is {today:%A}, {today:%B} {today.day}, {today.year}. Use it to make sense of "
+                f"words like \"yesterday\" or \"this year\", and to tell when something may have changed since your "
+                f"training. Do not mention the date unless the user asks for it or the answer depends on it, and never put it "
+                f"in front of something you know from training (\"as of today, ...\"): what you know is older than today."
+            )
+
+            messages = []
+            if not _skip_system_prompt(model):
+                messages.append({"role": "system", "content": effective_system})
+            # A project turn gets its earlier requests in the context block instead (see ProjectTurn.earlier)
+            for m in ([] if project else history):
+                content = m["content"]
+                if m["role"] == "user" and m.get("image_context"):
+                    content = f"<image_context>\n{m['image_context']}\n</image_context>\n\n{content}"
+                if m["role"] == "user" and m.get("search_context"):
+                    content = f"<search_results>\n{m['search_context']}\n</search_results>\n\n{content}"
+                messages.append({"role": m["role"], "content": content})
+
+            user_content = prompt
+            if image_context:
+                user_content = f"<image_context>\n{image_context}\n</image_context>\n\n{prompt}"
+            user_msg: dict = {"role": "user", "content": user_content}
+            if images:
+                user_msg["images"] = images
+            messages.append(user_msg)
+
+            project_block = ""
+            if project:
+                # Like search results, the project goes in the message: some models get no system prompt
+                project_block = project_mode.context_block(project, prompt)
+                user_msg["content"] = f"{project_block}\n\n{user_msg['content']}"
+
+            _search_block: Optional[str] = None
+            if _search_data and _search_data.get("results"):
+                _search_block = _format_search_block(_search_data["results"])
+                last_msg = messages[-1]
+                last_msg["content"] = (
+                    f"<search_results date=\"{today.isoformat()}\">\n"
+                    f"{_search_block}\n"
+                    f"</search_results>\n\n"
+                    f"{last_msg['content']}"
+                )
+            elif weather_needs_place:
+                last_msg = messages[-1]
+                last_msg["content"] = (
+                    "[No location was given for the weather. If the user's location is known from this conversation "
+                    "or their profile, call get_weather with it. Otherwise ask which city they mean, in one short "
+                    "sentence. Do not guess a location and do not invent weather data.]\n\n"
+                    f"{last_msg['content']}"
+                )
+            elif proactive_search_enabled:
+                # Search was triggered but returned no results; tell the model explicitly so it
+                # doesn't fabricate results or claim to have retrieved live data.
+                last_msg = messages[-1]
+                last_msg["content"] = (
+                    f"[Web search returned no results. Do not invent URLs or claim to have retrieved live data.]\n\n"
+                    f"{last_msg['content']}"
+                )
+
+            if tool_answers:
+                last_msg = messages[-1]
+                last_msg["content"] = (
+                    "<tool_results>\n" + "\n\n".join(tool_answers.values()) + "\n</tool_results>\n"
+                    "[Exact results worked out for this message. Answer from them and do not redo the math or "
+                    "conversion yourself. Do not mention tools or tool results.]\n"
+                    + f"\n{last_msg['content']}"
+                )
+
+            if widgets:
+                # The card already shows the details, so the reply only has to say it
+                last_msg = messages[-1]
+                last_msg["content"] = (
+                    "[The user sees a card above your reply with the details from these results. Answer in one "
+                    "or two short sentences, keep to what matters for their question, and do not list every number.]\n\n"
+                    + last_msg["content"]
+                )
+
+            chat_id    = str(chat.id) if chat else None
+            chat_title = chat.title if chat else None
+
+            # Everything read from the request session is in plain values by now. Release its
+            # connection here: the session otherwise stays open until the stream ends, and a
+            # handful of long generations would drain the pool.
+            await db.close()
+        except Exception as e:
+            logger.error('stream_prepare_error model=%s error=%s', model, str(e))
+            msg = str(e) if not IS_PRODUCTION else "An error occurred"
+            yield f"data: {json.dumps({'type': 'error', 'error': msg})}\n\n"
+            return
         # A new project is planned before it is built: the spec goes in the request, and is
         # saved with the project for the turns after it
         if project and project_mode.needs_plan(project, prompt):
@@ -832,6 +846,8 @@ async def _chat_stream_response(
                         project_changes = None
                         logger.error('db_save_error chat_id=%s error=%s', chat_id, str(db_err))
 
+                if suggest_sign_in:
+                    yield f"data: {json.dumps({'type': 'sign_in_hint'})}\n\n"
                 # After the save, so the labels only say what was kept
                 if project_changes:
                     yield f"data: {json.dumps({'type': 'project_changes', 'changes': project_changes})}\n\n"
