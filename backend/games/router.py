@@ -1802,7 +1802,9 @@ async def _ask_json(
         "stream": False,
         "keep_alive": -1,
         "format": schema,
-        "options": {"temperature": JSON_TURN_TEMPERATURE, **({"num_predict": max_tokens} if max_tokens else {})},
+        "options": await ollama_caps.with_num_ctx(
+            {"temperature": JSON_TURN_TEMPERATURE, **({"num_predict": max_tokens} if max_tokens else {})}, base_url, model,
+        ),
     }
     if await ollama_caps.can_think(base_url, model):
         payload["think"] = False
@@ -1823,7 +1825,7 @@ async def _ask_text(base_url: str, model: str, messages: list[dict], max_tokens:
         "messages": messages,
         "stream": False,
         "keep_alive": -1,
-        "options": {"temperature": 0.9, "num_predict": max_tokens},
+        "options": await ollama_caps.with_num_ctx({"temperature": 0.9, "num_predict": max_tokens}, base_url, model),
     }
     if await ollama_caps.can_think(base_url, model):
         payload["think"] = False

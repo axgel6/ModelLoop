@@ -92,6 +92,22 @@ def validate_ollama_url(raw: str) -> str:
     return urlunparse((parsed.scheme, parsed.netloc, "", "", "", "")).rstrip("/")
 
 
+def is_public_host(hostname: str, port: int) -> bool:
+    """Whether every address `hostname` resolves to is on the public internet. For URLs the
+    server fetches on its own, such as the pages behind search results."""
+    try:
+        addresses = [str(ipaddress.ip_address(hostname))]
+    except ValueError:
+        try:
+            addresses = _resolve(hostname, port)
+        except UnsafeOllamaUrl:
+            return False
+    try:
+        return bool(addresses) and not any(_address_is_forbidden(ipaddress.ip_address(a)) for a in addresses)
+    except ValueError:
+        return False
+
+
 async def validate_ollama_url_async(raw: str) -> str:
     """validate_ollama_url off the event loop.
 

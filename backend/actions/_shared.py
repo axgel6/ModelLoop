@@ -6,6 +6,12 @@ import httpx
 
 _client: Optional[httpx.AsyncClient] = None
 
+# Sent when fetching web pages, which many sites refuse to serve to a bare HTTP client
+BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
 # Stands in for a miss, so a cached None ("no such word") still counts as an answer
 MISSING: Any = object()
 

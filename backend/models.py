@@ -44,6 +44,10 @@ class Chat(Base):
     title:      Mapped[str]       = mapped_column(Text, default="New Chat")
     created_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    # Running summary of the messages older than the history window (see compaction.py),
+    # and the time of the newest message it covers
+    summary:         Mapped[Optional[str]]      = mapped_column(Text, nullable=True)
+    summary_through: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     user:       Mapped["User"]          = relationship(back_populates="chats")
     # The database cascades the delete to messages (see User.chats)
     messages:   Mapped[list["Message"]] = relationship(

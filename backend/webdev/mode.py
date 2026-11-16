@@ -247,7 +247,7 @@ async def write_spec(base_url: str, model: str, prompt: str) -> Optional[str]:
         ],
         "stream": False,
         "keep_alive": -1,
-        "options": {"temperature": 0.2, "num_predict": 1200},
+        "options": await ollama_caps.with_num_ctx({"temperature": 0.2, "num_predict": 1200}, base_url, model),
     }
     if await ollama_caps.can_think(base_url, model):
         payload["think"] = False

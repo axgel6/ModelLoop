@@ -8,7 +8,8 @@ import httpx
 
 from config import SEARCH_PROVIDER, TAVILY_API_KEY
 
-from ._shared import MISSING, TTLCache
+from ._shared import BROWSER_USER_AGENT, MISSING, TTLCache
+from .page_text import add_excerpts
 
 DEFINITION = {
     "type": "function",
@@ -17,7 +18,8 @@ DEFINITION = {
         "description": (
             "Search the web and return the top results. "
             "Use this for current events, news, prices, sports scores, weather, or any factual question "
-            "where your training data may be outdated. Returns titles, URLs, and snippets."
+            "where your training data may be outdated. Also use it to identify quotes, lyrics, memes, "
+            "names, or references you don't recognize. Returns titles, URLs, and snippets."
         ),
         "parameters": {
             "type": "object",
@@ -122,10 +124,7 @@ def accept_language_to_region(header: str) -> str:
 
 
 _HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    ),
+    "User-Agent": BROWSER_USER_AGENT,
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
@@ -326,6 +325,42 @@ def _build_output(query: str, results: Optional[list]) -> str:
     )
 
 
+# Openings of a request or a question put to Olly, as opposed to a line quoted from somewhere
+_REQUEST_START = re.compile(
+    r"^\s*(please|pls|can|could|would|will|should|do|does|did|is|are|am|was|were|how|why|when|where|which|who|"
+    r"write|make|create|build|generate|draft|compose|help|explain|describe|tell|give|show|list|fix|debug|"
+    r"translate|summarize|summarise|rewrite|edit|improve|check|find|compare|plan|suggest|recommend|"
+    r"calculate|convert|solve|teach|define|i need|i want|i'?d like|i have|i'?m trying|let'?s|hey|hi|hello|ok|okay|thanks)\b",
+    re.IGNORECASE,
+)
+# Code, not prose: a fence, a line ending in a brace or semicolon, a line opening with a
+# keyword, an operator, or a tag. Words like "return" or "function" alone are ordinary English.
+_CODE_HINT = re.compile(
+    r"```|[{};]\s*$|^\s*(def|class|import|from|function|const|let|var|return)\s|\w\s*(==|=>|!=|\+=|:=)\s*\w|</?[a-z]+[^>]*>",
+    re.MULTILINE,
+)
+# Sentence punctuation per word below this reads as text typed from memory, not composed prose
+_REFERENCE_MAX_PUNCT_RATIO = 0.08
+
+
+def worth_searching(text: str, min_words: int = 8) -> bool:
+    """Long enough to be about something a search could find, and not code."""
+    return len(text.split()) >= min_words and not _CODE_HINT.search(text)
+
+
+def looks_like_reference(text: str) -> bool:
+    """A message that reads like a quote, lyric or line from something, rather than a request:
+    long, no question mark, no request opening, no code, and barely punctuated. Small models
+    answer these from memory with confident inventions, so they are searched before answering."""
+    # Ten words or more, so short chat ("cool beans man") never searches
+    if not worth_searching(text, min_words=10) or "?" in text or "\n\n" in text:
+        return False
+    if _REQUEST_START.search(text):
+        return False
+    punct = len(re.findall(r"[.,;:!]", text))
+    return punct / len(text.split()) < _REFERENCE_MAX_PUNCT_RATIO
+
+
 def should_activate(text: str, words: set) -> bool:
     if words & KEYWORDS:
         return True
@@ -355,6 +390,9 @@ async def async_execute(arguments: dict) -> str:
             logger.warning("web_search_failed provider=%s error=%s", search.__name__, e)
     if not results and error is not None:
         return json.dumps({"error": str(error)})
+    if results:
+        # Snippets alone leave a small model guessing: add passages from the top pages
+        results = await add_excerpts(results, query)
     out = _build_output(query, results)
     if results:
         _cache.set(cache_key, out)

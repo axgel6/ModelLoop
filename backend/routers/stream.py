@@ -18,6 +18,7 @@ from dependencies import get_user
 from rag import retrieve_rag_context
 from features import get_features
 import config as _config
+import compaction
 import ollama_caps
 from config import (
     IS_PRODUCTION, NGROK_HEADERS,
@@ -37,6 +38,9 @@ from actions import weather as _weather
 from actions.web_search import (
     async_execute as _run_web_search_async,
     should_activate as _web_search_should_activate,
+    looks_like_reference as _looks_like_reference,
+    worth_searching as _worth_searching,
+    DEFINITION as _WEB_SEARCH_DEFINITION,
     accept_language_to_region as _accept_language_to_region,
 )
 
@@ -100,16 +104,45 @@ _NO_ANSWER_RE = re.compile(
     r")",
     re.IGNORECASE,
 )
+# Openings where the model asks what the user meant: "I'm not sure I follow",
+# "Could you clarify". Usually the message is a quote, lyric, meme or reference
+# it doesn't recognize, which a search can place. Only counted as giving up
+# when the prompt is worth searching (see web_search.worth_searching), since a vague
+# request like "fix it" really does need clarifying.
+_CONFUSED_RE = re.compile(
+    r"("
+    r"\bi(['’]m| am) not (quite |entirely )?(sure|certain) (that )?i (follow|understand|get)"
+    r"|\bi (do not|don'?t) (quite |really )?(follow|understand|get) (what|your|the|that|this)"
+    r"|\b(could|can) you (please )?(clarify|rephrase|explain what you mean|provide (a bit )?(more|some) (context|details))"
+    r"|\bwhat (do|did) you mean\b"
+    r"|\bi(['’]m| am) (a (bit|little) )?(confused|unclear)\b"
+    r"|\bnot sure what you(['’]re| are) (referring|asking|getting)"
+    r"|\b(doesn'?t|does not) (seem|appear) to be a (question|request)"
+    r"|\b(your|the|this) message (seems|appears|looks) (to be )?(incomplete|unclear|cut off)"
+    r")",
+    re.IGNORECASE,
+)
 # How much of a reply is held back to run that check before it starts streaming.
 _NO_ANSWER_PEEK_CHARS = 140
 
 
-def _is_giving_up(text: str) -> bool:
-    return bool(_NO_ANSWER_RE.search(text.replace("’", "'")[: _NO_ANSWER_PEEK_CHARS + 80]))
+def _is_giving_up(text: str, rescue_confusion: bool = False) -> bool:
+    opening = text.replace("’", "'")[: _NO_ANSWER_PEEK_CHARS + 80]
+    if _NO_ANSWER_RE.search(opening):
+        return True
+    return rescue_confusion and bool(_CONFUSED_RE.search(opening))
+
+
+# How many earlier searched turns get their search results sent to the model again
+_SEARCH_REPLAY_TURNS = 2
 
 
 def _format_search_block(results: list) -> str:
-    return "\n\n".join(f"**{r['title']}** ({r['url']})\n{r['snippet']}" for r in results)
+    return "\n\n".join(
+        f"**{r['title']}** ({r['url']})\n{r['snippet']}"
+        + (f"\nFrom the page:\n{r['excerpt']}" if r.get("excerpt") else "")
+        for r in results
+    )
 
 
 def _resolve_search_query(prompt: str, history) -> str:
@@ -148,7 +181,7 @@ async def _describe_images(images: list[str], base_url: str) -> str:
         "messages": [{"role": "user", "content": prompt, "images": images}],
         "stream": False,
         "keep_alive": -1,
-        "options": {"temperature": 0.1},
+        "options": await ollama_caps.with_num_ctx({"temperature": 0.1}, base_url, _config.VISION_MODEL),
     }
     if await ollama_caps.can_think(base_url, _config.VISION_MODEL):
         payload["think"] = False
@@ -170,6 +203,7 @@ async def _ollama_stream(messages: list, model: str, temperature: float, base_ur
     options: dict = {"temperature": temperature, "top_p": top_p}
     if num_predict != -1:
         options["num_predict"] = num_predict
+    options = await ollama_caps.with_num_ctx(options, base_url, model)
     payload: dict = {
         "model":      model,
         "messages":   messages,
@@ -268,9 +302,17 @@ async def _chat_stream_response(
     weather_asked = _weather.should_activate(prompt, prompt_words)
     wants_live = weather_asked or _web_search_should_activate(prompt, prompt_words)
 
+    # A message that reads like a quote or line from a show, song or game is searched before
+    # answering: a small model rarely notices it doesn't recognize one, and invents a source.
+    # Signed-in chats only, like every search.
+    reference_search = bool(actions_enabled and not is_guest and not wants_live and _looks_like_reference(prompt))
+
     if actions_enabled:
         active_tools = get_active_tools(prompt)
-        proactive_search_enabled = bool(force_search or (wants_live and active_tools))
+        if reference_search:
+            # Not already there: web search is only matched by a message that wants_live
+            active_tools = [*(active_tools or []), _WEB_SEARCH_DEFINITION]
+        proactive_search_enabled = bool(force_search or ((wants_live or reference_search) and active_tools))
     else:
         active_tools = _project_files.DEFINITIONS if project else []
         proactive_search_enabled = False
@@ -317,9 +359,13 @@ async def _chat_stream_response(
                         }]}
                 except Exception as _e:
                     logger.warning("proactive_weather_failed error=%s", str(_e))
+        query = _resolve_search_query(prompt, history)
+        if reference_search:
+            # Steers the results toward transcripts and quote pages that name the source
+            query += " quote"
         try:
             return json.loads(await _run_web_search_async(
-                {"query": _resolve_search_query(prompt, history), "max_results": 5, "_region": search_region}
+                {"query": query, "max_results": 5, "_region": search_region}
             ))
         except Exception as _e:
             logger.warning("proactive_web_search_failed error=%s", str(_e))
@@ -377,6 +423,11 @@ async def _chat_stream_response(
             if user and user.personal_context:
                 effective_system += f"\n\n<user_context>\n{user.personal_context}\n</user_context>"
 
+            # What scrolled out of the history window, summarized. A project turn keeps its
+            # own record of earlier requests instead.
+            if not project:
+                effective_system += compaction.summary_block(chat)
+
             if not is_guest and PROPRIETARY_INSTRUCTIONS:
                 effective_system += f"\n{PROPRIETARY_INSTRUCTIONS}"
 
@@ -404,11 +455,15 @@ async def _chat_stream_response(
             if not _skip_system_prompt(model):
                 messages.append({"role": "system", "content": effective_system})
             # A project turn gets its earlier requests in the context block instead (see ProjectTurn.earlier)
-            for m in ([] if project else history):
+            # Search results are long: only the last few turns' are sent again, enough for
+            # follow-ups about them, so older ones don't crowd the conversation out of the context
+            searched_turns = [i for i, m in enumerate(history) if m["role"] == "user" and m.get("search_context")]
+            replay_search = set(searched_turns[-_SEARCH_REPLAY_TURNS:])
+            for i, m in enumerate([] if project else history):
                 content = m["content"]
                 if m["role"] == "user" and m.get("image_context"):
                     content = f"<image_context>\n{m['image_context']}\n</image_context>\n\n{content}"
-                if m["role"] == "user" and m.get("search_context"):
+                if i in replay_search:
                     content = f"<search_results>\n{m['search_context']}\n</search_results>\n\n{content}"
                 messages.append({"role": m["role"], "content": content})
 
@@ -503,6 +558,8 @@ async def _chat_stream_response(
         # One rescue per turn: if the reply opens by giving up ("I don't have
         # real-time access..."), drop it, search the web, and answer again.
         watch_giving_up = actions_enabled and not images
+        # Also rescue "I'm not sure I follow" when the prompt looks like a reference to look up
+        rescue_confusion = _worth_searching(prompt)
         searched = bool(_search_block)
         # Reminders already sent this project turn (see project_mode.nudge)
         nudges_sent: set[str] = set()
@@ -562,7 +619,7 @@ async def _chat_stream_response(
                                 if not is_tool_like:
                                     if watch_giving_up and len(stripped) < _NO_ANSWER_PEEK_CHARS:
                                         pass  # not enough of the opening to judge yet
-                                    elif watch_giving_up and _is_giving_up(stripped):
+                                    elif watch_giving_up and _is_giving_up(stripped, rescue_confusion):
                                         gave_up = True
                                         break
                                     else:
@@ -588,7 +645,7 @@ async def _chat_stream_response(
 
                 # A reply shorter than the peek window never reached the check above.
                 if not gave_up and watch_giving_up and not streaming_live and not tool_calls:
-                    gave_up = _is_giving_up(round_content.lstrip())
+                    gave_up = _is_giving_up(round_content.lstrip(), rescue_confusion)
 
                 if gave_up:
                     await stream.aclose()
@@ -776,10 +833,7 @@ async def _chat_stream_response(
                         try:
                             parsed_result = json.loads(tool_result)
                             if parsed_result.get("results"):
-                                reactive_search_blocks.append("\n\n".join(
-                                    f"**{r['title']}** ({r['url']})\n{r['snippet']}"
-                                    for r in parsed_result["results"]
-                                ))
+                                reactive_search_blocks.append(_format_search_block(parsed_result["results"]))
                         except Exception:
                             pass
 
@@ -842,6 +896,8 @@ async def _chat_stream_response(
                                 update(Chat).where(Chat.id == chat_id).values(**chat_update)
                             )
                             await write_db.commit()
+                        if not project:
+                            compaction.schedule(chat_id, base_url, model)
                     except Exception as db_err:
                         project_changes = None
                         logger.error('db_save_error chat_id=%s error=%s', chat_id, str(db_err))
@@ -884,7 +940,7 @@ async def chat_stream(
         select(Message)
         .where(Message.chat_id == body.chat_id)
         .order_by(Message.created_at.desc(), Message.role.asc())
-        .limit(20)
+        .limit(compaction.HISTORY_WINDOW)
     )
     history = [
         {

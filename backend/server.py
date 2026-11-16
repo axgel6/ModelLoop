@@ -67,6 +67,9 @@ MIGRATIONS = [
     "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_url VARCHAR(300)",
     "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100)",
+    # Long chats: running summary of messages older than the history window (compaction.py)
+    "ALTER TABLE chats ADD COLUMN IF NOT EXISTS summary TEXT",
+    "ALTER TABLE chats ADD COLUMN IF NOT EXISTS summary_through TIMESTAMPTZ",
     # Web studio: create_all makes the project tables; messages gains the change labels
     "ALTER TABLE messages ADD COLUMN IF NOT EXISTS project_changes JSON",
     "ALTER TABLE project_versions ADD COLUMN IF NOT EXISTS restored_from INTEGER",
