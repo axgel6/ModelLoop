@@ -29,7 +29,7 @@ import {
 import type { OllamaStatus } from "./api";
 import { readableTextOn } from "./utils/chatUtils";
 import { PRESETS } from "./presets";
-import { language, useT, type Lang } from "../i18n";
+import { language, useLanguage, useT } from "../i18n";
 
 export type { Theme };
 export type Font = "inter" | "rounded";
@@ -218,7 +218,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 }) => {
   useEscapeKey(onClose);
   const t = useT();
-  const [lang, setLang] = useState<Lang>(() => language.get());
+  const lang = useLanguage();
   const [soundOn, setSoundOn] = useState(() => sounds.isEnabled());
   const [soundVolume, setSoundVolume] = useState(() => sounds.getVolume());
   const [soundGroups, setSoundGroups] = useState(() =>
@@ -395,30 +395,33 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   };
 
   // (i) toggle beside a Generation label, plus the panel it reveals
-  const infoButton = (id: string) => (
-    <button
-      type="button"
-      className={`pref-info-btn${openInfo === id ? " active" : ""}`}
-      aria-expanded={openInfo === id}
-      aria-label={t("What does {setting} do?", { setting: t(GENERATION_INFO[id].title) })}
-      title={t("What does {setting} do?", { setting: t(GENERATION_INFO[id].title) })}
-      onClick={() => setOpenInfo((prev) => (prev === id ? null : id))}
-    >
-      <svg
-        width="1em"
-        height="1em"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3.2"
-        strokeLinecap="round"
-        aria-hidden="true"
+  const infoButton = (id: string) => {
+    const question = t("What does {setting} do?", { setting: t(GENERATION_INFO[id].title) });
+    return (
+      <button
+        type="button"
+        className={`pref-info-btn${openInfo === id ? " active" : ""}`}
+        aria-expanded={openInfo === id}
+        aria-label={question}
+        title={question}
+        onClick={() => setOpenInfo((prev) => (prev === id ? null : id))}
       >
-        <line x1="12" y1="11" x2="12" y2="18.5" />
-        <line x1="12" y1="5.5" x2="12" y2="5.5" />
-      </svg>
-    </button>
-  );
+        <svg
+          width="1em"
+          height="1em"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <line x1="12" y1="11" x2="12" y2="18.5" />
+          <line x1="12" y1="5.5" x2="12" y2="5.5" />
+        </svg>
+      </button>
+    );
+  };
 
   const infoPanel = (id: string) =>
     openInfo === id ? (
@@ -960,7 +963,6 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     className={`pref-font-card${lang === l.id ? " active" : ""}`}
                     onClick={() => {
                       language.set(l.id);
-                      setLang(l.id);
                     }}
                   >
                     <span className="pref-font-preview">{l.preview}</span>

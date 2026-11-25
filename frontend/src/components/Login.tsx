@@ -12,7 +12,7 @@ import HowItWorksModal from "./HowItWorksModal";
 import { Notice } from "./Notice";
 import ThemePickerModal from "./ThemePickerModal";
 import { hasGuestConversation } from "./guestConversation";
-import { language, useT } from "../i18n";
+import { language, useLanguage, useT } from "../i18n";
 
 // How long a sign-up-only field takes to slide shut (matches .login-collapse in App.css)
 const COLLAPSE_MS = 380;
@@ -50,6 +50,7 @@ const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,30}$/;
 
 function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) {
   const t = useT();
+  const otherLang = useLanguage() === "es" ? "en" : "es";
   const [mode, setMode] = useState<"login" | "register">("login");
   // Sign in takes a username or email; sign up takes a username, plus an optional email
   const [identifier, setIdentifier] = useState("");
@@ -318,10 +319,10 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
           <button
             type="button"
             className="login-footer-link"
-            lang={language.get() === "es" ? "en" : "es"}
-            onClick={() => language.set(language.get() === "es" ? "en" : "es")}
+            lang={otherLang}
+            onClick={() => language.set(otherLang)}
           >
-            {language.get() === "es" ? "English" : "Español"}
+            {otherLang === "es" ? "Español" : "English"}
           </button>
         </nav>
       </div>

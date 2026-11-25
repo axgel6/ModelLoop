@@ -6,19 +6,19 @@ interface ConnectionBannerProps {
 }
 
 export default function ConnectionBanner({ message }: ConnectionBannerProps) {
-  const tr = useT();
+  const t = useT();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 730);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setVisible(true), 730);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!visible) return null;
 
   return (
     <div className="connection-banner-wrap">
-      <div className="connection-banner">{message ?? tr("Olly is waking up. This usually takes about a minute.")}</div>
+      <div className="connection-banner">{message ?? t("Olly is waking up. This usually takes about a minute.")}</div>
     </div>
   );
 }

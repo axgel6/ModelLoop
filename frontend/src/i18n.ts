@@ -71,20 +71,20 @@ export function t(text: string, vars?: Record<string, string | number>): string 
   return out.replace(/\{(\w+)\}/g, (match, key: string) => (key in vars ? String(vars[key]) : match));
 }
 
-const UI_TEXT: Record<Lang, Set<string>> = { en: new Set(), es: new Set(Object.values(es)) };
+const SPANISH_TEXT = new Set(Object.values(es));
 
-/** Whether the text is one of the app's own messages already in the current language */
+/** Whether the text is one of the app's own messages already translated (English needs none) */
 export function isUiText(text: string): boolean {
-  return UI_TEXT[current].has(text);
+  return current === "es" && SPANISH_TEXT.has(text);
+}
+
+/** For components that show the language itself; re-renders when it changes */
+export function useLanguage(): Lang {
+  return useSyncExternalStore(subscribe, () => current, () => DEFAULT);
 }
 
 /** For components: re-renders when the language changes, and returns t */
 export function useT(): typeof t {
-  useSyncExternalStore(subscribe, () => current, () => DEFAULT);
+  useLanguage();
   return t;
-}
-
-/** For components that need the language itself, e.g. to format a date */
-export function useLanguage(): Lang {
-  return useSyncExternalStore(subscribe, () => current, () => DEFAULT);
 }

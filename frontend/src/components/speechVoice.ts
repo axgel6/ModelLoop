@@ -31,7 +31,6 @@ const SPANISH_REGIONS = ["es-MX", "es-US", "es-419"];
 /** The language voices speak and listen in: Spanish mode's, else the browser's */
 export const speechLang = () =>
   language.get() === "es" ? language.tag() : navigator.language || "en-US";
-const userLang = speechLang;
 
 function voicesFor(lang: string): SpeechSynthesisVoice[] {
   const base = lang.split("-")[0];
@@ -39,7 +38,7 @@ function voicesFor(lang: string): SpeechSynthesisVoice[] {
 }
 
 /** The automatic pick, used when nothing is chosen */
-export function automaticVoice(lang = userLang()): SpeechSynthesisVoice | null {
+export function automaticVoice(lang = speechLang()): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
   const langVoices = voicesFor(lang);
@@ -112,7 +111,7 @@ export function speakWithVoice(
   { rate = 1, onEnd }: SpeakOptions = {},
 ): SpeechSynthesisUtterance {
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = voice?.lang || userLang();
+  utterance.lang = voice?.lang || speechLang();
   utterance.rate = rate;
   if (voice) utterance.voice = voice;
   utterance.onend = () => onEnd?.();
@@ -157,7 +156,7 @@ export function voiceRegion(voice: SpeechSynthesisVoice): string {
   const region = voice.lang.split(/[-_]/)[1];
   if (!region) return voice.lang;
   try {
-    return new Intl.DisplayNames([userLang()], { type: "region" }).of(region.toUpperCase()) ?? region;
+    return new Intl.DisplayNames([speechLang()], { type: "region" }).of(region.toUpperCase()) ?? region;
   } catch {
     return region;
   }
@@ -223,7 +222,7 @@ const sameVoice = (a: SpeechSynthesisVoice, b: SpeechSynthesisVoice) =>
 // Best first, then by name, with the novelty voices at the very end
 function sortedVoices(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];
-  const sorted = voicesFor(userLang()).sort(
+  const sorted = voicesFor(speechLang()).sort(
     (a, b) =>
       Number(isNoveltyVoice(a)) - Number(isNoveltyVoice(b)) ||
       QUALITY_RANK[String(voiceQuality(a))] - QUALITY_RANK[String(voiceQuality(b))] ||
