@@ -323,8 +323,11 @@ html .games-hub .game-tile.is-soon {
   filter: saturate(0.6);
 }
 
-/* The empty slot: a sunken well the size of a cover, so the shelf reads as having room */
-.game-tile--empty {
+/* The empty slot: a sunken well the size of a cover, so the shelf reads as having room.
+   It also carries .game-tile, so it needs the same html prefix (plus :hover) to outrank the tile rule */
+html .games-hub .game-tile.game-tile--empty,
+html .games-hub .game-tile.game-tile--empty:hover {
+  cursor: default;
   flex: 0 0 var(--tile);
   width: var(--tile);
   height: var(--tile);
@@ -453,9 +456,9 @@ html .games-hub .game-card-settings:hover {
   transition: color 0.15s;
 }
 
-/* On hover the gear takes the game's color */
+/* On hover the gear comes up to the text color, like the app's other glass buttons */
 html .games-hub .game-card-settings:hover {
-  color: var(--game-color, var(--game-ink));
+  color: var(--game-ink);
   background: var(--lens-bg-hover);
 }
 

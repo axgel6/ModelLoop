@@ -8,6 +8,7 @@ import { avatarSeed } from "./avatarSeed";
 import { Tile } from "./Bank";
 import { apiDeleteReview, apiProfile, money, signedMoney } from "./hustleData";
 import type { Badge, GivenReview, MarketProfile, Review } from "./types";
+import { Notice } from "../../components/Notice";
 
 type Tab = "all" | "buy" | "sell" | "given";
 
@@ -74,7 +75,7 @@ export function Profile({
           </button>
         </div>
 
-        {error && <p className="neg-error">{error}</p>}
+        <Notice message={error} kicker="Marketplace" onDone={() => setError("")} />
         {!profile && !error && <p className="pref-setting-hint neg-bank-empty">Loading your profile</p>}
 
         {profile && (
@@ -421,7 +422,7 @@ function GivenRow({ given, onDelete }: { given: GivenReview; onDelete: () => Pro
           </span>
         )}
         <span className={`neg-profile-text${given.text ? "" : " is-quiet"}`}>{given.text || "Stars only."}</span>
-        {failed && <span className="neg-error">{failed}</span>}
+        <Notice message={failed} kicker="Reviews" onDone={() => setFailed("")} />
       </div>
       <div className="neg-profile-side">
         <span className="pref-setting-hint neg-profile-date">{shortDate(given.at)}</span>

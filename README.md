@@ -166,7 +166,7 @@ Frontend runs on `http://localhost:5173` by default.
 | `DATABASE_URL`            | ✓        | —                       | PostgreSQL connection: `postgresql+asyncpg://user:pass@host:5432/modelloop` |
 | `OLLAMA_URL`              | ✓        | —                       | Ollama service URL: `http://localhost:11434`                                |
 | `ALLOWED_ORIGINS`         | ✓        | `http://localhost:5173` | Comma-separated CORS whitelist                                              |
-| `DEFAULT_MODEL`           | —        | `llama3.2:latest`       | Default chat model name                                                     |
+| `DEFAULT_MODEL`           | —        | `qwen3.5:4b`            | Default chat model name                                                     |
 | `VISION_MODEL`            | —        | `gemma3:4b-it-qat`      | Model for image analysis                                                    |
 | `EMBED_MODEL`             | —        | `nomic-embed-text`      | Model for document embeddings (RAG)                                         |
 | `THINKING_MODELS`         | —        | `deepseek-r1`           | Comma-separated substring list for auto-enabling reasoning                  |
@@ -241,7 +241,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 
 ```bash
 # Default chat model
-ollama pull llama3.2:latest
+ollama pull qwen3.5:4b
 
 # Vision model (for image analysis)
 ollama pull gemma3:4b-it-qat

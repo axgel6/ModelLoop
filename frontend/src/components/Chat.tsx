@@ -1436,7 +1436,14 @@ function Chat({
                   role="button"
                   aria-haspopup="menu"
                   aria-expanded={showUserMenu}
+                  tabIndex={0}
                   onClick={() => setShowUserMenu((v) => !v)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setShowUserMenu((v) => !v);
+                    }
+                  }}
                   style={{ cursor: "pointer" }}
                 >
                   <div
@@ -1455,6 +1462,21 @@ function Chat({
                   >
                     {userName ?? username ?? ""}
                   </span>
+                  <svg
+                    className="sidebar-footer-chevron"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.25"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="8 9 12 5 16 9" />
+                    <polyline points="8 15 12 19 16 15" />
+                  </svg>
                 </div>
               </div>
             )}

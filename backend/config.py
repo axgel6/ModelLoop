@@ -20,7 +20,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 OLLAMA_BASE_URL  = os.environ.get("OLLAMA_URL")
-DEFAULT_MODEL    = os.environ.get("DEFAULT_MODEL", "llama3.1:8b")
+DEFAULT_MODEL    = os.environ.get("DEFAULT_MODEL", "qwen3.5:4b")
 # The model the games use when the player has not picked one in Advanced settings
 GAME_MODEL       = os.environ.get("GAME_MODEL") or DEFAULT_MODEL
 VISION_MODEL     = os.environ.get("VISION_MODEL", "gemma3:4b-it-qat")

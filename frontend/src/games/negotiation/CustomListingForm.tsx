@@ -10,13 +10,11 @@ import type { CustomListing } from "./types";
 export function CustomListingForm({
   categories,
   busy,
-  error,
   onSubmit,
   onClose,
 }: {
   categories: string[];
   busy: boolean;
-  error: string;
   /** With how it is promoted: a boost level, and whether to authenticate it first */
   onSubmit: (listing: CustomListing, promote: { boost: number; authenticate: boolean }) => void;
   onClose: () => void;
@@ -135,7 +133,6 @@ export function CustomListingForm({
           onAuthenticate={setAuthenticate}
         />
 
-        {error && <p className="neg-error">{error}</p>}
 
         <div className="neg-start">
           <button type="submit" className="start-button" disabled={!ready || busy}>

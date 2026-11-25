@@ -11,7 +11,7 @@ const NOT_EMPTY = [
   "button", "a", "input", "textarea", "select", "label", "summary", "pre", "code", "img", "svg",
   "[role='button']", "[role='switch']", "[contenteditable='true']", "[onclick]",
   ".message", ".msg-meta", ".sidebar-chat-item", ".sidebar-footer-wrapper", ".input-wrapper",
-  ".pref-modal", ".login-card", ".tools-dropdown-menu", ".slash-dropdown", ".spotlight-box",
+  ".pref-modal", ".login-stack", ".tools-dropdown-menu", ".slash-dropdown", ".spotlight-box",
   "[class*='overlay']", "[class*='backdrop']", "[class*='dismiss']",
 ].join(",");
 

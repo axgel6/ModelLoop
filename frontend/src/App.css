@@ -713,14 +713,124 @@ html[data-theme="meadow"] .connection-banner {
   --note-border: rgba(196, 160, 60, 0.26);
 }
 
-.image-error-banner {
-  padding: 6px 12px;
-  font-size: 0.78rem;
-  color: var(--note-ink);
-  background: var(--note-bg);
-  border: 1px solid var(--note-border);
-  border-radius: 999px;
-  margin: 6px 12px 0;
+/* ---- Notices (Notice.tsx) ----
+   Something that didn't work (a sign-in field, an upload, the microphone, a game's request),
+   told like the Marketplace's badge: the chat search's dark glass, dropped in near the top of
+   the window, a mark where the badge sits and the message beside it. It shakes its head once
+   it lands (run from Notice.tsx). Black in every theme, like the search and the badges. Clicks
+   pass through everywhere but the pill. */
+.notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: calc(7vh / var(--ui-scale, 1)) 16px 0;
+  pointer-events: none;
+}
+
+.notice {
+  pointer-events: auto;
+  width: fit-content;
+  max-width: min(440px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px 14px 14px;
+  border-radius: 30px;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.97) 0%,
+    rgba(0, 0, 0, 0.92) 45%,
+    rgba(28, 29, 33, 0.62) 100%
+  );
+  backdrop-filter: blur(15px) saturate(110%);
+  -webkit-backdrop-filter: blur(15px) saturate(110%);
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.32),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  font-family: var(--ui-font);
+  cursor: pointer;
+  will-change: transform, opacity, filter;
+}
+
+.notice.is-in {
+  /* Backwards, not both: a held last frame would stop the pill's own blur seeing the page */
+  animation: notice-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.notice.is-out {
+  animation: notice-out 0.38s cubic-bezier(0.4, 0, 0.7, 0.2) forwards;
+}
+
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes notice-out {
+  from {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+    filter: blur(4px);
+  }
+}
+
+/* Where the badge sits: the 3D warning sign (WarningIcon in Notice.tsx), on the glass itself */
+.notice-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+}
+
+.notice-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notice-kicker {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.notice-message {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice.is-in,
+  .notice.is-out {
+    animation: none;
+  }
+
+  .notice.is-out {
+    opacity: 0;
+  }
 }
 
 .calm-note {
@@ -784,6 +894,26 @@ html[data-theme="meadow"] .connection-banner {
 
 :where(html[data-theme="frost"]) .image-preview-remove:hover {
   background: #5d687e !important;
+}
+
+/* Themed: a small dense lens over the thumbnail, like the app's other floating buttons, in
+   place of the flat dark chip (which every theme, light ones too, used to get) */
+html[data-theme] .image-preview-remove,
+html[data-theme] .image-preview-remove:hover {
+  border: 1px solid transparent;
+  background: var(--lens-bg-dense) !important;
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  box-shadow: var(--shadow-lens) !important;
+  color: var(--game-ink);
+}
+
+html[data-theme] .image-preview-remove:hover {
+  background: linear-gradient(var(--lens-hover), var(--lens-hover)), var(--lens-bg-dense) !important;
+}
+
+html[data-theme] .image-preview-remove:active {
+  box-shadow: var(--shadow-lens-pressed) !important;
 }
 
 /* ---- Images in user chat bubbles ---- */
@@ -2111,6 +2241,30 @@ html[data-theme] .voice-overlay .voice-pause-btn.is-paused:hover {
 
 .focused-overlay .reader-menu .reader-menu-step:hover:not(:disabled) {
   background: rgb(var(--reader-ink) / 0.1);
+}
+
+/* In the lens finish the size row is a sunken well and each step rises as a lens under the
+   pointer and presses in, like the menu rows elsewhere. The hover state is listed with the
+   base: each theme gives every button:hover its accent edge. */
+html[data-theme] .focused-overlay .reader-menu .reader-menu-size {
+  background: var(--well-glass);
+  box-shadow: var(--shadow-lens-pressed);
+}
+
+html[data-theme] .focused-overlay .reader-menu .reader-menu-step,
+html[data-theme] .focused-overlay .reader-menu .reader-menu-step:hover {
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme] .focused-overlay .reader-menu .reader-menu-step:hover:not(:disabled) {
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
+}
+
+html[data-theme] .focused-overlay .reader-menu .reader-menu-step:active:not(:disabled) {
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 .focused-overlay .reader-menu .reader-menu-step:disabled {
@@ -5396,6 +5550,8 @@ html[data-theme="frost"] .pref-about-link:hover {
    Login page
    ============================================================ */
 
+/* One centered column on the page, no card: the stack in the middle of the window and the
+   links at its foot */
 .login-container {
   width: 100%;
   display: flex;
@@ -5403,17 +5559,29 @@ html[data-theme="frost"] .pref-about-link:hover {
   /* "safe" for the same reason as #root: a tall sign-up form must not lose its top */
   justify-content: safe center;
   align-items: center;
-  gap: 4px;
-  padding: 20px;
+  gap: 40px;
+  padding: 48px 20px 24px;
 }
 
-/* The footer the landing page had, under the card */
-.login-footer {
-  text-align: center;
+.login-stack {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 
-.login-how {
-  text-align: center;
+/* On screen only the placeholders name the fields; screen readers still get the labels */
+.login-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* The show/hide button sits inside the password box, so the text stops short of it */
@@ -5441,45 +5609,34 @@ html[data-theme="frost"] .pref-about-link:hover {
   opacity: 1;
 }
 
-.login-card {
-  padding: 40px;
-  width: 100%;
-  max-width: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .login-header {
-  text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
 }
 
 .login-logo {
-  font-size: 1.8rem;
-  font-weight: 600;
   margin: 0;
-  text-align: left;
-  line-height: 1.2;
+  font-size: 2.1rem;
+  line-height: 1;
 }
 
 .login-subtitle {
-  font-size: 0.85rem;
   margin: 0;
+  font-size: 0.88rem;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .login-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
 /* Sign-up-only fields slide open and shut when switching between sign in and sign up.
@@ -5488,7 +5645,7 @@ html[data-theme="frost"] .pref-about-link:hover {
 .login-collapse {
   display: grid;
   grid-template-rows: 0fr;
-  margin-bottom: -16px;
+  margin-bottom: -10px;
   opacity: 0;
   transition:
     grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1),
@@ -5549,12 +5706,6 @@ span.login-swap {
   }
 }
 
-.login-field label {
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
 .login-field input {
   width: 100%;
   padding: 10px 18px;
@@ -5565,49 +5716,13 @@ span.login-swap {
   cursor: not-allowed;
 }
 
-.login-error {
-  color: var(--note-ink);
-  font-size: 0.8rem;
-  background: var(--note-bg);
-  border: 1px solid var(--note-border);
-  border-radius: 999px;
-  padding: 8px 12px;
-  margin: 0;
-}
-
+/* The two ways in, the same size: the accent to sign in, a lens to look around as a guest */
 .login-submit {
   width: 100%;
-  margin-top: 4px;
+  margin-top: 6px;
   transition:
     background 0.2s,
     box-shadow 0.2s;
-}
-
-.login-toggle {
-  text-align: left;
-  font-size: 0.8rem;
-  margin: 0;
-}
-
-.login-toggle-btn {
-  padding: 0;
-  font-size: 0.8rem;
-  text-decoration: underline;
-  transition: color 0.2s;
-}
-
-.login-divider {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.75rem;
-}
-
-.login-divider::before,
-.login-divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
 }
 
 .login-guest-btn {
@@ -5616,6 +5731,27 @@ span.login-swap {
     border-color 0.2s,
     color 0.2s,
     background 0.2s;
+}
+
+.login-toggle {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.login-toggle-btn {
+  padding: 0;
+  font-size: 0.8rem;
+  transition: color 0.2s;
+}
+
+/* Quiet links under the column: muted, the accent only under the pointer */
+.login-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  font-size: 0.72rem;
 }
 
 /* ============================================================
@@ -7202,54 +7338,6 @@ html[data-theme="frost"] .chat-sidebar .sidebar-chat-item.active .sidebar-delete
   color: #353c4a !important;
 }
 
-html[data-theme="dune"] .sidebar-user-menu-item {
-  color: #78716c !important;
-}
-
-html[data-theme="ember"] .sidebar-user-menu-item {
-  color: #a89984 !important;
-}
-
-html[data-theme="frost"] .sidebar-user-menu-item {
-  color: #a3adbf !important;
-}
-
-html[data-theme="meadow"] .sidebar-user-menu-item {
-  color: #52635a !important;
-}
-
-html[data-theme="dune"] .sidebar-user-menu-item:hover {
-  color: #1c1917 !important;
-}
-
-html[data-theme="ember"] .sidebar-user-menu-item:hover {
-  color: #ebdbb2 !important;
-}
-
-html[data-theme="frost"] .sidebar-user-menu-item:hover {
-  color: #d8dee9 !important;
-}
-
-html[data-theme="meadow"] .sidebar-user-menu-item:hover {
-  color: #294231 !important;
-}
-
-html[data-theme="dune"] .sidebar-user-email {
-  color: #57534e;
-}
-
-html[data-theme="ember"] .sidebar-user-email {
-  color: #d5c4a1;
-}
-
-html[data-theme="frost"] .sidebar-user-email {
-  color: #cbd3e0;
-}
-
-html[data-theme="meadow"] .sidebar-user-email {
-  color: #4e5751;
-}
-
 /* ---- Preferences / logout modals ---- */
 
 html[data-theme="dune"] .chat-preferences-modal-overlay {
@@ -7337,172 +7425,14 @@ html[data-theme="meadow"] .login-container {
   min-height: 100%;
 }
 
-html[data-theme="dune"] .login-card {
-  border-radius: 16px;
+/* The sign-in column's text takes the theme's own ink */
+html[data-theme] .login-logo {
+  color: var(--game-ink);
 }
 
-html[data-theme="ember"] .login-card {
-  border-radius: 16px;
-}
-
-html[data-theme="frost"] .login-card {
-  border-radius: 16px;
-}
-
-html[data-theme="meadow"] .login-card {
-  border-radius: 16px;
-}
-
-html[data-theme="dune"] .login-logo {
-  color: #1c1917;
-}
-
-html[data-theme="ember"] .login-logo {
-  color: #ebdbb2;
-}
-
-html[data-theme="frost"] .login-logo {
-  color: #d8dee9;
-}
-
-html[data-theme="meadow"] .login-logo {
-  color: #294231;
-}
-
-html[data-theme="dune"] .login-subtitle {
-  color: #78716c;
-}
-
-html[data-theme="ember"] .login-subtitle {
-  color: #a89984;
-}
-
-html[data-theme="frost"] .login-subtitle {
-  color: #a3adbf;
-}
-
-html[data-theme="meadow"] .login-subtitle {
-  color: #52635a;
-}
-
-html[data-theme="dune"] .login-field label {
-  color: #78716c;
-}
-
-html[data-theme="ember"] .login-field label {
-  color: #a89984;
-}
-
-html[data-theme="frost"] .login-field label {
-  color: #a3adbf;
-}
-
-html[data-theme="meadow"] .login-field label {
-  color: #52635a;
-}
-
-html[data-theme="dune"] .login-field input {
-  border-radius: 999px;
-}
-
-html[data-theme="ember"] .login-field input {
-  border-radius: 999px;
-}
-
-html[data-theme="frost"] .login-field input {
-  border-radius: 999px;
-}
-
-html[data-theme="meadow"] .login-field input {
-  border-radius: 999px;
-}
-
-html[data-theme="dune"] .login-field input::placeholder {
-  color: #a8a29e;
-}
-
-html[data-theme="ember"] .login-field input::placeholder {
-  color: #928374;
-}
-
-html[data-theme="frost"] .login-field input::placeholder {
-  color: #8f99ad;
-}
-
-html[data-theme="meadow"] .login-field input::placeholder {
-  color: #68766d;
-}
-
-html[data-theme="dune"] .login-toggle {
-  color: #78716c;
-}
-
-html[data-theme="ember"] .login-toggle {
-  color: #a89984;
-}
-
-html[data-theme="frost"] .login-toggle {
-  color: #a3adbf;
-}
-
-html[data-theme="meadow"] .login-toggle {
-  color: #52635a;
-}
-
-html[data-theme="dune"] .login-toggle-btn {
-  border-radius: 0;
-}
-
-html[data-theme="ember"] .login-toggle-btn {
-  border-radius: 0;
-}
-
-html[data-theme="frost"] .login-toggle-btn {
-  border-radius: 0;
-}
-
-html[data-theme="meadow"] .login-toggle-btn {
-  border-radius: 0;
-}
-
-html[data-theme="dune"] .login-divider {
-  color: #a8a29e;
-  margin: 0;
-}
-
-html[data-theme="ember"] .login-divider {
-  color: #928374;
-  margin: 0;
-}
-
-html[data-theme="frost"] .login-divider {
-  color: #8f99ad;
-  margin: 0;
-}
-
-html[data-theme="meadow"] .login-divider {
-  color: #68766d;
-  margin: 0;
-}
-
-html[data-theme="dune"] .login-divider::before,
-html[data-theme="dune"] .login-divider::after {
-  background: #e7e0d6;
-}
-
-html[data-theme="ember"] .login-divider::before,
-html[data-theme="ember"] .login-divider::after {
-  background: #504945;
-}
-
-html[data-theme="frost"] .login-divider::before,
-html[data-theme="frost"] .login-divider::after {
-  background: #495366;
-}
-
-html[data-theme="meadow"] .login-divider::before,
-html[data-theme="meadow"] .login-divider::after {
-  background: #d6e7db;
+html[data-theme] .login-subtitle,
+html[data-theme] .login-toggle {
+  color: var(--game-muted);
 }
 
 html[data-theme="dune"] .login-guest-btn {
@@ -8032,10 +7962,6 @@ html[data-theme="meadow"] .landing-theme-modal-header {
     top: 42px;
   }
 
-  /* ---- Login: less padding ---- */
-  .login-card {
-    padding: 28px 20px;
-  }
 
   /* ---- Preferences modal: bottom sheet ---- */
   .chat-preferences-modal-overlay {
@@ -8776,20 +8702,20 @@ html[data-theme] .chat-topbar::after {
 
 html[data-theme] .chat-topbar::before {
   height: 84px;
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: var(--edge-filter-soft);
+  -webkit-backdrop-filter: var(--edge-filter-soft);
   -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
 }
 
 html[data-theme] .chat-topbar::after {
   height: 64px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: var(--edge-filter);
+  -webkit-backdrop-filter: var(--edge-filter);
   /* A faint wash of the page color keeps the title readable over text. */
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--bar-tint) 62%, transparent) 0%,
+    color-mix(in srgb, var(--bar-tint) var(--edge-wash), transparent) 0%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 100%);
@@ -9949,8 +9875,17 @@ html[data-theme="meadow"] {
   /* A sunken well that floats over the page rather than sitting in a window (the games' cards
      and switch tracks): see-through, so it never reads as a solid slab over a photo */
   --well-glass: color-mix(in srgb, var(--well-bg) 55%, transparent);
+  /* The progressive blurs under the top bars and window titles follow Panels too: their full
+     strength on Frosted (the default), a light trace on Clear. --edge-wash is how much page
+     color they lay over it. */
+  --edge-scale: calc(0.15 + 1.2143 * var(--frosting));
+  --edge-filter-soft: blur(calc(3px * var(--edge-scale)));
+  --edge-filter: blur(calc(12px * var(--edge-scale)));
+  --edge-wash: 62%;
 }
 
+/* Opaque: no blur anywhere. The bars' wash turns solid instead, so text scrolling under a
+   title still clears it. */
 :root[data-panels="opaque"],
 :root[data-panels="opaque"] .voice-overlay,
 :root[data-panels="opaque"] .focused-overlay,
@@ -9959,6 +9894,9 @@ html[data-theme="meadow"] {
   --float-filter: none;
   --see-through: 100%;
   --well-glass: var(--well-bg);
+  --edge-filter-soft: none;
+  --edge-filter: none;
+  --edge-wash: 100%;
 }
 
 /* ---- Raised lens buttons ----
@@ -10107,6 +10045,21 @@ html[data-theme] .sidebar-chat-item:hover:not(.active) {
   box-shadow: var(--shadow-lens);
 }
 
+/* Held down: every sidebar row (and Preferences' tabs, which follow it) sinks in while the
+   pointer is down, not only once it has become the open one. These outrank the hover lens,
+   which otherwise wins the whole time a press lasts, since the pointer is hovering too. Quick
+   in, so a short click still shows it; a press on a row's own pin or delete button leaves the
+   row alone. */
+html[data-theme] .chat-sidebar .sidebar-chat-item:active:not(:has(button:active)),
+html[data-theme] .chat-sidebar .sidebar-nav-btn:active,
+html[data-theme] .chat-sidebar .sidebar-footer:active,
+html[data-theme] .pref-modal .pref-sidebar .pref-nav-item:active {
+  background: var(--row-selected);
+  box-shadow: var(--row-selected-shadow);
+  transform: scale(0.98);
+  transition-duration: 0.06s;
+}
+
 html[data-theme] .sidebar-chat-item:active,
 html[data-theme] .sidebar-chat-item.active {
   background: var(--row-selected);
@@ -10162,37 +10115,65 @@ html[data-theme] .pref-list-item.active .pref-item-name {
   }
 }
 
-/* The account row at the foot of the sidebar: no band and no line of its own (the chat list
-   fades out above it), and the lens shade on hover, kept while its menu is open. It runs edge
-   to edge, so it takes no bevel or well of its own (either would read as a band). */
+/* The account row at the foot of the sidebar is one of the sidebar's rows, like the Games entry
+   and the chats: inset from the edges, flat at rest, a lens under the pointer, and pressed in
+   (as an open chat is) while its menu is open. The menu itself is in "Account menu" below. */
 html[data-theme] .sidebar-footer {
-  border-top: none;
-  background: transparent;
-  box-shadow: none;
-  transition: background 0.2s;
-}
-
-html[data-theme] .sidebar-footer:hover,
-html[data-theme] .sidebar-footer[aria-expanded="true"] {
-  background: var(--lens-bg-hover);
-}
-
-/* Its menu's items rise on hover and press in, split by a groove */
-html[data-theme] .sidebar-user-menu-item {
+  margin: 4px 8px 8px;
+  padding: 7px 10px 7px 8px;
+  gap: 10px;
   border: 1px solid transparent;
+  border-top: 1px solid transparent;
+  border-radius: 15px;
   background: transparent;
   box-shadow: none;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
 }
 
-/* The border too: each theme's button:hover gives every button an accent edge */
-html[data-theme] .sidebar-user-menu-item:hover {
-  border-color: transparent;
+html[data-theme] .sidebar-footer:hover {
   background: var(--lens-bg);
   box-shadow: var(--shadow-lens);
 }
 
-html[data-theme] .sidebar-user-menu-item:active {
-  box-shadow: var(--shadow-lens-pressed);
+html[data-theme] .sidebar-footer[aria-expanded="true"] {
+  background: var(--row-selected);
+  box-shadow: var(--row-selected-shadow);
+}
+
+html[data-theme] .sidebar-footer:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The avatar is a small raised lens; a color picked in Preferences fills it (inline style) */
+html[data-theme] .sidebar-user-avatar {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--lens-bg-dense);
+  box-shadow: var(--shadow-lens);
+  color: var(--game-ink);
+  font-size: 0.72rem;
+}
+
+html[data-theme] .sidebar-user-email {
+  color: var(--game-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* Up and down chevrons: the row opens a menu. They sit quiet until the row is hovered or open. */
+html[data-theme] .sidebar-footer-chevron {
+  flex: none;
+  color: var(--game-muted);
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+html[data-theme] .sidebar-footer:is(:hover, [aria-expanded="true"]) .sidebar-footer-chevron {
+  opacity: 1;
 }
 
 /* The slash-command menu's rows, the same: flat at rest, a lens under the pointer or the
@@ -10244,7 +10225,6 @@ html[data-theme] .message.user {
 html[data-theme] .tools-dropdown-menu,
 html[data-theme] .slash-dropdown,
 html[data-theme] .sidebar-user-menu,
-html[data-theme] .login-card,
 html[data-theme] .chat-topbar .topbar-dock-label,
 html[data-theme] .toolbar-dock-label,
 .focused-overlay .reader-menu {
@@ -10265,6 +10245,13 @@ html[data-theme] .input-wrapper {
   background: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* Voice input keeps the bar's lens: no colored edge or glow ring. The mic button's own color
+   already says whether it is listening, thinking or speaking. */
+html[data-theme] .input-wrapper:is(.voice-listening, .voice-processing, .voice-speaking) {
+  border-color: transparent !important;
   box-shadow: none;
 }
 
@@ -10304,6 +10291,53 @@ html[data-theme] .logout-confirm-dialog {
    instead, so they keep the theme's own colors. */
 html[data-theme] .landing-theme-modal.login-modal {
   background: color-mix(in srgb, var(--page-plain) 94%, transparent);
+}
+
+/* ---- Sign-in page ----
+   No card: the column sits on the page itself. Its fields frost what's behind them, since
+   there's no card's blur under them any more, and its words lift off a photo with the wall
+   shadow the games' titles use. (Outranks the Fields rule in controls.css, which turns a
+   field's own blur off.) */
+:root[data-theme] body .login-stack .login-field input,
+:root[data-theme] body .login-stack .login-field input:is(:hover, :focus) {
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+}
+
+html[data-background][data-theme] :is(.login-header, .login-toggle, .login-footer) {
+  text-shadow: var(--wall-text-shadow);
+}
+
+/* The links under the column: plain muted words (each theme paints every button), the accent
+   and an underline only under the pointer */
+html[data-theme] .login-footer .login-footer-link,
+html[data-theme] .login-footer .login-footer-link:is(:hover, :active, :focus) {
+  min-height: 0;
+  margin: 0;
+  padding: 2px 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  box-shadow: none;
+  color: var(--game-muted);
+  font-family: var(--ui-font);
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transform: none;
+  transition: color 0.15s;
+}
+
+html[data-theme] .login-footer .login-footer-link:hover {
+  color: var(--game-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+html[data-theme] .login-footer .login-footer-link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* ---- Controls inside windows ---- */
@@ -10694,19 +10728,19 @@ html[data-theme] .pref-content::after {
 
 html[data-theme] .pref-content::before {
   height: calc(var(--pref-top) + 24px);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: var(--edge-filter-soft);
+  -webkit-backdrop-filter: var(--edge-filter-soft);
   -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
 }
 
 html[data-theme] .pref-content::after {
   height: calc(var(--pref-top) + 4px);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: var(--edge-filter);
+  -webkit-backdrop-filter: var(--edge-filter);
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--page-plain) 62%, transparent) 0%,
+    color-mix(in srgb, var(--page-plain) var(--edge-wash), transparent) 0%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(to bottom, #000 35%, transparent 100%);
@@ -10765,54 +10799,64 @@ html[data-theme] .sidebar-chat-date {
 
 /* ============================================================
    Account menu (the sidebar's user button)
-   The design system's menu: a solid surface (never glass, so it
-   reads over anything) with the surface corners, flat rows that
-   fill on hover, a line before the sign-out, and the upward spring
-   since it opens from the bottom of the sidebar. The theme rules
-   above keep its colors.
+   A small dense lens that rises from the account row, as wide as
+   that row, with rows cut like the sidebar's own (the Games entry,
+   the chats): muted at rest, a lens under the pointer, pressed in
+   as one is picked. The corners follow the rows inside, so a
+   hovered row keeps an even gap on every side. Sign out sits
+   after a groove.
    ============================================================ */
 
 html[data-theme] .sidebar-user-menu {
-  padding: 4px;
-  gap: 0;
-  border-radius: 22px;
+  --menu-inset: 5px;
+  min-width: 0;
+  padding: var(--menu-inset);
+  gap: 2px;
+  border-radius: calc(12px + var(--menu-inset));
   overflow: visible;
   animation: dropdown-up 0.26s var(--spring) backwards;
 }
 
-html[data-theme] .sidebar-user-menu-item {
+/* !important on color: each theme paints every button's text */
+html[data-theme] .sidebar-user-menu-item,
+html[data-theme] .sidebar-user-menu-item:hover {
   gap: 10px;
-  padding: 11px 12px !important;
-  border-radius: 14px !important;
-  font-size: 0.82rem !important;
+  padding: 8px 10px !important;
+  border: 1px solid transparent;
+  border-radius: 12px !important;
+  background: transparent;
+  box-shadow: none;
+  color: var(--game-muted) !important;
+  font-size: 0.78rem !important;
   font-weight: 600;
   line-height: 1.3;
+  transform: none;
+}
+
+html[data-theme] .sidebar-user-menu-item:hover,
+html[data-theme] .sidebar-user-menu-item:focus-visible {
+  outline: none;
+  border-color: transparent;
+  background: var(--lens-bg);
+  box-shadow: var(--shadow-lens);
+  color: var(--game-ink) !important;
+}
+
+html[data-theme] .sidebar-user-menu-item:active {
+  box-shadow: var(--shadow-lens-pressed);
 }
 
 html[data-theme] .sidebar-user-menu-item svg {
   flex: none;
 }
 
-html[data-theme] .sidebar-user-menu-item:active {
-  transform: scale(0.94);
-}
-
-/* Keyboard focus (the first item takes it as the menu opens) shows as the hover lens, not an
-   outline */
-html[data-theme] .sidebar-user-menu-item:focus-visible {
-  outline: none;
-  border-color: transparent;
-  background: var(--lens-bg);
-  box-shadow: var(--shadow-lens);
-}
-
 /* A groove, as between the halves of a stacked lens */
 html[data-theme] .sidebar-user-menu-sep {
-  height: 2px;
-  margin: 4px 10px;
+  height: 0;
+  margin: 3px 8px;
   border-top: 1px solid var(--lens-rim-dark);
   background: none;
-  box-shadow: inset 0 1px 0 var(--lens-rim-soft);
+  box-shadow: 0 1px 0 var(--lens-rim-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -11051,19 +11095,19 @@ html[data-festive="christmas"] {
 
   html[data-theme] .pref-modal:not(.pref-modal--section)::before {
     height: calc(var(--pref-phone-head) + 8px);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: var(--edge-filter-soft);
+    -webkit-backdrop-filter: var(--edge-filter-soft);
     -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
     mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
   }
 
   html[data-theme] .pref-modal:not(.pref-modal--section)::after {
     height: var(--pref-phone-head);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: var(--edge-filter);
+    -webkit-backdrop-filter: var(--edge-filter);
     background: linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--page-plain) 62%, transparent) 0%,
+      color-mix(in srgb, var(--page-plain) var(--edge-wash), transparent) 0%,
       transparent 100%
     );
     -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);

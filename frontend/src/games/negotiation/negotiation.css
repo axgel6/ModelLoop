@@ -454,8 +454,8 @@ html[data-theme] .neg-top {
 .neg-top::before {
   top: 0;
   bottom: 0;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: var(--edge-filter-soft);
+  -webkit-backdrop-filter: var(--edge-filter-soft);
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
 }
@@ -465,11 +465,11 @@ html[data-theme] .neg-top {
 .neg-top::after {
   top: 0;
   bottom: 0;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: var(--edge-filter);
+  -webkit-backdrop-filter: var(--edge-filter);
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--bar-tint) 62%, transparent) 0%,
+    color-mix(in srgb, var(--bar-tint) var(--edge-wash), transparent) 0%,
     color-mix(in srgb, var(--bar-tint) 36%, transparent) calc(100% - 20px),
     transparent 100%
   );
@@ -480,8 +480,8 @@ html[data-theme] .neg-top {
 .neg-dock::before {
   top: 0;
   bottom: 0;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: var(--edge-filter-soft);
+  -webkit-backdrop-filter: var(--edge-filter-soft);
   -webkit-mask-image: linear-gradient(
     to top,
     #000 calc(100% - 30px),
@@ -493,8 +493,8 @@ html[data-theme] .neg-top {
 .neg-dock::after {
   top: 14px;
   bottom: 0;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: var(--edge-filter);
+  -webkit-backdrop-filter: var(--edge-filter);
   background: linear-gradient(
     to top,
     color-mix(in srgb, var(--bar-tint) 45%, transparent) 0%,

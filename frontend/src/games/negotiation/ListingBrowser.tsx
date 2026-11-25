@@ -41,7 +41,6 @@ export function ListingBrowser({
   listings,
   selected,
   busy,
-  error,
   note,
   saved,
   onSave,
@@ -53,7 +52,6 @@ export function ListingBrowser({
   selected: string | null;
   /** Opening a chat */
   busy: boolean;
-  error: string;
   /** What messaging a seller costs, such as a Hustle day or the chat still on the table */
   note?: string;
   /** The listings saved, by id, and the heart that saves one */
@@ -131,7 +129,6 @@ export function ListingBrowser({
           <ListingDetail
             listing={viewing}
             busy={busy}
-            error={error}
             note={note}
             saved={saved.has(viewing.id)}
             buzz={buzzOf(viewing.id)}
@@ -261,7 +258,6 @@ export function ListingBrowser({
 function ListingDetail({
   listing: l,
   busy,
-  error,
   note,
   saved,
   buzz,
@@ -270,7 +266,6 @@ function ListingDetail({
 }: {
   listing: HaggleListing;
   busy: boolean;
-  error: string;
   note?: string;
   saved: boolean;
   buzz: Buzz | null;
@@ -327,7 +322,6 @@ function ListingDetail({
         </div>
       </section>
 
-      {error && <p className="neg-error">{error}</p>}
 
       <div className="neg-detail-actions">
         <button type="button" className="start-button" onClick={onMessage} disabled={busy}>

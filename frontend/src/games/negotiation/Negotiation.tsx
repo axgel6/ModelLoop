@@ -82,6 +82,7 @@ import type {
   SellerProfile,
 } from "./types";
 import "./negotiation.css";
+import { Notice } from "../../components/Notice";
 
 const GAME_TYPE = "negotiation";
 // What is sent when the player bluffs without typing anything. The server uses the same lines.
@@ -757,7 +758,6 @@ function Menu({
               <CustomListingForm
                 categories={categories}
                 busy={busy}
-                error={error}
                 onClose={() => setCustomOpen(false)}
                 onSubmit={(custom: CustomListing, promote) =>
                   run(() =>
@@ -961,7 +961,6 @@ function Menu({
                     listings={browsable}
                     selected={scenario}
                     busy={busy}
-                    error={error}
                     note={
                       [
                         live ? "Starting a chat uses a day." : "",
@@ -1178,7 +1177,7 @@ function Menu({
               </>
             )}
 
-            {error && <p className="neg-error">{error}</p>}
+            <Notice message={error} kicker="Marketplace" onDone={() => setError("")} />
 
             <div className="neg-start">
               {mode === "buy" ? (
@@ -2679,7 +2678,7 @@ function Play({
           </>
         )}
 
-        {error && <p className="neg-error">{error}</p>}
+        <Notice message={error} kicker="Marketplace" onDone={() => setError("")} />
         <div ref={feedEnd} />
       </div>
 
@@ -3156,7 +3155,7 @@ function Inbox({
                 </div>
               ))}
             </div>
-            {error && <p className="neg-error">{error}</p>}
+            <Notice message={error} kicker="Marketplace" onDone={() => setError("")} />
           </div>
         </div>,
         document.body,

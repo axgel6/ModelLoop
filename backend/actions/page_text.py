@@ -117,14 +117,9 @@ def _passages(lines: list[str]) -> list[str]:
     return passages
 
 
-def best_excerpt(html: str, query: str, limit: int = EXCERPT_CHARS) -> str:
-    """The passages of a page that share the most words with the query, in page order."""
-    parser = _TextParser()
-    try:
-        parser.feed(html)
-    except Exception:
-        return ""
-    passages = _passages(parser.text_lines())
+def _best_from_lines(lines: list[str], query: str, limit: int) -> str:
+    """The passages that share the most words with the query, in page order."""
+    passages = _passages(lines)
     wanted = _terms(query)
     if not passages or not wanted:
         return ""
@@ -140,6 +135,33 @@ def best_excerpt(html: str, query: str, limit: int = EXCERPT_CHARS) -> str:
         used += len(passages[i])
     text = "\n...\n".join(passages[i] for i in sorted(chosen))
     return text[:limit].rstrip()
+
+
+def best_excerpt(html: str, query: str, limit: int = EXCERPT_CHARS) -> str:
+    """The passages of an HTML page that share the most words with the query, in page order."""
+    parser = _TextParser()
+    try:
+        parser.feed(html)
+    except Exception:
+        return ""
+    return _best_from_lines(parser.text_lines(), query, limit)
+
+
+# Markdown that only gets in the way of reading: images, link targets, heading and list marks
+_MD_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+_MD_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+_MD_LEAD = re.compile(r"^\s*(#{1,6}\s+|[-*+]\s+|>\s*)")
+
+
+def best_text_excerpt(text: str, query: str, limit: int = EXCERPT_CHARS) -> str:
+    """The same, from a page that is already text (a search API's copy, in markdown)."""
+    lines = []
+    for line in text[:MAX_PAGE_BYTES].splitlines():
+        line = _MD_LINK.sub(r"\1", _MD_IMAGE.sub("", line))
+        line = re.sub(r"\s+", " ", _MD_LEAD.sub("", line).replace("**", "").replace("__", "")).strip()
+        if line:
+            lines.append(line)
+    return _best_from_lines(lines, query, limit)
 
 
 async def _fetch_html(url: str) -> Optional[str]:
@@ -182,8 +204,15 @@ def _real_url(url: str) -> str:
     return url
 
 
-async def _excerpt_for(url: str, query: str) -> str:
-    url = _real_url(url)
+async def _excerpt_for(result: dict, query: str) -> str:
+    # The search API already read the page (Tavily's raw_content): use its copy. Many sites
+    # refuse a server's own fetch from a datacenter IP, which is where the app runs in production.
+    raw = result.get("raw_content")
+    if isinstance(raw, str) and raw.strip():
+        excerpt = best_text_excerpt(raw, query)
+        if excerpt:
+            return excerpt
+    url = _real_url(result["url"])
     try:
         html = await _fetch_html(url)
     except Exception as e:
@@ -193,18 +222,20 @@ async def _excerpt_for(url: str, query: str) -> str:
 
 
 async def add_excerpts(results: list[dict], query: str) -> list[dict]:
-    """`results` with an "excerpt" added to the top PAGES that could be read."""
+    """`results` with an "excerpt" added to the top PAGES that could be read. Any whole-page
+    copy a search API returned ("raw_content") is used here and then dropped, never passed on."""
     top = results[:PAGES]
+    excerpts: list[str] = []
     try:
         excerpts = await asyncio.wait_for(
-            asyncio.gather(*(_excerpt_for(r["url"], query) for r in top)),
+            asyncio.gather(*(_excerpt_for(r, query) for r in top)),
             timeout=FETCH_TIMEOUT + 1,
         )
     except asyncio.TimeoutError:
         logger.info("page_text_timeout query=%s", query[:80])
-        return results
     out = []
     for i, r in enumerate(results):
+        r = {k: v for k, v in r.items() if k != "raw_content"}
         excerpt = excerpts[i] if i < len(excerpts) else ""
         out.append({**r, "excerpt": excerpt} if excerpt else r)
     return out

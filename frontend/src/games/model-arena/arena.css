@@ -41,16 +41,6 @@ html[data-theme] .arena {
   color: var(--game-heading);
 }
 
-.arena-error {
-  margin: 0;
-  font-size: 0.82rem;
-  color: #c0392b;
-}
-
-:where(html[data-theme="frost"]) .arena-error {
-  color: #b84f59;
-}
-
 /* A text link that happens to be a button: it must not pick up the themes' button look */
 html .arena .arena-link,
 html .arena .arena-link:hover {
@@ -209,8 +199,10 @@ html .arena .arena-debater--against .pref-item-icon {
   color: var(--game-accent-ink);
 }
 
+/* The one speaking gets the same accent outline as the speech being read, not a glow */
 .arena-debater.is-speaking .pref-item-icon {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--game-accent) 35%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--game-accent) 55%, transparent);
+  outline-offset: 2px;
 }
 
 /* ---- Stage ---- */
@@ -241,7 +233,9 @@ html .arena .arena-debater--against .pref-item-icon {
   gap: 14px;
   padding: 0 4px 14px;
   margin-bottom: 14px;
-  border-bottom: 1px solid var(--game-card-border);
+  /* A groove, like the lines inside Preferences */
+  border-bottom: 1px solid var(--lens-rim-dark);
+  box-shadow: 0 1px 0 var(--lens-rim-soft);
 }
 
 .arena-vs {
@@ -307,10 +301,6 @@ html .arena .arena-unseen:hover {
   gap: 7px;
 }
 
-html .arena .arena-voice.is-on {
-  border-color: var(--game-accent);
-  color: var(--game-heading);
-}
 
 .arena-waiting {
   padding: 4px 6px 10px;
@@ -340,9 +330,13 @@ html .arena .arena-voice.is-on {
   gap: 2px;
   margin: 6px 0 16px;
   padding: 10px 18px;
-  border: 1px solid var(--game-accent);
+  /* Information, not something to press: a sunken well, frosted like the speeches around it */
+  border: 1px solid transparent;
   border-radius: 15px;
-  background: color-mix(in srgb, var(--game-accent) 8%, transparent);
+  background: var(--well-glass);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
+  box-shadow: var(--shadow-lens-pressed);
   text-align: center;
 }
 

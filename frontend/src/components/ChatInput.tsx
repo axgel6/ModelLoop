@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DocumentMeta } from "./api";
 import { sounds } from "../sounds";
 import type { VoiceStatus } from "./hooks/useVoiceConversation";
+import { Notice } from "./Notice";
 
 export { DEFAULT_MODEL } from "./models";
 
@@ -225,7 +226,6 @@ function ChatInput({
       setImageError(
         "I can't read HEIC photos yet. A JPEG or PNG copy will work.",
       );
-      setTimeout(() => setImageError(null), 4000);
       return;
     }
     setImageError(null);
@@ -296,7 +296,6 @@ function ChatInput({
       handleImageFile(file);
     } else if (e.dataTransfer.files.length > 0) {
       setImageError("That one isn't an image. Try a photo or picture file.");
-      setTimeout(() => setImageError(null), 4000);
     }
   };
 
@@ -407,9 +406,11 @@ function ChatInput({
             e.target.value = "";
           }}
         />
-        {(imageError ?? voiceError) && (
-          <div className="image-error-banner">{imageError ?? voiceError}</div>
-        )}
+        <Notice
+          message={imageError ?? voiceError}
+          kicker={imageError ? "Image" : "Voice"}
+          onDone={() => setImageError(null)}
+        />
         {attachedImage && (
           <div className="image-preview-strip">
             <div className="image-preview-thumb-wrap">

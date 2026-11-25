@@ -295,12 +295,20 @@ async def _duckduckgo_search(client: httpx.AsyncClient, query: str, max_results:
 async def _tavily_search(client: httpx.AsyncClient, query: str, max_results: int, region: str = "") -> list:
     resp = await client.post(
         _TAVILY_URL,
-        json={"query": query, "max_results": max_results, "search_depth": "basic"},
+        # raw_content: Tavily's own copy of each page, so the excerpts don't depend on fetching
+        # the pages from this server, which many sites block from datacenter IPs
+        json={"query": query, "max_results": max_results, "search_depth": "basic", "include_raw_content": "markdown"},
         headers={"Accept": "application/json", "Authorization": f"Bearer {TAVILY_API_KEY}"},
     )
     resp.raise_for_status()
     return [
-        {"title": r.get("title", ""), "url": r.get("url", ""), "snippet": r.get("content", "")}
+        {
+            "title": r.get("title", ""),
+            "url": r.get("url", ""),
+            "snippet": r.get("content", ""),
+            # Read and removed by add_excerpts
+            "raw_content": r.get("raw_content") or "",
+        }
         for r in (resp.json().get("results") or [])[:max_results]
         if r.get("url")
     ]

@@ -454,8 +454,8 @@
   background: rgb(22 22 24 / 0.92);
   box-shadow: 0 6px 24px rgb(0 0 0 / 0.28);
   color: #f4f4f5;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: var(--float-filter);
+  -webkit-backdrop-filter: var(--float-filter);
 }
 
 :root[data-theme] body .wd-studio :is(.wd-older, .wd-problem, .wd-stopped) :is(.wd-older-btn, .wd-problem-close) {

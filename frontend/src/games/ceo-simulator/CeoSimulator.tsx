@@ -18,6 +18,7 @@ import { DIFFICULTIES, LEVELS, ROLE_TITLE, STYLES, type Difficulty, type Founder
 import { TrendChart } from "./TrendChart";
 import type { CeoPerson, CeoProduct, CeoState } from "./types";
 import "./ceo.css";
+import { Notice } from "../../components/Notice";
 
 const GAME_TYPE = "ceo-simulator";
 const MAX_START_PRODUCTS = 4;
@@ -352,7 +353,7 @@ function Menu({ onOpen, onExit }: { onOpen: (save: CeoSave) => void; onExit: () 
           <Picker label="Founder style" options={STYLES} value={style} onChange={setStyle} />
           <Picker label="Difficulty" options={DIFFICULTIES} value={difficulty} onChange={setDifficulty} />
 
-          {error && <p className="ceo-error">{error}</p>}
+          <Notice message={error} kicker="Founder Mode" onDone={() => setError("")} />
 
           <div className="ceo-start">
             <button type="submit" className="start-button" disabled={!ready || busy}>
@@ -703,7 +704,7 @@ function Play({
                 </p>
               </div>
             )}
-            {error && <p className="ceo-error">{error}</p>}
+            <Notice message={error} kicker="Founder Mode" onDone={() => setError("")} />
             <div ref={feedEnd} />
           </div>
 

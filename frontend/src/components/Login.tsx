@@ -9,6 +9,7 @@ import ConnectionBanner from "./ConnectionBanner";
 import { StretchyLogo } from "./StretchyLogo";
 import { type Theme } from "./ChatPreferences";
 import HowItWorksModal from "./HowItWorksModal";
+import { Notice } from "./Notice";
 import ThemePickerModal from "./ThemePickerModal";
 import { hasGuestConversation } from "./guestConversation";
 
@@ -60,6 +61,8 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
   // A guest who came here from their chat goes back to it, not to a fresh one
   const [returningGuest] = useState(hasGuestConversation);
   const [error, setError] = useState("");
+  // Counts failed tries, so the same mistake twice shakes the notice again
+  const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -83,26 +86,31 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
 
   // ----- Handlers -----
 
+  const fail = (message: string) => {
+    setError(message);
+    setAttempt((n) => n + 1);
+  };
+
   const handleSubmit = async () => {
     setError("");
 
     if (!identifier.trim() || !password.trim()) {
-      setError(isLogin ? "Add your username and password to continue." : "Pick a username and password to continue.");
+      fail(isLogin ? "Add your username and password to continue." : "Pick a username and password to continue.");
       return;
     }
 
     if (!isLogin && !USERNAME_PATTERN.test(identifier.trim())) {
-      setError("Usernames are 3 to 30 letters, numbers, or underscores.");
+      fail("Usernames are 3 to 30 letters, numbers, or underscores.");
       return;
     }
 
     if (!isLogin && password.length < 8) {
-      setError("Your password needs at least 8 characters.");
+      fail("Your password needs at least 8 characters.");
       return;
     }
 
     if (!isLogin && !fullName.trim()) {
-      setError("What should we call you? Add a name to continue.");
+      fail("What should we call you? Add a name to continue.");
       return;
     }
 
@@ -117,7 +125,7 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
       scheduleProactiveRefresh();
       onLogin();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "That didn't go through. Want to try again?");
+      fail(err instanceof Error ? err.message : "That didn't go through. Want to try again?");
     } finally {
       setLoading(false);
     }
@@ -139,27 +147,28 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
   return (
     <>
       {!isConnected && <ConnectionBanner />}
+      {/* One centered column on the page itself, no card: the wordmark, the fields, the two
+          ways in, and a single line to switch between signing in and signing up. Labels are
+          kept for screen readers; the placeholders carry them on screen. */}
       <div className="login-container">
-        <div className="login-card">
+        <div className="login-stack">
           <div className="login-header">
             <h1 className="login-logo">
-              <StretchyLogo />
+              <StretchyLogo stacked={false} />
             </h1>
             <p key={mode} className="login-subtitle login-swap">
-              {isLogin
-                ? "Welcome back. Sign in to pick up where you left off."
-                : "Create an account to save your chats, pick a theme, and play games."}
+              {isLogin ? "Pick up where you left off." : "Save your chats, themes, and games."}
             </p>
           </div>
 
           <div className="login-form">
             <Collapse open={!isLogin}>
               <div className="login-field">
-                <label htmlFor="fullName">Name</label>
+                <label htmlFor="fullName" className="login-sr-only">Name</label>
                 <input
                   id="fullName"
                   type="text"
-                  placeholder="Your name"
+                  placeholder="Name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -170,15 +179,13 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
               </div>
             </Collapse>
             <div className="login-field">
-              <label htmlFor="identifier">
-                <span key={mode} className="login-swap">
-                  {isLogin ? "Username or email" : "Username"}
-                </span>
+              <label htmlFor="identifier" className="login-sr-only">
+                {isLogin ? "Username or email" : "Username"}
               </label>
               <input
                 id="identifier"
                 type="text"
-                placeholder={isLogin ? "Your username" : "Letters, numbers, and _"}
+                placeholder={isLogin ? "Username or email" : "Username"}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -193,11 +200,11 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
 
             <Collapse open={!isLogin}>
               <div className="login-field">
-                <label htmlFor="email">Email (optional)</label>
+                <label htmlFor="email" className="login-sr-only">Email (optional)</label>
                 <input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="Email (optional)"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -208,14 +215,12 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
             </Collapse>
 
             <div className="login-field">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password" className="login-sr-only">Password</label>
               <div className="login-password">
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder={
-                    isLogin ? "Enter your password" : "Min. 8 characters"
-                  }
+                  placeholder={isLogin ? "Password" : "Password, 8 or more characters"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -250,8 +255,6 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
               </div>
             </div>
 
-            {error && <p className="login-error">{error}</p>}
-
             <button
               className="login-submit"
               onClick={handleSubmit}
@@ -261,15 +264,23 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
                 <span className="btn-spinner" />
               ) : (
                 <span key={mode} className="login-swap">
-                  {isLogin ? "Sign In" : "Create Account"}
+                  {isLogin ? "Sign in" : "Create account"}
                 </span>
               )}
+            </button>
+
+            <button
+              className="login-guest-btn"
+              onClick={onGuest}
+              disabled={loading}
+            >
+              {returningGuest ? "Back to chat" : "Continue as guest"}
             </button>
           </div>
 
           <p className="login-toggle">
             <span key={mode} className="login-swap">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}
+              {isLogin ? "New here?" : "Have an account?"}
             </span>{" "}
             <button
               className="login-toggle-btn"
@@ -277,53 +288,39 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
               disabled={loading}
             >
               <span key={mode} className="login-swap">
-                {isLogin ? "Sign up" : "Sign in"}
+                {isLogin ? "Create an account" : "Sign in"}
               </span>
             </button>
           </p>
+        </div>
 
-          <div className="login-divider">
-            <span>or</span>
-          </div>
-
-          <button
-            className="login-guest-btn"
-            onClick={onGuest}
-            disabled={loading}
-          >
-            {returningGuest ? "Back to chat" : "Continue without signing in"}
+        <nav className="login-footer" aria-label="About ModelLoop">
+          <button type="button" className="login-footer-link" onClick={() => setHowOpen(true)}>
+            How it works
           </button>
-
-          <p className="login-toggle login-how">
-            New here?{" "}
-            <button className="login-toggle-btn" onClick={() => setHowOpen(true)}>
-              See how it works
-            </button>
-          </p>
-        </div>
-
-        <div className="landing-footer login-footer">
-          <p>
-            Built by{" "}
-            <a href="https://aynjel.com/" target="_blank" rel="noopener noreferrer">
-              Angel Gutierrez
-            </a>{" "}
-            •{" "}
-            <a href="https://github.com/axgel6" target="_blank" rel="noopener noreferrer">
-              GitHub
-            </a>{" "}
-            •{" "}
-            <span className="landing-footer-link" onClick={onTerms}>
-              Terms of Service
-            </span>{" "}
-            •{" "}
-            <span className="landing-footer-link" onClick={() => setThemeOpen(true)}>
-              Theme
-            </span>
-          </p>
-        </div>
+          <button type="button" className="login-footer-link" onClick={onTerms}>
+            Terms
+          </button>
+          <a
+            className="login-footer-link"
+            href="https://github.com/axgel6"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub
+          </a>
+          <button type="button" className="login-footer-link" onClick={() => setThemeOpen(true)}>
+            Theme
+          </button>
+        </nav>
       </div>
 
+      <Notice
+        message={error}
+        kicker={isLogin ? "Sign in" : "Sign up"}
+        shake={attempt}
+        onDone={() => setError("")}
+      />
       {howOpen && <HowItWorksModal onClose={() => setHowOpen(false)} />}
       {themeOpen && (
         <ThemePickerModal

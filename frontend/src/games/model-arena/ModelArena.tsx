@@ -19,6 +19,7 @@ import { isUnhingedAllowed } from "./settings";
 import type { ArenaMode, ArenaState, ArenaSummary, SideIndex } from "./types";
 import { useDebateVoice } from "./useDebateVoice";
 import "./arena.css";
+import { Notice } from "../../components/Notice";
 
 const GAME_TYPE = "model-arena";
 const STANCE_LABEL = { for: "For", against: "Against" } as const;
@@ -256,7 +257,7 @@ function Menu({
             })}
           </div>
 
-          {error && <p className="arena-error">{error}</p>}
+          <Notice message={error} kicker="Model Arena" onDone={() => setError("")} />
 
           <button type="submit" className="start-button" disabled={busy || topic.trim().length < 3}>
             {busy ? "Setting the stage" : mode === "debate" ? "Start the debate" : "Start the argument"}
@@ -564,7 +565,7 @@ function Stage({
           </div>
         )}
 
-        {error && <p className="arena-error">{error}</p>}
+        <Notice message={error} kicker="Model Arena" onDone={() => setError("")} />
         <div ref={feedEnd} />
         {unseen && (
           <button type="button" className="arena-unseen" onClick={showUnseen}>

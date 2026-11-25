@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useEscapeKey } from "../../components/useEscapeKey";
 import { money, signedMoney } from "./hustleData";
 import type { FreeBank, HustleRun, LedgerEntry } from "./types";
+import { Notice } from "../../components/Notice";
 
 /** A bank account: a Hustle run's, or the free play one. Balance, how it got there, and every purchase and sale. */
 export function Bank({
@@ -109,7 +110,7 @@ export function Bank({
             <span className="pref-setting-hint">
               Sandbox money: deposits come from nowhere and withdrawals vanish. Neither counts as profit.
             </span>
-            {moveError && <p className="neg-error">{moveError}</p>}
+            <Notice message={moveError} kicker="Bank" onDone={() => setMoveError("")} />
           </div>
         )}
 

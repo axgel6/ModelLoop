@@ -98,11 +98,6 @@ html[data-theme] .ceo {
   color: var(--game-muted);
 }
 
-.ceo-error {
-  margin: 0;
-  color: var(--ceo-down);
-}
-
 html .ceo .ceo-link,
 html .ceo .ceo-link:hover,
 html .ceo .ceo-link:disabled {
