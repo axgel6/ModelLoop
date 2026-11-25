@@ -1,5 +1,6 @@
 import { useEffect, useState, type RefObject } from "react";
 import { speakWithChosenVoice } from "./speechVoice";
+import { t } from "../i18n";
 
 // Keyboard focus for focused mode: step through the conversation one message (or, with Alt, one
 // paragraph) at a time. The focused message takes the large, full-strength place and its
@@ -50,7 +51,7 @@ export function useFocusedNav({
 
   const showToast = (text: string) => {
     setToast(text);
-    window.setTimeout(() => setToast((t) => (t === text ? null : t)), 1600);
+    window.setTimeout(() => setToast((shown) => (shown === text ? null : shown)), 1600);
   };
 
   const backToLatest = () => {
@@ -97,7 +98,7 @@ export function useFocusedNav({
 
   const copyFocused = () => {
     void navigator.clipboard.writeText(focusedText().replaceAll("[code]", "{ }"));
-    showToast("Copied");
+    showToast(t("Copied"));
   };
 
   const stopSpeaking = () => {
@@ -114,7 +115,7 @@ export function useFocusedNav({
       onEnd: () => setSpeaking(null),
     });
     setSpeaking(current);
-    showToast("Reading aloud · Space to stop");
+    showToast(t("Reading aloud · Space to stop"));
   };
 
   // Stop reading aloud when focused mode closes

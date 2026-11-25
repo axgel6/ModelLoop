@@ -3,6 +3,7 @@ import type { DocumentMeta } from "./api";
 import { sounds } from "../sounds";
 import type { VoiceStatus } from "./hooks/useVoiceConversation";
 import { Notice } from "./Notice";
+import { language, useT } from "../i18n";
 
 export { DEFAULT_MODEL } from "./models";
 
@@ -96,6 +97,7 @@ function ChatInput({
   onThinkingToggle,
   webStudio = false,
 }: ChatInputProps) {
+  const t = useT();
   const [input, setInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(-1);
   const inputHistoryRef = useRef<string[]>([]);
@@ -120,7 +122,7 @@ function ChatInput({
   const docFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // The quick switch names the model by its family, without the size tag
-  const currentModelLabel = selectedModel ? selectedModel.split(":")[0] : "Model";
+  const currentModelLabel = selectedModel ? selectedModel.split(":")[0] : t("Model");
 
   const adjustTextareaHeight = () => {
     const ta = textareaRef.current;
@@ -224,7 +226,7 @@ function ChatInput({
       file.name.toLowerCase().endsWith(".heif")
     ) {
       setImageError(
-        "I can't read HEIC photos yet. A JPEG or PNG copy will work.",
+        t("I can't read HEIC photos yet. A JPEG or PNG copy will work."),
       );
       return;
     }
@@ -295,7 +297,7 @@ function ChatInput({
     if (file) {
       handleImageFile(file);
     } else if (e.dataTransfer.files.length > 0) {
-      setImageError("That one isn't an image. Try a photo or picture file.");
+      setImageError(t("That one isn't an image. Try a photo or picture file."));
     }
   };
 
@@ -382,7 +384,7 @@ function ChatInput({
               onMouseEnter={() => setSlashIdx(i)}
             >
               <span className="slash-item-cmd">{item.cmd}</span>
-              <span className="slash-item-desc">{item.desc}</span>
+              <span className="slash-item-desc">{t(item.desc)}</span>
             </div>
           ))}
         </div>
@@ -408,7 +410,7 @@ function ChatInput({
         />
         <Notice
           message={imageError ?? voiceError}
-          kicker={imageError ? "Image" : "Voice"}
+          kicker={imageError ? t("Image") : t("Voice")}
           onDone={() => setImageError(null)}
         />
         {attachedImage && (
@@ -416,14 +418,14 @@ function ChatInput({
             <div className="image-preview-thumb-wrap">
               <img
                 src={`data:image/png;base64,${attachedImage}`}
-                alt="attachment"
+                alt={t("attachment")}
                 className="image-preview-thumb"
               />
               <button
                 className="image-preview-remove"
                 type="button"
                 onClick={() => setAttachedImage(null)}
-                title="Remove image"
+                title={t("Remove image")}
               >
                 ×
               </button>
@@ -437,8 +439,8 @@ function ChatInput({
           rows={1}
           placeholder={
             voiceActive
-              ? voiceStatusLabel || "Voice conversation active…"
-              : placeholder ?? `Ask ${assistantName}`
+              ? voiceStatusLabel || t("Voice conversation active…")
+              : placeholder ?? t("Ask {name}", { name: assistantName })
           }
           value={
             voiceActive && voiceStatus === "listening" ? voiceTranscript : input
@@ -476,7 +478,7 @@ function ChatInput({
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
-                <span className="toolbar-dock-label">Attach image</span>
+                <span className="toolbar-dock-label">{t("Attach image")}</span>
               </button>
             )}
             {onDocUpload && ragEnabled && (
@@ -516,7 +518,7 @@ function ChatInput({
                   {documents.length > 0 && (
                     <span className="doc-chip-count">{documents.length}</span>
                   )}
-                  <span className="toolbar-dock-label">Documents</span>
+                  <span className="toolbar-dock-label">{t("Documents")}</span>
                 </button>
                 {docsDropdownOpen && (
                   <div className="tools-dropdown-menu">
@@ -531,10 +533,10 @@ function ChatInput({
                     >
                       <span className="tools-dropdown-item-text">
                         <span className="tools-dropdown-item-label">
-                          {docsUploading ? "Uploading…" : "Add file"}
+                          {docsUploading ? t("Uploading…") : t("Add file")}
                         </span>
                         <span className="tools-dropdown-item-desc">
-                          PDF, TXT, or MD · enables RAG
+                          {t("PDF, TXT, or MD · enables RAG")}
                         </span>
                       </span>
                     </button>
@@ -579,7 +581,7 @@ function ChatInput({
                         <button
                           className="docs-item-delete"
                           type="button"
-                          title="Remove"
+                          title={t("Remove")}
                           onMouseDown={(e) => {
                             e.preventDefault();
                             onDocDelete?.(doc.id);
@@ -599,7 +601,7 @@ function ChatInput({
                             className="tools-dropdown-item-desc"
                             style={{ fontSize: "0.72rem" }}
                           >
-                            No documents yet
+                            {t("No documents yet")}
                           </span>
                         </span>
                       </div>
@@ -628,7 +630,7 @@ function ChatInput({
                   >
                     <polyline points="22 12 18 12 15 3 9 21 6 12 2 12" />
                   </svg>
-                  <span className="toolbar-dock-label">Token usage</span>
+                  <span className="toolbar-dock-label">{t("Token usage")}</span>
                 </button>
                 {tokenPopupOpen && (
                   <div className="tools-dropdown-menu">
@@ -638,11 +640,12 @@ function ChatInput({
                     >
                       <span className="tools-dropdown-item-text">
                         <span className="tools-dropdown-item-label">
-                          ~{estimatedTokens.toLocaleString()} tokens
+                          {t("~{n} tokens", { n: estimatedTokens.toLocaleString(language.tag()) })}
                         </span>
                         <span className="tools-dropdown-item-desc">
-                          {messageCount} message{messageCount !== 1 ? "s" : ""}{" "}
-                          · estimated
+                          {messageCount === 1
+                            ? t("1 message · estimated")
+                            : t("{n} messages · estimated", { n: messageCount })}
                         </span>
                       </span>
                     </div>
@@ -658,7 +661,7 @@ function ChatInput({
                 setCommandsOpen((v) => !v);
                 textareaRef.current?.focus();
               }}
-              title="Slash commands"
+              title={t("Slash commands")}
               type="button"
             >
               <svg
@@ -673,7 +676,7 @@ function ChatInput({
               >
                 <line x1="16" y1="4" x2="8" y2="20" />
               </svg>
-              <span className="toolbar-dock-label">Commands</span>
+              <span className="toolbar-dock-label">{t("Commands")}</span>
             </button>
           </div>
 
@@ -684,7 +687,7 @@ function ChatInput({
                   className="toolbar-chip-btn"
                   onClick={() => setModelDropdownOpen((v) => !v)}
                   type="button"
-                  title="Switch model"
+                  title={t("Switch model")}
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -717,7 +720,7 @@ function ChatInput({
                         <span className="tools-dropdown-item-text">
                           <span className="tools-dropdown-item-label">{m.split(":")[0]}</span>
                           <span className="tools-dropdown-item-desc">
-                            {[m.split(":")[1], ...(modelCapabilities[m] ?? []).map((c) => CAPABILITY_LABEL[c] ?? c)]
+                            {[m.split(":")[1], ...(modelCapabilities[m] ?? []).map((c) => t(CAPABILITY_LABEL[c] ?? c))]
                               .filter(Boolean)
                               .join(" · ")}
                           </span>
@@ -732,7 +735,7 @@ function ChatInput({
               <button
                 className={`toolbar-icon-btn toolbar-think-btn${thinking ? " is-on" : ""}`}
                 onClick={onThinkingToggle}
-                title={thinking ? "Thinking on: it reasons before answering" : "Thinking off: quick answers"}
+                title={thinking ? t("Thinking on: it reasons before answering") : t("Thinking off: quick answers")}
                 aria-pressed={thinking}
                 type="button"
               >
@@ -740,14 +743,14 @@ function ChatInput({
                   <path d="M9 18h6M10 21h4" />
                   <path className="think-bulb" d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" />
                 </svg>
-                <span className="toolbar-dock-label">{thinking ? "Thinking on" : "Think"}</span>
+                <span className="toolbar-dock-label">{thinking ? t("Thinking on") : t("Think")}</span>
               </button>
             )}
             {onFocusedModeToggle && (
               <button
                 className={`toolbar-icon-btn${focusedMode ? " focused-mode-active" : ""}`}
                 onClick={onFocusedModeToggle}
-                title="Focused Mode"
+                title={t("Focused Mode")}
                 type="button"
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -756,7 +759,7 @@ function ChatInput({
                   <line x1="21" y1="3" x2="14" y2="10" />
                   <line x1="3" y1="21" x2="10" y2="14" />
                 </svg>
-                <span className="toolbar-dock-label">Focused</span>
+                <span className="toolbar-dock-label">{t("Focused")}</span>
               </button>
             )}
             {onVoiceToggle && (
@@ -764,7 +767,7 @@ function ChatInput({
                 className={`toolbar-icon-btn mic-btn${voiceActive ? ` voice-active voice-${voiceStatus}` : ""}`}
                 onClick={onVoiceToggle}
                 title={
-                  voiceActive ? `${voiceStatusLabel} — click to end` : "Talk"
+                  voiceActive ? t("{status}, click to end", { status: voiceStatusLabel }) : t("Talk")
                 }
                 type="button"
               >
@@ -804,7 +807,7 @@ function ChatInput({
                   </svg>
                 )}
                 <span className="toolbar-dock-label">
-                  {voiceActive ? voiceStatusLabel : "Talk"}
+                  {voiceActive ? voiceStatusLabel : t("Talk")}
                 </span>
               </button>
             )}
@@ -812,7 +815,7 @@ function ChatInput({
               className={`ask-button${loading ? " stopping" : ""}`}
               onClick={loading ? onStop : () => void submit()}
               disabled={!loading && !input.trim()}
-              title={loading ? "Stop generation" : "Send (Enter)"}
+              title={loading ? t("Stop generation") : t("Send (Enter)")}
             >
               {loading ? (
                 <svg

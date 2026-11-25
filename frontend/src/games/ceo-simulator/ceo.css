@@ -372,11 +372,6 @@ html .ceo .ceo-bar .ceo-link {
   padding: 4px 6px 10px;
 }
 
-/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colors */
-.ceo-waiting .thinking-phrase {
-  background-image: linear-gradient(90deg, var(--game-muted) 20%, var(--game-ink) 50%, var(--game-muted) 80%);
-}
-
 /* The chat's suggestion chips, as many across as fit */
 .ceo .ceo-options {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

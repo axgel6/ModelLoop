@@ -1,5 +1,6 @@
 import { holiday, season, SEASON_LINES } from "../../season";
 import type { FestiveTheme } from "../../festive";
+import { isUiText, language, t } from "../../i18n";
 
 export function fixMathDelimiters(text: string): string {
   text = text
@@ -64,19 +65,19 @@ export function fixNestedFences(text: string): string {
 }
 
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "Today";
+  if (!iso) return t("Today");
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "Today";
+  if (isNaN(d.getTime())) return t("Today");
   const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (diffDays === 0) return t("Today");
+  if (diffDays === 1) return t("Yesterday");
+  if (diffDays < 7) return t("{n}d ago", { n: diffDays });
+  return d.toLocaleDateString(language.tag(), { month: "short", day: "numeric" });
 }
 
 export function fmtTime(iso: string | undefined): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleTimeString([], {
+  return new Date(iso).toLocaleTimeString(language.tag(), {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -161,18 +162,19 @@ const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 
 // "Good morning, Angel." Uses the first name only; guests get the greeting alone. A holiday
 // has its own hello, and so do weekend afternoons and Friday evenings. So does a festive theme.
+// Every hello is an English key, translated here.
 export function timeGreeting(name?: string | null, date = new Date(), festive?: FestiveTheme | null): string {
   const h = date.getHours();
   const day = date.getDay();
   const weekend = day === 0 || day === 6;
-  const hello =
+  const hello = t(
     holiday(date)?.hello ??
     (festive ? festive.hello(h)
     : h < 5 ? "Up late"
     : h < 11 ? "Good morning"
     : h < 17 ? (weekend ? `Happy ${WEEKDAYS[day]}` : "Good afternoon")
     : day === 5 && h < 21 ? "Happy Friday"
-    : "Good evening");
+    : "Good evening"));
   const first = name?.trim().split(/\s+/)[0];
   return first ? `${hello}, ${first}.` : `${hello}.`;
 }
@@ -181,19 +183,21 @@ export function timeGreeting(name?: string | null, date = new Date(), festive?: 
 // unrecognised keeps its detail so real problems are still diagnosable.
 export function friendlyError(raw: string): string {
   const m = raw.toLowerCase();
-  if (m.includes("daily guest limit")) return raw;
+  // Already one of the app's own messages, in Spanish (api.ts translates what it throws)
+  if (isUiText(raw)) return raw;
+  if (m.includes("daily guest limit")) return t(raw);
   if (m.includes("rate limit"))
-    return "You're going a little fast for me. Give it a moment, then try again.";
+    return t("You're going a little fast for me. Give it a moment, then try again.");
   if (m.includes("failed to fetch") || m.includes("networkerror") || m.includes("load failed"))
-    return "I couldn't reach the server. Check your connection and try again.";
+    return t("I couldn't reach the server. Check your connection and try again.");
   if (m.includes("empty response"))
-    return "The model didn't have anything to say that time. Want to try again?";
+    return t("The model didn't have anything to say that time. Want to try again?");
   if ((m.includes("404") && m.includes("api/chat")) || (m.includes("model") && m.includes("not found")))
-    return "I couldn't find that model on the server. Try picking another one in Preferences.";
+    return t("I couldn't find that model on the server. Try picking another one in Preferences.");
   if (m.includes("an error occurred") || m.includes("failed to get response"))
-    return "Something got tangled on my end. Want to try again?";
-  if (m.startsWith("i couldn't") || m.startsWith("that ") || m.startsWith("projects need")) return raw;
-  return `That didn't quite work (${raw}). Want to try again?`;
+    return t("Something got tangled on my end. Want to try again?");
+  if (m.startsWith("i couldn't") || m.startsWith("that ") || m.startsWith("projects need")) return t(raw);
+  return t("That didn't quite work ({detail}). Want to try again?", { detail: raw });
 }
 
 // Picks white or near-black text for a hex background, whichever contrasts more

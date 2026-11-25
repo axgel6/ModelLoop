@@ -12,6 +12,7 @@ import HowItWorksModal from "./HowItWorksModal";
 import { Notice } from "./Notice";
 import ThemePickerModal from "./ThemePickerModal";
 import { hasGuestConversation } from "./guestConversation";
+import { language, useT } from "../i18n";
 
 // How long a sign-up-only field takes to slide shut (matches .login-collapse in App.css)
 const COLLAPSE_MS = 380;
@@ -48,6 +49,7 @@ interface LoginProps {
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,30}$/;
 
 function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) {
+  const t = useT();
   const [mode, setMode] = useState<"login" | "register">("login");
   // Sign in takes a username or email; sign up takes a username, plus an optional email
   const [identifier, setIdentifier] = useState("");
@@ -95,22 +97,22 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
     setError("");
 
     if (!identifier.trim() || !password.trim()) {
-      fail(isLogin ? "Add your username and password to continue." : "Pick a username and password to continue.");
+      fail(isLogin ? t("Add your username and password to continue.") : t("Pick a username and password to continue."));
       return;
     }
 
     if (!isLogin && !USERNAME_PATTERN.test(identifier.trim())) {
-      fail("Usernames are 3 to 30 letters, numbers, or underscores.");
+      fail(t("Usernames are 3 to 30 letters, numbers, or underscores."));
       return;
     }
 
     if (!isLogin && password.length < 8) {
-      fail("Your password needs at least 8 characters.");
+      fail(t("Your password needs at least 8 characters."));
       return;
     }
 
     if (!isLogin && !fullName.trim()) {
-      fail("What should we call you? Add a name to continue.");
+      fail(t("What should we call you? Add a name to continue."));
       return;
     }
 
@@ -125,7 +127,7 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
       scheduleProactiveRefresh();
       onLogin();
     } catch (err) {
-      fail(err instanceof Error ? err.message : "That didn't go through. Want to try again?");
+      fail(err instanceof Error ? err.message : t("That didn't go through. Want to try again?"));
     } finally {
       setLoading(false);
     }
@@ -157,18 +159,18 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
               <StretchyLogo stacked={false} />
             </h1>
             <p key={mode} className="login-subtitle login-swap">
-              {isLogin ? "Pick up where you left off." : "Save your chats, themes, and games."}
+              {isLogin ? t("Pick up where you left off.") : t("Save your chats, themes, and games.")}
             </p>
           </div>
 
           <div className="login-form">
             <Collapse open={!isLogin}>
               <div className="login-field">
-                <label htmlFor="fullName" className="login-sr-only">Name</label>
+                <label htmlFor="fullName" className="login-sr-only">{t("Name")}</label>
                 <input
                   id="fullName"
                   type="text"
-                  placeholder="Name"
+                  placeholder={t("Name")}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -180,12 +182,12 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
             </Collapse>
             <div className="login-field">
               <label htmlFor="identifier" className="login-sr-only">
-                {isLogin ? "Username or email" : "Username"}
+                {isLogin ? t("Username or email") : t("Username")}
               </label>
               <input
                 id="identifier"
                 type="text"
-                placeholder={isLogin ? "Username or email" : "Username"}
+                placeholder={isLogin ? t("Username or email") : t("Username")}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -200,11 +202,11 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
 
             <Collapse open={!isLogin}>
               <div className="login-field">
-                <label htmlFor="email" className="login-sr-only">Email (optional)</label>
+                <label htmlFor="email" className="login-sr-only">{t("Email (optional)")}</label>
                 <input
                   id="email"
                   type="email"
-                  placeholder="Email (optional)"
+                  placeholder={t("Email (optional)")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -215,12 +217,12 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
             </Collapse>
 
             <div className="login-field">
-              <label htmlFor="password" className="login-sr-only">Password</label>
+              <label htmlFor="password" className="login-sr-only">{t("Password")}</label>
               <div className="login-password">
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder={isLogin ? "Password" : "Password, 8 or more characters"}
+                  placeholder={isLogin ? t("Password") : t("Password, 8 or more characters")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -232,9 +234,9 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
                   className="login-reveal-btn"
                   onClick={() => setShowPassword((v) => !v)}
                   disabled={loading}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? t("Hide password") : t("Show password")}
                   aria-pressed={showPassword}
-                  title={showPassword ? "Hide password" : "Show password"}
+                  title={showPassword ? t("Hide password") : t("Show password")}
                 >
                   <svg
                     width="18"
@@ -264,7 +266,7 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
                 <span className="btn-spinner" />
               ) : (
                 <span key={mode} className="login-swap">
-                  {isLogin ? "Sign in" : "Create account"}
+                  {isLogin ? t("Sign in") : t("Create account")}
                 </span>
               )}
             </button>
@@ -274,13 +276,13 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
               onClick={onGuest}
               disabled={loading}
             >
-              {returningGuest ? "Back to chat" : "Continue as guest"}
+              {returningGuest ? t("Back to chat") : t("Continue as guest")}
             </button>
           </div>
 
           <p className="login-toggle">
             <span key={mode} className="login-swap">
-              {isLogin ? "New here?" : "Have an account?"}
+              {isLogin ? t("New here?") : t("Have an account?")}
             </span>{" "}
             <button
               className="login-toggle-btn"
@@ -288,18 +290,18 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
               disabled={loading}
             >
               <span key={mode} className="login-swap">
-                {isLogin ? "Create an account" : "Sign in"}
+                {isLogin ? t("Create an account") : t("Sign in")}
               </span>
             </button>
           </p>
         </div>
 
-        <nav className="login-footer" aria-label="About ModelLoop">
+        <nav className="login-footer" aria-label={t("About ModelLoop")}>
           <button type="button" className="login-footer-link" onClick={() => setHowOpen(true)}>
-            How it works
+            {t("How it works")}
           </button>
           <button type="button" className="login-footer-link" onClick={onTerms}>
-            Terms
+            {t("Terms")}
           </button>
           <a
             className="login-footer-link"
@@ -310,14 +312,23 @@ function Login({ onLogin, onGuest, onTerms, theme, onThemeChange }: LoginProps) 
             GitHub
           </a>
           <button type="button" className="login-footer-link" onClick={() => setThemeOpen(true)}>
-            Theme
+            {t("Theme")}
+          </button>
+          {/* Named in its own language, so someone who reads only that one can find it */}
+          <button
+            type="button"
+            className="login-footer-link"
+            lang={language.get() === "es" ? "en" : "es"}
+            onClick={() => language.set(language.get() === "es" ? "en" : "es")}
+          >
+            {language.get() === "es" ? "English" : "Español"}
           </button>
         </nav>
       </div>
 
       <Notice
         message={error}
-        kicker={isLogin ? "Sign in" : "Sign up"}
+        kicker={isLogin ? t("Sign in") : t("Sign up")}
         shake={attempt}
         onDone={() => setError("")}
       />

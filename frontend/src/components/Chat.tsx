@@ -69,6 +69,7 @@ import { WebDevStudio } from "../webdev/WebDevStudio";
 import { useWebDevProject } from "../webdev/useWebDevProject";
 import { READER_SIZES, useReaderPrefs } from "./readerPrefs";
 import { splitParas, useFocusedNav } from "./useFocusedNav";
+import { t, useT } from "../i18n";
 
 // ── Sidebar chat item ─────────────────────────────────────────────────────────
 
@@ -98,14 +99,14 @@ function SidebarChatItem({
     >
       <div className="sidebar-chat-info">
         <span className="sidebar-chat-title">
-          {c.title || "Untitled"}
+          {c.title || t("Untitled")}
         </span>
         <span className="sidebar-chat-date">{formatDate(c.updated_at)}</span>
       </div>
       <button
         className="sidebar-pin-btn"
         onClick={onPin}
-        title={pinned ? "Unpin chat" : "Pin chat"}
+        title={pinned ? t("Unpin chat") : t("Pin chat")}
       >
         <svg
           width="14"
@@ -125,7 +126,7 @@ function SidebarChatItem({
         className="sidebar-delete-btn"
         onClick={onDelete}
         disabled={deleting}
-        title="Delete chat"
+        title={t("Delete chat")}
       >
         {deleting ? (
           "…"
@@ -184,6 +185,7 @@ function Chat({
   avatarColor,
   setAvatarColor,
 }: ChatProps) {
+  useT();
   const [isMobileViewport, setIsMobileViewport] = useState(
     () => window.innerWidth <= 640,
   );
@@ -413,7 +415,7 @@ function Chat({
       const doc = await apiUploadDocument(activeChatId, file);
       setDocuments((prev) => [doc, ...prev]);
     } catch (err) {
-      setDocUploadError(err instanceof Error ? err.message : "That upload didn't go through.");
+      setDocUploadError(err instanceof Error ? err.message : t("That upload didn't go through."));
       setTimeout(() => setDocUploadError(null), 5000);
     } finally {
       setDocsUploading(false);
@@ -467,7 +469,7 @@ function Chat({
           ...prev,
           {
             role: "assistant",
-            content: "Web search is not available on your current plan.",
+            content: t("Web search is not available on your current plan."),
           },
         ]);
         return;
@@ -478,7 +480,7 @@ function Chat({
           {
             role: "assistant",
             content:
-              "Usage: `/search <query>` — forces a web search regardless of the query type.",
+              t("Usage: `/search <query>` — forces a web search regardless of the query type."),
           },
         ]);
         return;
@@ -491,7 +493,7 @@ function Chat({
     if (rawInput === "/code") {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Switched to code mode." },
+        { role: "assistant", content: t("Switched to code mode.") },
       ]);
       setSystemPrompt(
         `You are a world-class Software Engineer and Technical Educator. Your goal is to provide the most computationally efficient solution to coding problems while ensuring the logic is crystal clear for other developers to maintain. When providing a solution: 1. Analyze Efficiency: Before writing code, briefly identify the time and space complexity ($O(n)$, $O(\\log n)$, etc.) and explain why this approach is the most optimized. 2. Write Clean, Professional Code: Follow industry standard naming conventions and best practices for the specific programming language requested. 3. Strategic Commenting: Use "why, not what" comments. Do not explain obvious syntax; instead, explain the intent behind complex logic or optimization tricks. 4. Step-by-Step Breakdown: Step 1: The Logic. Explain the mental model or algorithm (e.g., Two Pointers, Dynamic Programming, or Memoization) used to solve the problem. Step 2: The Implementation. Provide the code block with syntax highlighting. Step 3: The "Why". Explain why specific functions or data structures were chosen over less efficient alternatives. 5. Edge Case Handling: Explicitly mention how the code handles null inputs, empty collections, or large-scale data. 6. Summary: Conclude with a "Developer's Note" on the key takeaway or pattern that makes this solution superior to a brute-force approach. Formatting Rules: Use clear headings for each section. Use Markdown code blocks with the correct language tag. Use LaTeX for all complexity analysis and mathematical proofs.`,
@@ -503,7 +505,7 @@ function Chat({
       if (canThink) setThinking(true);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: canThink ? "Switched to math mode, with thinking on." : "Switched to math mode." },
+        { role: "assistant", content: canThink ? t("Switched to math mode, with thinking on.") : t("Switched to math mode.") },
       ]);
       setSystemPrompt(
         "You are an expert teacher who explains problems clearly and patiently. Your goal is not just to give the answer, but to teach the reasoning behind it. When solving a problem: Break the solution into clear, numbered steps. Each step should be separated and easy to follow. Explain what is happening in each step using simple language. Explain why the step is necessary so the learner understands the logic, not just the procedure. Show the intermediate work, not just the final result. Define any important terms or concepts that appear during the explanation. Use examples or small reminders of rules (formulas, properties, or definitions) when they are applied. After solving the problem, include a short summary of the key idea or pattern that helps recognize similar problems in the future. Formatting rules: Use numbered steps. Keep explanations concise but clear. Separate calculations from explanations when helpful. The goal is to help the learner understand how to think through the problem, not just memorize the answer.",
@@ -518,10 +520,10 @@ function Chat({
         {
           role: "assistant",
           content: !canThink
-            ? `${selectedModel} cannot think. Pick a model that can, such as qwen3.5, in Preferences.`
+            ? t("{model} cannot think. Pick a model that can, such as qwen3.5, in Preferences.", { model: selectedModel })
             : on
-              ? "Thinking on. I will reason through it before answering."
-              : "Thinking off.",
+              ? t("Thinking on. I will reason through it before answering.")
+              : t("Thinking off."),
         },
       ]);
       return;
@@ -530,30 +532,38 @@ function Chat({
       setThinking(false);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Fast mode: thinking off." },
+        { role: "assistant", content: t("Fast mode: thinking off.") },
       ]);
       return;
     }
     if (rawInput === "/ratelimit") {
-      const fmt = (v: string) => v.replace("/", " per ");
+      // "5/minute" reads "5 per minute"; the unit is translated too
+      const fmt = (v: string) => {
+        const [n, unit] = v.split("/");
+        return unit ? t("{n} per {unit}", { n, unit: t(unit) }) : v;
+      };
       const info = !limits
-        ? "Rate limits are unavailable right now."
+        ? t("Rate limits are unavailable right now.")
         : isGuest
-          ? `**Rate limits (guest)**\nMessages: ${fmt(limits.guest_chat)}, ${fmt(limits.guest_daily)}\n\nLog in or create an account to raise your limit to ${fmt(limits.chat)}.`
-          : `**Rate limits (account)**\nMessages: ${fmt(limits.chat)}`;
+          ? t("**Rate limits (guest)**\nMessages: {minute}, {day}\n\nLog in or create an account to raise your limit to {account}.", {
+              minute: fmt(limits.guest_chat),
+              day: fmt(limits.guest_daily),
+              account: fmt(limits.chat),
+            })
+          : t("**Rate limits (account)**\nMessages: {limit}", { limit: fmt(limits.chat) });
       setMessages((prev) => [...prev, { role: "assistant", content: info }]);
       return;
     }
     if (rawInput === "/web" || rawInput.startsWith("/web ")) {
       const brief = rawInput.slice("/web".length).trim();
       const reason = !features.web_studio && !isGuest
-        ? "The web studio isn't available yet."
+        ? t("The web studio isn't available yet.")
         : isGuest
-        ? "Projects are saved with the chat, so they need an account. Log in to build a website."
+        ? t("Projects are saved with the chat, so they need an account. Log in to build a website.")
         : privateMode
-          ? "Projects are saved with the chat, so they can't be built in a private chat."
+          ? t("Projects are saved with the chat, so they can't be built in a private chat.")
           : !brief
-            ? "Describe the site to start a project, for example `/web a landing page for a bakery`. After that, every message in this chat works on the project."
+            ? t("Describe the site to start a project, for example `/web a landing page for a bakery`. After that, every message in this chat works on the project.")
             : null;
       if (reason) {
         setMessages((prev) => [...prev, { role: "assistant", content: reason }]);
@@ -563,13 +573,16 @@ function Chat({
       return;
     }
     if (rawInput === "/help") {
-      const searchCmd = features.actions ? ", /search <query>" : "";
+      const searchCmd = features.actions ? t(", /search <query>") : "";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            `Commands: /clear${searchCmd}, /code, /math, /think, /fast, /ratelimit${features.web_studio ? ", /web <site>" : ""}, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)`,
+            t("Commands: /clear{search}, /code, /math, /think, /fast, /ratelimit{web}, /help\nShortcuts: Ctrl+H (toggle sidebar), Ctrl+K (search chats), Ctrl+P (preferences)", {
+              search: searchCmd,
+              web: features.web_studio ? t(", /web <site>") : "",
+            }),
         },
       ]);
       return;
@@ -824,7 +837,7 @@ function Chat({
       const message =
         error instanceof Error
           ? error.message
-          : "Failed to get response";
+          : t("Failed to get response");
       setMessages((prev) => {
         const next = [...prev];
         if (next.length > 0 && next[next.length - 1].role === "assistant") {
@@ -1155,8 +1168,8 @@ function Chat({
 
   const activeChat = chats.find((c) => c.id === activeChatId);
   const chatTitle = privateMode
-    ? "Private Chat"
-    : activeChat?.title ?? (activeChatId ? "Chat" : "New Chat");
+    ? t("Private Chat")
+    : activeChat?.title ?? (activeChatId ? t("Chat") : t("New Chat"));
 
   const estimatedTokens = useMemo(
     () =>
@@ -1180,7 +1193,7 @@ function Chat({
           messages={studioMessages}
           busy={loading}
           activity={
-            activeTool ? (PROJECT_TOOL_PHRASES[activeTool] ?? "Working on it") : isThinking ? "Thinking" : null
+            activeTool ? t(PROJECT_TOOL_PHRASES[activeTool] ?? "Working on it") : isThinking ? t("Thinking") : null
           }
           onSend={(text) => void handleAsk(text)}
           onStop={handleStop}
@@ -1212,7 +1225,7 @@ function Chat({
                 <button
                   className="sidebar-brand-btn"
                   onClick={() => setShowSearch(true)}
-                  title="Search chats (Ctrl+K)"
+                  title={t("Search chats (Ctrl+K)")}
                 >
                   <svg
                     width="18"
@@ -1231,7 +1244,7 @@ function Chat({
                 <button
                   className="sidebar-brand-btn"
                   onClick={closeSidebar}
-                  title="Close sidebar"
+                  title={t("Close sidebar")}
                 >
                   <svg
                     width="18"
@@ -1263,7 +1276,7 @@ function Chat({
                 }}
               >
                 <GamesIcon />
-                Games
+                {t("Games")}
               </button>
             </div>
 
@@ -1288,12 +1301,12 @@ function Chat({
                   visibleChats.pinned.length === 0 &&
                   visibleChats.rest.length === 0 && (
                     <span className="sidebar-empty">
-                      Start a conversation to see it here
+                      {t("Start a conversation to see it here")}
                     </span>
                   )}
                 {visibleChats.pinned.length > 0 && (
                   <>
-                    <span className="sidebar-section-label">Pinned</span>
+                    <span className="sidebar-section-label">{t("Pinned")}</span>
                     {visibleChats.pinned.map((c) => (
                       <SidebarChatItem
                         key={c.id}
@@ -1364,7 +1377,7 @@ function Chat({
                         <div
                           className="sidebar-user-menu"
                           role="menu"
-                          aria-label="Account"
+                          aria-label={t("Account")}
                           onClick={(e) => e.stopPropagation()}
                           style={
                             rect
@@ -1399,7 +1412,7 @@ function Chat({
                               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                               <circle cx="12" cy="7" r="4" />
                             </svg>
-                            Account settings
+                            {t("Account settings")}
                           </button>
                           <div className="sidebar-user-menu-sep" role="separator" />
                           <button
@@ -1424,7 +1437,7 @@ function Chat({
                               <polyline points="16 17 21 12 16 7" />
                               <line x1="21" y1="12" x2="9" y2="12" />
                             </svg>
-                            Sign out
+                            {t("Sign out")}
                           </button>
                         </div>
                       </>,
@@ -1492,7 +1505,7 @@ function Chat({
                 <button
                   className="topbar-icon-btn"
                   onClick={() => setSidebarOpen((v) => !v)}
-                  title="Toggle sidebar (Ctrl+H)"
+                  title={t("Toggle sidebar (Ctrl+H)")}
                 >
                   <svg
                     width="18"
@@ -1529,7 +1542,7 @@ function Chat({
                 }}
                 onBlur={handleRenameCommit}
                 autoFocus
-                placeholder="Chat name"
+                placeholder={t("Chat name")}
               />
             ) : (
               <span
@@ -1542,7 +1555,7 @@ function Chat({
                     value: activeChat?.title || "",
                   });
                 }}
-                title={activeChatId && !isGuest && !showGames ? "Click to rename" : undefined}
+                title={activeChatId && !isGuest && !showGames ? t("Click to rename") : undefined}
               >
                 {showGames ? "" : chatTitle}
               </span>
@@ -1582,7 +1595,7 @@ function Chat({
                           e.stopPropagation();
                         }}
                         autoFocus
-                        placeholder="Search chats"
+                        placeholder={t("Search chats")}
                       />
                     </div>
                     {searchResults.length > 0 && (
@@ -1613,7 +1626,7 @@ function Chat({
                             >
                               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                             </svg>
-                            <span className="spotlight-result-title">{c.title || "Untitled"}</span>
+                            <span className="spotlight-result-title">{c.title || t("Untitled")}</span>
                             <span className="spotlight-result-date">{formatDate(c.updated_at)}</span>
                           </div>
                         ))}
@@ -1646,7 +1659,7 @@ function Chat({
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  <span className="topbar-dock-label">New chat</span>
+                  <span className="topbar-dock-label">{t("New chat")}</span>
                 </button>
               )}
               {!isGuest && (
@@ -1672,7 +1685,7 @@ function Chat({
                     <line x1="14.5" y1="10" x2="14.51" y2="10" />
                   </svg>
                   <span className="topbar-dock-label">
-                    {privateMode ? "Leave private" : "Private chat"}
+                    {privateMode ? t("Leave private") : t("Private chat")}
                   </span>
                 </button>
               )}
@@ -1695,7 +1708,7 @@ function Chat({
                     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
-                  <span className="topbar-dock-label">Preferences</span>
+                  <span className="topbar-dock-label">{t("Preferences")}</span>
                 </button>
               )}
               {isGuest && (
@@ -1703,7 +1716,7 @@ function Chat({
                   className="topbar-icon-btn"
                   onClick={handleGuestSignIn}
                   title=""
-                  aria-label="Sign In"
+                  aria-label={t("Sign In")}
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -1719,7 +1732,7 @@ function Chat({
                     <polyline points="10 17 15 12 10 7" />
                     <line x1="15" y1="12" x2="3" y2="12" />
                   </svg>
-                  <span className="topbar-dock-label">Sign In</span>
+                  <span className="topbar-dock-label">{t("Sign In")}</span>
                 </button>
               )}
             </div>
@@ -1736,34 +1749,34 @@ function Chat({
           >
             {messagesLoading && (
               <p id="disclaimer" className="messages-loading">
-                Fetching your conversation…
+                {t("Fetching your conversation…")}
               </p>
             )}
 
             {!messagesLoading && messages.length === 0 && (
               <div className="empty-state">
                 <h2 className="empty-title">
-                  {privateMode ? "Off the record." : timeGreeting(userName, new Date(), festive)}
+                  {privateMode ? t("Off the record.") : timeGreeting(userName, new Date(), festive)}
                 </h2>
                 <p className="empty-subline">
                   {privateMode
-                    ? "This chat is private. It won't be saved to your history, and it's gone once you leave or refresh."
-                    : chatSubline}
+                    ? t("This chat is private. It won't be saved to your history, and it's gone once you leave or refresh.")
+                    : t(chatSubline)}
                 </p>
                 <div className="suggestion-chips">
                   {chatSuggestions.map((s) => (
                     <button
                       key={s}
                       className="suggestion-chip"
-                      onClick={() => inputSetRef.current?.(s)}
+                      onClick={() => inputSetRef.current?.(t(s))}
                       disabled={loading}
                     >
-                      {s}
+                      {t(s)}
                     </button>
                   ))}
                 </div>
                 <p className="empty-hint">
-                  ModelLoop can make mistakes. Verify critical information.
+                  {t("ModelLoop can make mistakes. Verify critical information.")}
                 </p>
               </div>
             )}
@@ -1816,7 +1829,7 @@ function Chat({
                             <line x1="16.5" y1="16.5" x2="21" y2="21" />
                           </svg>
                           <span className="guest-sign-in-chip-label">
-                            Sign in to let Olly search the web for the latest
+                            {t("Sign in to let Olly search the web for the latest")}
                           </span>
                         </button>
                       )}
@@ -1857,7 +1870,7 @@ function Chat({
                 const c = messagesContainerRef.current;
                 if (c) c.scrollTo({ top: c.scrollHeight, behavior: "smooth" });
               }}
-              title="Scroll to bottom"
+              title={t("Scroll to bottom")}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -1928,16 +1941,16 @@ function Chat({
             className="logout-confirm-dialog"
             onClick={(e) => e.stopPropagation()}
           >
-            <p>Heading out? You can sign back in any time.</p>
+            <p>{t("Heading out? You can sign back in any time.")}</p>
             <div className="logout-confirm-actions">
               <button
                 className="logout-confirm-cancel"
                 onClick={() => setShowLogoutConfirm(false)}
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button className="logout-confirm-yes" onClick={handleLogout}>
-                Sign Out
+                {t("Sign Out")}
               </button>
             </div>
           </div>
@@ -1950,7 +1963,7 @@ function Chat({
           <button
             className="voice-close-btn"
             onClick={voice.toggle}
-            aria-label="End conversation"
+            aria-label={t("End conversation")}
           >
             <svg
               width="18"
@@ -2007,14 +2020,14 @@ function Chat({
               first. Space does the same. */}
           <div className="voice-controls">
             {voice.paused && voice.status !== "paused" && (
-              <span className="voice-controls-note">Pauses after this reply</span>
+              <span className="voice-controls-note">{t("Pauses after this reply")}</span>
             )}
             <button
               type="button"
               className={`voice-pause-btn${voice.paused ? " is-paused" : ""}`}
               onClick={voice.togglePause}
               aria-pressed={voice.paused}
-              title={voice.paused ? "Resume listening (Space)" : "Pause listening (Space)"}
+              title={voice.paused ? t("Resume listening (Space)") : t("Pause listening (Space)")}
             >
               {voice.paused ? (
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
@@ -2026,8 +2039,8 @@ function Chat({
                   <rect x="14" y="5" width="4" height="14" rx="1.5" />
                 </svg>
               )}
-              {voice.paused ? "Resume" : "Pause"}
-              <kbd>Space</kbd>
+              {voice.paused ? t("Resume") : t("Pause")}
+              <kbd>{t("Space")}</kbd>
             </button>
           </div>
         </div>
@@ -2045,7 +2058,7 @@ function Chat({
           <button
             className="voice-close-btn"
             onClick={() => setFocusedMode(false)}
-            aria-label="Exit focused mode"
+            aria-label={t("Exit focused mode")}
           >
             <svg
               width="18"
@@ -2118,7 +2131,7 @@ function Chat({
                 className={`focused-rail-tick is-${line.role}${i === focusNav.current ? " is-on" : ""}`}
                 onClick={() => focusNav.goTo(i)}
                 tabIndex={focusNav.navigating ? 0 : -1}
-                aria-label={`Go to message ${i + 1}`}
+                aria-label={t("Go to message {n}", { n: i + 1 })}
               />
             ))}
           </div>
@@ -2135,7 +2148,7 @@ function Chat({
                 type="button"
                 className="focused-latest-chip"
                 onClick={focusNav.backToLatest}
-                title="Back to the latest (Esc)"
+                title={t("Back to the latest (Esc)")}
               >
                 {focusNav.hasNew && <span className="focused-latest-dot" aria-hidden="true" />}
                 <svg
@@ -2152,7 +2165,7 @@ function Chat({
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <polyline points="6 13 12 19 18 13" />
                 </svg>
-                Latest
+                {t("Latest")}
                 <kbd>Esc</kbd>
               </button>
             )}
@@ -2168,7 +2181,7 @@ function Chat({
                     submitFocused();
                   }
                 }}
-                placeholder="Type your message…"
+                placeholder={t("Type your message…")}
                 rows={1}
                 disabled={loading}
               />
@@ -2180,8 +2193,8 @@ function Chat({
                   type="button"
                   className="focused-action-btn"
                   onClick={handleStop}
-                  title="Stop generation"
-                  aria-label="Stop generation"
+                  title={t("Stop generation")}
+                  aria-label={t("Stop generation")}
                 >
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                     <rect x="5" y="5" width="14" height="14" rx="3" />
@@ -2193,8 +2206,8 @@ function Chat({
                   type="button"
                   className="focused-action-btn is-send"
                   onClick={submitFocused}
-                  title="Send (Enter)"
-                  aria-label="Send"
+                  title={t("Send (Enter)")}
+                  aria-label={t("Send")}
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -2219,8 +2232,8 @@ function Chat({
                     setFocusedMode(false);
                     if (!voice.isActive) voice.toggle();
                   }}
-                  title="Switch to Talk"
-                  aria-label="Switch to Talk"
+                  title={t("Switch to Talk")}
+                  aria-label={t("Switch to Talk")}
                 >
                   <svg
                     viewBox="0 0 24 24"

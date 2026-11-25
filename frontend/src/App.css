@@ -2434,18 +2434,90 @@ html[data-theme] .focused-overlay .reader-menu .reader-menu-step:active:not(:dis
   }
 }
 
+/* The waiting line (Waiting in MessageList and the games): the phrase comes into focus the way a
+   reply's words do (word-focus-in), then a slow shimmer runs through it, from the theme's muted
+   text color to its full one and back. A new phrase is a new element, so it focuses in too. */
 .thinking-phrase {
+  display: inline-block;
   font-size: 0.85rem;
-  background: linear-gradient(90deg, #a89984 20%, #ebdbb2 50%, #a89984 80%);
+  background: linear-gradient(
+    90deg,
+    var(--game-muted, #a89984) 20%,
+    var(--game-ink, #ebdbb2) 50%,
+    var(--game-muted, #a89984) 80%
+  );
   background-size: 300% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: text-skeleton-sweep 1.8s ease-in-out infinite;
+  animation:
+    word-focus-in 0.6s ease-out backwards,
+    text-skeleton-sweep 2.4s ease-in-out infinite;
 }
 
-:where(html[data-theme="frost"]) .thinking-phrase {
-  background-image: linear-gradient(90deg, #a3adbf 20%, #d8dee9 50%, #a3adbf 80%);
+@media (prefers-reduced-motion: reduce) {
+  .thinking-phrase {
+    animation: none;
+  }
+}
+
+/* Typing dots (TypingDots.tsx): three matte dots in the muted text color that rise and brighten
+   in turn, like a messaging app's typing bubble. The whole row focuses in like a reply's words.
+   No accent and no glow. */
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 1.4em;
+  padding: 0 2px;
+  vertical-align: middle;
+  animation: word-focus-in 0.6s ease-out backwards;
+}
+
+.typing-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--game-muted, #a89984);
+  opacity: 0.45;
+  animation: typing-wave 1.3s ease-in-out infinite;
+}
+
+.typing-dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.typing-dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes typing-wave {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+/* The Marketplace seller's typing bubble is only as wide as its dots */
+.message.typing-bubble {
+  width: fit-content;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-dots,
+  .typing-dots i {
+    animation: none;
+  }
+
+  .typing-dots i {
+    opacity: 0.7;
+  }
 }
 
 @keyframes text-skeleton-sweep {
@@ -8509,40 +8581,6 @@ html[data-theme="meadow"] {
 .waiting {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-}
-
-.waiting-leaves {
-  display: inline-flex;
-  gap: 4px;
-}
-
-.waiting-leaves i {
-  width: 8px;
-  height: 8px;
-  border-radius: 80% 0 80% 0;
-  background: var(--leaf-accent);
-  animation: leaf-sway 1.6s ease-in-out infinite;
-}
-
-.waiting-leaves i:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.waiting-leaves i:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes leaf-sway {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-20deg);
-    opacity: 0.55;
-  }
-  50% {
-    transform: translateY(-4px) rotate(20deg);
-    opacity: 1;
-  }
 }
 
 .empty-subline {
@@ -8562,12 +8600,6 @@ html[data-theme="frost"] .empty-subline {
 @media (prefers-reduced-motion: no-preference) {
   html[data-theme] .message-row {
     animation: settle 0.42s var(--spring) backwards;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .waiting-leaves i {
-    animation: none !important;
   }
 }
 
@@ -9417,6 +9449,22 @@ html[data-background="dunes"][data-theme] body {
     url("./assets/dune.jpg");
 }
 
+/* Earthset (Artemis II, NASA), dark themes only (see background.ts). Earth sits in the middle of
+   the frame, right where the new chat's greeting goes, so the picture is anchored low and to the
+   left. A wide window crops its top and
+   bottom: anchored at 80%, Earth rises a little above the greeting and more of the Moon goes
+   under the input bar. A tall or narrow one crops its sides: anchored at 25%, Earth moves right,
+   from behind the sidebar's edge to under the chat column. The gear buttons' copy below uses
+   the same position, so the two line up. */
+html[data-background="earthset"] body,
+html[data-background="earthset"][data-theme] body {
+  background-image:
+    linear-gradient(to bottom, var(--photo-top) 0, transparent 160px),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/earthset.jpg");
+  background-position: 25% 80%;
+}
+
 /* On a photo, the assistant's bubbles (lenses, see "Lens finish") blur a little of the picture
    behind them. A blur can't see past a masked or fading ancestor, so here the message list drops
    its edge fade (the top bar's progressive blur and the input bar's glass still soften the
@@ -9475,6 +9523,15 @@ html[data-background="dunes"][data-theme] .games-hub .game-card-settings {
   -webkit-backdrop-filter: none;
 }
 
+html[data-background="earthset"][data-theme] .games-hub .game-card-settings {
+  background:
+    var(--lens-tint),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/earthset-blur.jpg") 25% 80% / cover no-repeat fixed;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* Hover shades the lens over the same picture */
 html[data-background="sky"][data-theme] .games-hub .game-card-settings:hover {
   background:
@@ -9490,6 +9547,14 @@ html[data-background="dunes"][data-theme] .games-hub .game-card-settings:hover {
     var(--lens-tint),
     linear-gradient(var(--photo-wash), var(--photo-wash)),
     url("./assets/dune-blur.jpg") center / cover no-repeat fixed;
+}
+
+html[data-background="earthset"][data-theme] .games-hub .game-card-settings:hover {
+  background:
+    linear-gradient(var(--lens-hover), var(--lens-hover)),
+    var(--lens-tint),
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/earthset-blur.jpg") 25% 80% / cover no-repeat fixed;
 }
 
 html[data-panels="opaque"][data-background][data-theme] .games-hub .game-card-settings {
@@ -9525,6 +9590,29 @@ html[data-panels="opaque"][data-background][data-theme] .games-hub .game-card-se
   background-image:
     linear-gradient(var(--photo-wash), var(--photo-wash)),
     url("./assets/dune.jpg");
+}
+
+.pref-bg-preview-earthset {
+  background-image:
+    linear-gradient(var(--photo-wash), var(--photo-wash)),
+    url("./assets/earthset.jpg");
+}
+
+/* A photo's credit, under its name: there all along (so the card never changes height) but only
+   shown while the card is hovered or chosen */
+.pref-bg-credit {
+  /* Tucked up under the name, closer than the card's 10px gap */
+  margin-top: -7px;
+  font-size: 0.64rem;
+  font-weight: 500;
+  color: var(--game-muted);
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+
+.pref-theme-card:hover .pref-bg-credit,
+.pref-theme-card.active .pref-bg-credit {
+  opacity: 1;
 }
 
 /* Light themes: the faint greys (timestamps, the message box's placeholder and icons, chat
@@ -9610,11 +9698,6 @@ html[data-festive="halloween"] .sidebar-logo .stretchy-logo {
   color: transparent;
 }
 
-/* The greeting glows like a jack-o'-lantern */
-html[data-festive="halloween"] .empty-title {
-  text-shadow: 0 0 18px rgba(242, 122, 36, 0.35);
-}
-
 /* Low fog along the bottom of the page in place of Frost's corner glow, drifting slowly sideways.
    Each wisp sits well inside its 1400px tile so the tiles meet without a seam. The layer runs one
    tile wider than the screen and slides by moving the whole layer (a transform the GPU handles),
@@ -9651,15 +9734,13 @@ html[data-theme="frost"][data-festive="halloween"] body::before {
    these are the bits Frost has nothing to recolor.
    ============================================================ */
 
-/* The wordmark is solid cranberry with a red glow, like a lit sign */
+/* The wordmark is solid cranberry. No glow: the lens finish has none anywhere. */
 html[data-theme][data-festive="christmas"] .sidebar-logo .stretchy-logo {
   background: none;
   -webkit-background-clip: border-box;
   background-clip: border-box;
   color: #ff4d57;
-  text-shadow:
-    0 0 10px rgba(255, 60, 72, 0.65),
-    0 0 24px rgba(255, 40, 55, 0.35);
+  text-shadow: none;
 }
 
 /* Readability: the accent is a deep cranberry fill, so whatever sits on it is white. Frost's
@@ -9708,49 +9789,63 @@ html[data-theme][data-festive="christmas"] .pref-model-badge--games {
   --badge: #2f8a4c;
 }
 
-/* The greeting glows like the lamp in the corner */
-html[data-festive="christmas"] .empty-title {
-  text-shadow:
-    0 0 20px rgba(255, 190, 90, 0.4),
-    0 0 42px rgba(255, 120, 60, 0.18);
+/* The greeting in a deep holly red. Frost's pale heading, carried across by the palette, came
+   out light and a little coral on the near-black page. */
+html[data-theme][data-festive="christmas"] .empty-title {
+  color: #de3a48;
 }
 
-/* String lights draped along the top of the page, with a few out-of-focus ones further down.
-   Each bulb is a bright core in a soft halo. They stay still on purpose: the glass panels blur
-   what is behind them, so moving lights would make every panel redraw each frame. */
+/* Snow settled on the message box: a long uneven cap on the left and a small one further along,
+   resting on the bar's top edge and clear of its rounded corners. Matte,
+   like the app's 3D marks: soft white, a little grayer where it meets the bar, no shine. Purely
+   decoration: clicks pass through, and the toolbar's hover labels sit above it. On a narrow bar
+   the caps shrink rather than running off the end. */
+html[data-theme][data-festive="christmas"] .input-wrapper::after {
+  content: "";
+  position: absolute;
+  /* The underside lands on the bar's visible top edge (its lens sits 1px outside the box), covering
+     just that 1px, so no flat cut shows inside the bar */
+  top: -12px;
+  left: 30px;
+  right: 30px;
+  height: 12px;
+  z-index: 1;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 12' preserveAspectRatio='none'%3E%3ClinearGradient id='s' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fbfdfc'/%3E%3Cstop offset='0.8' stop-color='%23e9efed'/%3E%3Cstop offset='1' stop-color='%23d6dfdc'/%3E%3C/linearGradient%3E%3Cpath fill='url(%23s)' d='M0 12C6 12 8 8.2 16 7.6C30 6.6 38 3 56 3.2C74 3.4 82 6.1 98 6.1C112 6.1 120 1.6 140 1.7C160 1.8 168 5.6 186 6.1C204 6.6 214 8.6 228 9.6C240 10.4 250 11.5 260 12Z'/%3E%3C/svg%3E") left bottom / min(260px, 58%) 12px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 84 8' preserveAspectRatio='none'%3E%3ClinearGradient id='s' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fbfdfc'/%3E%3Cstop offset='0.8' stop-color='%23e9efed'/%3E%3Cstop offset='1' stop-color='%23d6dfdc'/%3E%3C/linearGradient%3E%3Cpath fill='url(%23s)' d='M0 8C10 8 14 4.2 27 3.7C41 3.2 47 5 57 5.7C67 6.3 74 7.4 84 8Z'/%3E%3C/svg%3E") 76% bottom / min(84px, 18%) 8px no-repeat;
+  pointer-events: none;
+}
+
+/* A few out-of-focus lights, like bulbs seen through a wide-open lens, placed by hand toward the
+   edges and corners and none behind the middle of the chat where you read. They vary as real
+   ones do: two large and very soft, two small and a little brighter, and a pair close together
+   like neighbors on one strand. None sits behind the sidebar, where it would show through the
+   chat list. They stay still on purpose: the glass panels blur what is behind them, so moving
+   lights would make every panel redraw each frame. */
 html[data-theme="frost"][data-festive="christmas"] body::before {
   background:
-    /* The string: a scalloped row of bulbs in a 300px tile */
-    radial-gradient(circle 16px at 18px 26px, rgba(255, 90, 95, 1) 0 3.5px, rgba(255, 90, 95, 0.5) 5px, rgba(255, 90, 95, 0.12) 10px, transparent),
-    radial-gradient(circle 16px at 62px 40px, rgba(255, 196, 77, 1) 0 3.5px, rgba(255, 196, 77, 0.5) 5px, rgba(255, 196, 77, 0.12) 10px, transparent),
-    radial-gradient(circle 16px at 108px 48px, rgba(95, 209, 122, 1) 0 3.5px, rgba(95, 209, 122, 0.5) 5px, rgba(95, 209, 122, 0.12) 10px, transparent),
-    radial-gradient(circle 16px at 152px 44px, rgba(90, 168, 255, 1) 0 3.5px, rgba(90, 168, 255, 0.5) 5px, rgba(90, 168, 255, 0.12) 10px, transparent),
-    radial-gradient(circle 16px at 196px 34px, rgba(255, 122, 184, 1) 0 3.5px, rgba(255, 122, 184, 0.5) 5px, rgba(255, 122, 184, 0.12) 10px, transparent),
-    radial-gradient(circle 16px at 240px 24px, rgba(255, 154, 60, 1) 0 3.5px, rgba(255, 154, 60, 0.5) 5px, rgba(255, 154, 60, 0.12) 10px, transparent),
-    radial-gradient(circle 16px at 282px 20px, rgba(95, 209, 122, 1) 0 3.5px, rgba(95, 209, 122, 0.5) 5px, rgba(95, 209, 122, 0.12) 10px, transparent),
-    /* Out-of-focus lights in a larger 640px tile */
-    radial-gradient(circle 40px at 90px 210px, rgba(255, 90, 95, 0.26), transparent),
-    radial-gradient(circle 50px at 380px 160px, rgba(255, 196, 77, 0.26), transparent),
-    radial-gradient(circle 36px at 540px 300px, rgba(90, 168, 255, 0.22), transparent),
-    radial-gradient(circle 44px at 250px 420px, rgba(95, 209, 122, 0.2), transparent),
-    radial-gradient(circle 38px at 470px 520px, rgba(255, 122, 184, 0.2), transparent);
-  background-size:
-    300px 80px, 300px 80px, 300px 80px, 300px 80px, 300px 80px, 300px 80px, 300px 80px,
-    640px 640px, 640px 640px, 640px 640px, 640px 640px, 640px 640px;
-  background-repeat: repeat-x, repeat-x, repeat-x, repeat-x, repeat-x, repeat-x, repeat-x,
-    repeat, repeat, repeat, repeat, repeat;
-  /* The string stays crisp; the soft lights fade out toward the bottom */
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.8) 45%, transparent 92%);
-  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.8) 45%, transparent 92%);
+    /* Large and soft: gold up in the top right, warm amber low on the left of the chat */
+    radial-gradient(circle 112px at 87% 18%, rgba(255, 196, 77, 0.19), rgba(255, 196, 77, 0.06) 55%, transparent),
+    radial-gradient(circle 100px at 31% 84%, rgba(255, 154, 60, 0.13), rgba(255, 154, 60, 0.04) 55%, transparent),
+    /* Small and brighter: red on the right edge, pink near the top */
+    radial-gradient(circle 30px at 95% 50%, rgba(255, 90, 95, 0.34), rgba(255, 90, 95, 0.1) 50%, transparent),
+    radial-gradient(circle 24px at 37% 12%, rgba(255, 122, 184, 0.28), rgba(255, 122, 184, 0.08) 50%, transparent),
+    /* A pair on one strand: green and blue, bottom right */
+    radial-gradient(circle 42px at 79% 83%, rgba(95, 209, 122, 0.24), rgba(95, 209, 122, 0.07) 55%, transparent),
+    radial-gradient(circle 32px at 84.5% 89%, rgba(90, 168, 255, 0.26), rgba(90, 168, 255, 0.08) 55%, transparent);
+  -webkit-mask-image: none;
+  mask-image: none;
   opacity: 1;
 }
 
-/* Firelight from the bottom corner and lamplight from the top, in place of Frost's cool glow */
+/* Firelight low in the bottom right corner, and faint lamplight from the top, in place of Frost's
+   cool glow. Kept off the bottom left, where it sat behind the sidebar's account row and turned
+   the foot of the sidebar brown. */
 html[data-theme="frost"][data-festive="christmas"] body::after {
   background:
-    radial-gradient(ellipse 70% 60% at 6% 100%, rgba(255, 140, 50, 0.34) 0%, rgba(255, 100, 40, 0.12) 45%, transparent 70%),
-    radial-gradient(ellipse 50% 45% at 92% 10%, rgba(255, 200, 110, 0.16) 0%, transparent 65%),
-    radial-gradient(ellipse 55% 45% at 72% 100%, rgba(220, 50, 60, 0.14) 0%, transparent 70%);
+    radial-gradient(ellipse 55% 45% at 96% 104%, rgba(255, 140, 50, 0.2) 0%, rgba(255, 100, 40, 0.07) 45%, transparent 70%),
+    radial-gradient(ellipse 45% 40% at 90% 6%, rgba(255, 200, 110, 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 35% at 62% 104%, rgba(220, 50, 60, 0.08) 0%, transparent 70%);
   opacity: 1;
 }
 

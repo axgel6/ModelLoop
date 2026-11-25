@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { language, subscribe as onLanguageChanged } from "../i18n";
 
 // The voice Olly speaks with. One choice, used everywhere something is read aloud: voice mode,
 // a message's Listen button and focused mode's read-aloud. The user can pick it in Preferences;
 // otherwise (or if the picked voice isn't on this device) the best available one is chosen.
 // Saved per browser, because the voices on offer depend on the device.
 
-const STORAGE_KEY = "voice_name";
+// One choice per app language: a Spanish voice reading English sounds wrong, and the other way round
+const storageKey = () => (language.get() === "es" ? "voice_name_es" : "voice_name");
 const CHANGED_EVENT = "olly-voice-changed";
 
 // Ordered by quality: macOS premium > Microsoft Neural > Google Neural > generic online
@@ -18,7 +20,18 @@ export const VOICE_PRIORITY = [
   "Google UK English Male", "Google Australia English",                // Chrome Neural
 ];
 
-const userLang = () => navigator.language || "en-US";
+// Mexican Spanish first, then the Spanish of the Americas, then Spain's
+const SPANISH_PRIORITY = [
+  "Paulina", "Microsoft Dalia Online", "Microsoft Jorge Online",       // es-MX
+  "Google español de Estados Unidos", "Microsoft Paloma Online",       // es-US
+  "Monica", "Google español",                                          // es-ES
+];
+const SPANISH_REGIONS = ["es-MX", "es-US", "es-419"];
+
+/** The language voices speak and listen in: Spanish mode's, else the browser's */
+export const speechLang = () =>
+  language.get() === "es" ? language.tag() : navigator.language || "en-US";
+const userLang = speechLang;
 
 function voicesFor(lang: string): SpeechSynthesisVoice[] {
   const base = lang.split("-")[0];
@@ -31,6 +44,15 @@ export function automaticVoice(lang = userLang()): SpeechSynthesisVoice | null {
   if (!voices.length) return null;
   const langVoices = voicesFor(lang);
   if (!langVoices.length) return voices[0] ?? null;
+
+  if (lang.startsWith("es")) {
+    for (const name of SPANISH_PRIORITY) {
+      const match = langVoices.find((v) => v.name.includes(name));
+      if (match) return match;
+    }
+    const american = langVoices.filter((v) => SPANISH_REGIONS.includes(v.lang.replace("_", "-")));
+    if (american.length) return american.find((v) => !v.localService) ?? american[0];
+  }
 
   for (const name of VOICE_PRIORITY) {
     const match = langVoices.find((v) => v.name.includes(name));
@@ -60,7 +82,7 @@ const QUALITY_RANK: Record<string, number> = { premium: 0, enhanced: 1, natural:
 
 function readChoice(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY) ?? "";
+    return localStorage.getItem(storageKey()) ?? "";
   } catch {
     return "";
   }
@@ -105,9 +127,12 @@ export function speakWithVoice(
 export function onVoicesChanged(listener: () => void): () => void {
   window.speechSynthesis.addEventListener("voiceschanged", listener);
   window.addEventListener(CHANGED_EVENT, listener);
+  // Another language has its own voices and its own pick
+  const stopLanguage = onLanguageChanged(listener);
   return () => {
     window.speechSynthesis.removeEventListener("voiceschanged", listener);
     window.removeEventListener(CHANGED_EVENT, listener);
+    stopLanguage();
   };
 }
 
@@ -159,12 +184,20 @@ export function useVoiceChoice() {
   const [choice, setChoiceState] = useState(readChoice);
 
   // Safari and Chrome load the list after the page does
-  useEffect(() => onVoicesChanged(() => setVoices(sortedVoices())), []);
+  // (and a language change brings that language's voices and pick)
+  useEffect(
+    () =>
+      onVoicesChanged(() => {
+        setVoices(sortedVoices());
+        setChoiceState(readChoice());
+      }),
+    [],
+  );
 
   const setChoice = (uri: string) => {
     try {
-      if (uri) localStorage.setItem(STORAGE_KEY, uri);
-      else localStorage.removeItem(STORAGE_KEY);
+      if (uri) localStorage.setItem(storageKey(), uri);
+      else localStorage.removeItem(storageKey());
     } catch {
       // private mode: it lasts until the page closes
     }

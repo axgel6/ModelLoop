@@ -83,6 +83,7 @@ import type {
 } from "./types";
 import "./negotiation.css";
 import { Notice } from "../../components/Notice";
+import { TypingDots } from "../../components/TypingDots";
 
 const GAME_TYPE = "negotiation";
 // What is sent when the player bluffs without typing anything. The server uses the same lines.
@@ -290,11 +291,6 @@ export function Negotiation({ model, onExit }: GameProps) {
     return (
       <div className="games-restoring" role="status">
         <span className="waiting">
-          <span className="waiting-leaves" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
           <span className="thinking-phrase">Picking up where you left off</span>
         </span>
       </div>
@@ -585,11 +581,6 @@ function Menu({
           </div>
           <div className="neg-loading">
             <span className="waiting" role="status">
-              <span className="waiting-leaves" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
               <span className="thinking-phrase">Opening the marketplace</span>
             </span>
           </div>
@@ -2470,19 +2461,15 @@ function Play({
                 status="Sent"
               />
             )}
-            <div className="message-row assistant neg-waiting">
-              <span className="waiting" role="status">
-                <span className="waiting-leaves" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
+            {typing === "stopped" ? (
+              <div className="message-row assistant neg-waiting">
+                <span className="waiting" role="status">
+                  <span className="thinking-phrase">{scenario.merchant} stopped typing</span>
                 </span>
-                <span className="thinking-phrase">
-                  {scenario.merchant}{" "}
-                  {typing === "stopped" ? "stopped typing" : "is typing"}
-                </span>
-              </span>
-            </div>
+              </div>
+            ) : (
+              <TypingBubble name={scenario.merchant} />
+            )}
           </>
         )}
 
@@ -2663,18 +2650,7 @@ function Play({
         {(chatPending || ranting) && (
           <>
             {chatPending && <Line who="you" text={chatPending} />}
-            <div className="message-row assistant neg-waiting">
-              <span className="waiting" role="status">
-                <span className="waiting-leaves" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <span className="thinking-phrase">
-                  {scenario.merchant} is typing
-                </span>
-              </span>
-            </div>
+            <TypingBubble name={scenario.merchant} />
           </>
         )}
 
@@ -4018,6 +3994,19 @@ function Line({
       ) : (
         bubble
       )}
+    </div>
+  );
+}
+
+/** The seller typing: three dots in one of their message bubbles, as a messaging app shows it */
+function TypingBubble({ name }: { name: string }) {
+  return (
+    <div className="message-row assistant">
+      <div className="msg-bubble-group">
+        <div className="message assistant typing-bubble">
+          <TypingDots label={`${name} is typing`} />
+        </div>
+      </div>
     </div>
   );
 }

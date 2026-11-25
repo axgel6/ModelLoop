@@ -1,5 +1,6 @@
 import { memo, useEffect, useId, useState, type ReactElement, type ReactNode } from "react";
 import type { ClockWidget, ConversionWidget, WeatherWidget, Widget } from "./api";
+import { language, t, useT } from "../i18n";
 
 /** Cards above an assistant reply, from the backend's tools (backend/actions) */
 export const MessageWidgets = memo(function MessageWidgets({
@@ -7,6 +8,7 @@ export const MessageWidgets = memo(function MessageWidgets({
 }: {
   widgets: Widget[];
 }) {
+  useT();
   return (
     <div className="msg-widgets">
       {widgets.map((w, i) =>
@@ -53,22 +55,23 @@ function offsetMinutes(label: string): number {
 
 /** "14 hours ahead of you", "2 hours 30 minutes behind you", or "Same time as you" */
 function gapText(minutes: number): string {
-  if (minutes === 0) return "Same time as you";
+  if (minutes === 0) return t("Same time as you");
   const hours = Math.floor(Math.abs(minutes) / 60);
   const rest = Math.abs(minutes) % 60;
-  const amount =
-    (hours ? `${hours} hour${hours === 1 ? "" : "s"}` : "") +
-    (rest ? `${hours ? " " : ""}${rest} minutes` : "");
-  return `${amount} ${minutes > 0 ? "ahead of" : "behind"} you`;
+  const amount = [
+    hours ? (hours === 1 ? t("1 hour") : t("{n} hours", { n: hours })) : "",
+    rest ? t("{n} minutes", { n: rest }) : "",
+  ].filter(Boolean).join(" ");
+  return minutes > 0 ? t("{amount} ahead of you", { amount }) : t("{amount} behind you", { amount });
 }
 
 function readClock(now: Date, tz: string) {
   try {
     const part = (options: Intl.DateTimeFormatOptions, type: string) =>
-      new Intl.DateTimeFormat("en-US", { timeZone: tz, ...options })
+      new Intl.DateTimeFormat(language.tag(), { timeZone: tz, ...options })
         .formatToParts(now)
         .find((p) => p.type === type)?.value ?? "";
-    const time = new Intl.DateTimeFormat("en-US", {
+    const time = new Intl.DateTimeFormat(language.tag(), {
       timeZone: tz,
       hour: "numeric",
       minute: "2-digit",
@@ -82,7 +85,7 @@ function readClock(now: Date, tz: string) {
       minute: get("minute"),
       period: get("dayPeriod"),
       hour24: Number(part({ hour: "numeric", hourCycle: "h23" }, "hour")),
-      date: new Intl.DateTimeFormat("en-US", {
+      date: new Intl.DateTimeFormat(language.tag(), {
         timeZone: tz,
         weekday: "long",
         month: "long",
@@ -110,13 +113,17 @@ function ClockCard({ widget }: { widget: ClockWidget }) {
     <div
       className={`clock-card${isDay ? " is-day" : " is-night"}`}
       role="group"
-      aria-label={`Time in ${widget.place}: ${clock.hour}:${clock.minute} ${clock.period}, ${clock.date}`}
+      aria-label={t("Time in {place}: {time}, {date}", {
+        place: t(widget.place),
+        time: `${clock.hour}:${clock.minute} ${clock.period}`,
+        date: clock.date,
+      })}
     >
       <div className="clock-card-head">
         <span className="clock-card-sky" aria-hidden="true">
           <SkyIcon sky="clear" night={!isDay} size={15} weight={2} />
         </span>
-        <span className="clock-card-place">{widget.place}</span>
+        <span className="clock-card-place">{t(widget.place)}</span>
       </div>
       <div className="clock-card-time" aria-hidden="true">
         {clock.hour}
@@ -152,9 +159,9 @@ function skyOf(code: number): Sky {
 
 /** "Today", then "Mon", "Tue" from the place's own dates */
 function dayLabel(date: string, index: number): string {
-  if (index === 0) return "Today";
+  if (index === 0) return t("Today");
   // Noon UTC, so the weekday is the same in every browser zone
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(language.tag(), {
     weekday: "short",
     timeZone: "UTC",
   });
@@ -165,7 +172,7 @@ function readAt(observed: string): string {
   const at = new Date(observed);
   if (Number.isNaN(at.getTime())) return "";
   const sameDay = at.toDateString() === new Date().toDateString();
-  return at.toLocaleString("en-US", {
+  return at.toLocaleString(language.tag(), {
     ...(sameDay ? {} : { month: "short", day: "numeric" }),
     hour: "numeric",
     minute: "2-digit",
@@ -181,7 +188,11 @@ function WeatherCard({ widget }: { widget: WeatherWidget }) {
     <div
       className={`weather-card sky-${sky}${widget.day ? " is-day" : " is-night"}`}
       role="group"
-      aria-label={`Weather in ${widget.place}: ${widget.temp} degrees, ${widget.condition}`}
+      aria-label={t("Weather in {place}: {temp} degrees, {condition}", {
+        place: widget.place,
+        temp: widget.temp,
+        condition: t(widget.condition),
+      })}
     >
       <div className="weather-card-now">
         <div className="weather-card-where">
@@ -197,9 +208,10 @@ function WeatherCard({ widget }: { widget: WeatherWidget }) {
         {widget.temp}
         <span className="weather-card-deg">°{widget.unit}</span>
       </div>
-      <div className="weather-card-condition">{widget.condition}</div>
+      <div className="weather-card-condition">{t(widget.condition)}</div>
       <div className="weather-card-range">
-        {today && `H ${today.high}° L ${today.low}° · `}Feels like {widget.feels}°
+        {today && `${t("H {high}° L {low}°", { high: today.high, low: today.low })} · `}
+        {t("Feels like {n}°", { n: widget.feels })}
       </div>
 
       {widget.days.length > 0 && (
@@ -212,7 +224,7 @@ function WeatherCard({ widget }: { widget: WeatherWidget }) {
                 {d.high}°<span className="weather-card-low"> {d.low}°</span>
               </span>
               <span className="weather-card-day-rain">
-                {d.rain ? `${d.rain}% ${skyOf(d.code) === "snow" ? "snow" : "rain"}` : "\u00a0"}
+                {d.rain ? t(skyOf(d.code) === "snow" ? "{n}% snow" : "{n}% rain", { n: d.rain }) : "\u00a0"}
               </span>
             </li>
           ))}
@@ -220,8 +232,8 @@ function WeatherCard({ widget }: { widget: WeatherWidget }) {
       )}
 
       <div className="weather-card-foot">
-        Humidity {widget.humidity}% · Wind {widget.wind}
-        {at && ` · As of ${at}`}
+        {t("Humidity {humidity}% · Wind {wind}", { humidity: widget.humidity, wind: widget.wind })}
+        {at && ` · ${t("As of {time}", { time: at })}`}
       </div>
     </div>
   );

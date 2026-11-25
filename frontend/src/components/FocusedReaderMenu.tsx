@@ -6,6 +6,7 @@ import {
   WIDTHS,
   type ReaderPrefs,
 } from "./readerPrefs";
+import { useT } from "../i18n";
 
 export function FocusedReaderMenu({
   prefs,
@@ -14,6 +15,7 @@ export function FocusedReaderMenu({
   prefs: ReaderPrefs;
   onChange: (patch: Partial<ReaderPrefs>) => void;
 }) {
+  const tr = useT();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -40,9 +42,9 @@ export function FocusedReaderMenu({
         type="button"
         className={`voice-close-btn reader-menu-btn${open ? " is-open" : ""}`}
         onClick={() => setOpen((o) => !o)}
-        aria-label="Reading settings"
+        aria-label={tr("Reading settings")}
         aria-expanded={open}
-        title="Reading settings"
+        title={tr("Reading settings")}
       >
         {/* A small A and a large A, drawn rather than typeset so the pair sits truly centred:
             text would ride on its baseline and leave room for descenders below */}
@@ -63,14 +65,14 @@ export function FocusedReaderMenu({
       </button>
 
       {open && (
-        <div className="reader-menu" role="dialog" aria-label="Reading settings">
+        <div className="reader-menu" role="dialog" aria-label={tr("Reading settings")}>
           <div className="reader-menu-size">
             <button
               type="button"
               className="reader-menu-step"
               onClick={() => onChange({ size: Math.max(0, prefs.size - 1) })}
               disabled={prefs.size === 0}
-              aria-label="Smaller text"
+              aria-label={tr("Smaller text")}
             >
               <span className="reader-menu-step-small">A</span>
             </button>
@@ -84,13 +86,13 @@ export function FocusedReaderMenu({
               className="reader-menu-step"
               onClick={() => onChange({ size: Math.min(READER_SIZES.length - 1, prefs.size + 1) })}
               disabled={prefs.size === READER_SIZES.length - 1}
-              aria-label="Larger text"
+              aria-label={tr("Larger text")}
             >
               <span className="reader-menu-step-large">A</span>
             </button>
           </div>
 
-          <div className="reader-menu-label">Theme</div>
+          <div className="reader-menu-label">{tr("Theme")}</div>
           <div className="reader-menu-themes">
             {THEMES.map((t) => (
               <button
@@ -102,12 +104,12 @@ export function FocusedReaderMenu({
                 aria-pressed={prefs.theme === t.id}
               >
                 <span className="reader-theme-swatch-chip">Aa</span>
-                <span className="reader-theme-swatch-name">{t.label}</span>
+                <span className="reader-theme-swatch-name">{tr(t.label)}</span>
               </button>
             ))}
           </div>
 
-          <div className="reader-menu-label">Font</div>
+          <div className="reader-menu-label">{tr("Font")}</div>
           <div className="reader-menu-segmented">
             {FONTS.map((f) => (
               <button
@@ -118,12 +120,12 @@ export function FocusedReaderMenu({
                 onClick={() => onChange({ font: f.id })}
                 aria-pressed={prefs.font === f.id}
               >
-                {f.label}
+                {tr(f.label)}
               </button>
             ))}
           </div>
 
-          <div className="reader-menu-label">Width</div>
+          <div className="reader-menu-label">{tr("Width")}</div>
           <div className="reader-menu-segmented">
             {WIDTHS.map((w) => (
               <button
@@ -133,7 +135,7 @@ export function FocusedReaderMenu({
                 onClick={() => onChange({ width: w.id })}
                 aria-pressed={prefs.width === w.id}
               >
-                {w.label}
+                {tr(w.label)}
               </button>
             ))}
           </div>

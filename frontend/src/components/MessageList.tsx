@@ -14,6 +14,8 @@ import { PROJECT_TOOL_PHRASES } from "../webdev/context";
 import { speakWithChosenVoice } from "./speechVoice";
 import { rehypeStreamWords } from "./utils/rehypeStreamWords";
 import { fixMathDelimiters, fixNestedFences, fmtTime } from "./utils/chatUtils";
+import { TypingDots } from "./TypingDots";
+import { t, useT } from "../i18n";
 
 function stripMarkdown(text: string): string {
   return text
@@ -38,6 +40,7 @@ function Pre({
   node: _node,
   ...props
 }: React.ComponentPropsWithoutRef<"pre"> & { node?: unknown }) {
+  useT();
   const [copied, setCopied] = useState(false);
   const preRef = useRef<HTMLPreElement>(null);
 
@@ -55,7 +58,7 @@ function Pre({
       <button
         className={`code-copy-btn${copied ? " copied" : ""}`}
         onClick={handleCopy}
-        title={copied ? "Copied!" : "Copy code"}
+        title={copied ? t("Copied!") : t("Copy code")}
       >
         {copied ? <CheckIcon /> : <CopyIcon />}
       </button>
@@ -103,17 +106,8 @@ function useSmoothText(text: string, streaming: boolean): string {
   return shown;
 }
 
-// No trailing dots: the swaying leaves next to the phrase do that job.
-const THINKING_PHRASES = [
-  "Thinking it over",
-  "Let me think",
-  "One moment",
-  "Gathering my thoughts",
-  "Working on it",
-  "Mulling that over",
-];
-
-// What each backend tool (backend/actions) is doing while the model waits on it
+// What each backend tool (backend/actions) is doing while the model waits on it. Plain thinking
+// shows typing dots instead; a tool says what it is doing, since it is why the reply is slower.
 const TOOL_PHRASES: Record<string, string> = {
   web_search: "Looking that up",
   get_weather: "Checking the weather",
@@ -131,7 +125,7 @@ function sourceLabel(context: string): string {
     context.startsWith("**Weather in ") &&
     context.includes("(https://open-meteo.com/)") &&
     !context.includes("\n\n---\n\n");
-  return weatherOnly ? "Weather" : "Web Search";
+  return weatherOnly ? t("Weather") : t("Web Search");
 }
 
 export const AssistantMessage = memo(function AssistantMessage({
@@ -154,6 +148,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   streaming: boolean;
   onRetry: () => void;
 }) {
+  useT();
   const shownContent = useSmoothText(msg.content, streaming);
   const revealing = streaming || shownContent.length < msg.content.length;
   const [copied, setCopied] = useState(false);
@@ -161,9 +156,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   const [thinkingOpen, setThinkingOpen] = useState(false);
   const [imageContextOpen, setImageContextOpen] = useState(false);
   const [searchContextOpen, setSearchContextOpen] = useState(false);
-  const thinkingPhrase = useRef(
-    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)],
-  );
   const ts = fmtTime(msg.created_at);
 
   const handleCopy = () => {
@@ -195,6 +187,7 @@ export const AssistantMessage = memo(function AssistantMessage({
 
   const showThinking = msg.content === "" && isThinking && isLast;
   const showToolUse = isLast && !!activeTool && msg.content === "";
+  const toolPhrase = t(TOOL_PHRASES[activeTool ?? ""] ?? "Fetching what I need");
 
   return (
     <div className="msg-bubble-group">
@@ -225,7 +218,7 @@ export const AssistantMessage = memo(function AssistantMessage({
                 >
                   <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
                 </svg>
-                Reasoning
+                {t("Reasoning")}
               </button>
               {thinkingOpen && (
                 <div className="reasoning-content">{msg.thinking}</div>
@@ -250,7 +243,7 @@ export const AssistantMessage = memo(function AssistantMessage({
                 >
                   <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
                 </svg>
-                Image Analysis
+                {t("Image Analysis")}
               </button>
               {imageContextOpen && (
                 <div className="reasoning-content">{msg.image_context}</div>
@@ -295,19 +288,15 @@ export const AssistantMessage = memo(function AssistantMessage({
               )}
               <ProjectSteps steps={msg.steps} startedAt={msg.created_at} />
             </>
-          ) : showToolUse || showThinking ? (
+          ) : showToolUse ? (
             <span className="waiting" role="status">
-              <span className="waiting-leaves" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
-              <span className="thinking-phrase">
-                {!showToolUse
-                  ? thinkingPhrase.current
-                  : (TOOL_PHRASES[activeTool ?? ""] ?? "Fetching what I need")}
+              {/* Keyed by its words, so a new tool's phrase focuses in */}
+              <span key={toolPhrase} className="thinking-phrase">
+                {toolPhrase}
               </span>
             </span>
+          ) : showThinking ? (
+            <TypingDots label={t("Thinking")} />
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
@@ -327,7 +316,7 @@ export const AssistantMessage = memo(function AssistantMessage({
             <button
               className={`copy-btn${copied ? " copied" : ""}`}
               onClick={handleCopy}
-              title={copied ? "Copied!" : "Copy"}
+              title={copied ? t("Copied!") : t("Copy")}
             >
               {copied ? <CheckIcon /> : <CopyIcon />}
             </button>
@@ -336,13 +325,13 @@ export const AssistantMessage = memo(function AssistantMessage({
             <button
               className={`listen-btn${isSpeaking ? " speaking" : ""}`}
               onClick={handleListen}
-              title={isSpeaking ? "Stop" : "Listen"}
+              title={isSpeaking ? t("Stop") : t("Listen")}
             >
               {isSpeaking ? <StopIcon /> : <SpeakerIcon />}
             </button>
           )}
           {canRetry && (
-            <button className="retry-btn" onClick={onRetry} title="Retry">
+            <button className="retry-btn" onClick={onRetry} title={t("Retry")}>
               <RetryIcon />
             </button>
           )}
@@ -371,6 +360,7 @@ export const UserMessage = memo(function UserMessage({
   onEditSubmit: () => void;
   onEditCancel: () => void;
 }) {
+  useT();
   const ts = fmtTime(msg.created_at);
 
   return (
@@ -393,10 +383,10 @@ export const UserMessage = memo(function UserMessage({
           />
           <div className="edit-actions">
             <button className="edit-cancel-btn" onClick={onEditCancel}>
-              Cancel
+              {t("Cancel")}
             </button>
             <button className="edit-save-btn" onClick={onEditSubmit}>
-              Send
+              {t("Send")}
             </button>
           </div>
         </div>
@@ -408,7 +398,7 @@ export const UserMessage = memo(function UserMessage({
                 <img
                   key={i}
                   src={`data:image/png;base64,${img}`}
-                  alt="attachment"
+                  alt={t("attachment")}
                   className="user-message-image"
                 />
               ))}
@@ -432,7 +422,7 @@ export const UserMessage = memo(function UserMessage({
             <button
               className="edit-msg-btn"
               onClick={onEditStart}
-              title="Edit message"
+              title={t("Edit message")}
             >
               <EditIcon />
             </button>

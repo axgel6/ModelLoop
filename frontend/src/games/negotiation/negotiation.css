@@ -568,16 +568,6 @@ html[data-theme] .neg-top {
   padding: 4px 6px 10px;
 }
 
-/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colors */
-.neg-waiting .thinking-phrase {
-  background-image: linear-gradient(
-    90deg,
-    var(--game-muted) 20%,
-    var(--game-ink) 50%,
-    var(--game-muted) 80%
-  );
-}
-
 .neg-verdict {
   display: flex;
   flex-direction: column;

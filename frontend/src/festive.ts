@@ -12,6 +12,8 @@
 //   4. Optional: Olly's voice for it in FESTIVE_PERSONAS (backend/config.py), and a background
 //      of its own in background.ts (with `festive: "<id>"`).
 
+import { t } from "./i18n";
+
 export type BaseTheme = "ember" | "frost" | "dune" | "meadow";
 export type FestiveId = "halloween" | "christmas";
 
@@ -69,7 +71,7 @@ const FESTIVE_THEMES: FestiveTheme[] = [
       "Tell me about a famous unsolved mystery",
       "Write a poem about a full moon",
     ],
-    placeholder: (name) => `Ask ${name}, if you dare`,
+    placeholder: (name) => t("Ask {name}, if you dare", { name }),
   },
   {
     id: "christmas",
@@ -101,7 +103,8 @@ const FESTIVE_THEMES: FestiveTheme[] = [
       "Fun holiday traditions from around the world",
       "Make a gift budget for the season",
     ],
-    placeholder: (name) => `Ask ${name}, merrily`,
+    // The start of a letter to Santa
+    placeholder: (name) => t("Dear {name}...", { name }),
   },
 ];
 

@@ -23,6 +23,7 @@ import ollama_caps
 from config import (
     IS_PRODUCTION, NGROK_HEADERS,
     SYSTEM_PROMPT_WITH_TOOLS, SYSTEM_PROMPT_NO_TOOLS, PROPRIETARY_INSTRUCTIONS, FESTIVE_PERSONAS,
+    SPANISH_MODE_INSTRUCTION,
     about_modelloop,
     TOOL_CAPABLE_MODELS, NO_SYSTEM_PROMPT_MODELS, API_KEY,
     ENABLE_GUEST_CHAT, CHAT_RATE_LIMIT, GUEST_CHAT_RATE_LIMIT, GUEST_CHAT_DAILY_LIMIT,
@@ -268,6 +269,7 @@ async def _chat_stream_response(
     festive: Optional[str] = None,
     user_tz: Optional[str] = None,
     temp_unit: Optional[str] = None,
+    language: Optional[str] = None,
     project: Optional[project_mode.ProjectTurn] = None,
 ) -> StreamingResponse:
     is_guest = user is None
@@ -450,6 +452,11 @@ async def _chat_stream_response(
                 f"training. Do not mention the date unless the user asks for it or the answer depends on it, and never put it "
                 f"in front of something you know from training (\"as of today, ...\"): what you know is older than today."
             )
+
+            # Spanish mode in Preferences. Any prompt gets it, a personality's included, since the
+            # user asked for the whole app in Spanish; a project turn writes code and keeps English.
+            if language == "es" and not project:
+                effective_system += "\n\n" + SPANISH_MODE_INSTRUCTION
 
             messages = []
             if not _skip_system_prompt(model):
@@ -986,6 +993,7 @@ async def chat_stream(
         festive=body.festive,
         user_tz=request.headers.get("x-timezone"),
         temp_unit=request.headers.get("x-temp-unit"),
+        language=request.headers.get("x-language"),
         project=project,
     )
 
@@ -1022,6 +1030,7 @@ async def guest_chat_stream(
         festive=body.festive,
         user_tz=request.headers.get("x-timezone"),
         temp_unit=request.headers.get("x-temp-unit"),
+        language=request.headers.get("x-language"),
     )
 
 
@@ -1052,4 +1061,5 @@ async def private_chat_stream(
         festive=body.festive,
         user_tz=request.headers.get("x-timezone"),
         temp_unit=request.headers.get("x-temp-unit"),
+        language=request.headers.get("x-language"),
     )

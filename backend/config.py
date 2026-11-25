@@ -132,6 +132,11 @@ SYSTEM_PROMPT_WITH_TOOLS = "\n\n".join([_IDENTITY, _CONVERSATION, _LOOKUP_WITH_T
 # prohibition so the model doesn't invoke actions it cannot reach.
 SYSTEM_PROMPT_NO_TOOLS = "\n\n".join([_IDENTITY, _CONVERSATION, _LOOKUP_NO_TOOLS])
 
+# Added to every system prompt when the user picks Spanish in Preferences. Mexican Spanish, to
+# match the UI. It overrides "Reply in the language the user writes in" for English messages,
+# since a Spanish-mode user typing a quick English word still wants Spanish back.
+SPANISH_MODE_INSTRUCTION = """The user has set ModelLoop to Spanish. Reply in Spanish as spoken in Mexico, using "tú", even when their message, search results, or documents are in English. Keep code, URLs, and names of people, places, and products as they are. If they ask you to reply in another language, do so."""
+
 MODELLOOP_URL = "https://modelloop.aynjel.com/"
 MODELLOOP_REPO = "https://github.com/axgel6/ModelLoop"
 

@@ -42,11 +42,6 @@ export function ModelArena({ model, onExit }: GameProps) {
     return (
       <div className="games-restoring" role="status">
         <span className="waiting">
-          <span className="waiting-leaves" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
           <span className="thinking-phrase">Picking up where you left off</span>
         </span>
       </div>
@@ -542,11 +537,6 @@ function Stage({
         {live && !paused && !error && (
           <div className={`message-row ${nextSide === 0 ? "assistant" : "user"} arena-waiting`}>
             <span className="waiting" role="status">
-              <span className="waiting-leaves" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
               <span className="thinking-phrase">
                 {nameOf(state.sides[nextSide])} is{" "}
                 {nextIsClosing ? "writing closing remarks" : "preparing an argument"}

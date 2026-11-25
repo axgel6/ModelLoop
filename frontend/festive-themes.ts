@@ -83,15 +83,15 @@ const PALETTES: Palette[] = [
     },
   },
   {
-    // Christmas: a warm evergreen room by the fire, lit by coloured string lights, from Frost
+    // Christmas: a dark evergreen room by the fire, lit by a few soft colored lights, from Frost
     id: "christmas",
     base: "frost",
     // Nord's own colours, placed by hand
     exact: {
-      "2e3440": "16241c", // page: evergreen
-      "3b4252": "1f3327", // cards and bubbles
-      "434c5e": "273d30", // hover
-      "4c566a": "35503f", // borders
+      "2e3440": "0d1912", // page: deep pine, dark for the lights, green enough to read as green
+      "3b4252": "15211a", // cards and bubbles
+      "434c5e": "1c2c22", // hover
+      "4c566a": "2a4033", // borders
       "d8dee9": "f6e8d0", // body text: warm cream in lamplight
       "e5e9f0": "f9eed9",
       "eceff4": "fcf3e2", // headings
@@ -107,9 +107,9 @@ const PALETTES: Palette[] = [
     },
     recolour: (deg, s, l, rgb) => {
       if (s < 0.22) {
-        // Greys: the dark ones (surfaces) become evergreen a step deeper, the middle ones (muted
-        // text) a warm taupe, the light ones cream
-        if (l < 0.38) return fromHsl(148, 0.24, l < 0.32 ? l * 0.62 : l - 0.11);
+        // Greys: the dark ones (surfaces) become a deep, nearly black evergreen, the middle ones
+        // (muted text) a warm taupe, the light ones cream
+        if (l < 0.38) return fromHsl(148, 0.32, l < 0.32 ? l * 0.48 : l - 0.15);
         if (l < 0.7) return fromHsl(35, 0.14, l);
         return fromHsl(38, 0.55, l);
       }

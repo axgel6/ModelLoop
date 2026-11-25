@@ -98,11 +98,6 @@ export function CeoSimulator({ model, onExit }: GameProps) {
     return (
       <div className="games-restoring" role="status">
         <span className="waiting">
-          <span className="waiting-leaves" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
           <span className="thinking-phrase">Picking up where you left off</span>
         </span>
       </div>
@@ -659,11 +654,6 @@ function Play({
                 <Decision text={pending} />
                 <div className="message-row assistant ceo-waiting">
                   <span className="waiting" role="status">
-                    <span className="waiting-leaves" aria-hidden="true">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
                     <span className="thinking-phrase">The week is playing out</span>
                   </span>
                 </div>

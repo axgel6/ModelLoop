@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { sounds } from "../sounds";
+import { useT } from "../i18n";
 
 // How long a notice stays up, and how long it takes to leave (matches .notice.is-out)
 const SHOW_MS = 4200;
@@ -37,6 +38,7 @@ interface NoticeProps {
  * seconds, or on a click. A message that stays the same after it has gone stays hidden.
  */
 export function Notice({ message, kicker, shake = 0, onDone }: NoticeProps) {
+  const t = useT();
   // Each new message, or a bump of `shake`, is a new arrival
   const arrival = message ? `${shake}\u0000${message}` : "";
   const [lastArrival, setLastArrival] = useState("");
@@ -103,7 +105,7 @@ export function Notice({ message, kicker, shake = 0, onDone }: NoticeProps) {
         ref={pill}
         className={`notice ${leaving ? "is-out" : "is-in"}`}
         onClick={() => setLeaving(true)}
-        title="Dismiss"
+        title={t("Dismiss")}
       >
         <span className="notice-mark" aria-hidden="true">
           <WarningIcon />

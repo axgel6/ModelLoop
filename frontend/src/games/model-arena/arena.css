@@ -306,11 +306,6 @@ html .arena .arena-unseen:hover {
   padding: 4px 6px 10px;
 }
 
-/* Outside a bubble the phrase sits on the page itself, so it sweeps between the page's text colors */
-.arena-waiting .thinking-phrase {
-  background-image: linear-gradient(90deg, var(--game-muted) 20%, var(--game-ink) 50%, var(--game-muted) 80%);
-}
-
 .arena-verdict {
   display: flex;
   flex-direction: column;

@@ -13,11 +13,13 @@ import { initStretchy } from "./stretchy";
 import { background } from "./background";
 import { uiScale } from "./uiScale";
 import { panels } from "./panels";
+import { language } from "./i18n";
 
 initStretchy();
 background.init();
 uiScale.init();
 panels.init();
+language.init();
 
 console.log("%cModelLoop%c by Angel Gutierrez · github.com/axgel6/ModelLoop", "color:#fabd2f;font-weight:700", "color:#a89984");
 

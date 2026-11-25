@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { chosenVoice, onVoicesChanged } from "../speechVoice";
+import { chosenVoice, onVoicesChanged, speechLang } from "../speechVoice";
+import { t } from "../../i18n";
 
 // "paused": voice mode stays open but stops listening, and the mic is let go
 export type VoiceStatus = "idle" | "listening" | "processing" | "speaking" | "paused";
@@ -231,7 +232,7 @@ export function useVoiceConversation({
       isSpeakingRef.current = true;
       setSpeakingText(cleaned);
       const utterance = new SpeechSynthesisUtterance(prepareForSpeech(cleaned));
-      utterance.lang = navigator.language || "en-US";
+      utterance.lang = speechLang();
       utterance.rate = speechRateRef.current;
       utterance.pitch = 0.95;
       if (voiceRef.current) utterance.voice = voiceRef.current;
@@ -300,7 +301,7 @@ export function useVoiceConversation({
 
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
-      setError("Voice chat isn't available in this browser, but typing works just fine.");
+      setError(t("Voice chat isn't available in this browser, but typing works just fine."));
       isActiveRef.current = false;
       setIsActive(false);
       setStatusSync("idle");
@@ -314,7 +315,7 @@ export function useVoiceConversation({
     const recognition = new Ctor();
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = navigator.language || "en-US";
+    recognition.lang = speechLang();
     recognitionRef.current = recognition;
 
     let accumulated = "";
@@ -333,7 +334,7 @@ export function useVoiceConversation({
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       if (event.error === "not-allowed") {
-        setError("I can't hear you yet. Allow the microphone in System Settings, under Privacy & Security, then Microphone.");
+        setError(t("I can't hear you yet. Allow the microphone in System Settings, under Privacy & Security, then Microphone."));
         clearSilenceTimer();
         isActiveRef.current = false;
         setIsActive(false);
@@ -446,10 +447,10 @@ export function useVoiceConversation({
   }, []);
 
   const statusLabel =
-    status === "listening"  ? "Listening…"  :
-    status === "processing" ? "Processing…" :
-    status === "speaking"   ? "Speaking…"   :
-    status === "paused"     ? "Paused"      : "";
+    status === "listening"  ? t("Listening…")  :
+    status === "processing" ? t("Processing…") :
+    status === "speaking"   ? t("Speaking…")   :
+    status === "paused"     ? t("Paused")      : "";
 
   return {
     isActive, status, statusLabel, transcript, speakingText, error,

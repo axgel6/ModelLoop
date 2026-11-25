@@ -29,6 +29,7 @@ import {
 import type { OllamaStatus } from "./api";
 import { readableTextOn } from "./utils/chatUtils";
 import { PRESETS } from "./presets";
+import { language, useT, type Lang } from "../i18n";
 
 export type { Theme };
 export type Font = "inter" | "rounded";
@@ -216,6 +217,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
   initialSection,
 }) => {
   useEscapeKey(onClose);
+  const t = useT();
+  const [lang, setLang] = useState<Lang>(() => language.get());
   const [soundOn, setSoundOn] = useState(() => sounds.isEnabled());
   const [soundVolume, setSoundVolume] = useState(() => sounds.getVolume());
   const [soundGroups, setSoundGroups] = useState(() =>
@@ -249,7 +252,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       return;
     }
     setPreviewing(key);
-    speakWithVoice("Hi, I'm Olly. This is how I'll sound when I talk with you.", voice, {
+    speakWithVoice(t("Hi, I'm Olly. This is how I'll sound when I talk with you."), voice, {
       rate: speechRate,
       onEnd: () => setPreviewing((p) => (p === key ? null : p)),
     });
@@ -364,7 +367,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     try {
       setOllamaStatus(await apiTestOllamaUrl(candidate));
     } catch (e: any) {
-      setOllamaError(e.message || "That test didn't work.");
+      setOllamaError(e.message || t("That test didn't work."));
       setOllamaStatus(null);
     } finally {
       setOllamaTesting(false);
@@ -380,12 +383,12 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       setOllamaUrl(saved.ollama_url ?? "");
       setOllamaSaved(
         saved.ollama_url
-          ? "Saved. New chats will use your server."
-          : "Cleared. You are back on the shared test server.",
+          ? t("Saved. New chats will use your server.")
+          : t("Cleared. You are back on the shared test server."),
       );
       loadOllamaStatus();
     } catch (e: any) {
-      setOllamaError(e.message || "I couldn't save that.");
+      setOllamaError(e.message || t("I couldn't save that."));
     } finally {
       setOllamaSaving(false);
     }
@@ -397,8 +400,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       type="button"
       className={`pref-info-btn${openInfo === id ? " active" : ""}`}
       aria-expanded={openInfo === id}
-      aria-label={`What does ${GENERATION_INFO[id].title} do?`}
-      title={`What does ${GENERATION_INFO[id].title} do?`}
+      aria-label={t("What does {setting} do?", { setting: t(GENERATION_INFO[id].title) })}
+      title={t("What does {setting} do?", { setting: t(GENERATION_INFO[id].title) })}
       onClick={() => setOpenInfo((prev) => (prev === id ? null : id))}
     >
       <svg
@@ -419,7 +422,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
   const infoPanel = (id: string) =>
     openInfo === id ? (
-      <div className="pref-info-panel">{GENERATION_INFO[id].body}</div>
+      <div className="pref-info-panel">{t(GENERATION_INFO[id].body)}</div>
     ) : null;
 
   const handleDeleteAccount = async () => {
@@ -478,7 +481,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       setUserInfo((prev) => (prev ? { ...prev, email: saved } : prev));
       setEmailEdit(null);
     } catch (err) {
-      setEmailError(err instanceof Error ? err.message : "I couldn't save that email.");
+      setEmailError(err instanceof Error ? err.message : t("I couldn't save that email."));
     } finally {
       setEmailSaving(false);
     }
@@ -498,19 +501,19 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
     m.toLowerCase().includes(modelSearch.toLowerCase()),
   );
   const filteredPresets = PRESETS.filter((p) =>
-    p.label.toLowerCase().includes(presetSearch.toLowerCase()),
+    t(p.label).toLowerCase().includes(presetSearch.toLowerCase()),
   );
 
   const tempLabel =
     temperature <= 0.4
-      ? "Focused - precise, deterministic responses"
+      ? t("Focused - precise, deterministic responses")
       : temperature === 0.7
-        ? "Balanced - reliable with some creativity (Default)"
+        ? t("Balanced - reliable with some creativity (Default)")
         : temperature <= 0.9
-          ? "Balanced - reliable with some creativity"
+          ? t("Balanced - reliable with some creativity")
           : temperature <= 1.4
-            ? "Creative - more varied and expressive"
-            : "Wild - highly unpredictable outputs";
+            ? t("Creative - more varied and expressive")
+            : t("Wild - highly unpredictable outputs");
 
   // The current value beside each row in the phone list, where there's a short one to show
   const navHint = (id: Section): string => {
@@ -518,9 +521,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
       case "model":
         return (selectedModel.split(":")[0] ?? "").split("/").pop() ?? "";
       case "presets":
-        return activePreset;
+        return t(activePreset);
       case "temperature":
-        return `Temp ${temperature.toFixed(1)}`;
+        return t("Temp {n}", { n: temperature.toFixed(1) });
       case "appearance":
         return theme.charAt(0).toUpperCase() + theme.slice(1);
       default:
@@ -534,7 +537,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">Model</span>
+              <span className="pref-content-title">{t("Model")}</span>
               {models.length > 0 && (
                 <span className="pref-content-badge">{models.length}</span>
               )}
@@ -543,7 +546,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <input
                 className="pref-search-input"
                 type="text"
-                placeholder="Search Models"
+                placeholder={t("Search Models")}
                 value={modelSearch}
                 onChange={(e) => setModelSearch(e.target.value)}
               />
@@ -551,7 +554,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             <div className="pref-list">
               {filteredModels.length === 0 ? (
                 <div className="pref-empty">
-                  {models.length === 0 ? "Loading models…" : "No models match"}
+                  {models.length === 0 ? t("Loading models…") : t("No models match")}
                 </div>
               ) : (
                 filteredModels.map((m) => {
@@ -579,17 +582,17 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                           )}
                           {caps.includes("thinking") && (
                             <span className="pref-model-badge pref-model-badge--thinking">
-                              Thinking
+                              {t("Thinking")}
                             </span>
                           )}
                           {caps.includes("vision") && (
-                            <span className="pref-model-badge pref-model-badge--vision" title="Can read images">
-                              Images
+                            <span className="pref-model-badge pref-model-badge--vision" title={t("Can read images")}>
+                              {t("Images")}
                             </span>
                           )}
                           {m === gamesModel && (
-                            <span className="pref-model-badge pref-model-badge--games" title="The games play with this model">
-                              Games
+                            <span className="pref-model-badge pref-model-badge--games" title={t("The games play with this model")}>
+                              {t("Games")}
                             </span>
                           )}
                         </div>
@@ -612,14 +615,14 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">Presets</span>
+              <span className="pref-content-title">{t("Presets")}</span>
               <span className="pref-content-badge">{PRESETS.length}</span>
             </div>
             <div className="pref-search-bar">
               <input
                 className="pref-search-input"
                 type="text"
-                placeholder="Search Presets"
+                placeholder={t("Search Presets")}
                 value={presetSearch}
                 onChange={(e) => setPresetSearch(e.target.value)}
               />
@@ -633,10 +636,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     className={`pref-list-item${isActive ? " active" : ""}`}
                     onClick={() => handlePresetClick(label, prompt)}
                   >
-                    <div className="pref-item-icon">{label[0]}</div>
+                    <div className="pref-item-icon">{t(label)[0]}</div>
                     <div className="pref-item-info">
-                      <div className="pref-item-name">{label}</div>
-                      <div className="pref-item-desc">{description}</div>
+                      <div className="pref-item-name">{t(label)}</div>
+                      <div className="pref-item-desc">{t(description)}</div>
                     </div>
                     <div
                       className={`pref-item-check${isActive ? " checked" : ""}`}
@@ -649,11 +652,11 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             </div>
             {activePreset === "Custom" && (
               <div className="pref-custom-prompt">
-                <label>Custom System Prompt</label>
+                <label>{t("Custom System Prompt")}</label>
                 <textarea
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder="You are a helpful assistant and …"
+                  placeholder={t("You are a helpful assistant and …")}
                 />
               </div>
             )}
@@ -664,13 +667,13 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">Generation</span>
+              <span className="pref-content-title">{t("Generation")}</span>
             </div>
             <div className="pref-settings-area">
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
                   <div className="pref-setting-label">
-                    Temperature
+                    {t("Temperature")}
                     {infoButton("temperature")}
                   </div>
                   <div className="pref-setting-hint">{tempLabel}</div>
@@ -704,12 +707,12 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                   <div className="pref-setting-hint">
                     {topP <= 0.5
-                      ? "Narrow - only high-probability tokens"
+                      ? t("Narrow - only high-probability tokens")
                       : topP <= 0.85
-                        ? "Balanced - moderate token diversity"
+                        ? t("Balanced - moderate token diversity")
                         : topP === 0.9
-                          ? "Balanced - moderate token diversity (Default)"
-                          : "Broad - considers a wide range of tokens"}
+                          ? t("Balanced - moderate token diversity (Default)")
+                          : t("Broad - considers a wide range of tokens")}
                   </div>
                 </div>
                 <span className="pref-temp-value">{topP.toFixed(2)}</span>
@@ -735,17 +738,17 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
                   <div className="pref-setting-label">
-                    Max Tokens
+                    {t("Max Tokens")}
                     {infoButton("numPredict")}
                   </div>
                   <div className="pref-setting-hint">
                     {numPredict === -1
-                      ? "Unlimited - model decides when to stop (Default)"
+                      ? t("Unlimited - model decides when to stop (Default)")
                       : numPredict <= 512
-                        ? "Short - brief responses only"
+                        ? t("Short - brief responses only")
                         : numPredict <= 2048
-                          ? "Medium - suitable for most tasks"
-                          : "Long - extended responses and analysis"}
+                          ? t("Medium - suitable for most tasks")
+                          : t("Long - extended responses and analysis")}
                   </div>
                 </div>
                 <span className="pref-temp-value">
@@ -773,16 +776,16 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
                   <div className="pref-setting-label">
-                    Voice
+                    {t("Voice")}
                     {infoButton("voice")}
                   </div>
                   <div className="pref-setting-hint">
-                    Used for voice mode and reading replies aloud
+                    {t("Used for voice mode and reading replies aloud")}
                   </div>
                 </div>
               </div>
               {infoPanel("voice")}
-              <div className="pref-voice-list" role="radiogroup" aria-label="Voice">
+              <div className="pref-voice-list" role="radiogroup" aria-label={t("Voice")}>
                 {[null, ...listedVoices].map((v) => {
                   const key = v ? v.voiceURI : "auto";
                   const isActive = (v ? v.voiceURI : "") === voiceChoice.choice;
@@ -808,8 +811,8 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         className={`pref-item-icon pref-voice-play${playing ? " is-playing" : ""}`}
                         role="button"
                         tabIndex={0}
-                        aria-label={playing ? "Stop preview" : `Preview ${v ? voiceLabel(v) : "the automatic voice"}`}
-                        title={playing ? "Stop" : "Preview"}
+                        aria-label={playing ? t("Stop preview") : t("Preview {voice}", { voice: v ? voiceLabel(v) : t("the automatic voice") })}
+                        title={playing ? t("Stop") : t("Preview")}
                         onClick={(e) => {
                           e.stopPropagation();
                           previewVoice(key, v ?? autoVoice);
@@ -834,21 +837,23 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       </span>
                       <div className="pref-item-info">
                         <div className="pref-item-name">
-                          {v ? voiceLabel(v) : "Automatic"}
+                          {v ? voiceLabel(v) : t("Automatic")}
                           {quality === "premium" && (
-                            <span className="pref-model-badge pref-model-badge--thinking">Premium</span>
+                            <span className="pref-model-badge pref-model-badge--thinking">{t("Premium")}</span>
                           )}
                           {quality === "enhanced" && (
-                            <span className="pref-model-badge pref-model-badge--web">Enhanced</span>
+                            <span className="pref-model-badge pref-model-badge--web">{t("Enhanced")}</span>
                           )}
                           {quality === "natural" && (
-                            <span className="pref-model-badge pref-model-badge--games">Natural</span>
+                            <span className="pref-model-badge pref-model-badge--games">{t("Natural")}</span>
                           )}
                         </div>
                         <div className="pref-item-desc">
                           {v
-                            ? `${voiceRegion(v)}${v.localService ? "" : " · Online"}`
-                            : `The best voice on this device${autoVoice ? `, now ${voiceLabel(autoVoice)}` : ""}`}
+                            ? `${voiceRegion(v)}${v.localService ? "" : ` · ${t("Online")}`}`
+                            : autoVoice
+                              ? t("The best voice on this device, now {voice}", { voice: voiceLabel(autoVoice) })
+                              : t("The best voice on this device")}
                         </div>
                       </div>
                       <div className={`pref-item-check${isActive ? " checked" : ""}`}>
@@ -861,16 +866,16 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               {(hiddenVoices > 0 || showAllVoices || voiceTip || voiceChoice.missing) && (
                 <div className="pref-voice-foot">
                   {voiceChoice.missing && (
-                    <span>The voice you picked isn't on this device, so the automatic one is used here.</span>
+                    <span>{t("The voice you picked isn't on this device, so the automatic one is used here.")}</span>
                   )}
-                  {voiceTip && <span>{voiceTip}</span>}
+                  {voiceTip && <span>{t(voiceTip)}</span>}
                   {(hiddenVoices > 0 || showAllVoices) && (
                     <button
                       type="button"
                       className="pref-voice-more"
                       onClick={() => setShowAllVoices((v) => !v)}
                     >
-                      {showAllVoices ? "Show fewer" : `Show all ${voiceChoice.voices.length} voices`}
+                      {showAllVoices ? t("Show fewer") : t("Show all {n} voices", { n: voiceChoice.voices.length })}
                     </button>
                   )}
                 </div>
@@ -882,19 +887,19 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <div className="pref-setting-row">
                 <div className="pref-setting-info">
                   <div className="pref-setting-label">
-                    Voice Speed
+                    {t("Voice Speed")}
                     {infoButton("speechRate")}
                   </div>
                   <div className="pref-setting-hint">
                     {speechRate <= 0.7
-                      ? "Slow — easier to follow"
+                      ? t("Slow — easier to follow")
                       : speechRate <= 1.1
                         ? speechRate === 1.0
-                          ? "Normal — natural pace (Default)"
-                          : "Normal — natural pace"
+                          ? t("Normal — natural pace (Default)")
+                          : t("Normal — natural pace")
                         : speechRate <= 1.5
-                          ? "Fast — quicker delivery"
-                          : "Very fast — for rapid listening"}
+                          ? t("Fast — quicker delivery")
+                          : t("Very fast — for rapid listening")}
                   </div>
                 </div>
                 <span className="pref-temp-value">
@@ -925,9 +930,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   setSpeechRate(1.0);
                   voiceChoice.setChoice("");
                 }}
-                title="Reset to defaults"
+                title={t("Reset to defaults")}
               >
-                Reset to defaults
+                {t("Reset to defaults")}
               </button>
             </div>
           </>
@@ -937,10 +942,33 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">Appearance</span>
+              <span className="pref-content-title">{t("Appearance")}</span>
             </div>
             <div className="pref-settings-area">
-              <div className="pref-setting-section-label">Theme</div>
+              {/* Each language named in itself, so it can be found by someone who reads only that one */}
+              <div className="pref-setting-section-label">{t("Language")}</div>
+              <div className="pref-font-cards" style={{ marginBottom: "20px" }}>
+                {(
+                  [
+                    { id: "en", name: "English", preview: "Hi" },
+                    { id: "es", name: "Español", preview: "Hola" },
+                  ] as const
+                ).map((l) => (
+                  <div
+                    key={l.id}
+                    lang={l.id}
+                    className={`pref-font-card${lang === l.id ? " active" : ""}`}
+                    onClick={() => {
+                      language.set(l.id);
+                      setLang(l.id);
+                    }}
+                  >
+                    <span className="pref-font-preview">{l.preview}</span>
+                    <span className="pref-font-label">{l.name}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="pref-setting-section-label">{t("Theme")}</div>
               <div className="pref-theme-cards">
                 <div
                   className={`pref-theme-card${theme === "meadow" ? " active" : ""}`}
@@ -998,7 +1026,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       <span className="ptc-bar ptc-bar-2" />
                       <span className="ptc-bar ptc-bar-3" />
                     </div>
-                    <span className="pref-theme-label">{f.label}</span>
+                    <span className="pref-theme-label">{t(f.label)}</span>
                   </div>
                 ))}
               </div>
@@ -1006,7 +1034,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
-                Font
+                {t("Font")}
               </div>
               <div className="pref-font-cards">
                 <div
@@ -1032,21 +1060,26 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
-                Background
+                {t("Background")}
               </div>
-              {/* Each preview is the picture under the current theme's wash, as it will look */}
+              {/* Each preview is the picture under the current theme's wash, as it will look. A saved
+                  choice this theme doesn't offer (Earthset in a light theme) shows as Plain, which
+                  is what's on the page; it comes back with a theme that has it. */}
               <div className="pref-theme-cards pref-bg-cards">
-                {backgroundsFor(theme).map((b) => (
+                {backgroundsFor(theme).map((b, _i, offered) => (
                   <div
                     key={b.id}
-                    className={`pref-theme-card${bg === b.id ? " active" : ""}`}
+                    className={`pref-theme-card${
+                      (offered.some((o) => o.id === bg) ? bg : "plain") === b.id ? " active" : ""
+                    }`}
                     onClick={() => {
                       background.set(b.id);
                       setBg(b.id);
                     }}
                   >
                     <div className={`pref-bg-preview pref-bg-preview-${b.id}`} />
-                    <span className="pref-theme-label">{b.label}</span>
+                    <span className="pref-theme-label">{t(b.label)}</span>
+                    {b.credit && <span className="pref-bg-credit">{t(b.credit)}</span>}
                   </div>
                 ))}
               </div>
@@ -1054,7 +1087,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
-                Panels
+                {t("Panels")}
               </div>
               {/* How much shows through the windows (this one included) and the sidebar. Each preview is a
                   sample window at that level over a still scene in the theme's colours. */}
@@ -1074,7 +1107,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     >
                       <div className="pref-panels-sample" />
                     </div>
-                    <span className="pref-theme-label">{p.label}</span>
+                    <span className="pref-theme-label">{t(p.label)}</span>
                   </div>
                 ))}
               </div>
@@ -1082,18 +1115,18 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
-                Sound
+                {t("Sound")}
               </div>
               <div className="pref-sound-row">
                 <span className="pref-sound-desc">
-                  Soft, calm tones as you use ModelLoop. Pick which kinds below.
+                  {t("Soft, calm tones as you use ModelLoop. Pick which kinds below.")}
                 </span>
                 <button
                   type="button"
                   className={`pref-switch${soundOn ? " is-on" : ""}`}
                   role="switch"
                   aria-checked={soundOn}
-                  aria-label="Sound effects"
+                  aria-label={t("Sound effects")}
                   onClick={() => {
                     const next = !soundOn;
                     sounds.setEnabled(next);
@@ -1111,7 +1144,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   <input
                     type="range"
                     className="temperature-slider pref-slider"
-                    aria-label="Sound volume"
+                    aria-label={t("Sound volume")}
                     min={0}
                     max={100}
                     step={5}
@@ -1123,9 +1156,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     }}
                   />
                   <div className="temperature-labels">
-                    <span>Quiet</span>
+                    <span>{t("Quiet")}</span>
                     <span>{Math.round(soundVolume * 100)}%</span>
-                    <span>Loud</span>
+                    <span>{t("Loud")}</span>
                   </div>
                 </div>
               )}
@@ -1134,15 +1167,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   {SOUND_GROUPS.map((g) => (
                     <div key={g.id} className="pref-sound-row">
                       <span className="pref-sound-text">
-                        <span className="pref-sound-name">{g.label}</span>
-                        <span className="pref-sound-desc">{g.desc}</span>
+                        <span className="pref-sound-name">{t(g.label)}</span>
+                        <span className="pref-sound-desc">{t(g.desc)}</span>
                       </span>
                       <button
                         type="button"
                         className={`pref-switch${soundGroups[g.id] ? " is-on" : ""}`}
                         role="switch"
                         aria-checked={soundGroups[g.id]}
-                        aria-label={`${g.label} sounds`}
+                        aria-label={t("{group} sounds", { group: t(g.label) })}
                         onClick={() => {
                           const next = !soundGroups[g.id];
                           sounds.setGroupOn(g.id, next);
@@ -1159,7 +1192,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
-                UI scale
+                {t("UI scale")}
               </div>
               <input
                 type="range"
@@ -1175,15 +1208,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 }}
               />
               <div className="temperature-labels">
-                <span>Smaller</span>
+                <span>{t("Smaller")}</span>
                 <span>{Math.round(scale * 100)}%</span>
-                <span>Larger</span>
+                <span>{t("Larger")}</span>
               </div>
               <div
                 className="pref-setting-section-label"
                 style={{ marginTop: "20px" }}
               >
-                Temperature
+                {t("Temperature")}
               </div>
               <div className="pref-font-cards">
                 {(
@@ -1201,7 +1234,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                     }}
                   >
                     <span className="pref-font-preview pref-unit-preview">°{u.id}</span>
-                    <span className="pref-font-label">{u.label}</span>
+                    <span className="pref-font-label">{t(u.label)}</span>
                   </div>
                 ))}
               </div>
@@ -1245,18 +1278,18 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">Shortcuts</span>
+              <span className="pref-content-title">{t("Shortcuts")}</span>
             </div>
             <div className="pref-settings-area">
               {groups.map((group) => (
                 <div key={group.label} className="pref-shortcut-group">
                   <div className="pref-setting-section-label">
-                    {group.label}
+                    {t(group.label)}
                   </div>
                   <div className="pref-shortcut-list">
                     {group.rows.map((row) => (
                       <div key={row.desc} className="pref-shortcut-row">
-                        <span className="pref-shortcut-desc">{row.desc}</span>
+                        <span className="pref-shortcut-desc">{t(row.desc)}</span>
                         <span className="pref-shortcut-keys">
                           {row.keys.map((k, i) => (
                             <span key={i}>
@@ -1281,13 +1314,13 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">Account</span>
+              <span className="pref-content-title">{t("Account")}</span>
             </div>
             <div className="pref-account-scroll">
               <div className="pref-account-card">
                 {userInfo && (
                   <div className="pref-account-field">
-                    <div className="pref-field-label">Username</div>
+                    <div className="pref-field-label">{t("Username")}</div>
                     <div className="pref-field-row">
                       <span className="pref-account-email">
                         {userInfo.username}
@@ -1297,9 +1330,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 )}
                 {userInfo && (
                   <div className="pref-account-field pref-account-field-sep">
-                    <div className="pref-field-label">Email</div>
+                    <div className="pref-field-label">{t("Email")}</div>
                     <div className="pref-field-desc">
-                      Optional. You can sign in with it instead of your username.
+                      {t("Optional. You can sign in with it instead of your username.")}
                     </div>
                     <div className="pref-name-row">
                       {emailEdit !== null ? (
@@ -1324,28 +1357,28 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                             onClick={handleSaveEmail}
                             disabled={emailSaving}
                           >
-                            {emailSaving ? <span className="btn-spinner" /> : "Save"}
+                            {emailSaving ? <span className="btn-spinner" /> : t("Save")}
                           </button>
                           <button
                             className="pref-name-cancel-btn"
                             onClick={cancelEmailEdit}
                             disabled={emailSaving}
                           >
-                            Cancel
+                            {t("Cancel")}
                           </button>
                         </>
                       ) : (
                         <>
                           <span className="pref-name-value">
                             {userInfo.email ?? (
-                              <span className="pref-name-placeholder">None added</span>
+                              <span className="pref-name-placeholder">{t("None added")}</span>
                             )}
                           </span>
                           <button
                             className="pref-name-edit-btn"
                             onClick={() => setEmailEdit(userInfo.email ?? "")}
                           >
-                            {userInfo.email ? "Edit" : "Add"}
+                            {userInfo.email ? t("Edit") : t("Add")}
                           </button>
                         </>
                       )}
@@ -1358,7 +1391,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                 )}
                 <div className="pref-account-field pref-account-field-sep">
-                  <div className="pref-field-label">Full name</div>
+                  <div className="pref-field-label">{t("Full name")}</div>
                   <div className="pref-name-row">
                     {nameEdit !== null ? (
                       <>
@@ -1391,7 +1424,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                           onClick={() => setNameEdit(null)}
                           disabled={nameSaving}
                         >
-                          Cancel
+                          {t("Cancel")}
                         </button>
                       </>
                     ) : (
@@ -1407,7 +1440,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                           className="pref-name-edit-btn"
                           onClick={() => setNameEdit(userInfo?.full_name ?? "")}
                         >
-                          Edit
+                          {t("Edit")}
                         </button>
                       </>
                     )}
@@ -1416,15 +1449,15 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               </div>
               <div className="pref-account-card">
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Personal context</div>
+                  <div className="pref-field-label">{t("Personal context")}</div>
                   <div className="pref-field-desc">
-                    Background about you that the model will always see
+                    {t("Background about you that the model will always see")}
                   </div>
                   <textarea
                     className="pref-context-textarea"
                     value={personalContext}
                     maxLength={1000}
-                    placeholder="e.g. I'm a software engineer working in TypeScript. Prefer concise answers."
+                    placeholder={t("e.g. I'm a software engineer working in TypeScript. Prefer concise answers.")}
                     onChange={(e) => setPersonalContext(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
@@ -1454,7 +1487,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
               <div className="pref-account-card" style={{ marginTop: 10 }}>
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Icon color</div>
+                  <div className="pref-field-label">{t("Icon color")}</div>
                   <div className="pref-avatar-preview-row">
                     <div
                       className="pref-avatar-preview"
@@ -1472,7 +1505,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       <button
                         className={`pref-avatar-swatch pref-avatar-swatch--default${!avatarColor ? " active" : ""}`}
                         onClick={() => setAvatarColor(null)}
-                        title="Default"
+                        title={t("Default")}
                       />
                       {[
                         "#cc241d",
@@ -1521,9 +1554,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       </svg>
                     </div>
                     <div className="pref-item-info">
-                      <div className="pref-item-name">Sign Out</div>
+                      <div className="pref-item-name">{t("Sign Out")}</div>
                       <div className="pref-item-desc">
-                        Sign out of your account
+                        {t("Sign out of your account")}
                       </div>
                     </div>
                     <span className="pref-row-arrow">→</span>
@@ -1549,10 +1582,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                   <div className="pref-item-info">
                     <div className="pref-item-name pref-danger-name">
-                      Clear All Chats
+                      {t("Clear All Chats")}
                     </div>
                     <div className="pref-item-desc">
-                      Delete all chat history permanently
+                      {t("Delete all chat history permanently")}
                     </div>
                   </div>
                   <span className="pref-row-arrow">→</span>
@@ -1580,10 +1613,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </div>
                   <div className="pref-item-info">
                     <div className="pref-item-name pref-danger-name">
-                      Delete Account
+                      {t("Delete Account")}
                     </div>
                     <div className="pref-item-desc">
-                      Permanently removes your account and all data
+                      {t("Permanently removes your account and all data")}
                     </div>
                   </div>
                   <span className="pref-row-arrow">→</span>
@@ -1597,22 +1630,20 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">Advanced</span>
+              <span className="pref-content-title">{t("Advanced")}</span>
             </div>
             <div className="pref-account-scroll">
               <div className="pref-account-card">
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Games model</div>
+                  <div className="pref-field-label">{t("Games model")}</div>
                   <div className="pref-field-desc">
-                    The model the games play with, apart from the one you chat with. The games need one
-                    that follows instructions closely and replies in clean JSON. Leave it on the server
-                    default unless you want to try another.
+                    {t("The model the games play with, apart from the one you chat with. The games need one that follows instructions closely and replies in clean JSON. Leave it on the server default unless you want to try another.")}
                   </div>
                   <select
                     className="pref-name-input pref-game-model"
                     value={gameModel && models.includes(gameModel) ? gameModel : ""}
                     onChange={(e) => setGameModel(e.target.value)}
-                    aria-label="Games model"
+                    aria-label={t("Games model")}
                   >
                     <option value="">
                       Server default{serverGameModel ? ` (${serverGameModel})` : ""}
@@ -1623,30 +1654,23 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       </option>
                     ))}
                   </select>
-                  {gameModel && !models.includes(gameModel) && models.length > 0 && (
-                    <div className="pref-ollama-msg pref-ollama-msg--error">
-                      {gameModel} is not on this server, so the games use the server default.
-                    </div>
-                  )}
                 </div>
               </div>
 
               {webStudio && (
               <div className="pref-account-card">
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Web studio model</div>
+                  <div className="pref-field-label">{t("Web studio model")}</div>
                   <div className="pref-field-desc">
-                    The model that builds sites with /web. It needs one that can use tools, so only those are
-                    listed. Auto picks an installed coding model, such as qwen2.5-coder, and otherwise the
-                    model you chat with. A bigger model is slower but makes fewer mistakes.
+                    {t("The model that builds sites with /web. It needs one that can use tools, so only those are listed. Auto picks an installed coding model, such as qwen2.5-coder, and otherwise the model you chat with. A bigger model is slower but makes fewer mistakes.")}
                   </div>
                   <select
                     className="pref-name-input pref-game-model"
                     value={studioModel && models.includes(studioModel) ? studioModel : ""}
                     onChange={(e) => setStudioModel(e.target.value)}
-                    aria-label="Web studio model"
+                    aria-label={t("Web studio model")}
                   >
-                    <option value="">Auto</option>
+                    <option value="">{t("Auto")}</option>
                     {models
                       .filter((m) => modelCapabilities[m]?.includes("web"))
                       .map((m) => (
@@ -1666,13 +1690,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
               <div className="pref-account-card">
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Ollama server</div>
+                  <div className="pref-field-label">{t("Ollama server")}</div>
                   <div className="pref-field-desc">
-                    Leave empty to use the shared test server. To use your own,
-                    enter an address reachable from the internet, such as an
-                    ngrok or Tailscale Funnel URL. ModelLoop connects from its
-                    own server, so localhost and private network addresses are
-                    refused.
+                    {t("Leave empty to use the shared test server. To use your own, enter an address reachable from the internet, such as an ngrok or Tailscale Funnel URL. ModelLoop connects from its own server, so localhost and private network addresses are refused.")}
                   </div>
                   <input
                     className="pref-name-input pref-ollama-input"
@@ -1711,7 +1731,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       onClick={handleSaveOllama}
                       disabled={ollamaSaving}
                     >
-                      {ollamaSaving ? <span className="btn-spinner" /> : "Save"}
+                      {ollamaSaving ? <span className="btn-spinner" /> : t("Save")}
                     </button>
                   </div>
 
@@ -1730,11 +1750,10 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
 
               <div className="pref-account-card">
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Connection</div>
+                  <div className="pref-field-label">{t("Connection")}</div>
                   {ollamaStatusLoading ? (
                     <div className="pref-field-desc">
-                      Checking, this can take up to 25 seconds if the server is
-                      asleep.
+                      {t("Checking, this can take up to 25 seconds if the server is asleep.")}
                     </div>
                   ) : ollamaStatus ? (
                     <>
@@ -1744,22 +1763,25 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         />
                         <span>
                           {ollamaStatus.reachable
-                            ? `Reachable${ollamaStatus.latency_ms != null ? ` in ${ollamaStatus.latency_ms} ms` : ""}`
+                            ? ollamaStatus.latency_ms != null
+                              ? t("Reachable in {ms} ms", { ms: ollamaStatus.latency_ms })
+                              : t("Reachable")
                             : ollamaStatus.reason === "timeout"
-                              ? "No answer yet"
-                              : "Not reachable"}
+                              ? t("No answer yet")
+                              : t("Not reachable")}
                         </span>
                         <span className="pref-ollama-target">
                           {ollamaStatus.using_shared_server
-                            ? "shared test server"
-                            : (ollamaStatus.url ?? "your server")}
+                            ? t("shared test server")
+                            : (ollamaStatus.url ?? t("your server"))}
                         </span>
                       </div>
                       {ollamaStatus.reachable &&
                         ollamaStatus.models != null && (
                           <div className="pref-field-desc">
-                            {ollamaStatus.models} model
-                            {ollamaStatus.models === 1 ? "" : "s"} available
+                            {ollamaStatus.models === 1
+                              ? t("1 model available")
+                              : t("{n} models available", { n: ollamaStatus.models })}
                             {ollamaStatus.sample &&
                             ollamaStatus.sample.length > 0
                               ? `: ${ollamaStatus.sample.join(", ")}`
@@ -1773,15 +1795,12 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       )}
                       {ollamaStatus.using_shared_server && (
                         <div className="pref-ollama-note">
-                          The shared server sleeps when idle, so the first reply
-                          after a quiet spell can take a minute to arrive. It is
-                          shared with everyone, so it can also be slow under
-                          load.
+                          {t("The shared server sleeps when idle, so the first reply after a quiet spell can take a minute to arrive. It is shared with everyone, so it can also be slow under load.")}
                         </div>
                       )}
                     </>
                   ) : (
-                    <div className="pref-field-desc">Status unavailable.</div>
+                    <div className="pref-field-desc">{t("Status unavailable.")}</div>
                   )}
                   <div className="pref-ollama-actions">
                     <button
@@ -1789,7 +1808,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                       onClick={loadOllamaStatus}
                       disabled={ollamaStatusLoading}
                     >
-                      Re-check
+                      {t("Re-check")}
                     </button>
                   </div>
                 </div>
@@ -1802,26 +1821,26 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
         return (
           <>
             <div className="pref-content-header">
-              <span className="pref-content-title">About</span>
+              <span className="pref-content-title">{t("About")}</span>
             </div>
             <div className="pref-account-scroll">
               <div className="pref-about-hero">
                 <img className="pref-about-logo" src={logoUrl} alt="" />
                 <div className="pref-about-wordmark">ModelLoop</div>
                 <div className="pref-about-build">
-                  Latest Build Date: Nov 8, 2026
+                  Latest Build Date: Nov 25, 2026
                 </div>
                 <div className="pref-about-tagline">
-                  Self-hosted AI chat powered by your local LLM
+                  {t("Self-hosted AI chat powered by your local LLM")}
                 </div>
               </div>
               <div className="pref-account-card">
                 <div className="pref-account-field">
-                  <div className="pref-field-label">Version</div>
-                  <div className="pref-about-meta-value">v2.1.0</div>
+                  <div className="pref-field-label">{t("Version")}</div>
+                  <div className="pref-about-meta-value">v2.3.0</div>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
-                  <div className="pref-field-label">Built by</div>
+                  <div className="pref-field-label">{t("Built by")}</div>
                   <a
                     href="https://aynjel.com/"
                     target="_blank"
@@ -1832,7 +1851,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                   </a>
                 </div>
                 <div className="pref-account-field pref-account-field-sep">
-                  <div className="pref-field-label">Source</div>
+                  <div className="pref-field-label">{t("Source")}</div>
                   <a
                     href="https://github.com/axgel6/ModelLoop"
                     target="_blank"
@@ -1866,7 +1885,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 type="button"
                 className="pref-phone-btn"
                 onClick={() => setPhonePane("back")}
-                aria-label="Back to Preferences"
+                aria-label={t("Back to Preferences")}
               >
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="m14.5 5.5-6.5 6.5 6.5 6.5" />
@@ -1876,13 +1895,13 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
               <span className="pref-phone-btn-space" />
             )}
             <span className="pref-phone-title">
-              {phonePane === "section" ? sectionLabel(activeSection) : "Preferences"}
+              {phonePane === "section" ? t(sectionLabel(activeSection)) : t("Preferences")}
             </span>
             <button
               type="button"
               className="pref-phone-btn"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={t("Close")}
             >
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
                 <path d="M6 6l12 12M18 6 6 18" />
@@ -1907,7 +1926,7 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                         {NAV_ICONS[id]}
                       </svg>
                     </span>
-                    <span className="pref-nav-label">{label}</span>
+                    <span className="pref-nav-label">{t(label)}</span>
                     <span className="pref-nav-hint">{navHint(id)}</span>
                     <svg className="pref-nav-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />
@@ -1934,10 +1953,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             // Sounds come from the page-wide press handler; this only keeps clicks inside the dialog
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="pref-delete-dialog-title">Delete Account</div>
+            <div className="pref-delete-dialog-title">{t("Delete Account")}</div>
             <div className="pref-delete-dialog-text">
-              This removes your account and everything in it for good. There
-              is no way to bring it back.
+              {t("This removes your account and everything in it for good. There is no way to bring it back.")}
             </div>
             <div className="pref-delete-dialog-divider" />
             <div className="pref-delete-dialog-actions">
@@ -1945,14 +1963,14 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-confirm-no"
                 onClick={() => setShowDeleteConfirm(false)}
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 className="pref-confirm-yes"
                 onClick={handleDeleteAccount}
                 disabled={deleting}
               >
-                {deleting ? "Deleting…" : "Delete Account"}
+                {deleting ? t("Deleting…") : t("Delete Account")}
               </button>
             </div>
           </div>
@@ -1969,10 +1987,9 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
             // Sounds come from the page-wide press handler; this only keeps clicks inside the dialog
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="pref-delete-dialog-title">Clear All Chats</div>
+            <div className="pref-delete-dialog-title">{t("Clear All Chats")}</div>
             <div className="pref-delete-dialog-text">
-              This removes every chat you have for good. There is no way to
-              bring them back.
+              {t("This removes every chat you have for good. There is no way to bring them back.")}
             </div>
             <div className="pref-delete-dialog-divider" />
             <div className="pref-delete-dialog-actions">
@@ -1980,14 +1997,14 @@ const ChatPreferences: React.FC<ChatPreferencesProps> = ({
                 className="pref-confirm-no"
                 onClick={() => setShowClearAllConfirm(false)}
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 className="pref-confirm-yes"
                 onClick={handleClearAllChats}
                 disabled={clearingAll}
               >
-                {clearingAll ? "Clearing…" : "Clear All"}
+                {clearingAll ? t("Clearing…") : t("Clear All")}
               </button>
             </div>
           </div>
