@@ -71,6 +71,9 @@ import { READER_SIZES, useReaderPrefs } from "./readerPrefs";
 import { splitParas, useFocusedNav } from "./useFocusedNav";
 import { t, useT } from "../i18n";
 
+// Why a reply was cancelled, when it was the Stop button (see handleStop)
+const USER_STOP = "user-stop";
+
 // ── Sidebar chat item ─────────────────────────────────────────────────────────
 
 interface SidebarChatItemProps {
@@ -822,7 +825,17 @@ function Chat({
       setIsThinking(false);
       setActiveTool(null);
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") return;
+      // Cancelled: by Stop, which marks the reply, or by leaving the chat, which leaves it be.
+      // Checked on the signal, since a cancel with a reason rejects with the reason, not an AbortError.
+      if (ctrl.signal.aborted) {
+        if (ctrl.signal.reason === USER_STOP) {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, stopped: true }] : prev;
+          });
+        }
+        return;
+      }
       // withRefresh fires handleLogout on 401 for authenticated users — strip the bubble and bail
       // For guests the API key mismatch also surfaces as "Unauthorized access" but no logout fires,
       // so guests fall through to show the error message instead of silently clearing.
@@ -863,7 +876,7 @@ function Chat({
     }
   };
 
-  const handleStop = () => abortControllerRef.current?.abort();
+  const handleStop = () => abortControllerRef.current?.abort(USER_STOP);
 
   const lastAssistantText = useMemo(() => {
     const last = messages[messages.length - 1];
@@ -1799,7 +1812,7 @@ function Chat({
                         showProjectCard={idx === lastProjectIdx}
                         isLast={idx === messages.length - 1}
                         canRetry={
-                          idx === messages.length - 1 && !!msg.content && !loading
+                          idx === messages.length - 1 && (!!msg.content || !!msg.stopped) && !loading
                         }
                         isThinking={idx === messages.length - 1 && isThinking}
                         activeTool={

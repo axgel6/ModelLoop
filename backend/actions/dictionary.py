@@ -37,11 +37,20 @@ _PATTERNS = [
     re.compile(rf"^what does (?:the word |the term )?{_WORD} mean$"),
     re.compile(rf"^(?:what are )?(?:some )?(?:synonyms?|other words?) (?:for|of) {_ONE_WORD}$"),
     re.compile(rf"^how (?:do you|do i|to) pronounce {_ONE_WORD}$"),
+    # The same in Spanish, about an English word: the dictionary is English only, so a Spanish
+    # word finds nothing and the model answers from what it knows
+    re.compile(rf"^(?:por favor )?define (?!un |una |el |la |los |las ){_ONE_WORD}$"),
+    re.compile(rf"^(?:qu[eé] )?significa (?:la palabra |el t[eé]rmino )?{_WORD}$"),
+    re.compile(rf"^(?:cu[aá]l es )?(?:el )?significado de (?:la palabra )?{_WORD}$"),
+    re.compile(rf"^(?:qu[eé] es |cu[aá]l es )?(?:la )?definici[oó]n de (?:la palabra )?{_WORD}$"),
+    re.compile(rf"^(?:dame |cu[aá]les son )?(?:unos |algunos )?sin[oó]nimos (?:de|para) {_ONE_WORD}$"),
+    re.compile(rf"^c[oó]mo se pronuncia {_ONE_WORD}$"),
 ]
 # "What does it mean", "what does that mean": about the conversation, not a word
 _NOT_A_WORD = {
     "it", "that", "this", "these", "those", "he", "she", "they", "you", "i", "we", "me", "him", "her", "them",
     "life", "love", "a", "an", "the",
+    "eso", "esto", "esa", "ese", "lo", "la", "el", "que", "vida", "amor",
 }
 
 _cache = TTLCache(ttl=86400.0)
@@ -49,7 +58,7 @@ _cache = TTLCache(ttl=86400.0)
 
 def parse(text: str) -> Optional[str]:
     """The word a message asks about, or None."""
-    text = re.sub(r"[?!.\s]+$", "", text.lower().replace("’", "'").strip())
+    text = re.sub(r"[?!.\s]+$", "", text.lower().replace("’", "'").strip()).lstrip("¿¡ ")
     for pattern in _PATTERNS:
         if match := pattern.match(text):
             word = match.group("word").strip("'-")

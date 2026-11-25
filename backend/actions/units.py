@@ -98,18 +98,88 @@ _UNITS = {
     "k_temp": ("temperature", None, "kelvin", "kelvin", ["kelvin", "kelvins"]),
 }
 
+# The Spanish names: (singular, plural, other names). Read in either language; the card uses them
+# when the app is in Spanish.
+_UNITS_ES = {
+    "mm": ("milímetro", "milímetros", ["milimetro", "milimetros"]),
+    "cm": ("centímetro", "centímetros", ["centimetro", "centimetros"]),
+    "m": ("metro", "metros", []),
+    "km": ("kilómetro", "kilómetros", ["kilometro", "kilometros"]),
+    "in": ("pulgada", "pulgadas", []),
+    "ft": ("pie", "pies", []),
+    "yd": ("yarda", "yardas", []),
+    "mi": ("milla", "millas", []),
+    "nmi": ("milla náutica", "millas náuticas", ["milla nautica", "millas nauticas"]),
+    "mg": ("miligramo", "miligramos", []),
+    "g": ("gramo", "gramos", []),
+    "kg": ("kilogramo", "kilogramos", []),
+    "tonne": ("tonelada métrica", "toneladas métricas", ["tonelada", "toneladas", "tonelada metrica", "toneladas metricas"]),
+    "oz": ("onza", "onzas", []),
+    "lb": ("libra", "libras", []),
+    "st": ("stone", "stone", []),
+    "ton": ("tonelada corta", "toneladas cortas", []),
+    "ml": ("mililitro", "mililitros", []),
+    "l": ("litro", "litros", []),
+    "tsp": ("cucharadita", "cucharaditas", []),
+    "tbsp": ("cucharada", "cucharadas", []),
+    "floz": ("onza líquida", "onzas líquidas", ["onza liquida", "onzas liquidas"]),
+    "cup": ("taza", "tazas", []),
+    "pt": ("pinta", "pintas", []),
+    "qt": ("cuarto de galón", "cuartos de galón", ["cuarto de galon", "cuartos de galon", "cuartos"]),
+    "gal": ("galón", "galones", ["galon"]),
+    "m3": ("metro cúbico", "metros cúbicos", ["metro cubico", "metros cubicos"]),
+    "mps": ("metro por segundo", "metros por segundo", []),
+    "kph": ("kilómetro por hora", "kilómetros por hora", ["kilometros por hora", "kilometro por hora"]),
+    "mph": ("milla por hora", "millas por hora", []),
+    "knot": ("nudo", "nudos", []),
+    "m2": ("metro cuadrado", "metros cuadrados", []),
+    "km2": ("kilómetro cuadrado", "kilómetros cuadrados", ["kilometro cuadrado", "kilometros cuadrados"]),
+    "ft2": ("pie cuadrado", "pies cuadrados", []),
+    "mi2": ("milla cuadrada", "millas cuadradas", []),
+    "acre": ("acre", "acres", []),
+    "ha": ("hectárea", "hectáreas", ["hectarea", "hectareas"]),
+    "byte": ("byte", "bytes", []),
+    "kb": ("kilobyte", "kilobytes", []),
+    "mb": ("megabyte", "megabytes", []),
+    "gb": ("gigabyte", "gigabytes", []),
+    "tb": ("terabyte", "terabytes", []),
+    "s": ("segundo", "segundos", ["seg"]),
+    "min": ("minuto", "minutos", []),
+    "h": ("hora", "horas", []),
+    "day": ("día", "días", ["dia", "dias"]),
+    "week": ("semana", "semanas", []),
+    "year": ("año", "años", []),
+    "psi": ("psi", "psi", []),
+    "bar": ("bar", "bar", []),
+    "kpa": ("kilopascal", "kilopascales", []),
+    "atm": ("atmósfera", "atmósferas", ["atmosfera", "atmosferas"]),
+    "c": ("°C", "°C", ["centígrados", "centigrados", "grados celsius", "grados centígrados"]),
+    "f": ("°F", "°F", ["grados fahrenheit"]),
+    "k_temp": ("kelvin", "kelvin", []),
+}
+_KINDS_ES = {
+    "length": "Longitud", "weight": "Peso", "volume": "Volumen", "speed": "Velocidad", "area": "Área",
+    "data": "Datos", "time": "Tiempo", "pressure": "Presión", "temperature": "Temperatura",
+}
+
 _ALIASES: dict[str, str] = {}
 for _key, (_kind, _size, _one, _many, _others) in _UNITS.items():
+    for _name in [_one, _many, *_others]:
+        _ALIASES.setdefault(_name.lower(), _key)
+for _key, (_one, _many, _others) in _UNITS_ES.items():
     for _name in [_one, _many, *_others]:
         _ALIASES.setdefault(_name.lower(), _key)
 # "k" alone means kilometers in "5k", not kelvin
 _ALIASES["k"] = "km"
 
 _LONGEST_ALIAS = max(len(a.split()) for a in _ALIASES)
-_CONNECTORS = {"to", "in", "into", "as"}
-_FILLER = {"degree", "degrees", "a", "an", "one", "the"}
+_CONNECTORS = {"to", "in", "into", "as", "a", "en"}
+_FILLER = {"degree", "degrees", "a", "an", "one", "the", "grado", "grados", "un", "una", "el", "la", "los", "las"}
+# "5 km es/son/equivale a ...", "son cuántas millas"
+_IS = {"is", "are", "equals", "es", "son", "equivale", "equivalen"}
+_HOW_MANY = {"cuántos", "cuantos", "cuántas", "cuantas"}
 _NUMBER = r"-?\d+(?:\.\d+)?(?:\s*/\s*\d+)?"
-_TOKEN_RE = re.compile(rf"{_NUMBER}|[a-z°²³/\"']+")
+_TOKEN_RE = re.compile(rf"{_NUMBER}|[a-zà-ÿñ°²³/\"']+")
 
 _TO_BASE = {"c": lambda v: v, "f": lambda v: (v - 32) * 5 / 9, "k_temp": lambda v: v - 273.15}
 _FROM_BASE = {"c": lambda v: v, "f": lambda v: v * 9 / 5 + 32, "k_temp": lambda v: v + 273.15}
@@ -146,15 +216,22 @@ def convert(value: float, from_key: str, to_key: str) -> Optional[float]:
     return value * size / to_size
 
 
-def _amount(value: float, key: str) -> str:
+def _names(key: str, language: str = "en") -> tuple[str, str]:
+    """A unit's singular and plural, in English or Spanish."""
+    if language == "es":
+        return _UNITS_ES[key][:2]
+    return _UNITS[key][2], _UNITS[key][3]
+
+
+def _amount(value: float, key: str, language: str = "en") -> str:
     """"5 miles", "1 mile", or "70°F" with the degree sign against the number."""
-    _, _, one, many, _ = _UNITS[key]
+    one, many = _names(key, language)
     name = one if abs(value) == 1 else many
     return f"{format_number(value)}{'' if name.startswith('°') else ' '}{name}"
 
 
-def describe(value: float, from_key: str, to_key: str) -> Optional[tuple[str, dict]]:
-    """The conversion for the model, and the card the chat shows above the reply."""
+def describe(value: float, from_key: str, to_key: str, language: str = "en") -> Optional[tuple[str, dict]]:
+    """The conversion for the model, and the card the chat shows above the reply (in language)."""
     result = convert(value, from_key, to_key)
     if result is None:
         return None
@@ -169,11 +246,12 @@ def describe(value: float, from_key: str, to_key: str) -> Optional[tuple[str, di
             feet, inches = feet + 1, 0
         note = f"{feet} ft {format_number(inches)} in"
         line += f" ({note})"
-    kind, _, one, many, _ = _UNITS[to_key]
+    kind = _UNITS[to_key][0]
+    one, many = _names(to_key, language)
     widget = {
         "kind": "conversion",
-        "title": kind.capitalize(),
-        "from": _amount(value, from_key),
+        "title": _KINDS_ES[kind] if language == "es" else kind.capitalize(),
+        "from": _amount(value, from_key, language),
         # Two decimals on the card: the reply and the model have the full figure
         "value": format_number(round(result, 2) if abs(result) >= 1 else float(f"{result:.3g}")),
         "unit": one if abs(result) == 1 else many,
@@ -199,11 +277,13 @@ def parse(text: str) -> Optional[tuple[float, str, str]]:
         from_key, j = _unit_at(tokens, i + 1)
         if not from_key:
             continue
-        # "5 km is how many miles"
-        if j < len(tokens) and tokens[j] in {"is", "are", "equals"}:
+        # "5 km is how many miles", "5 km son cuántas millas", "5 km equivalen a millas"
+        if j < len(tokens) and tokens[j] in _IS:
             j += 1
             if tokens[j:j + 2] == ["how", "many"]:
                 j += 2
+            elif j < len(tokens) and tokens[j] in _HOW_MANY | {"a"}:
+                j += 1
         elif j < len(tokens) and tokens[j] in _CONNECTORS:
             j += 1
         else:
@@ -211,16 +291,20 @@ def parse(text: str) -> Optional[tuple[float, str, str]]:
         to_key, _ = _unit_at(tokens, j)
         if to_key and convert(value, from_key, to_key) is not None:
             return value, from_key, to_key
-    # "how many ounces in a pound", "how many cups are in 2 quarts"
+    # "how many ounces in a pound", "how many cups are in 2 quarts", "¿cuántas onzas hay en una libra?"
     for i in range(len(tokens) - 1):
-        if tokens[i:i + 2] != ["how", "many"]:
+        if tokens[i:i + 2] == ["how", "many"]:
+            start = i + 2
+        elif tokens[i] in _HOW_MANY:
+            start = i + 1
+        else:
             continue
-        to_key, j = _unit_at(tokens, i + 2)
+        to_key, j = _unit_at(tokens, start)
         if not to_key:
             continue
-        if j < len(tokens) and tokens[j] in {"are", "is"}:
+        if j < len(tokens) and tokens[j] in {"are", "is", "hay", "caben", "tiene"}:
             j += 1
-        if j >= len(tokens) or tokens[j] not in {"in", "per"}:
+        if j >= len(tokens) or tokens[j] not in {"in", "per", "en", "por"}:
             continue
         j += 1
         value = 1.0
@@ -241,7 +325,8 @@ async def proactive(text: str, ctx: dict) -> Optional[tuple[str, dict]]:
     found = parse(text)
     if not found:
         return None
-    described = describe(*found)
+    # The card speaks the app's language; the line for the model is always English
+    described = describe(*found, ctx.get("language") or "en")
     if not described:
         return None
     line, widget = described

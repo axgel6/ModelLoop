@@ -390,7 +390,7 @@ function ConversionCard({ widget }: { widget: ConversionWidget }) {
     <div
       className="clock-card"
       role="group"
-      aria-label={`${widget.from} is ${widget.value} ${widget.unit}`}
+      aria-label={t("{from} is {value} {unit}", { from: widget.from, value: widget.value, unit: widget.unit })}
     >
       <div className="clock-card-head">
         <span className="clock-card-sky" aria-hidden="true">

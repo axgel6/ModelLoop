@@ -102,6 +102,16 @@ _NO_ANSWER_RE = re.compile(
     r"|\bi (do not|don'?t) (know|have (any |enough |specific )?(information|info|data|details|knowledge) (on|about|regarding))"
     r"|\bi(['’]m| am) (not (familiar with|aware of|sure (who|what|which|when|where|if|about))|unable to (find|provide|verify))"
     r"|\bi (could not|couldn'?t|cannot|can'?t) (find|provide|verify) (any |current |specific )?(information|info|data|details)"
+    # A promise to look it up, in a reply with no search behind it
+    r"|\b(let me|i'?ll|i will|i'?m going to) (search|look (that |this |it )?up|find out)\b"
+    # The same, in Spanish: "No tengo acceso a información en tiempo real", "No sé cuándo saldrá",
+    # "Voy a buscar esa información"
+    r"|\bno (tengo|cuento con|puedo) (acceso|consultar|buscar|navegar)[^.!?\n]{0,50}\b(tiempo real|internet|la web|en l[ií]nea|actual(izada|es)?)\b"
+    r"|\bmi (conocimiento|informaci[oó]n|entrenamiento) (llega|termina|tiene (una )?fecha de corte|est[aá] limitad[oa])"
+    r"|\bno (s[eé]|tengo (informaci[oó]n|datos|detalles)) (cu[aá]ndo|qu[eé]|qui[eé]n|d[oó]nde|cu[aá]l|sobre|acerca|de)\b"
+    r"|\bno estoy (segur[oa]|familiarizad[oa]) (de|con|sobre|cu[aá]ndo|qu[eé]|qui[eé]n)\b"
+    r"|\bno (encontr[eé]|pude encontrar|puedo (encontrar|verificar|confirmar|proporcionar)) (informaci[oó]n|datos|detalles)"
+    r"|\b(voy a|d[eé]jame|perm[ií]teme) (buscar|consultar|investigar)\b"
     r")",
     re.IGNORECASE,
 )
@@ -120,6 +130,10 @@ _CONFUSED_RE = re.compile(
     r"|\bnot sure what you(['’]re| are) (referring|asking|getting)"
     r"|\b(doesn'?t|does not) (seem|appear) to be a (question|request)"
     r"|\b(your|the|this) message (seems|appears|looks) (to be )?(incomplete|unclear|cut off)"
+    # Spanish
+    r"|\bno (estoy segur[oa] de )?(entiendo|entend[ií]) (lo que|qu[eé]|a qu[eé]|tu|el|la)"
+    r"|\b(podr[ií]as|puedes) (aclarar|explicar lo que|darme m[aá]s (contexto|detalles))"
+    r"|\bqu[eé] quieres decir\b"
     r")",
     re.IGNORECASE,
 )
@@ -146,7 +160,19 @@ def _format_search_block(results: list) -> str:
     )
 
 
+# A go-ahead with nothing to search in it: "ok", "sí", "go ahead". Searched as the question before it.
+_GO_AHEAD_RE = re.compile(
+    r"^\s*(ok(ay)?|sure|yes|yeah|yep|please|go ahead|do it|s[ií]|va|dale|claro|porfa|por favor|adelante|h[aá]zlo|b[uú]scalo)"
+    r"[\s.,!]*(please|por favor|porfa)?[\s.!]*$",
+    re.IGNORECASE,
+)
+
+
 def _resolve_search_query(prompt: str, history) -> str:
+    if _GO_AHEAD_RE.match(prompt):
+        earlier = next((m["content"] for m in reversed(history) if m["role"] == "user"), None)
+        if earlier:
+            prompt = earlier
     if not _PRONOUN_RE.search(prompt):
         return prompt
     recent_history = list(reversed(history[-10:]))
@@ -351,7 +377,9 @@ async def _chat_stream_response(
                 return None
             if place:
                 try:
-                    report = await _weather.lookup(place, search_region, temp_unit)
+                    report = await _weather.lookup(
+                        place, search_region, temp_unit, _weather.place_language(prompt, language),
+                    )
                     if report:
                         weather_widget = report["widget"]
                         return {"results": [{
@@ -377,7 +405,7 @@ async def _chat_stream_response(
         # The calculator, conversions, clock and dictionary answer from the message itself
         if not actions_enabled:
             return {}, []
-        return await run_proactive(prompt, {"user_tz": user_tz})
+        return await run_proactive(prompt, {"user_tz": user_tz, "language": language})
 
     async def _rag_task():
         if not rag_enabled:
@@ -404,11 +432,13 @@ async def _chat_stream_response(
                 _tools_task(),
             )
             # A tool that already answered is not offered again: the model would only call it twice.
-            # The weather is answered too when its card was made, since the report is in the search results.
+            # The weather is answered too when its card was made, since the report is in the search
+            # results. So is the web search, which that report took the place of: offered it anyway,
+            # a small model searched again and, when that failed, had nothing left to say.
             answered = set(tool_answers)
             if weather_widget:
                 widgets = [weather_widget, *widgets]
-                answered.add("get_weather")
+                answered.update(("get_weather", "web_search"))
             if answered and active_tools:
                 active_tools = [t for t in active_tools if t["function"]["name"] not in answered] or None
 
@@ -815,10 +845,11 @@ async def _chat_stream_response(
                                 event["file"] = {"path": step["path"], "content": workspace.files.get(step["path"])}
                             yield f"data: {json.dumps(event)}\n\n"
                         continue
-                    # Set here, never by the model: the search region, the user's timezone and unit
+                    # Set here, never by the model: the search region, the user's timezone, unit and language
                     tool_args["_region"] = search_region
                     tool_args["_user_tz"] = user_tz
                     tool_args["_unit"] = temp_unit
+                    tool_args["_language"] = language
                     try:
                         tool_result = await execute_tool(tool_name, tool_args)
                     except Exception:
@@ -828,7 +859,10 @@ async def _chat_stream_response(
                     # lookup was just cached, so this reads it back without a second request.
                     if tool_name == "get_weather" and not any(w.get("kind") == "weather" for w in widgets):
                         try:
-                            report = await _weather.lookup(str(tool_args.get("location") or ""), search_region, temp_unit)
+                            location = str(tool_args.get("location") or "")
+                            report = await _weather.lookup(
+                                location, search_region, temp_unit, _weather.place_language(location, language),
+                            )
                         except Exception:
                             report = None
                         if report:

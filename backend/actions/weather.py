@@ -52,11 +52,23 @@ _WEATHER_RE = re.compile(
     r"|\b(is it|will it|going to) (rain|snow|be sunny|be hot|be cold|storm)",
     re.IGNORECASE,
 )
+# The same questions in Spanish: "¿Qué tiempo hace en Monterrey?", "clima en Tokio", "¿va a llover?"
+_WEATHER_ES_RE = re.compile(
+    r"\bclima\b"
+    r"|\bpron[oó]stico (del tiempo|para|en|de)\b"
+    r"|\bqu[eé] tiempo (hace|har[aá]|va a hacer)\b"
+    r"|\btemperatura (en|hoy|ma[ñn]ana|ahorita|ahora|afuera)\b"
+    r"|\bhace (calor|fr[ií]o)\b"
+    r"|\b(va a|est[aá]) (llover|lloviendo|nevar|nevando)\b|\b(llover[aá]|llueve|nevar[aá]|nieva)\b",
+    re.IGNORECASE,
+)
 
-# "weather in Atlanta", "forecast for New York tomorrow"
+# "weather in Atlanta", "forecast for New York tomorrow", "clima en Ciudad de México hoy"
 _PLACE_AFTER_RE = re.compile(
-    r"\b(?:in|for|at|near|around)\s+([A-Za-z][A-Za-z .,'-]{1,48}?)"
-    r"(?=\s*(?:[?!.]|$|\b(?:right now|today|tonight|tomorrow|this|now|currently|please|like|going|gonna)\b))",
+    r"\b(?:in|for|at|near|around|en|para|cerca de|(?:clima|tiempo|pron[oó]stico|temperatura) del?)"
+    r"\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .,'-]{1,48}?)"
+    r"(?=\s*(?:[?!.]|$|\b(?:right now|today|tonight|tomorrow|this|now|currently|please|like|going|gonna|"
+    r"ahorita|ahora|hoy|esta noche|ma[ñn]ana|este|esta|por favor|actualmente|en este momento)\b))",
     re.IGNORECASE,
 )
 # "Atlanta weather", "New York forecast"
@@ -65,14 +77,15 @@ _PLACE_BEFORE_RE = re.compile(r"\b([A-Z][\w.'-]+(?:,? [A-Z][\w.'-]+){0,2}) (?:we
 # Things that follow "in" or "for" in a weather question without being a place.
 _NOT_A_PLACE = re.compile(
     r"^(the|my|our|this|that|next|a|an|here|there|today|tonight|tomorrow|now|me|us|you|"
-    r"celsius|fahrenheit|general|case|fact|advance|particular)\b",
+    r"celsius|fahrenheit|general|case|fact|advance|particular|"
+    r"mi|nuestro|nuestra|este|esta|ese|esa|aqu[ií]|ac[aá]|all[aá]|hoy|ma[ñn]ana|ahora|ahorita|grados|serio)\b",
     re.IGNORECASE,
 )
 
 # A typo'd "a" or "an" before a place: "weather in a Atlanta GA"
 _STRAY_ARTICLE_RE = re.compile(r"^(?i:a|an)\s+(?=[A-Z])")
 # A capitalized word after "in", "for" and the like, past an article: "in Atlanta", "in the Bronx"
-_NAMED_PLACE_RE = re.compile(r"\b(?i:in|for|at|near|around)\s+(?:(?i:a|an|the)\s+)?[A-Z]")
+_NAMED_PLACE_RE = re.compile(r"\b(?i:in|for|at|near|around|en|para)\s+(?:(?i:a|an|the)\s+)?[A-ZÀ-Þ]")
 
 _FAHRENHEIT_COUNTRIES ={"US", "BS", "KY", "LR", "PW", "FM", "MH"}
 
@@ -118,7 +131,14 @@ _cache = TTLCache(ttl=600.0, max_size=100)
 
 
 def should_activate(text: str, words: set) -> bool:
-    return bool(_WEATHER_RE.search(text))
+    return bool(_WEATHER_RE.search(text) or _WEATHER_ES_RE.search(text))
+
+
+def place_language(text: str, language: Optional[str] = None) -> str:
+    """The language to look places up in. Asked in English, "Tokio" is a town in Texas and
+    "Londres" one in Argentina; in Spanish they are Tokyo and London. Spanish also finds the
+    English names ("Tokyo" is Tokio), so Spanish mode always looks up in Spanish."""
+    return "es" if language == "es" or _WEATHER_ES_RE.search(text) else "en"
 
 
 def extract_location(text: str) -> Optional[str]:
@@ -175,8 +195,8 @@ async def _get_json(client: httpx.AsyncClient, url: str, params: dict, headers: 
                 raise
 
 
-async def _search_places(client: httpx.AsyncClient, name: str) -> list:
-    data = await _get_json(client, _GEOCODE_URL, {"name": name, "count": 10, "language": "en"})
+async def _search_places(client: httpx.AsyncClient, name: str, language: str = "en") -> list:
+    data = await _get_json(client, _GEOCODE_URL, {"name": name, "count": 10, "language": language})
     return data.get("results") or []
 
 
@@ -191,12 +211,12 @@ def _pick(places: list, hint: str) -> dict:
     return places[0]
 
 
-async def _geocode(client: httpx.AsyncClient, location: str) -> Optional[dict]:
+async def _geocode(client: httpx.AsyncClient, location: str, language: str = "en") -> Optional[dict]:
     # The geocoder matches on the city name alone, so "Atlanta, Georgia" has to be
     # searched as "Atlanta" and the rest used to pick among the matches.
     name, comma, rest = location.partition(",")
     name = name.strip()
-    places = await _search_places(client, name)
+    places = await _search_places(client, name, language)
     if places:
         return _pick(places, rest)
     # "Mount Vernon wa", "Paris France": no comma, so the region is the last word or two
@@ -205,10 +225,15 @@ async def _geocode(client: httpx.AsyncClient, location: str) -> Optional[dict]:
         for cut in (1, 2):
             if len(words) <= cut:
                 break
-            places = await _search_places(client, " ".join(words[:-cut]))
+            places = await _search_places(client, " ".join(words[:-cut]), language)
             if places:
                 return _pick(places, " ".join(words[-cut:]))
     return None
+
+
+def _region_name(region: Optional[str]) -> Optional[str]:
+    """"Nuevo León" as the English lookup names it, not the Spanish lookup's "Estado de Nuevo León"."""
+    return re.sub(r"^(?:Estado|Provincia|Departamento|Regi[oó]n) de\s+", "", region) if region else region
 
 
 def _met_code(symbol: Optional[str]) -> Optional[int]:
@@ -328,22 +353,25 @@ async def _forecast(client: httpx.AsyncClient, place: dict, imperial: bool) -> d
     return await _met_forecast(client, place, imperial)
 
 
-async def lookup(location: str, region: str = "us-en", unit: Optional[str] = None) -> Optional[dict]:
+async def lookup(
+    location: str, region: str = "us-en", unit: Optional[str] = None, language: str = "en",
+) -> Optional[dict]:
     """Return {"place": ..., "report": ...} for a place, or None if it cannot be found.
 
     unit is "F" or "C" from the user's preferences; without one, the place's own country decides.
+    language is the one the place is looked up and named in (see place_language).
     """
     location = location.strip()
     if not location:
         return None
     unit = unit if unit in ("F", "C") else None
-    key = f"{location.lower()}:{region}:{unit or 'local'}"
+    key = f"{location.lower()}:{region}:{unit or 'local'}:{language}"
     cached = _cache.get(key)
     if cached is not MISSING:
         return cached
 
     client = http_client()
-    place = await _geocode(client, location)
+    place = await _geocode(client, location, language)
     if not place:
         return None
 
@@ -375,7 +403,7 @@ async def lookup(location: str, region: str = "us-en", unit: Optional[str] = Non
         "kind": "weather",
         "place": place.get("name") or place_name,
         # "Tokyo, Tokyo" reads as a mistake, so a region named like the city is left out
-        "region": next((r for r in (place.get("admin1"), place.get("country")) if r and r != place.get("name")), ""),
+        "region": next((r for r in (_region_name(place.get("admin1")), place.get("country")) if r and r != place.get("name")), ""),
         "unit": "F" if imperial else "C",
         "temp": round(now["temperature_2m"]),
         "feels": round(now["apparent_temperature"]),
@@ -412,7 +440,10 @@ async def async_execute(arguments: dict) -> str:
     if not location:
         return json.dumps({"error": "No location provided. Ask the user which city they mean."})
     try:
-        result = await lookup(location, arguments.get("_region", "us-en"), arguments.get("_unit"))
+        result = await lookup(
+            location, arguments.get("_region", "us-en"), arguments.get("_unit"),
+            place_language(location, arguments.get("_language")),
+        )
     except Exception as e:
         return json.dumps({"error": f"Weather lookup failed: {e}. Do not invent weather data."})
     if not result:

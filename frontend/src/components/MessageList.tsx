@@ -186,6 +186,9 @@ export const AssistantMessage = memo(function AssistantMessage({
   }, [isSpeaking]);
 
   const showThinking = msg.content === "" && isThinking && isLast;
+  // Stopped before anything arrived: no empty bubble, just "Stopped" by the timestamp
+  const stoppedEmpty =
+    msg.stopped && !msg.content && !msg.thinking && !msg.image_context && !msg.search_context;
   const showToolUse = isLast && !!activeTool && msg.content === "";
   const toolPhrase = t(TOOL_PHRASES[activeTool ?? ""] ?? "Fetching what I need");
 
@@ -198,119 +201,124 @@ export const AssistantMessage = memo(function AssistantMessage({
           <ProjectCard />
         </div>
       )}
-      <div className="message assistant">
-        <div className={`assistant-content${revealing ? " is-revealing" : ""}`}>
-          {msg.thinking && (
-            <div className="reasoning-block">
-              <button
-                className="reasoning-toggle"
-                onClick={() => setThinkingOpen((v) => !v)}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  width="12"
-                  height="12"
-                  fill="currentColor"
-                  style={{
-                    transform: thinkingOpen ? "rotate(90deg)" : "none",
-                    transition: "transform 0.15s",
-                  }}
+      {!stoppedEmpty && (
+        <div className="message assistant">
+          <div className={`assistant-content${revealing ? " is-revealing" : ""}`}>
+            {msg.thinking && (
+              <div className="reasoning-block">
+                <button
+                  className="reasoning-toggle"
+                  onClick={() => setThinkingOpen((v) => !v)}
                 >
-                  <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
-                </svg>
-                {t("Reasoning")}
-              </button>
-              {thinkingOpen && (
-                <div className="reasoning-content">{msg.thinking}</div>
-              )}
-            </div>
-          )}
-          {msg.image_context && (
-            <div className="reasoning-block">
-              <button
-                className="reasoning-toggle"
-                onClick={() => setImageContextOpen((v) => !v)}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  width="12"
-                  height="12"
-                  fill="currentColor"
-                  style={{
-                    transform: imageContextOpen ? "rotate(90deg)" : "none",
-                    transition: "transform 0.15s",
-                  }}
+                  <svg
+                    viewBox="0 0 16 16"
+                    width="12"
+                    height="12"
+                    fill="currentColor"
+                    style={{
+                      transform: thinkingOpen ? "rotate(90deg)" : "none",
+                      transition: "transform 0.15s",
+                    }}
+                  >
+                    <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
+                  </svg>
+                  {t("Reasoning")}
+                </button>
+                {thinkingOpen && (
+                  <div className="reasoning-content">{msg.thinking}</div>
+                )}
+              </div>
+            )}
+            {msg.image_context && (
+              <div className="reasoning-block">
+                <button
+                  className="reasoning-toggle"
+                  onClick={() => setImageContextOpen((v) => !v)}
                 >
-                  <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
-                </svg>
-                {t("Image Analysis")}
-              </button>
-              {imageContextOpen && (
-                <div className="reasoning-content">{msg.image_context}</div>
-              )}
-            </div>
-          )}
-          {msg.search_context && (
-            <div className="reasoning-block">
-              <button
-                className="reasoning-toggle"
-                onClick={() => setSearchContextOpen((v) => !v)}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  width="12"
-                  height="12"
-                  fill="currentColor"
-                  style={{
-                    transform: searchContextOpen ? "rotate(90deg)" : "none",
-                    transition: "transform 0.15s",
-                  }}
+                  <svg
+                    viewBox="0 0 16 16"
+                    width="12"
+                    height="12"
+                    fill="currentColor"
+                    style={{
+                      transform: imageContextOpen ? "rotate(90deg)" : "none",
+                      transition: "transform 0.15s",
+                    }}
+                  >
+                    <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
+                  </svg>
+                  {t("Image Analysis")}
+                </button>
+                {imageContextOpen && (
+                  <div className="reasoning-content">{msg.image_context}</div>
+                )}
+              </div>
+            )}
+            {msg.search_context && (
+              <div className="reasoning-block">
+                <button
+                  className="reasoning-toggle"
+                  onClick={() => setSearchContextOpen((v) => !v)}
                 >
-                  <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
-                </svg>
-                {sourceLabel(msg.search_context)}
-              </button>
-              {searchContextOpen && (
-                <div className="reasoning-content">{msg.search_context}</div>
-              )}
-            </div>
-          )}
-          {streaming && msg.steps ? (
-            <>
-              {shownContent && (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={REHYPE_PLUGINS_STREAMING}
-                  components={MD_COMPONENTS}
-                >
-                  {fixMathDelimiters(fixNestedFences(shownContent))}
-                </ReactMarkdown>
-              )}
-              <ProjectSteps steps={msg.steps} startedAt={msg.created_at} />
-            </>
-          ) : showToolUse ? (
-            <span className="waiting" role="status">
-              {/* Keyed by its words, so a new tool's phrase focuses in */}
-              <span key={toolPhrase} className="thinking-phrase">
-                {toolPhrase}
+                  <svg
+                    viewBox="0 0 16 16"
+                    width="12"
+                    height="12"
+                    fill="currentColor"
+                    style={{
+                      transform: searchContextOpen ? "rotate(90deg)" : "none",
+                      transition: "transform 0.15s",
+                    }}
+                  >
+                    <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
+                  </svg>
+                  {sourceLabel(msg.search_context)}
+                </button>
+                {searchContextOpen && (
+                  <div className="reasoning-content">{msg.search_context}</div>
+                )}
+              </div>
+            )}
+            {streaming && msg.steps ? (
+              <>
+                {shownContent && (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={REHYPE_PLUGINS_STREAMING}
+                    components={MD_COMPONENTS}
+                  >
+                    {fixMathDelimiters(fixNestedFences(shownContent))}
+                  </ReactMarkdown>
+                )}
+                <ProjectSteps steps={msg.steps} startedAt={msg.created_at} />
+              </>
+            ) : showToolUse ? (
+              <span className="waiting" role="status">
+                {/* Keyed by its words, so a new tool's phrase focuses in */}
+                <span key={toolPhrase} className="thinking-phrase">
+                  {toolPhrase}
+                </span>
               </span>
-            </span>
-          ) : showThinking ? (
-            <TypingDots label={t("Thinking")} />
-          ) : (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={revealing ? REHYPE_PLUGINS_STREAMING : REHYPE_PLUGINS}
-              components={MD_COMPONENTS}
-            >
-              {fixMathDelimiters(fixNestedFences(shownContent))}
-            </ReactMarkdown>
-          )}
+            ) : showThinking ? (
+              <TypingDots label={t("Thinking")} />
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={revealing ? REHYPE_PLUGINS_STREAMING : REHYPE_PLUGINS}
+                components={MD_COMPONENTS}
+              >
+                {fixMathDelimiters(fixNestedFences(shownContent))}
+              </ReactMarkdown>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       {msg.project_changes && <ProjectChangeLabels changes={msg.project_changes} />}
       <div className="msg-meta">
-        {ts && <span className="msg-timestamp">{ts}</span>}
+        {/* "Stopped" sits by the time, not in the reply, so Copy and Listen leave it out */}
+        {(ts || msg.stopped) && (
+          <span className="msg-timestamp">{[ts, msg.stopped && t("Stopped")].filter(Boolean).join(" · ")}</span>
+        )}
         <div className="msg-actions">
           {msg.content && (
             <button
@@ -362,6 +370,14 @@ export const UserMessage = memo(function UserMessage({
 }) {
   useT();
   const ts = fmtTime(msg.created_at);
+  const [copied, setCopied] = useState(false);
+
+  // Copies what was typed; attached images stay out, as with a reply's copy button
+  const handleCopy = () => {
+    navigator.clipboard.writeText(msg.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1530);
+  };
 
   return (
     <div className="msg-bubble-group user-group">
@@ -417,15 +433,27 @@ export const UserMessage = memo(function UserMessage({
       )}
       <div className="msg-meta user-meta">
         {ts && <span className="msg-timestamp">{ts}</span>}
-        {canEdit && (
+        {/* Copy on every message, edit only on the latest (the one that can be sent again) */}
+        {!isEditing && (msg.content || canEdit) && (
           <div className="msg-actions">
-            <button
-              className="edit-msg-btn"
-              onClick={onEditStart}
-              title={t("Edit message")}
-            >
-              <EditIcon />
-            </button>
+            {msg.content && (
+              <button
+                className={`copy-btn${copied ? " copied" : ""}`}
+                onClick={handleCopy}
+                title={copied ? t("Copied!") : t("Copy")}
+              >
+                {copied ? <CheckIcon /> : <CopyIcon />}
+              </button>
+            )}
+            {canEdit && (
+              <button
+                className="edit-msg-btn"
+                onClick={onEditStart}
+                title={t("Edit message")}
+              >
+                <EditIcon />
+              </button>
+            )}
           </div>
         )}
       </div>

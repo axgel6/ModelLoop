@@ -49,6 +49,11 @@ KEYWORDS = {
     "price", "cost", "stock",
     "score",
     "search", "lookup",
+    # Spanish, for Spanish mode (and anyone writing in Spanish)
+    "noticias", "titulares", "tendencia",
+    "clima", "pronóstico", "pronostico",
+    "precio", "costo", "cotización", "cotizacion",
+    "marcador",
 }
 
 _SEARCH_TRIGGERS = re.compile(
@@ -71,7 +76,22 @@ _SEARCH_TRIGGERS = re.compile(
     r"(current|live) (standings?|rankings?|scores?)|"
     r"(this|last) (week|month|year)'?s? .{0,30}(news|results?|winner|champion)|"
     # Entertainment / media releases
-    r"(new|latest|recent) (single|album|song|track|movie|film|show|episode|season|release|video|tour)"
+    r"(new|latest|recent) (single|album|song|track|movie|film|show|episode|season|release|video|tour)|"
+    # When something comes out: "when is X coming out", "X release date"
+    r"when (is|are|does|do|will|did|was) .{0,60}\b(come out|coming out|came out|released?|releasing|drop|dropping|dropped|premieres?|premiering|launch(es|ing)?)|"
+    r"release date|"
+    # The same, in Spanish
+    r"busca(r|me|lo)? (sobre|acerca|en internet|en la web|informaci[oó]n)|b[uú]scalo|"
+    r"([uú]ltim[oa]s|recientes?) (noticias|actualizaci[oó]n(es)?|versi[oó]n|resultados?)|"
+    r"(el|la|los|las) ([uú]ltim[oa]s?|m[aá]s recientes?) (?!(elemento|valor|archivo|registro|nodo|mensaje|fila|commit)s?\b)\w+|"
+    r"qui[eé]n es (el|la) (actual|nuev[oa])|"
+    r"noticias (de|del|sobre|acerca)|"
+    r"clima (en|de|para|hoy|mañana|esta noche)|(qu[eé]) tiempo hace|"
+    r"precio de (la|las) acci[oó]n(es)?|"
+    r"qui[eé]n (gan[oó]|va ganando)|"
+    r"(cu[aá]ndo|qu[eé] d[ií]a|fecha) (sale|saldr[aá]|va a salir|va salir|se estrena|estrena|estrenan|lanza|lanzan|se lanza|sali[oó]|se estren[oó]|es el estreno|de (estreno|lanzamiento|salida))|"
+    r"(nuev[oa]|[uú]ltim[oa]) (sencillo|[aá]lbum|disco|canci[oó]n|pel[ií]cula|serie|temporada|episodio|cap[ií]tulo|gira|video)|"
+    r"(estreno|lanzamiento) (de|del)"
     r")\b",
     re.IGNORECASE,
 )
@@ -338,7 +358,12 @@ _REQUEST_START = re.compile(
     r"^\s*(please|pls|can|could|would|will|should|do|does|did|is|are|am|was|were|how|why|when|where|which|who|"
     r"write|make|create|build|generate|draft|compose|help|explain|describe|tell|give|show|list|fix|debug|"
     r"translate|summarize|summarise|rewrite|edit|improve|check|find|compare|plan|suggest|recommend|"
-    r"calculate|convert|solve|teach|define|i need|i want|i'?d like|i have|i'?m trying|let'?s|hey|hi|hello|ok|okay|thanks)\b",
+    r"calculate|convert|solve|teach|define|i need|i want|i'?d like|i have|i'?m trying|let'?s|hey|hi|hello|ok|okay|thanks|"
+    # Spanish openings, which may follow an opening ¿ or ¡
+    r"por favor|porfa|me (ayudas|puedes|podr[ií]as|explicas|dices|das|recomiendas|haces|escribes)|puedes|podr[ií]as|c[oó]mo|por qu[eé]|cu[aá]ndo|d[oó]nde|cu[aá]l(es)?|qui[eé]n(es)?|qu[eé]|"
+    r"escribe|haz|hazme|crea|genera|redacta|ayuda|ay[uú]dame|explica|expl[ií]came|describe|dime|dame|mu[eé]strame|"
+    r"enumera|corrige|traduce|resume|reescribe|mejora|revisa|busca|compara|planea|sugiere|recomienda|calcula|"
+    r"convierte|resuelve|ens[eé][ñn]ame|define|necesito|quiero|me gustar[ií]a|tengo|estoy|vamos|hola|oye|gracias)\b",
     re.IGNORECASE,
 )
 # Code, not prose: a fence, a line ending in a brace or semicolon, a line opening with a
@@ -363,7 +388,7 @@ def looks_like_reference(text: str) -> bool:
     # Ten words or more, so short chat ("cool beans man") never searches
     if not worth_searching(text, min_words=10) or "?" in text or "\n\n" in text:
         return False
-    if _REQUEST_START.search(text):
+    if _REQUEST_START.search(text.lstrip().lstrip("¿¡")):
         return False
     punct = len(re.findall(r"[.,;:!]", text))
     return punct / len(text.split()) < _REFERENCE_MAX_PUNCT_RATIO

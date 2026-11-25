@@ -333,6 +333,7 @@ export const es: Record<string, string> = {
   "Listen": "Escuchar",
   "Stop": "Detener",
   "Retry": "Reintentar",
+  "Stopped": "Detenido",
   "Edit message": "Editar mensaje",
   "Reasoning": "Razonamiento",
   "Image Analysis": "Análisis de imagen",
@@ -361,6 +362,7 @@ export const es: Record<string, string> = {
   "{n}% snow": "{n}% nieve",
   "Humidity {humidity}% · Wind {wind}": "Humedad {humidity}% · Viento {wind}",
   "As of {time}": "Actualizado {time}",
+  "{from} is {value} {unit}": "{from} son {value} {unit}",
   // Conditions, as the server capitalizes them (backend/actions/weather.py)
   "Clear sky": "Despejado",
   "Mainly clear": "Mayormente despejado",

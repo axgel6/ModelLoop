@@ -73,7 +73,10 @@ _CITIES = {
     for zone in sorted(available_timezones())
     if "/" in zone and not zone.startswith(("Etc/", "SystemV/", "US/"))
 }
-_USER_WORDS = {"here", "me", "my time", "my timezone", "my time zone", "local", "local time", "my place"}
+_USER_WORDS = {
+    "here", "me", "my time", "my timezone", "my time zone", "local", "local time", "my place",
+    "aquí", "aqui", "acá", "aca", "mi zona horaria", "mi hora", "hora local",
+}
 
 _TIME = r"(?P<time>\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)|\d{1,2}:\d{2}|noon|midnight)"
 _PLACE = r"[a-z][a-z .'-]{0,40}?"
@@ -89,6 +92,22 @@ _ZONE_OF_RE = re.compile(rf"\b(?:what|which) time ?zone (?:is|does) (?P<place>{_
 _ABBREVIATION = r"\b(?:est|edt|cst|cdt|mst|mdt|pst|pdt|gmt|utc|bst|cet|ist|jst)\b"
 _CONVERT_CUE_RE = re.compile(rf"\btime\b|\bconvert\b|^(?:what|when|whats)\b|{_ABBREVIATION}")
 
+# The same questions in Spanish: "¿Qué hora es en Tokio?", "diferencia de horario entre X y Y"
+_PLACE_ES = r"[a-zà-ÿ][a-zà-ÿ .'-]{0,40}?"
+_NOW_ES_RE = re.compile(
+    rf"\bhora (?:es |tienen |hay )?(?:ahorita |ahora |en este momento )?en (?P<place>{_PLACE_ES})"
+    r"(?: ahorita| ahora| en este momento)?$"
+)
+_DIFFERENCE_ES_RE = re.compile(
+    rf"\bdiferencia (?:de |en el )?horari[oa] (?:entre|de) (?P<a>{_PLACE_ES}) (?:y|e|con) (?P<b>{_PLACE_ES})$"
+)
+_ZONE_OF_ES_RE = re.compile(rf"\bzona horaria (?:de|tiene|usa|es la de) (?P<place>{_PLACE_ES})$")
+_SPANISH_RE = re.compile(
+    r"\bhora (?:es |tienen |hay )?(?:ahorita |ahora |en este momento )?en\b|\bzonas? horarias?\b"
+    r"|\bdiferencia (?:de |en el )?horari[oa]\b",
+    re.IGNORECASE,
+)
+
 _INTENT_RE = re.compile(
     r"\btime (?:is it )?(?:right now |now )?(?:in|at)\b|\btime ?zones?\b|\btime difference\b"
     rf"|\b(?:\d{{1,2}}(?::\d{{2}})?\s*(?:am|pm)|noon|midnight)\s+{_ABBREVIATION}",
@@ -102,8 +121,8 @@ def _clean(text: str) -> str:
 
 
 def _clean_place(place: str) -> str:
-    place = re.sub(r"^(?:the|in)\s+", "", place.strip(" ,.'"))
-    return re.sub(r"\s+(?:time|right now|now)$", "", place).strip()
+    place = re.sub(r"^(?:the|in|en)\s+", "", place.strip(" ,.'"))
+    return re.sub(r"\s+(?:time|right now|now|ahorita|ahora)$", "", place).strip()
 
 
 def _user_zone(ctx: dict) -> tuple[str, ZoneInfo | timezone]:
@@ -130,7 +149,7 @@ async def resolve(place: str, ctx: dict) -> Optional[tuple[str, ZoneInfo | timez
     found = None
     for attempt in tries if "," not in key else [key]:
         try:
-            found = await _weather._geocode(http_client(), attempt)
+            found = await _weather._geocode(http_client(), attempt, ctx.get("language") or "en")
         except Exception:
             return None
         if found and found.get("timezone"):
@@ -198,7 +217,13 @@ def _parse_time(text: str) -> Optional[tuple[int, int]]:
 
 def _intent(text: str) -> Optional[tuple]:
     """Which question this is and the places in it, without looking anything up."""
-    text = _clean(text)
+    text = _clean(text).lstrip("¿¡ ")
+    if match := _DIFFERENCE_ES_RE.search(text):
+        return "difference", match.group("a"), match.group("b")
+    if match := _ZONE_OF_ES_RE.search(text):
+        return "now", match.group("place")
+    if match := _NOW_ES_RE.search(text):
+        return "now", match.group("place")
     if match := _DIFFERENCE_RE.search(text):
         return "difference", match.group("a"), match.group("b")
     if match := _ZONE_OF_RE.search(text):
@@ -287,13 +312,16 @@ async def _difference(a: str, b: str, ctx: dict) -> Optional[str]:
 
 
 def should_activate(text: str, words: set) -> bool:
-    return bool(_INTENT_RE.search(text)) or _intent(text) is not None
+    return bool(_INTENT_RE.search(text) or _SPANISH_RE.search(text)) or _intent(text) is not None
 
 
 async def proactive(text: str, ctx: dict) -> Optional[str | tuple[str, dict]]:
     found = _intent(text)
     if not found:
         return None
+    # Places asked about in Spanish are looked up in Spanish (see weather.place_language)
+    if _SPANISH_RE.search(text):
+        ctx = {**ctx, "language": "es"}
     kind, *parts = found
     if kind == "now":
         return await _now_in(parts[0], ctx, card=True)
@@ -303,7 +331,7 @@ async def proactive(text: str, ctx: dict) -> Optional[str | tuple[str, dict]]:
 
 
 async def async_execute(arguments: dict) -> str:
-    ctx = {"user_tz": arguments.get("_user_tz")}
+    ctx = {"user_tz": arguments.get("_user_tz"), "language": arguments.get("_language")}
     location = str(arguments.get("location") or "").strip()
     if not location:
         return json.dumps({"error": "No place given. Ask the user which city or time zone they mean."})

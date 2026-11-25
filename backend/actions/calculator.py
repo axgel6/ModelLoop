@@ -35,14 +35,37 @@ _EXPRESSION_RE = re.compile(
     r"|\d\s*(?:%|percent) of\s*\$?\d"
     r"|\b(?:square|cube) root of\s*\d"
     r"|\d\s*(?:squared|cubed)\b"
-    r"|\b(?:sqrt|cbrt)\s*\(?\s*\d",
+    r"|\b(?:sqrt|cbrt)\s*\(?\s*\d"
+    # The same in Spanish: "37 por 412", "18% de 2340", "raíz cuadrada de 144", "5 al cuadrado"
+    r"|\d\s(?:por|m[aá]s|menos|entre|dividido (?:entre|por)|multiplicado por|elevado a(?: la)?)\s\s*[\d(.]"
+    r"|\d\s*(?:%|por ?ciento) de\s*\$?\d"
+    r"|\bra[ií]z (?:cuadrada|c[uú]bica) de\s*\d"
+    r"|\d\s*al (?:cuadrado|cubo)\b",
     re.IGNORECASE,
 )
 # Words that say a calculation is wanted. Without one, "1/2 cup of flour" or "24/7" is not a sum.
-_CUE_RE = re.compile(r"\b(calculate|calc|compute|what'?s|what is|how much is|solve|evaluate|equals?)\b|=\s*\??\s*$", re.IGNORECASE)
+_CUE_RE = re.compile(
+    r"\b(calculate|calc|compute|what'?s|what is|how much is|solve|evaluate|equals?|"
+    r"calcula|calcular|cu[aá]nto (?:es|son|da)|resuelve|eval[uú]a|igual a)\b|=\s*\??\s*$",
+    re.IGNORECASE,
+)
 _NOT_MATH_RE = re.compile(r"[^\d\s.,+\-*/x×÷^()%=?]")
 
 _WORDS = [
+    # Spanish first, so "15% de" is read before the bare "15%" below
+    (r"\bra[ií]z cuadrada de\s*(-?[\d.]+)", r"sqrt(\1)"),
+    (r"\bra[ií]z c[uú]bica de\s*(-?[\d.]+)", r"cbrt(\1)"),
+    (r"(\d+(?:\.\d+)?)\s*(?:%|por ?ciento) de\s*", r"(\1/100)*"),
+    (r"(\d+(?:\.\d+)?)\s*por ?ciento", r"(\1/100)"),
+    (r"\bmultiplicado por\b", "*"),
+    (r"\bdividido (?:entre|por)\b", "/"),
+    (r"(?<=[\d)])\s+por\s+(?=[\d(])", "*"),
+    (r"(?<=[\d)])\s+entre\s+(?=[\d(])", "/"),
+    (r"\bm[aá]s\b", "+"),
+    (r"\bmenos\b", "-"),
+    (r"\belevado a(?: la)?\b", "**"),
+    (r"\s*\bal cuadrado\b", "**2"),
+    (r"\s*\bal cubo\b", "**3"),
     (r"\bsquare root of\s*(-?[\d.]+)", r"sqrt(\1)"),
     (r"\bcube root of\s*(-?[\d.]+)", r"cbrt(\1)"),
     (r"(\d+(?:\.\d+)?)\s*(?:%|percent) of\s*", r"(\1/100)*"),

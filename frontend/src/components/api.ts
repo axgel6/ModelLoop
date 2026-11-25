@@ -502,6 +502,8 @@ export interface Message {
   steps?: ProjectStep[];
   /** A guest asked something that needs current info: invite them to sign in. Never stored. */
   sign_in_hint?: boolean;
+  /** The user pressed Stop while this reply came in. Never stored. */
+  stopped?: boolean;
 }
 
 // Fetch the full message history for a chat, ordered by creation time
