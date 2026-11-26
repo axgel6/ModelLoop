@@ -4,74 +4,74 @@
    ============================================================ */
 
 html {
-  --game-ink: #ebdbb2;
-  --game-heading: #fabd2f;
-  --game-muted: #a89984;
+  --game-ink: #f5e3b4;
+  --game-heading: #fdbc0d;
+  --game-muted: #b9a68c;
   --game-card: rgba(50, 48, 47, 0.7);
-  --game-card-border: rgba(80, 73, 69, 0.55);
-  --game-card-hover: rgba(60, 56, 54, 0.9);
-  --game-accent: #fabd2f;
+  --game-card-border: rgba(81, 73, 68, 0.55);
+  --game-card-hover: rgba(61, 56, 53, 0.9);
+  --game-accent: #fdbc0d;
   --game-accent-ink: #282828;
   /* The pressable accent: the chat's send and toggle buttons, a chosen option, a switch that's on */
-  --game-press: linear-gradient(180deg, #fac13b 0%, #f9b20c 100%);
-  --game-press-border: #d99906;
-  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 rgba(149, 108, 11, 0.4);
+  --game-press: linear-gradient(180deg, #ffbf0e 0%, #f9b207 100%);
+  --game-press-border: #d99900;
+  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 rgba(149, 108, 5, 0.4);
 }
 
 html[data-theme="dune"] {
-  --game-ink: #1c1917;
-  --game-heading: #ba6444;
-  --game-muted: #78716c;
+  --game-ink: #1a1714;
+  --game-heading: #b75630;
+  --game-muted: #6b625c;
   --game-card: rgba(255, 255, 255, 0.55);
-  --game-card-border: #e7e0d6;
+  --game-card-border: #e8e0d4;
   --game-card-hover: rgba(255, 255, 255, 0.85);
-  --game-accent: #d97757;
+  --game-accent: #df734f;
   --game-accent-ink: #ffffff;
-  --game-press: linear-gradient(180deg, #e0815f 0%, #c96344 100%);
-  --game-press-border: #b8522d;
-  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 0 rgba(140, 55, 25, 0.4);
+  --game-press: linear-gradient(180deg, #e67d57 0%, #cf5e3b 100%);
+  --game-press-border: #be4d21;
+  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 0 rgba(145, 50, 13, 0.4);
 }
 
 html[data-theme="ember"] {
-  --game-ink: #ebdbb2;
-  --game-heading: #fabd2f;
-  --game-muted: #a89984;
-  --game-card: rgba(60, 56, 54, 0.75);
-  --game-card-border: #504945;
-  --game-card-hover: rgba(67, 62, 57, 0.95);
-  --game-accent: #fbc954;
+  --game-ink: #f5e3b4;
+  --game-heading: #fdbc0d;
+  --game-muted: #b9a68c;
+  --game-card: rgba(61, 56, 53, 0.75);
+  --game-card-border: #514944;
+  --game-card-hover: rgba(68, 62, 56, 0.95);
+  --game-accent: #ffc83e;
   --game-accent-ink: #282828;
-  --game-press: #fabd2f;
-  --game-press-border: #d79921;
-  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.396), 0 2px 0 rgba(149, 108, 11, 0.4);
+  --game-press: #fdbc0d;
+  --game-press-border: #da9801;
+  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.396), 0 2px 0 rgba(149, 108, 5, 0.4);
 }
 
 html[data-theme="frost"] {
-  --game-ink: #d8dee9;
-  --game-heading: #82bdce;
-  --game-muted: #a3adbf;
-  --game-card: rgba(63, 72, 89, 0.75);
-  --game-card-border: #495366;
-  --game-card-hover: rgba(70, 79, 98, 0.95);
-  --game-accent: #9bcad8;
-  --game-accent-ink: #353c4a;
-  --game-press: linear-gradient(180deg, #8ec3d2 0%, #76b6c9 100%);
-  --game-press-border: #63acc1;
-  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.396), 0 2px 0 rgba(70, 154, 178, 0.4);
+  --game-ink: #dfe6f4;
+  --game-heading: #80c5d8;
+  --game-muted: #adbad0;
+  --game-card: rgba(61, 72, 93, 0.75);
+  --game-card-border: #47536a;
+  --game-card-hover: rgba(68, 79, 102, 0.95);
+  --game-accent: #95cbdb;
+  --game-accent-ink: #333c4d;
+  --game-press: linear-gradient(180deg, #87c4d5 0%, #6db7cd 100%);
+  --game-press-border: #57adc6;
+  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.396), 0 2px 0 rgba(52, 155, 183, 0.4);
 }
 
 html[data-theme="meadow"] {
-  --game-ink: #294231;
-  --game-heading: #457c62;
-  --game-muted: #52635a;
+  --game-ink: #1c3b27;
+  --game-heading: #337558;
+  --game-muted: #41564b;
   --game-card: rgba(255, 255, 255, 0.5);
-  --game-card-border: #d6e7db;
+  --game-card-border: #d3e8da;
   --game-card-hover: rgba(255, 255, 255, 0.8);
-  --game-accent: #46a177;
+  --game-accent: #34a474;
   --game-accent-ink: #ffffff;
-  --game-press: linear-gradient(180deg, #46ac7d 0%, #438969 100%);
-  --game-press-border: #367859;
-  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 0 rgba(36, 90, 65, 0.4);
+  --game-press: linear-gradient(180deg, #30af79 0%, #378b67 100%);
+  --game-press-border: #2a7a57;
+  --game-press-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 0 rgba(25, 91, 63, 0.4);
 }
 
 /* ---- Sidebar entry ---- */

@@ -7,16 +7,17 @@ import { language, useT } from "../i18n";
 
 export { DEFAULT_MODEL } from "./models";
 
+// The menu's list. /fast and /help still work when typed (see Chat.tsx) but stay off the menu:
+// /think already turns thinking off, and the menu is the help. /clear is the one destructive
+// command, so it sits last, away from the first row an Enter lands on.
 const SLASH_COMMANDS = [
-  { cmd: "/clear", desc: "Clear conversation" },
   { cmd: "/search", desc: "Force web search for your query" },
-  { cmd: "/code", desc: "Code mode: coding instructions" },
+  { cmd: "/code", desc: "Code mode: answers focused on code" },
   { cmd: "/math", desc: "Math mode: step by step, thinking on" },
   { cmd: "/think", desc: "Turn thinking on or off" },
-  { cmd: "/fast", desc: "Fast mode: thinking off" },
-  { cmd: "/ratelimit", desc: "Show rate limit info" },
   { cmd: "/web", desc: "Build a static website in this chat" },
-  { cmd: "/help", desc: "Show commands" },
+  { cmd: "/ratelimit", desc: "Show rate limit info" },
+  { cmd: "/clear", desc: "Clear conversation" },
 ];
 
 // How a model's abilities read in the quick switch, as on the badges in Preferences

@@ -74,6 +74,17 @@ import { t, useT } from "../i18n";
 // Why a reply was cancelled, when it was the Stop button (see handleStop)
 const USER_STOP = "user-stop";
 
+/** A chat's title from its first prompt: whole words, ending in an ellipsis when cut.
+    Matches short_title in backend/routers/stream.py, which saves the same title. */
+function shortTitle(text: string, limit = 60): string {
+  const clean = text.split(/\s+/).filter(Boolean).join(" ");
+  if (clean.length <= limit) return clean;
+  let cut = clean.slice(0, limit - 1);
+  const space = cut.lastIndexOf(" ");
+  if (space > limit * 0.6) cut = cut.slice(0, space);
+  return cut.replace(/[\s,.;:-]+$/, "") + "\u2026";
+}
+
 // ── Sidebar chat item ─────────────────────────────────────────────────────────
 
 interface SidebarChatItemProps {
@@ -442,7 +453,7 @@ function Chat({
       justCreatedChatRef.current = true;
       onChatCreated(
         chat.id,
-        firstPrompt ? { ...chat, title: firstPrompt.slice(0, 60) } : chat,
+        firstPrompt ? { ...chat, title: shortTitle(firstPrompt) } : chat,
       );
       void onChatsChanged();
       return chat.id;

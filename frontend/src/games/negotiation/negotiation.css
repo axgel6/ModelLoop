@@ -44,11 +44,11 @@ html[data-theme] .neg {
 .neg-error {
   margin: 0 0 10px;
   font-size: 0.82rem;
-  color: #c0392b;
+  color: #c72e20;
 }
 
 :where(html[data-theme="frost"]) .neg-error {
-  color: #b84f59;
+  color: #be4956;
 }
 
 /* A text link that happens to be a button: it must not pick up the themes' button look */
@@ -590,13 +590,13 @@ html[data-theme] .neg-top {
   /* Which way the raised price's depth falls: away from the light */
   --sx: 1.2px;
   --sy: 1.4px;
-  --pay-ink: #d9d4de;
+  --pay-ink: #dad3e0;
   --chroma: linear-gradient(
     100deg,
     #ffc4e0 0%,
     #d6caff 20%,
     #bae4ff 40%,
-    #c8fae4 60%,
+    #c2fce3 60%,
     #ffeecc 80%,
     #ffc4e0 100%
   );
@@ -610,7 +610,7 @@ html[data-theme] .neg-top {
   padding: 12px 16px 14px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  background: linear-gradient(135deg, #1c1a20 0%, #131216 55%, #17181c 100%);
+  background: linear-gradient(135deg, #1c1a21 0%, #131217 55%, #17181d 100%);
   color: var(--pay-ink);
   /* The chat clips at 4px either side, so the shadow is pulled in (negative spread) and
      falls below the card instead of out past its sides */
@@ -662,15 +662,15 @@ html[data-theme] .neg-top {
   position: relative;
   align-self: flex-start;
   font-size: 2rem;
-  color: #4b4654;
+  color: #4c4556;
   /* Half steps, so a deep edge reads as one solid side rather than stacked copies */
   text-shadow:
     calc(var(--sx) * -0.4) calc(var(--sy) * -0.4) 0 rgba(255, 255, 255, 0.4),
-    calc(var(--sx) * 0.5) calc(var(--sy) * 0.5) 0 #403c47,
-    var(--sx) var(--sy) 0 #37343e,
-    calc(var(--sx) * 1.5) calc(var(--sy) * 1.5) 0 #2f2c35,
-    calc(var(--sx) * 2) calc(var(--sy) * 2) 0 #27252c,
-    calc(var(--sx) * 2.5) calc(var(--sy) * 2.5) 0 #201e24,
+    calc(var(--sx) * 0.5) calc(var(--sy) * 0.5) 0 #403b49,
+    var(--sx) var(--sy) 0 #373440,
+    calc(var(--sx) * 1.5) calc(var(--sy) * 1.5) 0 #2f2c37,
+    calc(var(--sx) * 2) calc(var(--sy) * 2) 0 #27252d,
+    calc(var(--sx) * 2.5) calc(var(--sy) * 2.5) 0 #201e25,
     calc(var(--sx) * 3.5) calc(var(--sy) * 4) 8px rgba(0, 0, 0, 0.55);
   transition: text-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -724,13 +724,13 @@ html[data-theme] .neg-top {
 /* Black stands out on the light themes by itself: just a softer shadow in the page's color */
 html[data-theme="dune"] .neg-pay-card {
   box-shadow:
-    0 12px 20px -10px rgba(28, 25, 23, 0.45),
+    0 12px 20px -10px rgba(26, 23, 20, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 html[data-theme="meadow"] .neg-pay-card {
   box-shadow:
-    0 12px 20px -10px rgba(41, 66, 49, 0.45),
+    0 12px 20px -10px rgba(28, 59, 39, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
@@ -786,7 +786,7 @@ html .neg .neg-pay-button:hover {
   border-radius: 999px;
   background: var(--chroma);
   box-shadow: none;
-  color: #131216;
+  color: #131217;
   font-family: var(--ui-font);
   font-size: 0.78rem;
   font-weight: 700;
@@ -937,7 +937,7 @@ html .neg .neg-pay-sheet-head .neg-link {
   border-radius: 4px;
   background:
     linear-gradient(115deg, transparent 35%, rgba(214, 202, 255, 0.35) 50%, rgba(186, 228, 255, 0.3) 58%, transparent 72%),
-    linear-gradient(135deg, #2a2730 0%, #131216 60%, #1c1d22 100%);
+    linear-gradient(135deg, #2a2732 0%, #131217 60%, #1c1d23 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     inset 0 0 0 1px rgba(255, 255, 255, 0.06),
@@ -953,7 +953,7 @@ html .neg .neg-pay-sheet-head .neg-link {
   width: 7px;
   height: 6px;
   border-radius: 1.5px;
-  background: linear-gradient(135deg, #f3e2b0, #c9a95c);
+  background: linear-gradient(135deg, #f5e2a8, #cda84c);
 }
 
 /* A stripe of the brand's pastel chroma along the bottom */
@@ -965,7 +965,7 @@ html .neg .neg-pay-sheet-head .neg-link {
   bottom: 3px;
   height: 2px;
   border-radius: 1px;
-  background: linear-gradient(90deg, #ffc4e0, #d6caff, #bae4ff, #c8fae4);
+  background: linear-gradient(90deg, #ffc4e0, #d6caff, #bae4ff, #c2fce3);
   opacity: 0.8;
 }
 
@@ -1105,31 +1105,31 @@ html .neg .neg-pay-confirm.is-declined:hover {
 /* Send: the chat's own send color (not the game's accent), on a filled circle. The toolbar
    strips button backgrounds with !important, so this has to answer in kind. */
 .neg-composer {
-  --send: #b8bb26;
-  --send-hover: #fabd2f;
+  --send: #b9bb01;
+  --send-hover: #fdbc0d;
   --send-ink: #282828;
-  --send-off: #504945;
+  --send-off: #514944;
 }
 
 html[data-theme="dune"] .neg-composer {
-  --send: #d97757;
-  --send-hover: #c5623e;
+  --send: #df734f;
+  --send-hover: #cb5d34;
   --send-ink: #ffffff;
-  --send-off: #e7e0d8;
+  --send-off: #e8e0d6;
 }
 
 html[data-theme="frost"] .neg-composer {
-  --send: #9bcad8;
-  --send-hover: #84bece;
-  --send-ink: #2e3440;
-  --send-off: #434c5e;
+  --send: #95cbdb;
+  --send-hover: #7cbfd2;
+  --send-ink: #2d3443;
+  --send-off: #414c62;
 }
 
 html[data-theme="meadow"] .neg-composer {
-  --send: #46a177;
-  --send-hover: #428365;
+  --send: #34a474;
+  --send-hover: #378563;
   --send-ink: #ffffff;
-  --send-off: #d5e3d9;
+  --send-off: #d3e4d8;
 }
 
 html .neg .neg-composer .input-toolbar .ask-button {
@@ -1829,23 +1829,23 @@ html .neg-browser .neg-sell:hover {
 /* ---- Hustle ---- */
 
 html {
-  --neg-up: #b8bb26;
-  --neg-down: #fb4934;
+  --neg-up: #b9bb01;
+  --neg-down: #ff422d;
 }
 
 html[data-theme="dune"] {
-  --neg-up: #4d7c0f;
-  --neg-down: #b91c1c;
+  --neg-up: #4b7d01;
+  --neg-down: #be0210;
 }
 
 html[data-theme="frost"] {
-  --neg-up: #a3be8c;
-  --neg-down: #c7747c;
+  --neg-up: #a1bf86;
+  --neg-down: #ce6f79;
 }
 
 html[data-theme="meadow"] {
-  --neg-up: #2f7d57;
-  --neg-down: #b4423a;
+  --neg-up: #1d7f54;
+  --neg-down: #ba3b34;
 }
 
 /* Free play or Hustle: the top level, at the far end of the title row */
@@ -2530,8 +2530,8 @@ html .neg-report-badge.is-down {
 /* ---- Pastels: the account tiles' soft tints, from the same family as the avatars' backgrounds ---- */
 
 .neg {
-  --pastel-mint: #9fe0bd;
-  --pastel-lavender: #c4b3ef;
+  --pastel-mint: #97e2ba;
+  --pastel-lavender: #c5b1f6;
 }
 
 /* The account tiles: money in mint, stuff in lavender, barely there, over the lens. On hover
@@ -3229,8 +3229,8 @@ html .neg-browser .neg-badge-tile.is-open:hover {
     180deg,
     rgba(0, 0, 0, 0.97) 0%,
     rgba(0, 0, 0, 0.94) 40%,
-    rgba(28, 29, 33, 0.4) 75%,
-    rgba(92, 95, 104, 0.18) 100%
+    rgba(28, 29, 34, 0.4) 75%,
+    rgba(91, 95, 106, 0.18) 100%
   );
 }
 

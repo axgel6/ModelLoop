@@ -54,6 +54,18 @@ _ollama_http = httpx.AsyncClient(
 )
 
 
+def short_title(text: str, limit: int = 60) -> str:
+    """A chat's title from its first prompt: whole words, ending in an ellipsis when cut."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1]
+    space = cut.rfind(" ")
+    if space > limit * 0.6:
+        cut = cut[:space]
+    return cut.rstrip(" ,.;:-") + "\u2026"
+
+
 async def close_ollama_client():
     await _ollama_http.aclose()
 
@@ -932,7 +944,7 @@ async def _chat_stream_response(
                                 reply.project_changes = project_changes
                             chat_update: dict = {"updated_at": datetime.now(timezone.utc)}
                             if chat_title == "New Chat":
-                                chat_update["title"] = prompt[:60]
+                                chat_update["title"] = short_title(prompt)
                             await write_db.execute(
                                 update(Chat).where(Chat.id == chat_id).values(**chat_update)
                             )

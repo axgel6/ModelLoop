@@ -509,20 +509,22 @@
 /* ---- Message actions ----
    The row under each chat message: its time, then copy, listen, retry and edit. Bare, with no
    box of their own: thick rounded icons (MessageIcons.tsx) and the time in bold Archivo, a step
-   stronger than the old faint grey so they hold up over a wallpaper. */
+   stronger than the old faint grey so they hold up over a wallpaper. No side padding, so the
+   time lines up with its bubble's edge. */
 :root {
   --msg-meta-ink: color-mix(in srgb, var(--game-muted) 70%, var(--game-ink));
 }
 
 :root[data-theme] body .msg-meta .msg-timestamp {
   margin: 0;
-  padding: 0 4px;
+  padding: 0;
   color: var(--msg-meta-ink);
   font-family: "Archivo", var(--ui-font);
   font-stretch: 125%;
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
   opacity: 1;
 }
 

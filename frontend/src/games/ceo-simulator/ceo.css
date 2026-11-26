@@ -12,28 +12,28 @@
    ============================================================ */
 
 html {
-  --ceo-up: #b8bb26;
-  --ceo-down: #fb4934;
+  --ceo-up: #b9bb01;
+  --ceo-down: #ff422d;
 }
 
 html[data-theme="dune"] {
-  --ceo-up: #4d7c0f;
-  --ceo-down: #b91c1c;
+  --ceo-up: #4b7d01;
+  --ceo-down: #be0210;
 }
 
 html[data-theme="ember"] {
-  --ceo-up: #b8bb26;
-  --ceo-down: #fb4934;
+  --ceo-up: #b9bb01;
+  --ceo-down: #ff422d;
 }
 
 html[data-theme="frost"] {
-  --ceo-up: #a3be8c;
-  --ceo-down: #c7747c;
+  --ceo-up: #a1bf86;
+  --ceo-down: #ce6f79;
 }
 
 html[data-theme="meadow"] {
-  --ceo-up: #2f7d57;
-  --ceo-down: #b4423a;
+  --ceo-up: #1d7f54;
+  --ceo-down: #ba3b34;
 }
 
 .ceo {

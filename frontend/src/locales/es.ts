@@ -277,7 +277,7 @@ export const es: Record<string, string> = {
   // ----- Message box (ChatInput.tsx) -----
   "Clear conversation": "Borrar la conversación",
   "Force web search for your query": "Forzar una búsqueda web para tu consulta",
-  "Code mode: coding instructions": "Modo código: instrucciones para programar",
+  "Code mode: answers focused on code": "Modo código: respuestas centradas en el código",
   "Math mode: step by step, thinking on": "Modo matemáticas: paso a paso, con razonamiento",
   "Turn thinking on or off": "Activar o desactivar el razonamiento",
   "Fast mode: thinking off": "Modo rápido: sin razonamiento",

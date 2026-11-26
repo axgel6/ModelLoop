@@ -502,7 +502,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #e5484d;
+  background: #ed3b46;
 }
 
 .wd-problem-text {
@@ -1148,32 +1148,32 @@
    :root lifts these above the themes' .hljs rules in App.css. */
 .wd-code-body,
 .wd-code-body[data-code="dark"] {
-  --code-bg: #0d1117;
-  --code-ink: #e6edf3;
-  --code-gutter: #4d5562;
+  --code-bg: #0c1118;
+  --code-ink: #e5edf5;
+  --code-gutter: #4b5565;
   --code-keyword: #ff7b72;
   --code-string: #a5d6ff;
   --code-number: #79c0ff;
   --code-title: #d2a8ff;
   --code-attr: #79c0ff;
-  --code-tag: #7ee787;
+  --code-tag: #73e97f;
   --code-variable: #ffa657;
-  --code-comment: #8b949e;
+  --code-comment: #8994a0;
 }
 
 .wd-code-body[data-code="light"],
 :is(html[data-theme="dune"], html[data-theme="meadow"]) .wd-code-body[data-code="auto"] {
   --code-bg: #fbfbfa;
-  --code-ink: #1f2328;
-  --code-gutter: #a0a7b0;
-  --code-keyword: #cf222e;
-  --code-string: #0a3069;
-  --code-number: #0550ae;
-  --code-title: #8250df;
-  --code-attr: #0550ae;
-  --code-tag: #116329;
+  --code-ink: #1e2329;
+  --code-gutter: #9fa7b2;
+  --code-keyword: #d50526;
+  --code-string: #012e70;
+  --code-number: #0250af;
+  --code-title: #8449e9;
+  --code-attr: #0250af;
+  --code-tag: #016425;
   --code-variable: #953800;
-  --code-comment: #6e7781;
+  --code-comment: #6c7783;
 }
 
 :root .wd-code-body .hljs {
